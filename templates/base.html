@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Panel</title>
     <link rel="stylesheet" href="/static/css/style.css" />
-    <link rel="stylesheet" href="/static/css/custom_theme.css" />
+    {% if theme_enabled %}
+    <link rel="stylesheet" href="/theme.css" />
+    {% endif %}
   </head>
   <body>
     <header>
@@ -14,6 +16,9 @@
         <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
         {% if logged_in %} | <a href="/dashboard">Dashboard</a> | <a href="/rcon">RCON</a> {% endif %}
       </nav>
+        <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:#666;">
+          Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
+        </div>
     </header>
     <main>
       {% with messages = get_flashed_messages(with_categories=true) %}

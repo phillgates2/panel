@@ -2,13 +2,40 @@
 {% block content %}
 <h2>Theme Editor</h2>
 <p>Edit the custom CSS below. Changes are applied immediately to the site once saved.</p>
-<form method="post">
+<form method="post" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <div style="margin-bottom:8px;">
+    <label>
+      <input type="checkbox" name="enabled" value="1" {% if theme_enabled %}checked{% endif %} /> Enable custom theme
+    </label>
+  </div>
   <div>
     <textarea name="css" rows="20" style="width:100%; font-family:monospace;">{{ css }}</textarea>
   </div>
   <div style="margin-top:8px;">
     <button type="submit">Save Theme</button>
   </div>
+  <hr />
+  <h3>Server Logos</h3>
+  <p>Upload server logos here. They will be stored and served at <code>/theme_asset/&lt;filename&gt;</code>.</p>
+  <div>
+    <input type="file" name="logo" accept="image/*" />
+    <button type="submit" formaction="{{ url_for('admin_theme') }}?upload=1">Upload Logo</button>
+  </div>
+  {% if assets %}
+  <h4>Existing Logos</h4>
+  <ul>
+    {% for a in assets %}
+      <li>
+        <a href="{{ url_for('theme_asset', filename=a) }}" target="_blank">{{ a }}</a>
+        <form method="post" style="display:inline; margin-left:8px;">
+          <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+          <input type="hidden" name="delete_logo" value="{{ a }}" />
+          <button type="submit">Delete</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 </form>
 {% endblock %}

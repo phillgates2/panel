@@ -13,6 +13,8 @@ from flask import (
     flash,
     abort,
 )
+from werkzeug.utils import secure_filename
+from flask import Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -42,7 +44,23 @@ def inject_user():
             user = User.query.get(user_id)
         except Exception:
             user = None
-    return dict(logged_in=bool(user), current_user=user)
+    # theme enabled flag stored in DB (fallback to instance file if DB empty)
+    theme_enabled = False
+    try:
+        s = db.session.query(SiteSetting).filter_by(key='theme_enabled').first()
+        if s and s.value is not None:
+            theme_enabled = (s.value.strip() == '1')
+        else:
+            # fallback to instance file for older installations
+            theme_flag = os.path.join(app.root_path, 'instance', 'theme_enabled')
+            if os.path.exists(theme_flag):
+                with open(theme_flag, 'r', encoding='utf-8') as f:
+                    v = f.read().strip()
+                    theme_enabled = (v == '1')
+    except Exception:
+        theme_enabled = False
+
+    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled)
 
 db = SQLAlchemy(app)
 
@@ -100,6 +118,18 @@ class AuditLog(db.Model):
     actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     action = db.Column(db.String(1024), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class SiteSetting(db.Model):
+        """Simple key/value storage for site-wide settings.
+
+        Keys used:
+            - 'custom_theme_css' : text containing CSS
+            - 'theme_enabled' : '1' or '0'
+        """
+        id = db.Column(db.Integer, primary_key=True)
+        key = db.Column(db.String(128), unique=True, nullable=False)
+        value = db.Column(db.Text, nullable=True)
 
 
 def is_admin_user(user):
@@ -384,6 +414,79 @@ def admin_tools():
     return render_template('admin_tools.html', memwatch_log=memwatch_log, autodeploy_log=autodeploy_log)
 
 
+def _migrate_theme_into_db():
+    """Migration helper: import existing static CSS and instance flag into DB if missing.
+
+    This runs at first request to ensure it executes under WSGI servers too.
+    """
+    try:
+        s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
+        theme_path = os.path.join(app.root_path, 'static', 'css', 'custom_theme.css')
+        if not s_css and os.path.exists(theme_path):
+            with open(theme_path, 'r', encoding='utf-8') as f:
+                css = f.read()
+            s_css = SiteSetting(key='custom_theme_css', value=css)
+            db.session.add(s_css)
+
+        s_flag = SiteSetting.query.filter_by(key='theme_enabled').first()
+        flag_path = os.path.join(app.root_path, 'instance', 'theme_enabled')
+        if not s_flag and os.path.exists(flag_path):
+            try:
+                with open(flag_path, 'r', encoding='utf-8') as f:
+                    v = f.read().strip()
+                s_flag = SiteSetting(key='theme_enabled', value=('1' if v == '1' else '0'))
+                db.session.add(s_flag)
+            except Exception:
+                pass
+
+        if (s_css or s_flag):
+            db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+@app.before_request
+def ensure_theme_migration_once():
+    # Run migration once before handling the first request. Uses a module-level
+    # flag to avoid repeated work and is safe under WSGI servers.
+    if getattr(app, '_theme_migrated', False):
+        return
+    try:
+        db.create_all()
+    except Exception:
+        pass
+    _migrate_theme_into_db()
+    app._theme_migrated = True
+
+
+@app.route('/theme.css')
+def theme_css():
+    """Serve the custom theme CSS from the DB dynamically.
+
+    Returns an empty response (200, text/css) when no CSS stored.
+    """
+    try:
+        s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
+        css = s_css.value if (s_css and s_css.value) else ''
+    except Exception:
+        css = ''
+    return Response(css, mimetype='text/css')
+
+
+@app.route('/theme_asset/<path:filename>')
+def theme_asset(filename):
+    # Serve uploaded theme asset (logo) from instance/theme_assets
+    assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+    safe = secure_filename(filename)
+    file_path = os.path.join(assets_dir, safe)
+    if not os.path.exists(file_path):
+        abort(404)
+    return send_file(file_path)
+
+
 @app.route('/admin/theme', methods=['GET', 'POST'])
 def admin_theme():
     uid = session.get('user_id')
@@ -401,25 +504,83 @@ def admin_theme():
         except Exception:
             flash('Invalid CSRF token', 'error')
             return redirect(url_for('admin_theme'))
+        # handle file upload when upload=1 query param present
+        if request.args.get('upload') == '1' and 'logo' in request.files:
+            f = request.files.get('logo')
+            if f and f.filename:
+                filename = secure_filename(f.filename)
+                assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+                try:
+                    os.makedirs(assets_dir, exist_ok=True)
+                    save_path = os.path.join(assets_dir, filename)
+                    f.save(save_path)
+                    flash(f'Logo uploaded: {filename}', 'success')
+                except Exception as e:
+                    flash(f'Error saving logo: {e}', 'error')
+            return redirect(url_for('admin_theme'))
+        # handle delete logo
+        if request.form.get('delete_logo'):
+            target = request.form.get('delete_logo')
+            assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+            target_path = os.path.join(assets_dir, secure_filename(target))
+            try:
+                if os.path.exists(target_path):
+                    os.remove(target_path)
+                    flash(f'Deleted logo: {target}', 'success')
+                else:
+                    flash(f'Logo not found: {target}', 'error')
+            except Exception as e:
+                flash(f'Error deleting logo: {e}', 'error')
+            return redirect(url_for('admin_theme'))
         css = request.form.get('css', '')
+        # handle theme enabled toggle
+        enabled = request.form.get('enabled') == '1'
         try:
-            os.makedirs(os.path.dirname(theme_path), exist_ok=True)
-            with open(theme_path, 'w', encoding='utf-8') as f:
-                f.write(css)
+            # persist to DB (upsert)
+            s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
+            if not s_css:
+                s_css = SiteSetting(key='custom_theme_css', value=css)
+            else:
+                s_css.value = css
+            s_flag = SiteSetting.query.filter_by(key='theme_enabled').first()
+            if not s_flag:
+                s_flag = SiteSetting(key='theme_enabled', value=('1' if enabled else '0'))
+            else:
+                s_flag.value = ('1' if enabled else '0')
+            db.session.add(s_css)
+            db.session.add(s_flag)
+            db.session.commit()
+
             flash('Theme saved', 'success')
         except Exception as e:
+            db.session.rollback()
             flash(f'Error saving theme: {e}', 'error')
         return redirect(url_for('admin_theme'))
 
+    # handle listing/uploading logos
+    assets = []
+    try:
+        assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+        os.makedirs(assets_dir, exist_ok=True)
+        assets = sorted(os.listdir(assets_dir))
+    except Exception:
+        assets = []
+
     css = ''
     try:
-        if os.path.exists(theme_path):
-            with open(theme_path, 'r', encoding='utf-8') as f:
-                css = f.read()
+        # prefer DB-stored CSS
+        s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
+        if s_css and s_css.value is not None:
+            css = s_css.value
+        else:
+            # fallback: try to read existing static file (migration path)
+            if os.path.exists(theme_path):
+                with open(theme_path, 'r', encoding='utf-8') as f:
+                    css = f.read()
     except Exception as e:
-        flash(f'Error reading theme file: {e}', 'error')
+        flash(f'Error reading theme file or DB: {e}', 'error')
 
-    return render_template('admin_theme.html', css=css)
+    return render_template('admin_theme.html', css=css, assets=assets)
 
 
 @app.route('/admin/users/role', methods=['POST'])
@@ -823,4 +984,31 @@ if __name__ == "__main__":
     # create DB tables if not exist
     with app.app_context():
         db.create_all()
+        # Simple migration: if theme data exists as files but not in DB, import them
+        try:
+            # import css file if present and DB empty
+            s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
+            theme_path = os.path.join(app.root_path, 'static', 'css', 'custom_theme.css')
+            if not s_css and os.path.exists(theme_path):
+                with open(theme_path, 'r', encoding='utf-8') as f:
+                    css = f.read()
+                s_css = SiteSetting(key='custom_theme_css', value=css)
+                db.session.add(s_css)
+
+            # import enabled flag from instance file if present and DB empty
+            s_flag = SiteSetting.query.filter_by(key='theme_enabled').first()
+            flag_path = os.path.join(app.root_path, 'instance', 'theme_enabled')
+            if not s_flag and os.path.exists(flag_path):
+                try:
+                    with open(flag_path, 'r', encoding='utf-8') as f:
+                        v = f.read().strip()
+                    s_flag = SiteSetting(key='theme_enabled', value=('1' if v == '1' else '0'))
+                    db.session.add(s_flag)
+                except Exception:
+                    pass
+
+            if (s_css or s_flag):
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
     app.run(host="0.0.0.0", port=8080, debug=True)

@@ -264,5 +264,14 @@ A lightweight Theme Editor is available in the admin UI for system administrator
 - The editor provides a textarea with the current CSS and saves changes to `static/css/custom_theme.css`.
 - Changes take effect immediately after saving.
 
+Server Logos
+------------
+
+You can upload server logos via the Theme Editor. Uploaded logos are stored in the instance directory and served at `/theme_asset/<filename>`. Use the returned URL from the editor in your CSS (for example, `background-image: url(/theme_asset/logo.png);`).
+
+Notes:
+- Uploads are restricted to system administrators via the Theme Editor UI.
+- Filenames are sanitized with `werkzeug.utils.secure_filename` before storing.
+
 If you'd prefer multi-theme support or database-stored themes, I can extend the editor to support previews and named themes.
 
