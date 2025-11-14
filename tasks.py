@@ -4,10 +4,21 @@ import json
 import time
 from datetime import datetime
 import config
+import tempfile
 
 
-LOG_DIR = os.environ.get('LOG_DIR', config.LOG_DIR if hasattr(config, 'LOG_DIR') else '/var/log/panel')
-os.makedirs(LOG_DIR, exist_ok=True)
+# Determine LOG_DIR with fallback to writable temp directory if /var/log/panel is not accessible
+_log_dir_env = os.environ.get('LOG_DIR')
+_log_dir_config = config.LOG_DIR if hasattr(config, 'LOG_DIR') else '/var/log/panel'
+LOG_DIR = _log_dir_env or _log_dir_config
+
+# Try to create LOG_DIR; if it fails (permission denied), fall back to temp directory
+try:
+    os.makedirs(LOG_DIR, exist_ok=True)
+except PermissionError:
+    # Fall back to temp directory (e.g., for dev/test environments)
+    LOG_DIR = os.path.join(tempfile.gettempdir(), 'panel_logs')
+    os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def _log(name, msg):
