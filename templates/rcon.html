@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>RCON Console</h2>
+<div class="container">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <label>Command: <input name="command" required style="width:70%"></label>
+  <button type="submit">Send</button>
+</form>
+{% if output is defined %}
+  <h3>Output</h3>
+  <pre class="small">{{ output }}</pre>
+{% endif %}
+</div>
+{% endblock %}

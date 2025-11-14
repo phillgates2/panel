@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Game Panel</h1>
+      <nav><a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a> | <a href="/dashboard">Dashboard</a> | <a href="/rcon">RCON</a></nav>
+    </header>
+    <main>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul>
+            {% for category, msg in messages %}
+              <li class="{{ category }}">{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+    <style>
+      /* Modal styles */
+      #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; }
+      #confirm-modal .panel { background:#fff; max-width:640px; margin:6% auto; padding:20px; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,0.2); }
+      #confirm-modal .panel p { font-size:1rem; margin:0 0 1rem 0; }
+      #confirm-modal .controls { text-align:right; }
+      #confirm-modal button { margin-left:8px; padding:8px 12px; }
+      #confirm-modal button.primary { background:#0078d4; color:white; border:none; border-radius:4px; }
+    </style>
+
+    <div id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message" tabindex="-1">
+      <div class="panel" role="document">
+        <p id="confirm-message">Are you sure?</p>
+        <div class="controls">
+          <button id="confirm-cancel">Cancel</button>
+          <button id="confirm-ok" class="primary">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function(){
+        var lastFocused = null;
+        function findClosestForm(el){ while(el && el.tagName !== 'FORM') el = el.parentElement; return el; }
+        function openModal(message, onOk){
+          var modal = document.getElementById('confirm-modal');
+          document.getElementById('confirm-message').textContent = message || 'Are you sure?';
+          lastFocused = document.activeElement;
+          modal.style.display = 'block';
+          modal.focus();
+          var ok = document.getElementById('confirm-ok');
+          var cancel = document.getElementById('confirm-cancel');
+          function cleanup(){ modal.style.display='none'; ok.removeEventListener('click', okHandler); cancel.removeEventListener('click', cancelHandler); document.removeEventListener('keydown', keyHandler); if(lastFocused) lastFocused.focus(); }
+          function okHandler(){ cleanup(); if(typeof onOk === 'function') onOk(); }
+          function cancelHandler(){ cleanup(); }
+          function keyHandler(e){ if(e.key === 'Escape') cancelHandler(); if(e.key === 'Enter') okHandler(); }
+          ok.addEventListener('click', okHandler);
+          cancel.addEventListener('click', cancelHandler);
+          document.addEventListener('keydown', keyHandler);
+        }
+        document.addEventListener('click', function(e){
+          var t = e.target;
+          if(t && t.matches && t.matches('.confirm-btn')){
+            e.preventDefault();
+            var form = findClosestForm(t);
+            var msg = (form && form.dataset && form.dataset.confirmMessage) ? form.dataset.confirmMessage : 'Are you sure?';
+            openModal(msg, function(){ if(form) form.submit(); });
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

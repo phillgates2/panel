@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Manage Users for {{ server.name }}</h2>
+<form method="post" action="{{ url_for('admin_server_manage_users', server_id=server.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <table>
+    <thead><tr><th>Email</th><th>Current</th><th>Assign</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.email }}</td>
+        <td>{{ assignments.get(u.id, '') }}</td>
+        <td>
+          <select name="user_{{ u.id }}">
+            <option value="">(none)</option>
+            <option value="server_admin" {% if assignments.get(u.id)=='server_admin' %}selected{% endif %}>server_admin</option>
+            <option value="server_mod" {% if assignments.get(u.id)=='server_mod' %}selected{% endif %}>server_mod</option>
+          </select>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit">Save Assignments</button>
+</form>
+<p><a href="{{ url_for('admin_servers') }}">Back to servers</a></p>
+{% endblock %}

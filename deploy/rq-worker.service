@@ -1,0 +1,15 @@
+[Unit]
+Description=RQ worker for panel (process background tasks)
+After=network.target redis.service
+
+[Service]
+User=panel
+Group=panel
+WorkingDirectory=/opt/panel
+Environment="PATH=/opt/panel/.venv/bin"
+ExecStart=/opt/panel/.venv/bin/python /opt/panel/run_worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

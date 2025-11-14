@@ -1,0 +1,10 @@
+body{font-family:Arial,Helvetica,sans-serif;margin:1.5rem;background:#f6f7fb;color:#222}
+header{margin-bottom:1rem}
+nav a{margin-right:0.75rem;color:#0366d6;text-decoration:none}
+form label{display:block;margin:0.5rem 0}
+meter{width:180px;height:12px}
+.error{color:#b00020}
+.success{color:green}
+.info{color:gray}
+.container{max-width:800px;margin:0 auto;background:#fff;padding:1rem;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.small{font-size:0.9rem;color:#555}

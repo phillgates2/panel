@@ -1,0 +1,765 @@
+import os
+import io
+import secrets
+from datetime import datetime, date, timezone
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    send_file,
+    flash,
+    abort,
+)
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+
+import config
+import subprocess
+import os
+import redis
+from rq import Queue
+import tasks
+from captcha import generate_captcha_image, generate_captcha_audio
+import json
+
+app = Flask(__name__)
+app.config.from_object(config)
+app.secret_key = config.SECRET_KEY
+
+db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(80), nullable=False)
+    last_name = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    dob = db.Column(db.Date, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    reset_token = db.Column(db.String(128), nullable=True)
+    role = db.Column(db.String(32), default='user')
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def is_system_admin(self):
+        return (self.role == 'system_admin') or (self.email.lower() in getattr(config, 'ADMIN_EMAILS', []))
+
+    def is_server_admin(self):
+        return self.role == 'server_admin'
+
+    def is_server_mod(self):
+        return self.role == 'server_mod'
+
+
+# Association table: server-specific roles for users (server_admin/server_mod)
+class ServerUser(db.Model):
+    __tablename__ = 'server_user'
+    id = db.Column(db.Integer, primary_key=True)
+    server_id = db.Column(db.Integer, db.ForeignKey('server.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    role = db.Column(db.String(32), nullable=False)  # 'server_admin' or 'server_mod'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Server(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    description = db.Column(db.String(512), nullable=True)
+    variables_json = db.Column(db.Text, nullable=True)  # structured variables (JSON)
+    raw_config = db.Column(db.Text, nullable=True)  # raw server config
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    users = db.relationship('ServerUser', backref='server', cascade='all, delete-orphan')
+
+
+class AuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    action = db.Column(db.String(1024), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+def is_admin_user(user):
+    return is_system_admin_user(user)
+
+
+def user_server_role(user, server):
+    if not user or not server:
+        return None
+    if user.is_system_admin():
+        return 'system_admin'
+    su = ServerUser.query.filter_by(user_id=user.id, server_id=server.id).first()
+    if su:
+        return su.role
+    return None
+
+
+def user_can_edit_server(user, server):
+    # system admins, server_admins and server_mods (for editing) can edit server
+    role = user_server_role(user, server)
+    if role in ('system_admin', 'server_admin', 'server_mod'):
+        return True
+    return False
+
+
+@app.before_request
+def ensure_csrf():
+    # ensure a CSRF token in session for forms
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+
+def verify_csrf():
+    token = session.get('csrf_token')
+    form = request.form.get('csrf_token')
+    if not token or not form or token != form:
+        abort(400, 'Invalid CSRF token')
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        # CSRF check
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("register"))
+        first = request.form.get("first_name", "").strip()
+        last = request.form.get("last_name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        dob_raw = request.form.get("dob", "")
+        password = request.form.get("password", "")
+        captcha = request.form.get("captcha", "")
+
+        # captcha verify
+        if session.get("captcha_text") != captcha:
+            flash("Invalid captcha", "error")
+            return redirect(url_for("register"))
+
+        # basic validation
+        try:
+            dob = datetime.strptime(dob_raw, "%Y-%m-%d").date()
+        except Exception:
+            flash("Invalid date of birth format", "error")
+            return redirect(url_for("register"))
+
+        # age check >= 16
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if age < 16:
+            flash("You must be at least 16 years old to register", "error")
+            return redirect(url_for("register"))
+
+        # password constraints (server-side)
+        import re
+
+        if len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"\d", password) or not re.search(r"[^A-Za-z0-9]", password):
+            flash("Password does not meet complexity requirements", "error")
+            return redirect(url_for("register"))
+
+        if User.query.filter_by(email=email).first():
+            flash("Email already registered", "error")
+            return redirect(url_for("register"))
+
+        user = User(first_name=first, last_name=last, email=email, dob=dob)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        flash("Registration successful — you can now log in", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/captcha.png")
+def captcha_image():
+    # generate image and store the expected text in session
+    text = generate_captcha_image()
+    session["captcha_text"] = text
+    # retrieve last generated image bytes from captcha module
+    from captcha import last_image_bytes
+    img = last_image_bytes()
+    if img:
+        return send_file(io.BytesIO(img), mimetype="image/png")
+    return ("", 404)
+
+
+@app.route("/captcha_audio")
+def captcha_audio():
+    # If no captcha in session, regenerate
+    text = session.get("captcha_text") or generate_captcha_image()
+    session["captcha_text"] = text
+    wav_bytes = generate_captcha_audio(text)
+    return send_file(io.BytesIO(wav_bytes), mimetype="audio/wav")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("login"))
+        email = request.form.get("email", "").lower().strip()
+        password = request.form.get("password", "")
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            session["user_id"] = user.id
+            flash("Logged in", "success")
+            return redirect(url_for("dashboard"))
+        else:
+            flash("Invalid credentials", "error")
+            return redirect(url_for("login"))
+    return render_template("login.html")
+
+
+@app.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("forgot"))
+        email = request.form.get("email", "").lower().strip()
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            flash("If this email exists in our system, a local reset link will be shown.", "info")
+            return redirect(url_for("forgot"))
+        # create local reset token and show to user (no email sending)
+        token = secrets.token_urlsafe(32)
+        user.reset_token = token
+        db.session.commit()
+        # Display the token / local link so the admin/user can use it locally
+        reset_link = url_for("reset_password", token=token, _external=True)
+        return render_template("forgot_local.html", reset_link=reset_link, token=token)
+    return render_template("forgot.html")
+
+
+@app.route("/reset/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    user = User.query.filter_by(reset_token=token).first()
+    if not user:
+        flash("Invalid or expired token", "error")
+        return redirect(url_for("forgot"))
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("reset_password", token=token))
+        password = request.form.get("password", "")
+        import re
+        if len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"\d", password) or not re.search(r"[^A-Za-z0-9]", password):
+            flash("Password does not meet complexity requirements", "error")
+            return redirect(url_for("reset_password", token=token))
+        user.set_password(password)
+        user.reset_token = None
+        db.session.commit()
+        flash("Password reset successful", "success")
+        return redirect(url_for("login"))
+    return render_template("reset.html", token=token)
+
+
+@app.route("/dashboard")
+def dashboard():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    return render_template("dashboard.html", user=user, config=config)
+
+
+@app.route('/rcon', methods=['GET', 'POST'])
+def rcon_console():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    output = None
+    if request.method == 'POST':
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('rcon_console'))
+        cmd = request.form.get('command', '').strip()
+        if cmd:
+            from rcon_client import ETLegacyRcon
+            rc = ETLegacyRcon()
+            try:
+                output = rc.send(cmd)
+            except Exception as e:
+                output = f'Error: {e}'
+    return render_template('rcon.html', output=output)
+
+
+def is_system_admin_user(user):
+    if not user or not user.email:
+        return False
+    return user.is_system_admin()
+
+def is_server_admin_user(user):
+    if not user or not user.email:
+        return False
+    return user.is_server_admin()
+
+
+def is_server_mod_user(user):
+    if not user or not user.email:
+        return False
+    return user.is_server_mod()
+
+
+@app.route('/admin/tools', methods=['GET'])
+def admin_tools():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+
+    # Attempt to read logs from configured log dir, fallback to journalctl
+    memwatch_log = ''
+    autodeploy_log = ''
+    log_dir = getattr(config, 'LOG_DIR', '/var/log/panel')
+    mem_file = os.path.join(log_dir, 'memwatch.log')
+    auto_file = os.path.join(log_dir, 'autodeploy.log')
+    try:
+        if os.path.exists(mem_file):
+            with open(mem_file, 'r') as f:
+                memwatch_log = ''.join(f.readlines()[-400:])
+        else:
+            memwatch_log = subprocess.run(['journalctl','-u','memwatch.service','-n','200','--no-pager'], capture_output=True, text=True).stdout
+    except Exception as e:
+        memwatch_log = f'Could not read memwatch log: {e}'
+
+    try:
+        if os.path.exists(auto_file):
+            with open(auto_file, 'r') as f:
+                autodeploy_log = ''.join(f.readlines()[-400:])
+        else:
+            autodeploy_log = subprocess.run(['journalctl','-u','autodeploy.service','-n','200','--no-pager'], capture_output=True, text=True).stdout
+    except Exception as e:
+        autodeploy_log = f'Could not read autodeploy log: {e}'
+
+    return render_template('admin_tools.html', memwatch_log=memwatch_log, autodeploy_log=autodeploy_log)
+
+
+@app.route('/admin/users/role', methods=['POST'])
+def admin_set_role():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    actor = db.session.get(User, uid)
+    if not is_system_admin_user(actor):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        verify_csrf()
+    except Exception:
+        flash('Invalid CSRF token', 'error')
+        return redirect(url_for('admin_users'))
+    user_id = request.form.get('user_id')
+    new_role = request.form.get('role')
+    u = db.session.get(User, int(user_id)) if user_id else None
+    if not u:
+        flash('User not found', 'error')
+        return redirect(url_for('admin_users'))
+    old = u.role
+    u.role = new_role
+    db.session.add(AuditLog(actor_id=actor.id, action=f"changed_role:{u.email}:{old}->{new_role}"))
+    db.session.commit()
+    flash('Role updated', 'success')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/servers', methods=['GET'])
+def admin_servers():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    servers = Server.query.order_by(Server.name).all()
+    return render_template('admin_servers.html', servers=servers)
+
+
+@app.route('/admin/servers/create', methods=['GET', 'POST'])
+def admin_create_server():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    actor = db.session.get(User, uid)
+    if not is_system_admin_user(actor):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('admin_create_server'))
+        name = request.form.get('name', '').strip()
+        desc = request.form.get('description', '').strip()
+        if not name:
+            flash('Name is required', 'error')
+            return redirect(url_for('admin_create_server'))
+        if Server.query.filter_by(name=name).first():
+            flash('Server name already exists', 'error')
+            return redirect(url_for('admin_create_server'))
+        # create server with default config and assign creator as server_admin
+        default_vars = {'max_players': 16, 'map': 'default', 'motd': 'Welcome'}
+        s = Server(name=name, description=desc, variables_json=json.dumps(default_vars, indent=2), raw_config='# default config\n')
+        db.session.add(s)
+        db.session.commit()
+        # after commit, create mapping for actor as server_admin
+        su = ServerUser(server_id=s.id, user_id=actor.id, role='server_admin')
+        db.session.add(su)
+        db.session.add(AuditLog(actor_id=actor.id, action=f'create_server:{name}'))
+        db.session.commit()
+        flash('Server created', 'success')
+        return redirect(url_for('admin_servers'))
+    return render_template('server_create.html')
+
+
+@app.route('/admin/servers/<int:server_id>/delete', methods=['POST'])
+def admin_delete_server(server_id):
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    actor = db.session.get(User, uid)
+    if not is_system_admin_user(actor):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        verify_csrf()
+    except Exception:
+        flash('Invalid CSRF token', 'error')
+        return redirect(url_for('admin_servers'))
+    s = db.session.get(Server, server_id)
+    if not s:
+        flash('Server not found', 'error')
+        return redirect(url_for('admin_servers'))
+    name = s.name
+    db.session.delete(s)
+    db.session.add(AuditLog(actor_id=actor.id, action=f'delete_server:{name}'))
+    db.session.commit()
+    flash('Server deleted', 'success')
+    return redirect(url_for('admin_servers'))
+
+
+@app.route('/admin/audit', methods=['GET'])
+def admin_audit():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    # pagination & filtering
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 50))
+    actor_filter = request.args.get('actor')
+    action_filter = request.args.get('action')
+    q = AuditLog.query
+    if actor_filter:
+        # try to resolve actor id by email
+        a_user = User.query.filter_by(email=actor_filter.lower()).first()
+        if a_user:
+            q = q.filter(AuditLog.actor_id == a_user.id)
+        else:
+            q = q.filter(AuditLog.action.contains(actor_filter))
+    if action_filter:
+        q = q.filter(AuditLog.action.contains(action_filter))
+    total = q.count()
+    entries = q.order_by(AuditLog.created_at.desc()).offset((page-1)*per_page).limit(per_page).all()
+    resolved = []
+    for e in entries:
+        actor = db.session.get(User, e.actor_id) if e.actor_id else None
+        resolved.append({'id': e.id, 'actor': actor.email if actor else None, 'action': e.action, 'ts': e.created_at})
+    return render_template('admin_audit.html', entries=resolved, page=page, per_page=per_page, total=total, actor_filter=actor_filter or '', action_filter=action_filter or '')
+
+
+
+@app.route('/admin/audit/export', methods=['GET'])
+def admin_audit_export():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    actor_filter = request.args.get('actor')
+    action_filter = request.args.get('action')
+    # Build raw SQL query with filters
+    sql = "SELECT audit_log.id, audit_log.created_at, user.email, audit_log.action FROM audit_log LEFT JOIN user ON audit_log.actor_id = user.id WHERE 1=1"
+    params = []
+    if actor_filter:
+        # resolve actor email
+        a_user = db.session.query(User).filter_by(email=actor_filter.lower()).first()
+        if a_user:
+            sql += " AND audit_log.actor_id = %s"
+            params.append(a_user.id)
+        else:
+            sql += " AND audit_log.action LIKE %s"
+            params.append(f'%{actor_filter}%')
+    if action_filter:
+        sql += " AND audit_log.action LIKE %s"
+        params.append(f'%{action_filter}%')
+    sql += " ORDER BY audit_log.created_at DESC"
+    # stream CSV using raw SQL cursor
+    def generate():
+        import csv
+        from io import StringIO
+        buf = StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(['id','timestamp','actor','action'])
+        yield buf.getvalue()
+        buf.seek(0)
+        buf.truncate(0)
+        # use raw connection cursor to avoid ORM overhead
+        with db.engine.connect() as conn:
+            result = conn.execute(db.text(sql), params)
+            for row in result:
+                audit_id, ts, actor_email, action = row
+                ts_str = ''
+                if ts:
+                    # handle both datetime objects and string timestamps (SQLite returns strings)
+                    ts_str = ts.isoformat() if hasattr(ts, 'isoformat') else str(ts)
+                writer.writerow([audit_id, ts_str, actor_email or '', action])
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+    from flask import Response
+    headers = {
+        'Content-Disposition': 'attachment; filename="audit.csv"'
+    }
+    return Response(generate(), mimetype='text/csv', headers=headers)
+
+
+@app.route('/admin/users', methods=['GET'])
+def admin_users():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    users = User.query.order_by(User.email).all()
+    return render_template('admin_users.html', users=users)
+
+
+@app.route('/server/<int:server_id>', methods=['GET', 'POST'])
+def server_edit(server_id):
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    server = db.session.get(Server, server_id)
+    if not server:
+        flash('Server not found', 'error')
+        return redirect(url_for('dashboard'))
+    if not user_can_edit_server(user, server):
+        flash('Insufficient privileges for this server', 'error')
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('server_edit', server_id=server_id))
+        # accept either structured JSON variables or raw config
+        vars_text = request.form.get('variables_json', '').strip()
+        raw_cfg = request.form.get('raw_config', '')
+        if vars_text:
+            try:
+                parsed = json.loads(vars_text)
+                # store pretty-printed JSON
+                server.variables_json = json.dumps(parsed, indent=2)
+            except Exception as e:
+                flash(f'Invalid JSON: {e}', 'error')
+                return redirect(url_for('server_edit', server_id=server_id))
+        server.raw_config = raw_cfg
+        db.session.add(AuditLog(actor_id=user.id, action=f'edit_server:{server.name}'))
+        db.session.commit()
+        flash('Server updated', 'success')
+        return redirect(url_for('server_edit', server_id=server_id))
+    # GET
+    return render_template('server_edit.html', server=server, user=user)
+
+
+@app.route('/admin/server/<int:server_id>/manage_users', methods=['GET', 'POST'])
+def admin_server_manage_users(server_id):
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    actor = db.session.get(User, uid)
+    if not is_system_admin_user(actor):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    server = db.session.get(Server, server_id)
+    if not server:
+        flash('Server not found', 'error')
+        return redirect(url_for('admin_servers'))
+    if request.method == 'POST':
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('admin_server_manage_users', server_id=server_id))
+        # expected form inputs: user_<id> = role or empty
+        users = User.query.order_by(User.email).all()
+        # remove existing mappings
+        ServerUser.query.filter_by(server_id=server.id).delete()
+        for u in users:
+            key = f'user_{u.id}'
+            role = request.form.get(key)
+            if role in ('server_admin', 'server_mod'):
+                su = ServerUser(server_id=server.id, user_id=u.id, role=role)
+                db.session.add(su)
+                db.session.add(AuditLog(actor_id=actor.id, action=f'assign_server_role:{server.name}:{u.email}->{role}'))
+        db.session.commit()
+        flash('Server user assignments updated', 'success')
+        return redirect(url_for('admin_server_manage_users', server_id=server_id))
+
+    users = User.query.order_by(User.email).all()
+    assignments = {su.user_id: su.role for su in server.users}
+    return render_template('admin_server_manage.html', server=server, users=users, assignments=assignments)
+
+
+@app.route('/admin/jobs', methods=['GET'])
+def admin_jobs():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+
+    # Pagination and filtering
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    status_filter = request.args.get('status')  # queued, started, finished, failed
+    func_filter = request.args.get('func')
+    try:
+        redis_url = os.environ.get('PANEL_REDIS_URL', config.REDIS_URL)
+        rconn = redis.from_url(redis_url)
+        q = Queue('default', connection=rconn)
+        all_jobs = q.jobs  # note: returns all jobs in memory
+        # optional filtering
+        if status_filter:
+            all_jobs = [j for j in all_jobs if j.get_status() == status_filter]
+        if func_filter:
+            all_jobs = [j for j in all_jobs if getattr(j, 'func_name', '').find(func_filter) != -1]
+        total = len(all_jobs)
+        # pagination
+        start = (page - 1) * per_page
+        end = start + per_page
+        jobs = all_jobs[start:end]
+    except Exception as e:
+        flash(f'Could not read queue: {e}', 'error')
+        jobs = []
+        total = 0
+
+    return render_template('admin_jobs.html', jobs=jobs, page=page, per_page=per_page, total=total)
+
+
+@app.route('/admin/trigger_autodeploy', methods=['POST'])
+def trigger_autodeploy():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        verify_csrf()
+    except Exception:
+        flash('Invalid CSRF token', 'error')
+        return redirect(url_for('admin_tools'))
+
+    # Enqueue autodeploy task (background)
+    try:
+        redis_url = os.environ.get('PANEL_REDIS_URL', config.REDIS_URL)
+        rconn = redis.from_url(redis_url)
+        q = Queue('default', connection=rconn)
+        job = q.enqueue(tasks.run_autodeploy, timeout=3600)
+        flash(f'Autodeploy enqueued (job id={job.id})', 'info')
+        return redirect(url_for('admin_tools'))
+    except Exception as e:
+        flash(f'Failed to enqueue autodeploy: {e}', 'error')
+        return redirect(url_for('admin_tools'))
+
+
+@app.route('/admin/run_memdump', methods=['POST'])
+def run_memdump():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    try:
+        verify_csrf()
+    except Exception:
+        flash('Invalid CSRF token', 'error')
+        return redirect(url_for('admin_tools'))
+
+    pid_file = request.form.get('pid_file') or getattr(config, 'ET_PID_FILE', '/var/run/etlegacy.pid')
+    # Enqueue memwatch task (background)
+    try:
+        redis_url = os.environ.get('PANEL_REDIS_URL', config.REDIS_URL)
+        rconn = redis.from_url(redis_url)
+        q = Queue('default', connection=rconn)
+        job = q.enqueue(tasks.run_memwatch, pid_file, timeout=600)
+        flash(f'Memwatch enqueued (job id={job.id})', 'info')
+        return redirect(url_for('admin_tools'))
+    except Exception as e:
+        flash(f'Failed to enqueue memwatch: {e}', 'error')
+        return redirect(url_for('admin_tools'))
+
+
+@app.route('/admin/job/<job_id>')
+def admin_job_status(job_id):
+    try:
+        redis_url = os.environ.get('PANEL_REDIS_URL', config.REDIS_URL)
+        rconn = redis.from_url(redis_url)
+        from rq.job import Job
+        job = Job.fetch(job_id, connection=rconn)
+        status = job.get_status()
+        result = job.result
+        return {'id': job_id, 'status': status, 'result': result}
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+
+if __name__ == "__main__":
+    # create DB tables if not exist
+    with app.app_context():
+        db.create_all()
+    app.run(host="0.0.0.0", port=8080, debug=True)

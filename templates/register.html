@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Register</h2>
+<div class="container">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <label>First name: <input name="first_name" required></label><br>
+  <label>Last name: <input name="last_name" required></label><br>
+  <label>Email: <input name="email" type="email" required></label><br>
+  <label>Date of birth: <input name="dob" type="date" required></label><br>
+  <label>Password: <input id="password" name="password" type="password" required></label>
+  <meter id="pw-meter" min="0" max="4" value="0"></meter>
+  <div id="pw-require">Require: 1 upper, 1 lower, 1 number, 1 special, min 8</div>
+  <br>
+  <div>
+    <img id="captcha-img" src="/captcha.png" alt="captcha" />
+    <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="audio">Play audio</button>
+  </div>
+  <label>Captcha: <input name="captcha" required></label><br>
+  <button type="submit">Register</button>
+</form>
+</div>
+<script>
+const pw = document.getElementById('password');
+const meter = document.getElementById('pw-meter');
+pw.addEventListener('input', ()=>{
+  const v = pw.value;
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (/[A-Z]/.test(v)) score++;
+  if (/[a-z]/.test(v)) score++;
+  if (/\d/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  meter.max = 5;
+  meter.value = Math.min(score,5);
+});
+
+// DOB client-side age check
+const form = document.querySelector('form');
+form.addEventListener('submit', (e)=>{
+  const dob = document.querySelector('input[name="dob"]').value;
+  if (dob) {
+    const d = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    if (age < 16) {
+      e.preventDefault();
+      alert('You must be at least 16 years old to register');
+      return false;
+    }
+  }
+});
+
+document.getElementById('refresh').addEventListener('click', ()=>{
+  const img = document.getElementById('captcha-img');
+  img.src = '/captcha.png?_' + Date.now();
+});
+document.getElementById('audio').addEventListener('click', ()=>{
+  const a = new Audio('/captcha_audio?_' + Date.now());
+  a.play();
+});
+</script>
+{% endblock %}

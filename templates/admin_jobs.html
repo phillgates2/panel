@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Background Jobs</h2>
+<div class="container">
+  <p class="small">Recent jobs enqueued to the default queue.</p>
+  <form method="get" class="small">
+    <label>Func filter: <input name="func" value="{{ request.args.get('func','') }}"></label>
+    <label>Status: <select name="status">
+      <option value="">(any)</option>
+      <option value="queued" {% if request.args.get('status')=='queued' %}selected{% endif %}>queued</option>
+      <option value="started" {% if request.args.get('status')=='started' %}selected{% endif %}>started</option>
+      <option value="finished" {% if request.args.get('status')=='finished' %}selected{% endif %}>finished</option>
+      <option value="failed" {% if request.args.get('status')=='failed' %}selected{% endif %}>failed</option>
+    </select></label>
+    <label>Per page: <input name="per_page" value="{{ per_page }}" size="3"></label>
+    <button type="submit">Filter</button>
+  </form>
+
+  <table>
+    <thead><tr><th>Job ID</th><th>Status</th><th>Enqueued</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr>
+        <td><code>{{ j.id }}</code></td>
+        <td>{{ j.get_status() }}</td>
+        <td>{{ j.enqueued_at or '—' }}</td>
+        <td>
+          <a href="/admin/job/{{ j.id }}" target="_blank">Status JSON</a>
+          <button type="button" onclick="fetchResult('{{ j.id }}')">View Result</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="small">Page {{ page }} — showing {{ jobs|length }} of {{ total }}</div>
+  <div>
+    {% if page > 1 %}
+      <a href="?page={{ page-1 }}&per_page={{ per_page }}">Previous</a>
+    {% endif %}
+    {% if (page*per_page) < total %}
+      <a href="?page={{ page+1 }}&per_page={{ per_page }}">Next</a>
+    {% endif %}
+  </div>
+
+  <h3>Job result</h3>
+  <pre id="job-result" class="small"></pre>
+</div>
+
+<script>
+async function fetchResult(id){
+  const res = await fetch('/admin/job/'+id);
+  const data = await res.json();
+  document.getElementById('job-result').textContent = JSON.stringify(data, null, 2);
+}
+</script>
+
+{% endblock %}

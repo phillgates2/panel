@@ -1,0 +1,8 @@
+## Example sudoers entries for panel scripts
+# Place this file at /etc/sudoers.d/panel-scripts (use visudo -f /etc/sudoers.d/panel-scripts to install)
+# Allows web user (e.g., www-data) to run the two scripts without a password.
+
+# Replace 'www-data' with the web process user if different.
+www-data ALL=(root) NOPASSWD: /opt/panel/bin/panel-wrapper *
+
+# Optionally: restrict environment and args by wrapping scripts with a small trusted wrapper.

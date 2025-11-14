@@ -1,0 +1,11 @@
+[Unit]
+Description=Auto deploy ET:Legacy from remote archive
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/etlegacy
+ExecStart=/usr/bin/env bash /opt/panel/scripts/autodeploy.sh
+
+[Install]
+WantedBy=multi-user.target

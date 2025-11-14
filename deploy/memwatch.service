@@ -1,0 +1,12 @@
+[Unit]
+Description=Memory watch for ET:Legacy and automatic core dump
+After=network.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/default/etlegacy
+ExecStart=/usr/bin/env bash /opt/panel/scripts/memwatch.sh
+Nice=0
+
+[Install]
+WantedBy=multi-user.target

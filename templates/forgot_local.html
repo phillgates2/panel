@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Local Reset Link</h2>
+<p>Because this installation is local-only, here is your reset link and token. Save or paste into a browser to reset your password.</p>
+<p><strong>Reset link:</strong> <a href="{{ reset_link }}">{{ reset_link }}</a></p>
+<p><strong>Token:</strong> {{ token }}</p>
+{% endblock %}

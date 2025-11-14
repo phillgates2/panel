@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Servers</h2>
+<p>
+  <a href="{{ url_for('dashboard') }}">Back to dashboard</a>
+  &nbsp;|&nbsp;
+  <a href="{{ url_for('admin_create_server') }}">Create Server</a>
+  &nbsp;|&nbsp;
+  <a href="{{ url_for('admin_audit') }}">View Audit Log</a>
+</p>
+<table>
+  <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Action</th></tr></thead>
+  <tbody>
+  {% for s in servers %}
+    <tr>
+      <td>{{ s.id }}</td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.description or '' }}</td>
+      <td>
+        <a href="{{ url_for('server_edit', server_id=s.id) }}">Edit</a>
+        &nbsp;|&nbsp;
+        <a href="{{ url_for('admin_server_manage_users', server_id=s.id) }}">Manage Users</a>
+        &nbsp;|&nbsp;
+        <form method="post" action="{{ url_for('admin_delete_server', server_id=s.id) }}" style="display:inline" data-confirm-message="Delete server {{ s.name }}?">
+          <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+          <button type="submit" class="confirm-btn">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Gunicorn instance to serve panel
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/panel
+Environment="PATH=/opt/panel/.venv/bin"
+ExecStart=/opt/panel/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8080 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

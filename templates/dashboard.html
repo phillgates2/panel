@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Dashboard</h2>
+<p>Welcome, {{ user.first_name }} {{ user.last_name }} ({{ user.email }})</p>
+<p>ET Server: {{ config.ET_SERVER_HOST }}:{{ config.ET_SERVER_PORT }}</p>
+<p>RCON interface available in backend module.</p>
+{% endblock %}

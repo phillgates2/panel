@@ -1,0 +1,15 @@
+[Unit]
+Description=ET:Legacy server (supervised)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/etlegacy
+ExecStart=/opt/etlegacy/start-server.sh
+Restart=always
+RestartSec=5
+PIDFile=/var/run/etlegacy.pid
+
+[Install]
+WantedBy=multi-user.target
