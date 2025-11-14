@@ -254,3 +254,15 @@ python -m pip install -r requirements.txt
 python -m playwright install
 ```
 
+
+Theme Editor
+------------
+
+A lightweight Theme Editor is available in the admin UI for system administrators. It allows editing a single CSS file (`static/css/custom_theme.css`) that is applied site-wide.
+
+- URL: `/admin/theme` (requires a `system_admin` user)
+- The editor provides a textarea with the current CSS and saves changes to `static/css/custom_theme.css`.
+- Changes take effect immediately after saving.
+
+If you'd prefer multi-theme support or database-stored themes, I can extend the editor to support previews and named themes.
+

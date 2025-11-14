@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Theme Editor</h2>
+<p>Edit the custom CSS below. Changes are applied immediately to the site once saved.</p>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <div>
+    <textarea name="css" rows="20" style="width:100%; font-family:monospace;">{{ css }}</textarea>
+  </div>
+  <div style="margin-top:8px;">
+    <button type="submit">Save Theme</button>
+  </div>
+</form>
+{% endblock %}

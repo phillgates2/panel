@@ -29,6 +29,21 @@ app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
 
+@app.context_processor
+def inject_user():
+    """Inject `logged_in` and `current_user` into templates.
+    Uses `session['user_id']` when present. Returns a simple boolean
+    and the `User` instance (or None).
+    """
+    user = None
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            user = User.query.get(user_id)
+        except Exception:
+            user = None
+    return dict(logged_in=bool(user), current_user=user)
+
 db = SQLAlchemy(app)
 
 
@@ -110,7 +125,6 @@ def user_can_edit_server(user, server):
     return False
 
 
-@app.before_request
 def ensure_csrf():
     # ensure a CSRF token in session for forms
     if 'csrf_token' not in session:
@@ -121,6 +135,15 @@ def verify_csrf():
     form = request.form.get('csrf_token')
     if not token or not form or token != form:
         abort(400, 'Invalid CSRF token')
+
+
+# Use after_request instead to avoid session locking issues
+@app.after_request
+def ensure_csrf_after(response):
+    # ensure a CSRF token in session for forms
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    return response
 
 
 @app.route("/")
@@ -359,6 +382,44 @@ def admin_tools():
         autodeploy_log = f'Could not read autodeploy log: {e}'
 
     return render_template('admin_tools.html', memwatch_log=memwatch_log, autodeploy_log=autodeploy_log)
+
+
+@app.route('/admin/theme', methods=['GET', 'POST'])
+def admin_theme():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+
+    theme_path = os.path.join(app.root_path, 'static', 'css', 'custom_theme.css')
+    if request.method == 'POST':
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('admin_theme'))
+        css = request.form.get('css', '')
+        try:
+            os.makedirs(os.path.dirname(theme_path), exist_ok=True)
+            with open(theme_path, 'w', encoding='utf-8') as f:
+                f.write(css)
+            flash('Theme saved', 'success')
+        except Exception as e:
+            flash(f'Error saving theme: {e}', 'error')
+        return redirect(url_for('admin_theme'))
+
+    css = ''
+    try:
+        if os.path.exists(theme_path):
+            with open(theme_path, 'r', encoding='utf-8') as f:
+                css = f.read()
+    except Exception as e:
+        flash(f'Error reading theme file: {e}', 'error')
+
+    return render_template('admin_theme.html', css=css)
 
 
 @app.route('/admin/users/role', methods=['POST'])

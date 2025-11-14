@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- Work in progress.
+- Added Theme Editor: admin can edit site CSS via `/admin/theme`.
+- Hide `Dashboard` and `RCON` links on the public site unless a user is logged in.
 
 ## [scaffold-initial-2025-11-14] - 2025-11-14
 
