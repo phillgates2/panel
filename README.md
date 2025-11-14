@@ -231,3 +231,26 @@ Security and functional items to finish
 - Add tests, input sanitization, CSRF protection and production WSGI server (gunicorn/uwsgi).
 # panel
 oz panel
+
+## Release note
+
+The repository's initial scaffold and admin UI were merged into `main` on 2025-11-14.
+
+- Tag: `scaffold-initial-2025-11-14`
+- Contents: Flask backend, admin pages, templates, deploy/systemd examples, tests (unit + Playwright E2E placeholder), and CI workflow.
+
+If you cloned the repository before this date, sync with the updated `main`:
+
+```bash
+git fetch origin
+git checkout main
+git reset --hard origin/main
+```
+
+To run tests and E2E locally, install dependencies and Playwright browsers:
+
+```bash
+python -m pip install -r requirements.txt
+python -m playwright install
+```
+
