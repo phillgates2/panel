@@ -14,6 +14,7 @@ from flask import (
     abort,
 )
 from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
 from flask import Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -26,6 +27,8 @@ from rq import Queue
 import tasks
 from captcha import generate_captcha_image, generate_captcha_audio
 import json
+import io
+from PIL import Image, ImageOps
 
 app = Flask(__name__)
 app.config.from_object(config)
@@ -130,6 +133,22 @@ class SiteSetting(db.Model):
         id = db.Column(db.Integer, primary_key=True)
         key = db.Column(db.String(128), unique=True, nullable=False)
         value = db.Column(db.Text, nullable=True)
+
+
+class SiteAsset(db.Model):
+        """Store uploaded theme assets (logos) in DB when configured.
+
+        Fields:
+            - filename: sanitized filename used in URL
+            - data: binary blob
+            - mimetype: original/derived mimetype
+            - created_at
+        """
+        id = db.Column(db.Integer, primary_key=True)
+        filename = db.Column(db.String(256), unique=True, nullable=False)
+        data = db.Column(db.LargeBinary, nullable=False)
+        mimetype = db.Column(db.String(128), nullable=True)
+        created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def is_admin_user(user):
@@ -478,13 +497,45 @@ def theme_css():
 
 @app.route('/theme_asset/<path:filename>')
 def theme_asset(filename):
-    # Serve uploaded theme asset (logo) from instance/theme_assets
+    # Deprecated filename-based route: try to find by filename (filesystem or DB)
     assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
     safe = secure_filename(filename)
     file_path = os.path.join(assets_dir, safe)
-    if not os.path.exists(file_path):
+    if os.path.exists(file_path):
+        return send_file(file_path)
+    sa = SiteAsset.query.filter_by(filename=safe).first()
+    if sa:
+        return Response(sa.data, mimetype=sa.mimetype or 'application/octet-stream')
+    abort(404)
+
+
+@app.route('/theme_asset/id/<int:asset_id>')
+def theme_asset_by_id(asset_id):
+    # Serve asset by DB id (preferred)
+    sa = SiteAsset.query.get(asset_id)
+    if sa:
+        return Response(sa.data, mimetype=sa.mimetype or 'application/octet-stream')
+    # fallback to filesystem with name equal to id (unlikely)
+    abort(404)
+
+
+@app.route('/theme_asset/thumb/<int:asset_id>')
+def theme_asset_thumb(asset_id):
+    # produce a small thumbnail (PNG) for the asset
+    sa = SiteAsset.query.get(asset_id)
+    if not sa:
         abort(404)
-    return send_file(file_path)
+    try:
+        img = Image.open(io.BytesIO(sa.data))
+        img = ImageOps.exif_transpose(img)
+        img.thumbnail((128,128))
+        out = io.BytesIO()
+        # serve thumbnail as PNG for broad support
+        img.save(out, format='PNG')
+        out.seek(0)
+        return Response(out.read(), mimetype='image/png')
+    except Exception:
+        abort(404)
 
 
 @app.route('/admin/theme', methods=['GET', 'POST'])
@@ -506,31 +557,154 @@ def admin_theme():
             return redirect(url_for('admin_theme'))
         # handle file upload when upload=1 query param present
         if request.args.get('upload') == '1' and 'logo' in request.files:
-            f = request.files.get('logo')
+            f: FileStorage = request.files.get('logo')
             if f and f.filename:
                 filename = secure_filename(f.filename)
-                assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+                # read file bytes for validation and storage
                 try:
-                    os.makedirs(assets_dir, exist_ok=True)
-                    save_path = os.path.join(assets_dir, filename)
-                    f.save(save_path)
+                    data = f.read()
+                except Exception as e:
+                    flash(f'Error reading uploaded file: {e}', 'error')
+                    return redirect(url_for('admin_theme'))
+
+                # validation: size
+                max_bytes = app.config.get('THEME_UPLOAD_MAX_BYTES', getattr(config, 'THEME_UPLOAD_MAX_BYTES', 1_048_576))
+                if len(data) > max_bytes:
+                    flash(f'File too large (max {max_bytes} bytes)', 'error')
+                    return redirect(url_for('admin_theme'))
+
+                # validation: mime/type detection using Pillow (or SVG quick-check)
+                mimetype = f.mimetype or ''
+                allowed_mimes = app.config.get('THEME_ALLOWED_MIMES', getattr(config, 'THEME_ALLOWED_MIMES', 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml')).split(',')
+                is_svg = False
+                try:
+                    head = data[:512].lstrip()
+                    if head.startswith(b"<") and (b"<svg" in head.lower() or b"<?xml" in head.lower()):
+                        is_svg = True
+                except Exception:
+                    is_svg = False
+
+                effective_mime = None
+                processed_bytes = data
+                # If SVG, accept if allowed
+                if is_svg:
+                    effective_mime = 'image/svg+xml'
+                else:
+                    # Try opening with Pillow
+                    try:
+                        img = Image.open(io.BytesIO(data))
+                        fmt = (img.format or '').upper()
+                        if not fmt:
+                            raise Exception('Unknown image format')
+                        img = ImageOps.exif_transpose(img)
+
+                        # optional resize / normalization
+                        max_w = app.config.get('THEME_MAX_WIDTH', getattr(config, 'THEME_MAX_WIDTH', 2048))
+                        max_h = app.config.get('THEME_MAX_HEIGHT', getattr(config, 'THEME_MAX_HEIGHT', 2048))
+                        if img.width > max_w or img.height > max_h:
+                            img.thumbnail((max_w, max_h))
+
+                        # normalize mode for JPEG
+                        out_io = io.BytesIO()
+                        # Normalize everything to PNG for thumbnails/logos to avoid
+                        # format-specific save issues and ensure broad browser support.
+                        if img.mode in ('RGBA', 'LA'):
+                            out = img
+                        else:
+                            out = img.convert('RGBA')
+                        out.save(out_io, format='PNG')
+                        processed_bytes = out_io.getvalue()
+                        effective_mime = 'image/png'
+                    except Exception as e:
+                        import traceback
+                        tb = traceback.format_exc()
+                        try:
+                            app.logger.error("Theme image processing error: %s\n%s", e, tb)
+                        except Exception:
+                            print("Theme image processing error:", e)
+                            print(tb)
+                        flash(f'Could not process uploaded image: {e}', 'error')
+                        return redirect(url_for('admin_theme'))
+
+                if effective_mime not in allowed_mimes:
+                    flash(f'Invalid file type: {effective_mime}', 'error')
+                    return redirect(url_for('admin_theme'))
+
+                # store either in DB or filesystem
+                store_in_db = app.config.get('THEME_STORE_IN_DB', getattr(config, 'THEME_STORE_IN_DB', False))
+                try:
+                    if store_in_db:
+                        # upsert by filename
+                        sa = SiteAsset.query.filter_by(filename=filename).first()
+                        if not sa:
+                            sa = SiteAsset(filename=filename, data=processed_bytes, mimetype=effective_mime)
+                        else:
+                            sa.data = processed_bytes
+                            sa.mimetype = effective_mime
+                        db.session.add(sa)
+                        db.session.commit()
+                    else:
+                        assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+                        os.makedirs(assets_dir, exist_ok=True)
+                        save_path = os.path.join(assets_dir, filename)
+                        with open(save_path, 'wb') as wf:
+                            wf.write(processed_bytes)
                     flash(f'Logo uploaded: {filename}', 'success')
                 except Exception as e:
+                    db.session.rollback()
                     flash(f'Error saving logo: {e}', 'error')
             return redirect(url_for('admin_theme'))
         # handle delete logo
-        if request.form.get('delete_logo'):
-            target = request.form.get('delete_logo')
-            assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
-            target_path = os.path.join(assets_dir, secure_filename(target))
+        # single delete via asset id
+        if request.form.get('delete_asset_id'):
             try:
-                if os.path.exists(target_path):
-                    os.remove(target_path)
-                    flash(f'Deleted logo: {target}', 'success')
-                else:
-                    flash(f'Logo not found: {target}', 'error')
-            except Exception as e:
-                flash(f'Error deleting logo: {e}', 'error')
+                aid = int(request.form.get('delete_asset_id'))
+            except Exception:
+                aid = None
+            if aid:
+                try:
+                    sa = SiteAsset.query.get(aid)
+                    if sa:
+                        # remove filesystem copy if exists
+                        assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+                        fs_path = os.path.join(assets_dir, sa.filename)
+                        if os.path.exists(fs_path):
+                            os.remove(fs_path)
+                        db.session.delete(sa)
+                        db.session.commit()
+                        flash(f'Deleted logo id={aid}', 'success')
+                    else:
+                        flash('Asset not found', 'error')
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'Error deleting asset: {e}', 'error')
+            return redirect(url_for('admin_theme'))
+
+        # bulk delete
+        if request.args.get('bulk_delete') == '1' and request.form.getlist('asset_ids'):
+            ids = request.form.getlist('asset_ids')
+            deleted = 0
+            for sid in ids:
+                try:
+                    aid = int(sid)
+                except Exception:
+                    continue
+                sa = SiteAsset.query.get(aid)
+                try:
+                    if sa:
+                        assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
+                        fs_path = os.path.join(assets_dir, sa.filename)
+                        if os.path.exists(fs_path):
+                            os.remove(fs_path)
+                        db.session.delete(sa)
+                        deleted += 1
+                except Exception:
+                    db.session.rollback()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            flash(f'Deleted {deleted} assets', 'success')
             return redirect(url_for('admin_theme'))
         css = request.form.get('css', '')
         # handle theme enabled toggle
@@ -560,9 +734,8 @@ def admin_theme():
     # handle listing/uploading logos
     assets = []
     try:
-        assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
-        os.makedirs(assets_dir, exist_ok=True)
-        assets = sorted(os.listdir(assets_dir))
+        # list DB-stored assets
+        assets = SiteAsset.query.order_by(SiteAsset.created_at.desc()).all()
     except Exception:
         assets = []
 

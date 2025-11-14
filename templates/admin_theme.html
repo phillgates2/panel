@@ -24,18 +24,31 @@
   </div>
   {% if assets %}
   <h4>Existing Logos</h4>
-  <ul>
+  <form method="post" style="margin-bottom:8px;">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    <button formaction="{{ url_for('admin_theme') }}?bulk_delete=1" formmethod="post">Delete Selected</button>
+    <ul style="list-style:none; padding:0;">
     {% for a in assets %}
-      <li>
-        <a href="{{ url_for('theme_asset', filename=a) }}" target="_blank">{{ a }}</a>
-        <form method="post" style="display:inline; margin-left:8px;">
-          <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-          <input type="hidden" name="delete_logo" value="{{ a }}" />
-          <button type="submit">Delete</button>
-        </form>
+      <li style="display:flex; align-items:center; margin:6px 0;">
+        <input type="checkbox" name="asset_ids" value="{{ a.id }}" />
+        <div style="width:48px; height:48px; margin-left:8px;">
+          <img src="{{ url_for('theme_asset_thumb', asset_id=a.id) }}" style="max-width:48px; max-height:48px;" alt="{{ a.filename }}" />
+        </div>
+        <div style="margin-left:8px; flex:1;">
+          <a href="{{ url_for('theme_asset_by_id', asset_id=a.id) }}" target="_blank">{{ a.filename }}</a>
+          <div style="font-size:0.9rem; color:#666;">Uploaded: {{ a.created_at }}</div>
+        </div>
+        <div>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+            <input type="hidden" name="delete_asset_id" value="{{ a.id }}" />
+            <button type="submit">Delete</button>
+          </form>
+        </div>
       </li>
     {% endfor %}
-  </ul>
+    </ul>
+  </form>
   {% endif %}
 </form>
 {% endblock %}
