@@ -28,12 +28,14 @@
         <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
         <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:var(--muted);">
           Theme: {% if theme_enabled %}<strong style="color:#86efac;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
-          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
-            style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
-            <span class="icon" aria-hidden="true">🌙</span>
-            <span class="label">Dark</span>
-          </button>
-          <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
+          {% if theme_toggle_enabled %}
+            <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
+              style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
+              <span class="icon" aria-hidden="true">🌙</span>
+              <span class="label">Dark</span>
+            </button>
+            <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
+          {% endif %}
         </div>
           Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
         </div>

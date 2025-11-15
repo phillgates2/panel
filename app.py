@@ -122,7 +122,16 @@ def inject_user():
     except Exception:
         user_theme_pref = None
 
-    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, config=app.config, user_theme_pref=user_theme_pref)
+    # site-wide flag to allow client theme toggle (default on)
+    theme_toggle_enabled = True
+    try:
+        s_toggle = db.session.query(SiteSetting).filter_by(key='theme_toggle_enabled').first()
+        if s_toggle and s_toggle.value is not None:
+            theme_toggle_enabled = (s_toggle.value.strip() == '1')
+    except Exception:
+        theme_toggle_enabled = True
+
+    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, theme_toggle_enabled=theme_toggle_enabled, config=app.config, user_theme_pref=user_theme_pref)
 
 db = SQLAlchemy(app)
 
@@ -834,6 +843,7 @@ def admin_theme():
         css = request.form.get('css', '')
         # handle theme enabled toggle
         enabled = request.form.get('enabled') == '1'
+        toggle_enabled = request.form.get('toggle_enabled') == '1'
         try:
             # persist to DB (upsert)
             s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
@@ -846,8 +856,14 @@ def admin_theme():
                 s_flag = SiteSetting(key='theme_enabled', value=('1' if enabled else '0'))
             else:
                 s_flag.value = ('1' if enabled else '0')
+            s_toggle = SiteSetting.query.filter_by(key='theme_toggle_enabled').first()
+            if not s_toggle:
+                s_toggle = SiteSetting(key='theme_toggle_enabled', value=('1' if toggle_enabled else '0'))
+            else:
+                s_toggle.value = ('1' if toggle_enabled else '0')
             db.session.add(s_css)
             db.session.add(s_flag)
+            db.session.add(s_toggle)
             db.session.commit()
 
             flash('Theme saved', 'success')
