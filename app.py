@@ -323,6 +323,12 @@ def forgot():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("forgot"))
+        # Captcha validation (skip in TESTING mode)
+        captcha = request.form.get("captcha", "")
+        if not app.config.get('TESTING', False):
+            if session.get("captcha_text") != captcha:
+                flash("Invalid captcha", "error")
+                return redirect(url_for("forgot"))
         email = request.form.get("email", "").lower().strip()
         user = User.query.filter_by(email=email).first()
         if not user:
