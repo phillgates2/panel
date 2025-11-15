@@ -125,7 +125,7 @@
                                                 <div class="metric-label">Players</div>
                                             </div>
                                             <div class="col-4">
-                                                <div class="metric-value">{{ \"%.1f\"|format(item.stats.avg_cpu) }}%</div>
+                                                <div class="metric-value">{{ "%.1f"|format(item.stats.avg_cpu) }}%</div>
                                                 <div class="metric-label">Avg CPU</div>
                                             </div>
                                         </div>
@@ -161,7 +161,7 @@
                                         </div>
                                         <small class="text-muted">
                                             {% if item.cluster.region %}{{ item.cluster.region }} • {% endif %}
-                                            Avg Response: {{ \"%.0f\"|format(item.stats.avg_response_time) }}ms
+                                            Avg Response: {{ "%.0f"|format(item.stats.avg_response_time) }}ms
                                         </small>
                                     </div>
                                 </div>
