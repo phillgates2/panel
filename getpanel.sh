@@ -111,6 +111,144 @@ prompt_confirm() {
     done
 }
 
+configure_mysql_settings() {
+    echo
+    echo -e "${BLUE}🔧 MySQL Settings Configuration${NC}"
+    echo -e "${YELLOW}Current MySQL settings:${NC}"
+    echo -e "  1) Host: $DB_HOST"
+    echo -e "  2) Port: $DB_PORT"
+    echo -e "  3) Database: $DB_NAME"
+    echo -e "  4) User: $DB_USER"
+    echo -e "  5) Password: ${DB_PASS:+[Set]}${DB_PASS:-[Empty]}"
+    echo -e "  6) Test connection"
+    echo -e "  7) Save and continue"
+    echo
+    
+    while true; do
+        echo -n -e "${BLUE}Select setting to modify (1-7)${NC} (default: 7): "
+        read setting_choice
+        setting_choice="${setting_choice:-7}"
+        
+        case "$setting_choice" in
+            1)
+                echo
+                NEW_DB_HOST=$(prompt_input "MySQL Host" "$DB_HOST")
+                if [[ -n "$NEW_DB_HOST" ]]; then
+                    DB_HOST="$NEW_DB_HOST"
+                    echo -e "${GREEN}✓ Host updated to: $DB_HOST${NC}"
+                fi
+                echo
+                ;;
+            2)
+                echo
+                while true; do
+                    NEW_DB_PORT=$(prompt_input "MySQL Port" "$DB_PORT")
+                    if [[ "$NEW_DB_PORT" =~ ^[0-9]+$ ]] && [[ "$NEW_DB_PORT" -ge 1 ]] && [[ "$NEW_DB_PORT" -le 65535 ]]; then
+                        DB_PORT="$NEW_DB_PORT"
+                        echo -e "${GREEN}✓ Port updated to: $DB_PORT${NC}"
+                        break
+                    else
+                        echo -e "${RED}Please enter a valid port number (1-65535)${NC}"
+                    fi
+                done
+                echo
+                ;;
+            3)
+                echo
+                NEW_DB_NAME=$(prompt_input "Database Name" "$DB_NAME")
+                if [[ -n "$NEW_DB_NAME" ]]; then
+                    DB_NAME="$NEW_DB_NAME"
+                    echo -e "${GREEN}✓ Database name updated to: $DB_NAME${NC}"
+                fi
+                echo
+                ;;
+            4)
+                echo
+                NEW_DB_USER=$(prompt_input "Database User" "$DB_USER")
+                if [[ -n "$NEW_DB_USER" ]]; then
+                    DB_USER="$NEW_DB_USER"
+                    echo -e "${GREEN}✓ User updated to: $DB_USER${NC}"
+                fi
+                echo
+                ;;
+            5)
+                echo
+                echo -e "${YELLOW}Current password: ${DB_PASS:+[Set]}${DB_PASS:-[Empty]}${NC}"
+                if prompt_confirm "Change password?" "y"; then
+                    while true; do
+                        NEW_DB_PASS=$(prompt_input "New Database Password (leave empty for no password)" "" "true")
+                        if [[ -n "$NEW_DB_PASS" ]]; then
+                            DB_PASS_CONFIRM=$(prompt_input "Confirm New Password" "" "true")
+                            if [[ "$NEW_DB_PASS" == "$DB_PASS_CONFIRM" ]]; then
+                                DB_PASS="$NEW_DB_PASS"
+                                echo -e "${GREEN}✓ Password updated${NC}"
+                                break
+                            else
+                                echo -e "${RED}Passwords do not match. Please try again.${NC}"
+                            fi
+                        else
+                            DB_PASS=""
+                            echo -e "${YELLOW}✓ Password cleared (empty)${NC}"
+                            break
+                        fi
+                    done
+                fi
+                echo
+                ;;
+            6)
+                echo
+                echo -e "${BLUE}Testing MySQL connection...${NC}"
+                if command -v mysql &> /dev/null; then
+                    echo "Attempting to connect to $DB_USER@$DB_HOST:$DB_PORT"
+                    
+                    # Test connection
+                    if [[ -n "$DB_PASS" ]]; then
+                        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1;" 2>/dev/null; then
+                            echo -e "${GREEN}✓ Connection successful!${NC}"
+                        else
+                            echo -e "${RED}✗ Connection failed. Please check your settings.${NC}"
+                        fi
+                    else
+                        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "SELECT 1;" 2>/dev/null; then
+                            echo -e "${GREEN}✓ Connection successful!${NC}"
+                        else
+                            echo -e "${RED}✗ Connection failed. Please check your settings.${NC}"
+                        fi
+                    fi
+                else
+                    echo -e "${YELLOW}MySQL client not found. Connection test skipped.${NC}"
+                    echo -e "${BLUE}Settings will be tested during installation.${NC}"
+                fi
+                echo
+                ;;
+            7)
+                echo -e "${GREEN}✓ MySQL settings saved${NC}"
+                echo -e "${BLUE}Final MySQL configuration:${NC}"
+                echo -e "  Host: $DB_HOST:$DB_PORT"
+                echo -e "  Database: $DB_NAME"
+                echo -e "  User: $DB_USER"
+                echo -e "  Password: ${DB_PASS:+[Set]}${DB_PASS:-[Empty]}"
+                return 0
+                ;;
+            *)
+                echo -e "${RED}Invalid selection '$setting_choice'. Please enter 1-7.${NC}"
+                echo
+                ;;
+        esac
+        
+        # Show updated settings after each change
+        echo -e "${YELLOW}Updated MySQL settings:${NC}"
+        echo -e "  1) Host: $DB_HOST"
+        echo -e "  2) Port: $DB_PORT" 
+        echo -e "  3) Database: $DB_NAME"
+        echo -e "  4) User: $DB_USER"
+        echo -e "  5) Password: ${DB_PASS:+[Set]}${DB_PASS:-[Empty]}"
+        echo -e "  6) Test connection"
+        echo -e "  7) Save and continue"
+        echo
+    done
+}
+
 interactive_config() {
     # Check if running in interactive terminal
     if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
@@ -269,6 +407,12 @@ interactive_config() {
         echo -e "  Host: $DB_HOST:$DB_PORT"
         echo -e "  Database: $DB_NAME"
         echo -e "  User: $DB_USER"
+        echo
+        
+        # Allow user to review and modify MySQL settings
+        if prompt_confirm "Review/modify MySQL settings?" "n"; then
+            configure_mysql_settings
+        fi
         
     else
         echo
