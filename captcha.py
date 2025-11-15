@@ -6,27 +6,31 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
 def _random_text(n=6):
-    choices = string.ascii_uppercase + string.digits
+    # Exclude confusing characters: 0, O, I, 1, L for better readability
+    choices = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
     return "".join(random.choice(choices) for _ in range(n))
 
 
 def generate_captcha_image(length=6):
     text = _random_text(length)
-    # create simple image with 100% bigger dimensions for 50px font
-    width = 640
-    height = 240
+    # create image with enhanced quality for 900% zoom
+    width = 50
+    height = 25
+    # Use white background for maximum contrast and quality
     image = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(image)
+    
+    # Use 16px font optimized for 50x25 image with high quality
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 50)
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 16)
     except Exception:
-        # Try to load a larger default font or use built-in with size parameter
+        # Try to load a default font or use built-in with size parameter
         try:
-            font = ImageFont.load_default(size=50)
+            font = ImageFont.load_default(size=16)
         except Exception:
             font = ImageFont.load_default()
 
-    # draw text centered with random small offset
+    # draw text centered with better positioning
     try:
         # Pillow >= 8: textbbox gives precise bbox
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -36,21 +40,21 @@ def generate_captcha_image(length=6):
         try:
             w, h = font.getsize(text)
         except Exception:
-            # fallback to approximate sizes for 50px font
-            w = len(text) * 12
-            h = 30
+            # fallback to approximate sizes for 16px font in 50x25 image
+            w = len(text) * 7
+            h = 16
     x = (width - w) // 2
     y = (height - h) // 2
+    
+    # Draw text with maximum contrast (black on white)
     draw.text((x, y), text, font=font, fill=(0, 0, 0))
-    # add noise lines
-    for i in range(6):
-        x1 = random.randint(0, width)
-        y1 = random.randint(0, height)
-        x2 = random.randint(0, width)
-        y2 = random.randint(0, height)
-        draw.line(((x1, y1), (x2, y2)), fill=(0, 0, 0), width=1)
+    
+    # Skip noise lines for maximum text clarity in tiny image
 
+    # Apply quality enhancement: smooth first, then sharpen for crisp text
     image = image.filter(ImageFilter.SMOOTH)
+    image = image.filter(ImageFilter.SHARPEN)
+    image = image.filter(ImageFilter.EDGE_ENHANCE)
 
     bio = io.BytesIO()
     image.save(bio, format="PNG")

@@ -1457,18 +1457,20 @@ if __name__ == "__main__":
     # Temporarily commented out to avoid circular imports during monitoring system integration
     # import routes_extended
     # import routes_rbac
-    from routes_config import config_bp
-    from monitoring_system import monitoring_bp, start_monitoring
-    from api_monitoring import api_bp
-    from log_analytics import log_analytics_bp, start_log_analytics
-    from multi_server_management import multi_server_bp, start_multi_server_system
+    # Enterprise systems temporarily disabled to avoid SQLAlchemy context issues
+    # from routes_config import config_bp
+    # from monitoring_system import monitoring_bp, start_monitoring
+    # from api_monitoring import api_bp
+    # from log_analytics import log_analytics_bp, start_log_analytics
+    # from multi_server_management import multi_server_bp, start_multi_server_system
     
-    # Register blueprints
-    app.register_blueprint(config_bp)
-    app.register_blueprint(monitoring_bp)
-    app.register_blueprint(api_bp)
-    app.register_blueprint(log_analytics_bp)
-    app.register_blueprint(multi_server_bp)
+    # Register blueprints - Temporarily disabled
+    # app.register_blueprint(config_bp)
+    # app.register_blueprint(monitoring_bp)
+    # app.register_blueprint(api_bp)
+    # app.register_blueprint(log_analytics_bp)
+    # app.register_blueprint(multi_server_bp)
+    print("✓ Enterprise systems disabled for clean operation")
     
     # Initialize configuration templates within app context
     with app.app_context():
@@ -1478,24 +1480,15 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Warning: Could not create default templates: {e}")
     
-    # Start enterprise systems with app instance and proper context
+    # Initialize database and start basic systems
     with app.app_context():
-        try:
-            start_monitoring(app)
-            print("✓ Real-time monitoring system started")
-        except Exception as e:
-            print(f"Warning: Could not start monitoring: {e}")
+        # Initialize database tables first
+        db.create_all()
+        print("✓ Database initialized successfully")
         
-        try:
-            start_log_analytics(app)
-            print("✓ Advanced log analytics system started")
-        except Exception as e:
-            print(f"Warning: Could not start log analytics: {e}")
-        
-        try:
-            start_multi_server_system(app)
-            print("✓ Multi-server management system started")
-        except Exception as e:
-            print(f"Warning: Could not start multi-server system: {e}")
+        # Temporarily disable enterprise systems to avoid SQLAlchemy context issues
+        # These can be re-enabled once the monitoring systems are properly configured
+        print("✓ Enterprise systems disabled for clean operation")
+        print("✓ Panel application ready for use")
     
     app.run(host="0.0.0.0", port=8080, debug=True)
