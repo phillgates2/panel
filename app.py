@@ -111,7 +111,18 @@ def inject_user():
     except Exception:
         theme_enabled = False
 
-    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, config=app.config)
+    # user theme preference (stored in SiteSetting as user_theme:<id>)
+    user_theme_pref = None
+    try:
+        if user:
+            k = f'user_theme:{user.id}'
+            s_user_theme = db.session.query(SiteSetting).filter_by(key=k).first()
+            if s_user_theme and (s_user_theme.value in ('dark','light')):
+                user_theme_pref = s_user_theme.value
+    except Exception:
+        user_theme_pref = None
+
+    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, config=app.config, user_theme_pref=user_theme_pref)
 
 db = SQLAlchemy(app)
 
@@ -1265,6 +1276,33 @@ def admin_job_status(job_id):
         return {'id': job_id, 'status': status, 'result': result}
     except Exception as e:
         return {'error': str(e)}, 500
+
+
+@app.route('/api/theme_pref', methods=['POST'])
+def api_theme_pref():
+    uid = session.get('user_id')
+    if not uid:
+        return {'ok': False, 'error': 'auth required'}, 401
+    try:
+        verify_csrf()
+    except Exception:
+        return {'ok': False, 'error': 'bad csrf'}, 400
+    theme = request.form.get('theme', '').strip()
+    if theme not in ('dark', 'light'):
+        return {'ok': False, 'error': 'invalid theme'}, 400
+    try:
+        key = f'user_theme:{uid}'
+        s = db.session.query(SiteSetting).filter_by(key=key).first()
+        if not s:
+            s = SiteSetting(key=key, value=theme)
+            db.session.add(s)
+        else:
+            s.value = theme
+        db.session.commit()
+        return {'ok': True}
+    except Exception as e:
+        db.session.rollback()
+        return {'ok': False, 'error': str(e)}, 500
 
 
 if __name__ == "__main__":

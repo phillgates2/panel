@@ -8,9 +8,10 @@
       // Apply saved theme early to avoid flash
       (function(){
         try{
+          var serverPref = "{{ user_theme_pref or '' }}";
           var pref = localStorage.getItem('theme');
           var sys = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-          var theme = pref || sys || 'dark';
+          var theme = serverPref || pref || sys || 'dark';
           document.documentElement.setAttribute('data-theme', theme);
         }catch(e){}
       })();
@@ -27,11 +28,12 @@
         <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
         <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:var(--muted);">
           Theme: {% if theme_enabled %}<strong style="color:#86efac;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
-          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" title="Toggle theme"
+          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
             style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
             <span class="icon" aria-hidden="true">🌙</span>
             <span class="label">Dark</span>
           </button>
+          <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
         </div>
           Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
         </div>
@@ -72,6 +74,7 @@
       (function(){
         // Theme toggle logic with icon and label
         var btn = document.getElementById('theme-toggle');
+        var statusEl = document.getElementById('theme-status');
         function updateToggle(theme){
           if(!btn) return;
           var icon = btn.querySelector('.icon');
@@ -89,6 +92,7 @@
           }
           btn.setAttribute('aria-label', aria);
           btn.setAttribute('title', aria);
+          if(statusEl){ statusEl.textContent = 'Current theme: ' + (theme.charAt(0).toUpperCase()+theme.slice(1)) + '. ' + aria + '.'; }
         }
         if(btn){
           // Initialize label/icon based on current theme
@@ -100,6 +104,16 @@
             document.documentElement.setAttribute('data-theme', next);
             updateToggle(next);
             try{ localStorage.setItem('theme', next); }catch(e){}
+            // Persist to server if logged in
+            var loggedIn = {{ 'true' if logged_in else 'false' }};
+            if(loggedIn){
+              try{
+                var fd = new FormData();
+                fd.append('theme', next);
+                fd.append('csrf_token', '{{ session.csrf_token }}');
+                fetch('/api/theme_pref', { method:'POST', body: fd });
+              }catch(e){}
+            }
           });
         }
 
