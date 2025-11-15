@@ -76,6 +76,8 @@
           if(!btn) return;
           var icon = btn.querySelector('.icon');
           var label = btn.querySelector('.label');
+          var next = (theme === 'dark') ? 'light' : 'dark';
+          var aria = 'Switch to ' + (next.charAt(0).toUpperCase() + next.slice(1)) + ' theme';
           if(theme === 'dark'){
             if(icon) icon.textContent = '🌙';
             if(label) label.textContent = 'Dark';
@@ -85,6 +87,8 @@
             if(label) label.textContent = 'Light';
             btn.setAttribute('aria-pressed','false');
           }
+          btn.setAttribute('aria-label', aria);
+          btn.setAttribute('title', aria);
         }
         if(btn){
           // Initialize label/icon based on current theme
