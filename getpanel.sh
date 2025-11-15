@@ -256,30 +256,42 @@ configure_mariadb_settings() {
                 echo -e "${BLUE}Connecting to: ${YELLOW}$DB_USER@$DB_HOST:$DB_PORT${NC}"
                 
                 if command -v mysql &> /dev/null; then
-                    # Test connection with timeout
+                    echo -e "${BLUE}Testing connection (this may take a few seconds)...${NC}"
+                    
+                    # Test connection with timeout and better error handling
+                    local connection_success=false
+                    
                     if [[ -n "$DB_PASS" ]]; then
                         if timeout 10 mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1 as test;" 2>/dev/null | grep -q "test"; then
                             echo -e "${GREEN}✓ Connection successful!${NC}"
-                            echo -e "${GREEN}✓ MariaDB server is accessible${NC}"
-                        else
-                            echo -e "${RED}✗ Connection failed${NC}"
-                            echo -e "${YELLOW}Possible issues:${NC}"
-                            echo -e "  • MariaDB server not running on $DB_HOST:$DB_PORT"
-                            echo -e "  • Incorrect username/password"
-                            echo -e "  • Firewall blocking connection"
-                            echo -e "  • User '$DB_USER' doesn't exist or lacks permissions"
+                            echo -e "${GREEN}✓ Authentication with password working${NC}"
+                            connection_success=true
                         fi
                     else
                         if timeout 10 mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "SELECT 1 as test;" 2>/dev/null | grep -q "test"; then
                             echo -e "${GREEN}✓ Connection successful!${NC}"
-                            echo -e "${GREEN}✓ Passwordless access working${NC}"
-                        else
-                            echo -e "${RED}✗ Connection failed${NC}"
-                            echo -e "${YELLOW}Possible issues:${NC}"
-                            echo -e "  • MariaDB server requires a password for user '$DB_USER'"
-                            echo -e "  • User '$DB_USER' doesn't exist"
-                            echo -e "  • Server not running on $DB_HOST:$DB_PORT"
+                            echo -e "${GREEN}✓ Passwordless authentication working${NC}"
+                            connection_success=true
                         fi
+                    fi
+                    
+                    if [[ "$connection_success" == "false" ]]; then
+                        echo -e "${RED}✗ Connection failed${NC}"
+                        echo -e "${YELLOW}Possible issues:${NC}"
+                        echo -e "  • MariaDB server not running on $DB_HOST:$DB_PORT"
+                        if [[ -n "$DB_PASS" ]]; then
+                            echo -e "  • Incorrect password for user '$DB_USER'"
+                        else
+                            echo -e "  • User '$DB_USER' requires a password"
+                        fi
+                        echo -e "  • User '$DB_USER' doesn't exist or lacks permissions"
+                        echo -e "  • Firewall blocking connection"
+                        echo -e "  • MariaDB server not accepting connections"
+                        echo
+                        echo -e "${BLUE}💡 Troubleshooting tips:${NC}"
+                        echo -e "  • Check if MariaDB is running: sudo systemctl status mariadb"
+                        echo -e "  • Verify user exists: sudo mysql -e \"SELECT User,Host FROM mysql.user WHERE User='$DB_USER';\""
+                        echo -e "  • Test root access: sudo mysql"
                     fi
                 else
                     echo -e "${YELLOW}⚠️  MariaDB/MySQL client not available for testing${NC}"
@@ -972,12 +984,78 @@ install_panel() {
     if [[ "$DB_TYPE" == "mysql" ]]; then
         # Setup MariaDB database
         if command -v mysql &> /dev/null; then
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'%';"
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "FLUSH PRIVILEGES;"
+            log "Setting up MariaDB database and user..."
+            
+            # Try different authentication methods for MariaDB root access
+            local mysql_auth_success=false
+            local mysql_cmd=""
+            
+            # Method 1: Try with sudo (unix_socket authentication)
+            if [[ $EUID -eq 0 ]]; then
+                mysql_cmd="mysql"
+            else
+                mysql_cmd="sudo mysql"
+            fi
+            
+            # Test connection and create database/user
+            if $mysql_cmd -e "SELECT 1;" &>/dev/null; then
+                log "Using sudo/root authentication for MariaDB setup"
+                $mysql_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
+                
+                if [[ -n "$DB_PASS" ]]; then
+                    $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
+                    $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
+                else
+                    $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost';" || warn "User $DB_USER may already exist"
+                    $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
+                fi
+                
+                $mysql_cmd -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
+                $mysql_cmd -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
+                $mysql_cmd -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
+                
+                mysql_auth_success=true
+                log "✓ MariaDB database and user configured successfully"
+                
+            # Method 2: Try with existing root password (if set)
+            elif mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "SELECT 1;" &>/dev/null; then
+                log "Using existing root password for MariaDB setup"
+                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+                
+                if [[ -n "$DB_PASS" ]]; then
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
+                else
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';"
+                fi
+                
+                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
+                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "FLUSH PRIVILEGES;"
+                mysql_auth_success=true
+                
+            else
+                warn "Cannot authenticate to MariaDB as root"
+                warn "Please manually create the database and user:"
+                warn "  Database: $DB_NAME"
+                warn "  User: $DB_USER"
+                warn "  Password: ${DB_PASS:-[empty]}"
+                warn ""
+                warn "Manual setup commands:"
+                warn "  sudo mysql"
+                warn "  CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+                if [[ -n "$DB_PASS" ]]; then
+                    warn "  CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
+                else
+                    warn "  CREATE USER '$DB_USER'@'%';"
+                fi
+                warn "  GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
+                warn "  FLUSH PRIVILEGES;"
+                warn "  EXIT;"
+            fi
         else
             warn "MariaDB/MySQL client not found, skipping database setup"
+            warn "Please install MariaDB client and manually create:"
+            warn "  Database: $DB_NAME"
+            warn "  User: $DB_USER"
         fi
     fi
     
