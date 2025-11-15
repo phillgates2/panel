@@ -1,5 +1,8 @@
-/* Dark theme base */
+/* Theme variables */
+/* Default to dark; light overrides below via [data-theme="light"] */
 :root{--bg:#0f1116;--panel:#151923;--panel-hover:#1b2030;--text:#e6e9ef;--muted:#94a3b8;--link:#60a5fa;--link-hover:#93c5fd;--border:#2b3242;--shadow:rgba(0,0,0,0.4);--accent:#7c3aed}
+/* Light theme overrides */
+:root[data-theme="light"]{--bg:#f6f7fb;--panel:#ffffff;--panel-hover:#f9fafb;--text:#222222;--muted:#555555;--link:#0366d6;--link-hover:#024ea1;--border:#e5e7eb;--shadow:rgba(0,0,0,0.06);--accent:#7c3aed}
 body{font-family:Arial,Helvetica,sans-serif;margin:1.5rem;background:var(--bg);color:var(--text)}
 header{margin-bottom:1rem}
 nav a{margin-right:0.75rem;color:var(--link);text-decoration:none}

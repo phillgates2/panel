@@ -4,19 +4,31 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Panel</title>
+    <script>
+      // Apply saved theme early to avoid flash
+      (function(){
+        try{
+          var pref = localStorage.getItem('theme');
+          var sys = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          var theme = pref || sys || 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+        }catch(e){}
+      })();
+    </script>
     <link rel="stylesheet" href="/static/css/style.css" />
     {% if theme_enabled %}
     <link rel="stylesheet" href="/theme.css" />
     {% endif %}
-  </head>
+    <header>
   <body>
     <header>
       <h1>Game Panel</h1>
       <nav>
         <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
-        {% if logged_in %} | <a href="/dashboard">Dashboard</a> | <a href="/rcon">RCON</a> {% endif %}
-      </nav>
-        <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:#666;">
+        <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:var(--muted);">
+          Theme: {% if theme_enabled %}<strong style="color:#86efac;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
+          <button id="theme-toggle" class="small" style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">Toggle Theme</button>
+        </div>
           Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
         </div>
     </header>
@@ -54,6 +66,17 @@
 
     <script>
       (function(){
+        // Theme toggle logic
+        var btn = document.getElementById('theme-toggle');
+        if(btn){
+          btn.addEventListener('click', function(){
+            var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+            var next = (cur === 'dark') ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try{ localStorage.setItem('theme', next); }catch(e){}
+          });
+        }
+
         var lastFocused = null;
         function findClosestForm(el){ while(el && el.tagName !== 'FORM') el = el.parentElement; return el; }
         function openModal(message, onOk){
