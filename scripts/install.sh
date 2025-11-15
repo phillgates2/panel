@@ -11,11 +11,6 @@ HERE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$HERE_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 not found. Please install Python 3." >&2
-  exit 1
-fi
-
 prompt() {
   local msg="$1"; shift
   local def="${1-}"; shift || true
@@ -49,6 +44,40 @@ confirm() {
   esac
 }
 
+# ----- Apt helpers -----
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
+apt_available() { has_cmd apt; }
+SUDO=""; if [[ ${EUID:-$(id -u)} -ne 0 ]] && has_cmd sudo; then SUDO="sudo"; fi
+APT_UPDATED=0
+apt_update_once() { if [[ $APT_UPDATED -eq 0 ]]; then $SUDO apt update; APT_UPDATED=1; fi }
+ensure_apt_pkgs() {
+  # usage: ensure_apt_pkgs pkg1 pkg2 ...
+  local missing=()
+  for p in "$@"; do
+    if ! dpkg -s "$p" >/dev/null 2>&1; then
+      missing+=("$p")
+    fi
+  done
+  if ((${#missing[@]})); then
+    echo "Installing packages: ${missing[*]}"
+    apt_update_once
+    $SUDO apt install -y "${missing[@]}"
+  else
+    echo "All requested packages already installed."
+  fi
+}
+
+# Pre-flight: ensure core tools via apt if missing
+if ! has_cmd python3; then
+  if apt_available; then
+    echo "python3 not found. Attempting to install via apt..."
+    ensure_apt_pkgs python3
+  else
+    echo "python3 not found and apt not available. Please install Python 3." >&2
+    exit 1
+  fi
+fi
+
 # 1) Environment selection
 ENVIRONMENT="$(prompt "Environment (dev/prod)" "dev")"
 if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
@@ -60,14 +89,15 @@ VENVDIR="$(prompt "Virtualenv directory" ".venv")"
 REDIS_URL_DEFAULT="redis://127.0.0.1:6379/0"
 REDIS_URL="$(prompt "Redis URL" "$REDIS_URL_DEFAULT")"
 
-# Optional system packages
-if confirm "Install system packages via apt (espeak, gdb, unzip, redis-server)?" N; then
-  if command -v apt >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install -y espeak gdb unzip redis-server
-  else
-    echo "apt not found; skipping system package installation." >&2
-  fi
+# System dependency checks and installation
+if apt_available && confirm "Check and install missing system dependencies via apt?" Y; then
+  # Essential for runtime and script features
+  REQ_PKGS=(python3 python3-venv unzip espeak)
+  # Helpful utilities used in repo/scripts and optional services
+  OPT_PKGS=(gdb redis-server make)
+  ensure_apt_pkgs "${REQ_PKGS[@]}" "${OPT_PKGS[@]}"
+else
+  echo "Skipping automatic system dependency installation."
 fi
 
 # Generate a secret key
