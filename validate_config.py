@@ -198,15 +198,11 @@ class ConfigValidator:
         """Check file/directory permissions."""
         checks = [
             ('instance/', True, 'Instance directory'),
-            ('/var/log/panel', True, 'Log directory (if production)'),
         ]
         
         for path, should_writable, desc in checks:
             p = Path(path)
             if not p.exists():
-                if path.startswith('/var'):
-                    # Production path, only warn
-                    self.warnings.append(f"{desc} doesn't exist: {path}")
                 continue
             
             if should_writable:
@@ -221,23 +217,32 @@ class ConfigValidator:
     
     def check_dependencies(self):
         """Check Python dependencies."""
-        required = ['flask', 'flask_sqlalchemy']
-        optional = ['redis', 'rq', 'pymysql', 'pillow']
+        # Map of dependency name to import name
+        required = {
+            'flask': 'flask',
+            'flask_sqlalchemy': 'flask_sqlalchemy'
+        }
+        optional = {
+            'redis': 'redis',
+            'rq': 'rq', 
+            'pymysql': 'pymysql',
+            'pillow': 'PIL'  # Pillow installs as PIL
+        }
         
         missing_required = []
         missing_optional = []
         
-        for dep in required:
+        for dep_name, import_name in required.items():
             try:
-                __import__(dep)
+                __import__(import_name)
             except ImportError:
-                missing_required.append(dep)
+                missing_required.append(dep_name)
         
-        for dep in optional:
+        for dep_name, import_name in optional.items():
             try:
-                __import__(dep)
+                __import__(import_name)
             except ImportError:
-                missing_optional.append(dep)
+                missing_optional.append(dep_name)
         
         if missing_required:
             self.errors.append(f"Missing required dependencies: {', '.join(missing_required)}")
@@ -252,6 +257,14 @@ class ConfigValidator:
     def check_directories(self):
         """Ensure required directories exist."""
         required = ['instance', 'static', 'templates']
+        optional = ['logs']  # Optional directories
+        
+        # Check if we're in dev mode
+        is_dev_mode = (
+            os.environ.get('FLASK_ENV') == 'development' or
+            os.environ.get('TESTING') == '1' or
+            not os.environ.get('PANEL_SECRET_KEY')
+        )
         
         for dir_name in required:
             p = Path(dir_name)
@@ -259,6 +272,20 @@ class ConfigValidator:
                 self.warnings.append(f"Required directory missing: {dir_name}")
             elif not p.is_dir():
                 self.errors.append(f"Path exists but not a directory: {dir_name}")
+            else:
+                self.info.append(f"✓ Directory exists: {dir_name}")
+        
+        for dir_name in optional:
+            p = Path(dir_name)
+            if not p.exists():
+                if is_dev_mode:
+                    self.info.append(f"Optional directory missing (dev mode): {dir_name}")
+                else:
+                    self.warnings.append(f"Optional directory missing: {dir_name}")
+            elif not p.is_dir():
+                self.errors.append(f"Path exists but not a directory: {dir_name}")
+            else:
+                self.info.append(f"✓ Optional directory exists: {dir_name}")
     
     def report(self):
         """Print validation report and return exit code."""
