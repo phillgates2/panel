@@ -218,8 +218,15 @@ interactive_config() {
         else
             SETUP_REDIS="false"
         fi
+        
+        if prompt_confirm "Install ML/Analytics dependencies (numpy, scikit-learn)?" "n"; then
+            INSTALL_ML_DEPS="true"
+        else
+            INSTALL_ML_DEPS="false"
+        fi
     else
         SETUP_REDIS="false"
+        INSTALL_ML_DEPS="false"
     fi
     
     # Show configuration summary
@@ -234,6 +241,7 @@ interactive_config() {
     [[ "$SETUP_SSL" == "true" ]] && echo -e "  ${BLUE}SSL:${NC} enabled"
     [[ "$SETUP_SYSTEMD" == "true" ]] && echo -e "  ${BLUE}Systemd:${NC} enabled"
     [[ "$SETUP_REDIS" == "true" ]] && echo -e "  ${BLUE}Redis:${NC} enabled"
+    [[ "$INSTALL_ML_DEPS" == "true" ]] && echo -e "  ${BLUE}ML Analytics:${NC} enabled"
     echo
     
     if ! prompt_confirm "Proceed with installation?" "y"; then
@@ -256,15 +264,29 @@ check_requirements() {
         error "Missing required commands: ${missing_commands[*]}"
     fi
     
-    # Check Python version
+    # Check Python version (require 3.8+ for modern features)
     local python_version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
     local min_version="3.8"
+    local recommended_version="3.11"
     
     if [[ $(echo -e "$python_version\n$min_version" | sort -V | head -n1) != "$min_version" ]]; then
         error "Python 3.8+ required, found $python_version"
     fi
     
-    log "✓ All requirements satisfied"
+    # Recommend newer Python versions
+    if [[ $(echo -e "$python_version\n$recommended_version" | sort -V | head -n1) == "$python_version" ]]; then
+        warn "Consider upgrading to Python $recommended_version+ for better performance"
+    fi
+    
+    # Check pip version and recommend upgrade if old
+    if command -v pip3 &> /dev/null; then
+        local pip_version=$(pip3 --version 2>/dev/null | cut -d' ' -f2 | cut -d'.' -f1)
+        if [[ "${pip_version:-0}" -lt 23 ]]; then
+            warn "Old pip version detected. Will upgrade during installation."
+        fi
+    fi
+    
+    log "✓ All requirements satisfied (Python $python_version)"
 }
 
 create_env_file() {
@@ -366,8 +388,8 @@ install_system_deps() {
         sudo $PKG_UPDATE
     fi
     
-    # Install base dependencies
-    local packages="python3-venv python3-pip"
+    # Install base dependencies with build essentials
+    local packages="python3-venv python3-pip python3-dev build-essential"
     
     if [[ "$DB_TYPE" == "mysql" ]]; then
         case "$PKG_MANAGER" in
@@ -435,12 +457,28 @@ install_panel() {
     python3 -m venv venv
     source venv/bin/activate
     
-    # Upgrade pip
-    pip install --upgrade pip
+    # Upgrade pip and essential tools to latest versions
+    log "Upgrading pip and build tools..."
+    pip install --upgrade pip setuptools wheel
     
-    # Install Python dependencies
+    # Install Python dependencies with latest versions
     log "Installing Python dependencies..."
-    pip install -r requirements.txt
+    
+    # First install/upgrade core build dependencies
+    pip install --upgrade pip setuptools wheel Cython
+    
+    # Install requirements with dependency resolution
+    pip install --upgrade -r requirements.txt
+    
+    # Install optional ML dependencies if requested
+    if [[ "${INSTALL_ML_DEPS:-}" == "true" ]]; then
+        log "Installing optional ML/Analytics dependencies..."
+        pip install --upgrade numpy==1.25.2 scikit-learn==1.3.2 boto3==1.34.23
+    fi
+    
+    # Verify critical packages are installed
+    log "Verifying installation..."
+    python3 -c "import flask, sqlalchemy, PIL, gunicorn; print('✓ Core dependencies verified')" || error "Failed to verify core dependencies"
     
     # Create environment file
     create_env_file
