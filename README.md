@@ -75,7 +75,7 @@ The uninstaller automatically removes:
 - **Admin User:** Username, email, and password
 - **Application Settings:** Host, port, debug mode, CAPTCHA
 - **Production Services:** Nginx, SSL certificates, systemd
-- **Optional Features:** Redis, Discord webhooks
+- **Optional Features:** Redis, phpMyAdmin (for MariaDB), Discord webhooks
 
 The installer automatically:
 - ✅ Checks system requirements (Python 3.8+, Git, Curl)
@@ -84,6 +84,7 @@ The installer automatically:
 - ✅ Sets up Python virtual environment
 - ✅ Creates database and admin user
 - ✅ Configures production services (nginx, SSL, systemd)
+- ✅ Optionally installs phpMyAdmin for database management
 - ✅ Generates secure environment configuration
 
 ### **Manual Installation**
@@ -181,6 +182,32 @@ The panel features an optimized captcha system with:
 - **Quality filters** - SMOOTH and SHARPEN filters for enhanced readability
 - **Smart sizing** - Automatic font scaling based on character count
 - **Security focused** - Excludes confusing characters (0, O, I, 1, L)
+
+### **Database Management with phpMyAdmin**
+
+When MariaDB is selected during installation, you can optionally install phpMyAdmin for easy database management:
+
+```bash
+# phpMyAdmin is automatically configured during installation
+# Access at: http://your-domain/phpmyadmin or https://your-domain/phpmyadmin
+
+# Login credentials:
+# - Server: localhost (or your configured DB_HOST)
+# - Username: Your MariaDB username (default: paneluser)
+# - Password: Your MariaDB password
+```
+
+**Features:**
+- **Web-based Interface** - Manage databases through your browser
+- **Secure Configuration** - Auto-generated blowfish secret for session security
+- **Nginx Integration** - Automatically configured with Panel's nginx setup
+- **Access Control** - Cookie-based authentication for security
+
+**Manual Configuration** (if needed):
+```bash
+# phpMyAdmin config location: /etc/phpmyadmin/config.inc.php
+# Nginx config location: /etc/nginx/conf.d/phpmyadmin.conf
+```
 
 ### **System Services**
 
