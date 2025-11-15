@@ -11,7 +11,19 @@ This repository contains a minimal scaffold for a game server panel targeted at 
 Important notes and next steps
 
 - This is a scaffold — you should review and harden before production.
-- Install Python deps:
+- Quick interactive install
+
+```bash
+bash scripts/install.sh
+```
+
+The script will:
+- Create a Python virtualenv and install dependencies
+- Generate a secret key and write environment variables to `scripts/env.sh`
+- Initialize the database (SQLite for dev, MySQL for prod)
+- Optionally create an initial system admin user
+
+- Manual install (if you prefer not to use the script):
 
 ```bash
 python3 -m venv .venv
