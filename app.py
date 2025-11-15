@@ -1,4 +1,5 @@
 import os
+import time
 import io
 import secrets
 from datetime import datetime, date, timezone
@@ -33,6 +34,53 @@ from PIL import Image, ImageOps
 app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
+
+# --- Simple rate limiting helpers (Redis-backed, with in-process fallback) ---
+_rl_fallback_store = {}
+
+def _get_redis_conn():
+    try:
+        redis_url = os.environ.get('PANEL_REDIS_URL', getattr(config, 'REDIS_URL', 'redis://127.0.0.1:6379/0'))
+        return redis.from_url(redis_url)
+    except Exception:
+        return None
+
+def _client_ip():
+    # basic client IP detection; behind proxies you could trust X-Forwarded-For
+    xff = request.headers.get('X-Forwarded-For')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+def rate_limit(action: str, limit: int, window_seconds: int) -> bool:
+    """Return True if request allowed, False if rate-limited.
+    Skips when TESTING mode is enabled.
+    """
+    if app.config.get('TESTING', False):
+        return True
+    ip = _client_ip()
+    key = f"rl:{action}:{ip}"
+    now = int(time.time())
+    rconn = _get_redis_conn()
+    if rconn is not None:
+        try:
+            count = rconn.incr(key)
+            if count == 1:
+                rconn.expire(key, window_seconds)
+            return count <= limit
+        except Exception:
+            pass
+    # Fallback in-process store
+    bucket = _rl_fallback_store.get(key)
+    if not bucket:
+        bucket = {"start": now, "count": 0}
+        _rl_fallback_store[key] = bucket
+    # reset window if expired
+    if now - bucket["start"] >= window_seconds:
+        bucket["start"] = now
+        bucket["count"] = 0
+    bucket["count"] += 1
+    return bucket["count"] <= limit
 
 @app.context_processor
 def inject_user():
@@ -271,10 +319,14 @@ def captcha_image():
     # generate image and store the expected text in session
     text = generate_captcha_image()
     session["captcha_text"] = text
+    session["captcha_ts"] = int(time.time())
     # retrieve last generated image bytes from captcha module
     from captcha import last_image_bytes
     img = last_image_bytes()
     if img:
+        # rate limit captcha image generation to avoid abuse
+        if not rate_limit('captcha_img', limit=60, window_seconds=60):
+            return ("Too Many Requests", 429)
         return send_file(io.BytesIO(img), mimetype="image/png")
     return ("", 404)
 
@@ -296,17 +348,29 @@ def login():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("login"))
+        # Rate limit login attempts per IP
+        if not rate_limit('login_post', limit=10, window_seconds=300):
+            flash("Too many login attempts. Please try again later.", "error")
+            return redirect(url_for("login"))
         email = request.form.get("email", "").lower().strip()
         password = request.form.get("password", "")
         captcha = request.form.get("captcha", "")
         # captcha verify (if present and not in testing mode)
         if not app.config.get('TESTING', False):
+            # captcha expiry: 3 minutes
+            ts = session.get("captcha_ts")
+            if not ts or (int(time.time()) - int(ts) > 180):
+                flash("Captcha expired. Please refresh and try again.", "error")
+                return redirect(url_for("login"))
             if session.get("captcha_text") != captcha:
                 flash("Invalid captcha", "error")
                 return redirect(url_for("login"))
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
+            # clear captcha on success
+            session.pop("captcha_text", None)
+            session.pop("captcha_ts", None)
             flash("Logged in", "success")
             return redirect(url_for("dashboard"))
         else:
@@ -323,9 +387,17 @@ def forgot():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("forgot"))
+        # Rate limit forgot requests per IP
+        if not rate_limit('forgot_post', limit=5, window_seconds=600):
+            flash("Too many reset requests. Please try again later.", "error")
+            return redirect(url_for("forgot"))
         # Captcha validation (skip in TESTING mode)
         captcha = request.form.get("captcha", "")
         if not app.config.get('TESTING', False):
+            ts = session.get("captcha_ts")
+            if not ts or (int(time.time()) - int(ts) > 180):
+                flash("Captcha expired. Please refresh and try again.", "error")
+                return redirect(url_for("forgot"))
             if session.get("captcha_text") != captcha:
                 flash("Invalid captcha", "error")
                 return redirect(url_for("forgot"))
@@ -338,6 +410,9 @@ def forgot():
         token = secrets.token_urlsafe(32)
         user.reset_token = token
         db.session.commit()
+        # clear captcha on success
+        session.pop("captcha_text", None)
+        session.pop("captcha_ts", None)
         # Display the token / local link so the admin/user can use it locally
         reset_link = url_for("reset_password", token=token, _external=True)
         return render_template("forgot_local.html", reset_link=reset_link, token=token)
@@ -356,9 +431,17 @@ def reset_password(token):
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("reset_password", token=token))
+        # Rate limit reset password attempts per IP
+        if not rate_limit('reset_post', limit=10, window_seconds=600):
+            flash("Too many reset attempts. Please try again later.", "error")
+            return redirect(url_for("reset_password", token=token))
         captcha = request.form.get("captcha", "")
         # captcha verify (if not in testing mode)
         if not app.config.get('TESTING', False):
+            ts = session.get("captcha_ts")
+            if not ts or (int(time.time()) - int(ts) > 180):
+                flash("Captcha expired. Please refresh and try again.", "error")
+                return redirect(url_for("reset_password", token=token))
             if session.get("captcha_text") != captcha:
                 flash("Invalid captcha", "error")
                 return redirect(url_for("reset_password", token=token))
@@ -370,6 +453,9 @@ def reset_password(token):
         user.set_password(password)
         user.reset_token = None
         db.session.commit()
+        # clear captcha on success
+        session.pop("captcha_text", None)
+        session.pop("captcha_ts", None)
         flash("Password reset successful", "success")
         return redirect(url_for("login"))
     return render_template("reset.html", token=token)
