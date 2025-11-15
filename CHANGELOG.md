@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file.
 - Added Theme Editor: admin can edit site CSS via `/admin/theme`.
 - Hide `Dashboard` and `RCON` links on the public site unless a user is logged in.
  - Add server logo support in Theme Editor: upload/store logos and serve at `/theme_asset/<filename>`.
+ - Captcha hardening across auth flows:
+	 - Add captcha to Forgot Password form (required in non-testing environments).
+	 - Enforce captcha on Login and Reset Password; provide audio via espeak.
+	 - Skip captcha validation in TESTING mode and hide captcha UI in tests to unblock Playwright E2E.
+	 - Fix Pillow 10+ compatibility for captcha text sizing (use `textbbox` with fallbacks).
+ - SQLAlchemy deprecations resolved: replace `Query.get()` with `db.session.get()`.
 
 ## [scaffold-initial-2025-11-14] - 2025-11-14
 
