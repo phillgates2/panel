@@ -5,15 +5,18 @@
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
   <label>New password: <input name="password" type="password" required></label><br>
+  {% if not config.TESTING %}
   <div>
     <img id="captcha-img" src="/captcha.png" alt="captcha" />
     <button type="button" id="refresh">Refresh</button>
     <button type="button" id="audio">Play audio</button>
   </div>
   <label>Captcha: <input name="captcha" required></label><br>
+  {% endif %}
   <button type="submit">Set Password</button>
 </form>
 </div>
+{% if not config.TESTING %}
 <script>
 document.getElementById('refresh').addEventListener('click', ()=>{
   const img = document.getElementById('captcha-img');
@@ -24,4 +27,5 @@ document.getElementById('audio').addEventListener('click', ()=>{
   a.play();
 });
 </script>
+{% endif %}
 {% endblock %}

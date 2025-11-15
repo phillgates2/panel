@@ -63,7 +63,7 @@ def inject_user():
     except Exception:
         theme_enabled = False
 
-    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled)
+    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, config=app.config)
 
 db = SQLAlchemy(app)
 
@@ -299,10 +299,11 @@ def login():
         email = request.form.get("email", "").lower().strip()
         password = request.form.get("password", "")
         captcha = request.form.get("captcha", "")
-        # captcha verify (if present)
-        if session.get("captcha_text") != captcha:
-            flash("Invalid captcha", "error")
-            return redirect(url_for("login"))
+        # captcha verify (if present and not in testing mode)
+        if not app.config.get('TESTING', False):
+            if session.get("captcha_text") != captcha:
+                flash("Invalid captcha", "error")
+                return redirect(url_for("login"))
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
@@ -350,9 +351,11 @@ def reset_password(token):
             flash("Invalid CSRF token", "error")
             return redirect(url_for("reset_password", token=token))
         captcha = request.form.get("captcha", "")
-        if session.get("captcha_text") != captcha:
-            flash("Invalid captcha", "error")
-            return redirect(url_for("reset_password", token=token))
+        # captcha verify (if not in testing mode)
+        if not app.config.get('TESTING', False):
+            if session.get("captcha_text") != captcha:
+                flash("Invalid captcha", "error")
+                return redirect(url_for("reset_password", token=token))
         password = request.form.get("password", "")
         import re
         if len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"\d", password) or not re.search(r"[^A-Za-z0-9]", password):
