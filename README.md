@@ -14,10 +14,12 @@ Important notes and next steps
 - Quick interactive install
 
 ```bash
-bash scripts/install.sh
+./panel.sh install
+# Or preview with dry-run:
+./panel.sh install --dry-run
 ```
 
-The script will:
+The installer will:
 - Create a Python virtualenv and install dependencies
 - Generate a secret key and write environment variables to `scripts/env.sh`
 - Initialize the database (SQLite for dev, MySQL for prod)
