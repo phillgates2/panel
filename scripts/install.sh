@@ -149,6 +149,16 @@ source "$VENVDIR/bin/activate"
 pip install -U pip wheel
 pip install -r requirements.txt
 
+# 2.5) Optionally install Playwright browsers for E2E tests
+INSTALL_PLAYWRIGHT=0
+if confirm "Install Playwright Chromium for E2E tests?" N; then
+  INSTALL_PLAYWRIGHT=1
+  echo "Installing Playwright Chromium..."
+  python -m playwright install chromium || {
+    echo "Warning: Playwright install failed. E2E tests may not run." >&2
+  }
+fi
+
 # 3) Create instance directories
 mkdir -p instance/theme_assets
 
@@ -226,7 +236,27 @@ Next steps (development):
      source scripts/env.sh
   2) Run the app:
      python app.py
+OUT
 
+if [[ "$INSTALL_PLAYWRIGHT" -eq 1 ]]; then
+cat <<'OUT'
+  3) Run tests (including E2E):
+     pytest -q
+
+OUT
+else
+cat <<'OUT'
+  3) Run tests (note: E2E tests will be skipped without Playwright):
+     pytest -q
+     
+     To enable E2E tests later:
+       source .venv/bin/activate
+       python -m playwright install chromium
+
+OUT
+fi
+
+cat <<'OUT'
 For production:
   - Copy and adjust the systemd service files in deploy/ (WorkingDirectory, PATH)
   - Point gunicorn at app:app, ensure env variables are set for the service
