@@ -27,7 +27,11 @@
         <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
         <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:var(--muted);">
           Theme: {% if theme_enabled %}<strong style="color:#86efac;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
-          <button id="theme-toggle" class="small" style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">Toggle Theme</button>
+          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" title="Toggle theme"
+            style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
+            <span class="icon" aria-hidden="true">🌙</span>
+            <span class="label">Dark</span>
+          </button>
         </div>
           Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
         </div>
@@ -66,13 +70,31 @@
 
     <script>
       (function(){
-        // Theme toggle logic
+        // Theme toggle logic with icon and label
         var btn = document.getElementById('theme-toggle');
+        function updateToggle(theme){
+          if(!btn) return;
+          var icon = btn.querySelector('.icon');
+          var label = btn.querySelector('.label');
+          if(theme === 'dark'){
+            if(icon) icon.textContent = '🌙';
+            if(label) label.textContent = 'Dark';
+            btn.setAttribute('aria-pressed','true');
+          }else{
+            if(icon) icon.textContent = '☀️';
+            if(label) label.textContent = 'Light';
+            btn.setAttribute('aria-pressed','false');
+          }
+        }
         if(btn){
+          // Initialize label/icon based on current theme
+          var curInit = document.documentElement.getAttribute('data-theme') || 'dark';
+          updateToggle(curInit);
           btn.addEventListener('click', function(){
             var cur = document.documentElement.getAttribute('data-theme') || 'dark';
             var next = (cur === 'dark') ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
+            updateToggle(next);
             try{ localStorage.setItem('theme', next); }catch(e){}
           });
         }

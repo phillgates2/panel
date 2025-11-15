@@ -21,6 +21,8 @@ button{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 
 button:hover{background:#1d4ed8}
 button:active{transform:translateY(1px)}
 img{border-radius:6px}
+/* theme toggle icon spacing */
+.theme-toggle-btn .icon{margin-right:6px}
 /* Alerts */
 .alert{padding:10px 12px;margin:10px 0;border-radius:8px;border:1px solid var(--border);background:var(--panel-hover);color:var(--text)}
 .alert-warning{background:#30240a;border-color:#4b3b12;color:#facc15}
