@@ -13,6 +13,7 @@
     <img id="captcha-img" src="/captcha.png" alt="captcha" />
     <button type="button" id="refresh">Refresh</button>
     <button type="button" id="audio">Play audio</button>
+    <span id="captcha-countdown" class="small" style="margin-left:8px;"></span>
   </div>
   <label>Captcha: <input name="captcha" required></label><br>
   {% endif %}
@@ -27,6 +28,8 @@
   const input = document.querySelector('input[name="captcha"]');
   const EXP_MS = 180000;
   let timer = null;
+  let countdownTimer = null;
+  const countdown = document.getElementById('captcha-countdown');
 
   function refreshCaptcha(){ img.src = '/captcha.png?_' + Date.now(); }
   function scheduleExpiry(){
@@ -37,10 +40,20 @@
       if (input) input.value = '';
     }, EXP_MS);
   }
-  img.addEventListener('load', ()=>{ if (banner) banner.style.display = 'none'; scheduleExpiry(); });
+  function fmt(ms){ const t=Math.max(0,Math.floor(ms/1000)); const m=Math.floor(t/60); const s=t%60; return `${m}:${s.toString().padStart(2,'0')}`; }
+  function startCountdown(){
+    if (!countdown) return;
+    let end = Date.now() + EXP_MS;
+    if (countdownTimer) clearInterval(countdownTimer);
+    const tick=()=>{ const left=end-Date.now(); countdown.textContent = `Refreshing in ${fmt(left)}`; };
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+  img.addEventListener('load', ()=>{ if (banner) banner.style.display = 'none'; scheduleExpiry(); startCountdown(); });
   document.getElementById('refresh').addEventListener('click', refreshCaptcha);
   document.getElementById('audio').addEventListener('click', ()=>{ const a = new Audio('/captcha_audio?_' + Date.now()); a.play(); });
   scheduleExpiry();
+  startCountdown();
 })();
 </script>
 {% endif %}
