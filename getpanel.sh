@@ -129,10 +129,13 @@ interactive_config() {
         SETUP_SSL="false"
         SETUP_SYSTEMD="false"
         SETUP_REDIS="false"
+        DISCORD_WEBHOOK=""
+        INSTALL_ML_DEPS="false"
         return 0
     fi
     
     log "🔧 Interactive Configuration"
+    echo -e "${BLUE}Configure your Panel installation step by step${NC}"
     echo
     
     # Installation mode
@@ -201,33 +204,75 @@ interactive_config() {
     # Admin user configuration
     echo
     echo -e "${BLUE}Admin User Setup:${NC}"
+    echo -e "${YELLOW}Configure the initial administrator account${NC}"
     ADMIN_USERNAME=$(prompt_input "Admin Username" "admin")
     ADMIN_EMAIL=$(prompt_input "Admin Email" "admin@localhost")
-    ADMIN_PASSWORD=$(prompt_input "Admin Password" "" "true")
     
-    # Application settings
-    if [[ "$INSTALL_MODE" == "custom" ]]; then
-        echo
-        echo -e "${BLUE}Application Settings:${NC}"
-        APP_HOST=$(prompt_input "Application Host" "0.0.0.0")
-        APP_PORT=$(prompt_input "Application Port" "8080")
-        
-        if prompt_confirm "Enable debug mode?" "n"; then
+    # Password with validation
+    while true; do
+        ADMIN_PASSWORD=$(prompt_input "Admin Password (min 8 characters)" "" "true")
+        if [[ -z "$ADMIN_PASSWORD" ]]; then
+            ADMIN_PASSWORD="admin123"
+            echo -e "${YELLOW}Using default password: admin123${NC}"
+            break
+        elif [[ ${#ADMIN_PASSWORD} -ge 8 ]]; then
+            break
+        else
+            echo -e "${RED}Password must be at least 8 characters long${NC}"
+        fi
+    done
+    
+    # Application settings (always show for better user control)
+    echo
+    echo -e "${BLUE}Application Settings:${NC}"
+    echo -e "${YELLOW}Configure how Panel runs and behaves${NC}"
+    
+    APP_HOST=$(prompt_input "Application Host (0.0.0.0 for all interfaces)" "0.0.0.0")
+    
+    # Port validation
+    while true; do
+        APP_PORT=$(prompt_input "Application Port (1024-65535)" "8080")
+        if [[ "$APP_PORT" =~ ^[0-9]+$ ]] && [[ "$APP_PORT" -ge 1024 ]] && [[ "$APP_PORT" -le 65535 ]]; then
+            break
+        else
+            echo -e "${RED}Please enter a valid port number (1024-65535)${NC}"
+        fi
+    done
+    
+    # Debug mode
+    if [[ "$INSTALL_MODE" == "development" ]]; then
+        if prompt_confirm "Enable debug mode? (recommended for development)" "y"; then
             DEBUG_MODE="true"
         else
             DEBUG_MODE="false"
         fi
-        
-        if prompt_confirm "Disable CAPTCHA for testing?" "n"; then
-            DISABLE_CAPTCHA="true"
-        else
-            DISABLE_CAPTCHA="false"
-        fi
     else
-        APP_HOST="0.0.0.0"
-        APP_PORT="8080"
-        DEBUG_MODE="false"
+        if prompt_confirm "Enable debug mode? (not recommended for production)" "n"; then
+            DEBUG_MODE="true"
+        else
+            DEBUG_MODE="false"
+        fi
+    fi
+    
+    # CAPTCHA settings
+    if prompt_confirm "Disable CAPTCHA for testing/development?" "n"; then
+        DISABLE_CAPTCHA="true"
+    else
         DISABLE_CAPTCHA="false"
+    fi
+    
+    # Security settings
+    echo
+    echo -e "${BLUE}Security Settings:${NC}"
+    if prompt_confirm "Generate random SECRET_KEY? (recommended)" "y"; then
+        SECRET_KEY_GENERATE="true"
+    else
+        SECRET_KEY=$(prompt_input "Custom SECRET_KEY (leave empty for random)" "")
+        if [[ -z "$SECRET_KEY" ]]; then
+            SECRET_KEY_GENERATE="true"
+        else
+            SECRET_KEY_GENERATE="false"
+        fi
     fi
     
     # Production services
@@ -259,44 +304,92 @@ interactive_config() {
         SETUP_SYSTEMD="false"
     fi
     
-    # Optional features
-    if [[ "$INSTALL_MODE" == "custom" ]]; then
-        echo
-        echo -e "${BLUE}Optional Features:${NC}"
-        
-        if prompt_confirm "Setup Discord webhooks?" "n"; then
-            DISCORD_WEBHOOK=$(prompt_input "Discord Webhook URL" "")
+    # Optional features (always show for all modes)
+    echo
+    echo -e "${BLUE}Optional Features & Integrations:${NC}"
+    echo -e "${YELLOW}Enable additional functionality and external integrations${NC}"
+    
+    # Discord integration
+    if prompt_confirm "Setup Discord webhooks for notifications?" "n"; then
+        DISCORD_WEBHOOK=$(prompt_input "Discord Webhook URL" "")
+        if [[ -z "$DISCORD_WEBHOOK" ]]; then
+            echo -e "${YELLOW}No webhook URL provided, Discord integration will be disabled${NC}"
         fi
-        
-        if prompt_confirm "Enable Redis for background tasks?" "n"; then
+    else
+        DISCORD_WEBHOOK=""
+    fi
+    
+    # Redis for background tasks
+    if [[ "$INSTALL_MODE" == "production" ]]; then
+        if prompt_confirm "Enable Redis for background task queue? (recommended for production)" "y"; then
             SETUP_REDIS="true"
         else
             SETUP_REDIS="false"
         fi
-        
-        if prompt_confirm "Install ML/Analytics dependencies (numpy, scikit-learn)?" "n"; then
-            INSTALL_ML_DEPS="true"
-        else
-            INSTALL_ML_DEPS="false"
-        fi
     else
-        SETUP_REDIS="false"
+        if prompt_confirm "Enable Redis for background task queue?" "n"; then
+            SETUP_REDIS="true"
+        else
+            SETUP_REDIS="false"
+        fi
+    fi
+    
+    # ML/Analytics dependencies
+    if prompt_confirm "Install ML/Analytics dependencies (numpy, scikit-learn, boto3)?" "n"; then
+        INSTALL_ML_DEPS="true"
+        echo -e "${BLUE}This will install: numpy, scikit-learn, boto3${NC}"
+    else
         INSTALL_ML_DEPS="false"
     fi
     
-    # Show configuration summary
+    # Logging configuration
     echo
-    log "📋 Configuration Summary:"
-    echo -e "  ${BLUE}Mode:${NC} $INSTALL_MODE"
-    echo -e "  ${BLUE}Database:${NC} $DB_TYPE"
-    [[ "$DB_TYPE" == "mysql" ]] && echo -e "  ${BLUE}MySQL:${NC} $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
-    echo -e "  ${BLUE}Admin:${NC} $ADMIN_USERNAME ($ADMIN_EMAIL)"
-    echo -e "  ${BLUE}Port:${NC} $APP_PORT"
-    [[ "$SETUP_NGINX" == "true" ]] && echo -e "  ${BLUE}Domain:${NC} $DOMAIN_NAME"
-    [[ "$SETUP_SSL" == "true" ]] && echo -e "  ${BLUE}SSL:${NC} enabled"
-    [[ "$SETUP_SYSTEMD" == "true" ]] && echo -e "  ${BLUE}Systemd:${NC} enabled"
-    [[ "$SETUP_REDIS" == "true" ]] && echo -e "  ${BLUE}Redis:${NC} enabled"
-    [[ "$INSTALL_ML_DEPS" == "true" ]] && echo -e "  ${BLUE}ML Analytics:${NC} enabled"
+    echo -e "${BLUE}Logging & Monitoring:${NC}"
+    if prompt_confirm "Enable detailed application logging?" "y"; then
+        ENABLE_LOGGING="true"
+        LOG_LEVEL=$(prompt_input "Log level (DEBUG/INFO/WARNING/ERROR)" "INFO")
+        case "${LOG_LEVEL^^}" in
+            DEBUG|INFO|WARNING|ERROR) ;;
+            *) LOG_LEVEL="INFO"; echo -e "${YELLOW}Invalid log level, using INFO${NC}";;
+        esac
+    else
+        ENABLE_LOGGING="false"
+        LOG_LEVEL="WARNING"
+    fi
+    
+    # Show comprehensive configuration summary
+    echo
+    log "📋 Complete Configuration Summary:"
+    echo -e "  ${BLUE}Installation Mode:${NC} $INSTALL_MODE"
+    echo -e "  ${BLUE}Install Directory:${NC} $INSTALL_DIR"
+    echo
+    echo -e "  ${BLUE}Database Configuration:${NC}"
+    echo -e "    Type: $DB_TYPE"
+    [[ "$DB_TYPE" == "mysql" ]] && echo -e "    MySQL: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
+    echo
+    echo -e "  ${BLUE}Application Settings:${NC}"
+    echo -e "    Host: $APP_HOST"
+    echo -e "    Port: $APP_PORT"
+    echo -e "    Debug Mode: $DEBUG_MODE"
+    echo -e "    CAPTCHA Disabled: $DISABLE_CAPTCHA"
+    echo -e "    Secret Key: ${SECRET_KEY_GENERATE:+[Generated]}${SECRET_KEY:+[Custom]}"
+    echo
+    echo -e "  ${BLUE}Admin Account:${NC}"
+    echo -e "    Username: $ADMIN_USERNAME"
+    echo -e "    Email: $ADMIN_EMAIL"
+    echo -e "    Password: [Configured]"
+    echo
+    echo -e "  ${BLUE}Production Services:${NC}"
+    echo -e "    Nginx: ${SETUP_NGINX}"
+    [[ "$SETUP_NGINX" == "true" ]] && echo -e "    Domain: $DOMAIN_NAME"
+    echo -e "    SSL: ${SETUP_SSL}"
+    echo -e "    Systemd: ${SETUP_SYSTEMD}"
+    echo
+    echo -e "  ${BLUE}Optional Features:${NC}"
+    echo -e "    Redis Queue: ${SETUP_REDIS}"
+    echo -e "    ML/Analytics: ${INSTALL_ML_DEPS}"
+    echo -e "    Discord Webhooks: ${DISCORD_WEBHOOK:+Enabled}${DISCORD_WEBHOOK:-Disabled}"
+    echo -e "    Logging: ${ENABLE_LOGGING} (Level: ${LOG_LEVEL})"
     echo
     
     if ! prompt_confirm "Proceed with installation?" "y"; then
@@ -368,13 +461,18 @@ PANEL_DB_PASS=$DB_PASS
 EOF
     fi
     
+    # Generate or use custom secret key
+    if [[ "${SECRET_KEY_GENERATE:-true}" == "true" ]]; then
+        SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p)
+    fi
+    
     cat >> .env << EOF
 
 # Application Settings
 PANEL_HOST=$APP_HOST
 PANEL_PORT=$APP_PORT
 PANEL_DEBUG=$DEBUG_MODE
-PANEL_SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p)
+PANEL_SECRET_KEY=$SECRET_KEY
 
 # Security Settings
 PANEL_DISABLE_CAPTCHA=$DISABLE_CAPTCHA
@@ -383,6 +481,10 @@ PANEL_DISABLE_CAPTCHA=$DISABLE_CAPTCHA
 PANEL_ADMIN_USERNAME=$ADMIN_USERNAME
 PANEL_ADMIN_EMAIL=$ADMIN_EMAIL
 PANEL_ADMIN_PASSWORD=$ADMIN_PASSWORD
+
+# Logging Configuration
+PANEL_ENABLE_LOGGING=${ENABLE_LOGGING:-true}
+PANEL_LOG_LEVEL=${LOG_LEVEL:-INFO}
 EOF
     
     if [[ -n "${DISCORD_WEBHOOK:-}" ]]; then
@@ -751,6 +853,11 @@ main() {
         SETUP_SSL="false"
         SETUP_SYSTEMD="false"
         SETUP_REDIS="false"
+        DISCORD_WEBHOOK=""
+        INSTALL_ML_DEPS="false"
+        SECRET_KEY_GENERATE="true"
+        ENABLE_LOGGING="true"
+        LOG_LEVEL="INFO"
     else
         interactive_config
     fi
@@ -888,6 +995,15 @@ show_help() {
     echo "  PANEL_BRANCH           Git branch to install (default: main)"
     echo "  PANEL_NONINTERACTIVE   Skip interactive prompts (default: false)"
     echo "  PANEL_ADMIN_PASSWORD   Admin password for non-interactive mode"
+    echo
+    echo "Interactive Configuration Options:"
+    echo "  • Installation Mode: Development, Production, or Custom"
+    echo "  • Database: SQLite (development) or MySQL (production)"
+    echo "  • Application Settings: Host, Port, Debug Mode, CAPTCHA"
+    echo "  • Security: Secret Key generation, Admin account setup"
+    echo "  • Production Services: Nginx, SSL certificates, Systemd"
+    echo "  • Optional Features: Redis, Discord webhooks, ML dependencies"
+    echo "  • Logging: Level configuration and detailed monitoring"
     echo
     echo "Examples:"
     echo "  # Quick development setup (non-interactive)"
