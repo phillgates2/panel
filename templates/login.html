@@ -7,6 +7,9 @@
   <label>Email: <input name="email" type="email" required></label><br>
   <label>Password: <input name="password" type="password" required></label><br>
   {% if not config.TESTING %}
+  <div id="captcha-expired" class="alert alert-warning hidden">
+    Captcha expired — it has been refreshed. Please solve the new captcha.
+  </div>
   <div>
     <img id="captcha-img" src="/captcha.png" alt="captcha" />
     <button type="button" id="refresh">Refresh</button>
@@ -19,14 +22,45 @@
 </div>
 {% if not config.TESTING %}
 <script>
-document.getElementById('refresh').addEventListener('click', ()=>{
+(function(){
   const img = document.getElementById('captcha-img');
-  img.src = '/captcha.png?_' + Date.now();
-});
-document.getElementById('audio').addEventListener('click', ()=>{
-  const a = new Audio('/captcha_audio?_' + Date.now());
-  a.play();
-});
+  const banner = document.getElementById('captcha-expired');
+  const input = document.querySelector('input[name="captcha"]');
+  const EXP_MS = 180000; // 3 minutes (keep in sync with server)
+  let timer = null;
+
+  function refreshCaptcha(){
+    img.src = '/captcha.png?_' + Date.now();
+  }
+
+  function scheduleExpiry(){
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(()=>{
+      // show banner, refresh, and clear input
+      if (banner) banner.style.display = 'block';
+      refreshCaptcha();
+      if (input) input.value = '';
+      // schedule next expiry after reload completes
+    }, EXP_MS);
+  }
+
+  img.addEventListener('load', ()=>{
+    // hide banner on new captcha and reset timer
+    if (banner) banner.style.display = 'none';
+    scheduleExpiry();
+  });
+
+  document.getElementById('refresh').addEventListener('click', ()=>{
+    refreshCaptcha();
+  });
+  document.getElementById('audio').addEventListener('click', ()=>{
+    const a = new Audio('/captcha_audio?_' + Date.now());
+    a.play();
+  });
+
+  // Start the timer based on initial image
+  scheduleExpiry();
+})();
 </script>
 {% endif %}
 <p><a href="/forgot">Forgot password?</a></p>

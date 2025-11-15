@@ -8,3 +8,10 @@ meter{width:180px;height:12px}
 .info{color:gray}
 .container{max-width:800px;margin:0 auto;background:#fff;padding:1rem;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
 .small{font-size:0.9rem;color:#555}
+/* Alerts, matching panel theme */
+.alert{padding:8px 12px;margin:8px 0;border-radius:6px;border:1px solid transparent;background:#f9fafb;color:#222}
+.alert-warning{background:#fffbe6;border-color:#ffe58f;color:#614700}
+.alert-success{background:#edfdf3;border-color:#b7f0c0;color:#14532d}
+.alert-error{background:#fff1f0;border-color:#ffccc7;color:#a8071a}
+.alert-info{background:#f0f7ff;border-color:#cfe4ff;color:#084298}
+.hidden{display:none}
