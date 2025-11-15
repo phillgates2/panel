@@ -986,19 +986,39 @@ install_panel() {
         if command -v mysql &> /dev/null; then
             log "Setting up MariaDB database and user..."
             
+            # First check if MariaDB server is actually running
+            if ! pgrep -x "mysqld\|mariadbd" >/dev/null 2>&1 && ! ss -tlnp 2>/dev/null | grep -q ":3306 " 2>/dev/null; then
+                warn "⚠️  MariaDB server does not appear to be running"
+                warn "In development environments, consider using SQLite instead"
+                warn ""
+                
+                if [[ -t 0 ]] && [[ -t 1 ]] && prompt_confirm "Switch to SQLite for this installation?" "y"; then
+                    log "Switching to SQLite database..."
+                    DB_TYPE="sqlite"
+                    # Update .env file if it exists
+                    if [[ -f ".env" ]]; then
+                        sed -i '/^PANEL_DB_/d' .env
+                        echo "PANEL_USE_SQLITE=1" >> .env
+                    fi
+                else
+                    warn "Continuing with MariaDB setup (may fail if server not available)..."
+                fi
+            fi
+            
             # Try different authentication methods for MariaDB root access
             local mysql_auth_success=false
             local mysql_cmd=""
             
-            # Method 1: Try with sudo (unix_socket authentication)
+            # Method 1: Try with sudo (unix_socket authentication) - most common on modern systems
+            log "Attempting MariaDB authentication via unix_socket..."
             if [[ $EUID -eq 0 ]]; then
-                mysql_cmd="mysql"
+                mysql_cmd="mysql -u root"
             else
-                mysql_cmd="sudo mysql"
+                mysql_cmd="sudo mysql -u root"
             fi
             
-            # Test connection and create database/user
-            if $mysql_cmd -e "SELECT 1;" &>/dev/null; then
+            # Test connection and create database/user (suppress error output for clean testing)
+            if $mysql_cmd -e "SELECT 1 as test;" >/dev/null 2>&1; then
                 log "Using sudo/root authentication for MariaDB setup"
                 $mysql_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
                 
@@ -1015,41 +1035,96 @@ install_panel() {
                 $mysql_cmd -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
                 
                 mysql_auth_success=true
-                log "✓ MariaDB database and user configured successfully"
-                
-            # Method 2: Try with existing root password (if set)
-            elif mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "SELECT 1;" &>/dev/null; then
-                log "Using existing root password for MariaDB setup"
-                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
-                
-                if [[ -n "$DB_PASS" ]]; then
-                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
-                else
-                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';"
-                fi
-                
-                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
-                mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "FLUSH PRIVILEGES;"
-                mysql_auth_success=true
+                log "✓ MariaDB database and user configured successfully via unix_socket"
                 
             else
-                warn "Cannot authenticate to MariaDB as root"
-                warn "Please manually create the database and user:"
-                warn "  Database: $DB_NAME"
-                warn "  User: $DB_USER"
-                warn "  Password: ${DB_PASS:-[empty]}"
-                warn ""
-                warn "Manual setup commands:"
-                warn "  sudo mysql"
-                warn "  CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
-                if [[ -n "$DB_PASS" ]]; then
-                    warn "  CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
+                log "Unix_socket authentication failed, trying password authentication..."
+                
+                # Method 2: Try with empty root password (default on some installations)
+                if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "SELECT 1 as test;" >/dev/null 2>&1; then
+                    log "Using empty root password for MariaDB setup"
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
+                    
+                    if [[ -n "$DB_PASS" ]]; then
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
+                    else
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost';" || warn "User $DB_USER may already exist"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
+                    fi
+                    
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
+                    
+                    mysql_auth_success=true
+                    log "✓ MariaDB database and user configured successfully via password authentication"
+                    
+                # Method 3: Try interactive password prompt (last resort)
+                elif [[ -t 0 ]] && [[ -t 1 ]]; then
+                    log "Attempting interactive root password authentication..."
+                    echo -e "${BLUE}MariaDB root password required for database setup${NC}"
+                    
+                    if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "SELECT 1 as test;" >/dev/null 2>&1; then
+                        log "Using interactive root password for MariaDB setup"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
+                        
+                        if [[ -n "$DB_PASS" ]]; then
+                            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
+                            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
+                        else
+                            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost';" || warn "User $DB_USER may already exist"
+                            mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
+                        fi
+                        
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
+                        
+                        mysql_auth_success=true
+                        log "✓ MariaDB database and user configured successfully via interactive password"
+                    else
+                        mysql_auth_success=false
+                    fi
                 else
-                    warn "  CREATE USER '$DB_USER'@'%';"
+                    mysql_auth_success=false
                 fi
-                warn "  GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
-                warn "  FLUSH PRIVILEGES;"
-                warn "  EXIT;"
+            fi
+            
+            # If all authentication methods failed, provide manual instructions
+            if [[ "$mysql_auth_success" == "false" ]]; then
+                warn "❌ All MariaDB authentication methods failed"
+                warn "This usually happens when:"
+                warn "  • MariaDB is not running"
+                warn "  • Root password is set but not provided"
+                warn "  • MariaDB security plugin configuration is strict"
+                warn ""
+                warn "🔧 Manual database setup required:"
+                warn "  1. Start MariaDB service:"
+                warn "     sudo systemctl start mariadb"
+                warn ""
+                warn "  2. Secure MariaDB installation (if not done):"
+                warn "     sudo mysql_secure_installation"
+                warn ""
+                warn "  3. Create database and user manually:"
+                warn "     sudo mysql"
+                warn "     CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+                if [[ -n "$DB_PASS" ]]; then
+                    warn "     CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
+                    warn "     CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
+                else
+                    warn "     CREATE USER '$DB_USER'@'localhost';"
+                    warn "     CREATE USER '$DB_USER'@'%';"
+                fi
+                warn "     GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';"
+                warn "     GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
+                warn "     FLUSH PRIVILEGES;"
+                warn "     EXIT;"
+                warn ""
+                warn "  4. Then re-run the Panel installer"
+                warn ""
+                warn "💡 Alternative: Use SQLite for development:"
+                warn "     Set DB_TYPE=sqlite in your configuration"
             fi
         else
             warn "MariaDB/MySQL client not found, skipping database setup"
