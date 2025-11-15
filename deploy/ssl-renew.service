@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew Let's Encrypt SSL certificates for Panel
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx"
+User=root
+
+[Install]
+WantedBy=multi-user.target

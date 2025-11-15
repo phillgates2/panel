@@ -1,0 +1,78 @@
+{
+  "name": "Panel Development Container",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "github.copilot",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": true
+        }
+      }
+    }
+  },
+  
+  "forwardPorts": [5000, 8080, 6379, 3306, 9090, 3000],
+  "portsAttributes": {
+    "5000": {
+      "label": "Flask Dev Server",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Gunicorn",
+      "onAutoForward": "notify"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "3306": {
+      "label": "MySQL",
+      "onAutoForward": "silent"
+    },
+    "9090": {
+      "label": "Prometheus",
+      "onAutoForward": "silent"
+    },
+    "3000": {
+      "label": "Grafana",
+      "onAutoForward": "silent"
+    }
+  },
+  
+  "postCreateCommand": "bash -c 'pip install --upgrade pip && pip install -r requirements.txt && playwright install chromium'",
+  
+  "remoteEnv": {
+    "PANEL_USE_SQLITE": "1",
+    "PANEL_SECRET_KEY": "dev-secret-key-change",
+    "FLASK_ENV": "development",
+    "FLASK_DEBUG": "1"
+  },
+  
+  "mounts": [
+    "source=${localWorkspaceFolder}/instance,target=${containerWorkspaceFolder}/instance,type=bind,consistency=cached"
+  ],
+  
+  "remoteUser": "vscode"
+}

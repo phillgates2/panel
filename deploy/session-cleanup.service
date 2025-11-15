@@ -1,0 +1,11 @@
+[Unit]
+Description=Panel Session Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=panel
+WorkingDirectory=/opt/panel
+ExecStart=/usr/bin/python3 /opt/panel/scripts/session_cleanup.py --all
+StandardOutput=journal
+StandardError=journal

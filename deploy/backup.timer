@@ -1,0 +1,11 @@
+[Unit]
+Description=Panel Database Backup Timer
+Requires=backup.service
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

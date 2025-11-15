@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}{{ server.name }} - Log Analysis{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('log_analytics.log_analytics_dashboard') }}">Log Analytics</a></li>
+                    <li class="breadcrumb-item active">{{ server.name }}</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="fas fa-server"></i> {{ server.name }} - Log Analysis
+            </h2>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="refreshData()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-clock"></i> Time Range
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?hours=1">Last Hour</a></li>
+                    <li><a class="dropdown-item" href="?hours=6">Last 6 Hours</a></li>
+                    <li><a class="dropdown-item" href="?hours=24">Last 24 Hours</a></li>
+                    <li><a class="dropdown-item" href="?hours=168">Last Week</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Statistics Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="metric-icon">
+                        <i class="fas fa-file-alt text-primary fa-2x"></i>
+                    </div>
+                    <h4 class="mt-2">{{ recent_logs|length }}</h4>
+                    <p class="text-muted mb-0">Total Log Entries</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="metric-icon">
+                        <i class="fas fa-exclamation-triangle text-warning fa-2x"></i>
+                    </div>
+                    <h4 class="mt-2">{{ anomalies|length }}</h4>
+                    <p class="text-muted mb-0">Detected Anomalies</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="metric-icon">
+                        <i class="fas fa-bell text-danger fa-2x"></i>
+                    </div>
+                    <h4 class="mt-2">{{ alerts|length }}</h4>
+                    <p class="text-muted mb-0">Active Alerts</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="metric-icon">
+                        <i class="fas fa-chart-line text-info fa-2x"></i>
+                    </div>
+                    <h4 class="mt-2">{{ hours }}h</h4>
+                    <p class="text-muted mb-0">Analysis Period</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Log Entries -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Recent Log Entries</h6>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAutoRefresh()" id="autoRefreshBtn">
+                            <i class="fas fa-play"></i> Auto Refresh
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportLogs()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Level</th>
+                                    <th>Source</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logTableBody">
+                                {% for log in recent_logs[:50] %}
+                                <tr class="{% if log.is_anomaly %}table-warning{% elif log.level == 'ERROR' %}table-danger{% elif log.level == 'WARN' %}table-warning{% endif %}">
+                                    <td>
+                                        <small>{{ log.timestamp.strftime('%H:%M:%S') if log.timestamp else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if log.level == 'ERROR' %}danger{% elif log.level == 'WARN' %}warning{% elif log.level == 'INFO' %}primary{% else %}secondary{% endif %}">
+                                            {{ log.level }}
+                                        </span>
+                                    </td>
+                                    <td><small>{{ log.source or '-' }}</small></td>
+                                    <td>
+                                        <small class="log-message" title="{{ log.message }}">
+                                            {{ log.message[:100] }}{% if log.message|length > 100 %}...{% endif %}
+                                        </small>
+                                        {% if log.is_anomaly %}
+                                            <i class="fas fa-exclamation-triangle text-warning ms-1" title="Anomaly detected"></i>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        {% if recent_logs|length == 0 %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No log entries found for the selected time period.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.metric-icon {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.log-message {
+    max-width: 300px;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.auto-refresh-active {
+    color: #28a745;
+}
+</style>
+
+<script>
+let autoRefreshInterval = null;
+
+function refreshData() {
+    location.reload();
+}
+
+function toggleAutoRefresh() {
+    const btn = document.getElementById('autoRefreshBtn');
+    
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        btn.innerHTML = '<i class="fas fa-play"></i> Auto Refresh';
+        btn.classList.remove('auto-refresh-active');
+    } else {
+        autoRefreshInterval = setInterval(refreshData, 30000);
+        btn.innerHTML = '<i class="fas fa-stop"></i> Stop Refresh';
+        btn.classList.add('auto-refresh-active');
+    }
+}
+
+function exportLogs() {
+    alert('Log export functionality will be implemented.');
+}
+</script>
+{% endblock %}

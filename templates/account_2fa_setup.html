@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Set Up 2FA{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Set Up Two-Factor Authentication</h1>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Step 1: Scan QR Code</h5>
+            <p>Scan this QR code with your authenticator app:</p>
+            <div class="text-center my-4">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" class="img-fluid">
+            </div>
+            
+            <h5 class="card-title">Or enter this secret manually:</h5>
+            <div class="alert alert-secondary">
+                <code>{{ secret }}</code>
+            </div>
+            
+            <h5 class="card-title">Step 2: Verify Code</h5>
+            <p>Enter the 6-digit code from your authenticator app:</p>
+            <form method="post" action="{{ url_for('verify_2fa') }}">
+                <div class="mb-3">
+                    <input type="text" name="code" class="form-control" 
+                           placeholder="000000" pattern="[0-9]{6}" required 
+                           autocomplete="off" maxlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary">Verify and Enable 2FA</button>
+                <a href="{{ url_for('account_2fa') }}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

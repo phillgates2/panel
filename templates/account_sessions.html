@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Active Sessions{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Active Sessions</h1>
+    <p class="text-muted">Manage your active login sessions. Revoke any suspicious sessions.</p>
+    
+    <div class="row">
+        {% for sess in sessions %}
+        <div class="col-md-6 mb-3">
+            <div class="card {% if sess.session_token == current_token %}border-primary{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        {% if sess.session_token == current_token %}
+                        <span class="badge bg-primary">Current Session</span>
+                        {% else %}
+                        Session #{{ sess.id }}
+                        {% endif %}
+                    </h5>
+                    <p class="card-text">
+                        <strong>IP Address:</strong> {{ sess.ip_address or 'Unknown' }}<br>
+                        <strong>Last Activity:</strong> {{ sess.last_activity.strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                        <strong>Created:</strong> {{ sess.created_at.strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                        <strong>Expires:</strong> {{ sess.expires_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </p>
+                    {% if sess.session_token != current_token %}
+                    <form method="post" action="{{ url_for('revoke_session', session_id=sess.id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-danger btn-sm" 
+                                onclick="return confirm('Revoke this session?')">
+                            Revoke
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if not sessions %}
+    <div class="alert alert-info">
+        No active sessions found.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

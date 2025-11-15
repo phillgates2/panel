@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}User Permissions{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>User Permission Management</h1>
+        <form method="get" class="d-flex">
+            <input type="text" class="form-control me-2" name="search" placeholder="Search users..." value="{{ search }}">
+            <button type="submit" class="btn btn-outline-primary">Search</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Users and Role Assignments</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Current Roles</th>
+                            <th>Permissions Count</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <strong>{{ user.email }}</strong><br>
+                                    <small class="text-muted">{{ user.first_name }} {{ user.last_name }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% for user_role in user.user_roles %}
+                                <span class="badge bg-primary me-1 mb-1">
+                                    {{ user_role.role.name }}
+                                    {% if user_role.expires_at %}
+                                    <small>(expires {{ user_role.expires_at.strftime('%Y-%m-%d') }})</small>
+                                    {% endif %}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">No roles assigned</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">
+                                    <span id="perm-count-{{ user.id }}">—</span> permissions
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary" 
+                                            data-bs-toggle="modal" data-bs-target="#assignRoleModal"
+                                            onclick="setAssignUser({{ user.id }}, '{{ user.email }}')">
+                                        <i class="fas fa-plus"></i> Assign Role
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" 
+                                            onclick="viewUserPermissions({{ user.id }})">
+                                        <i class="fas fa-eye"></i> View Permissions
+                                    </button>
+                                    {% if user.user_roles %}
+                                    <button type="button" class="btn btn-outline-warning" 
+                                            data-bs-toggle="modal" data-bs-target="#revokeRoleModal"
+                                            onclick="setRevokeUser({{ user.id }}, '{{ user.email }}')">
+                                        <i class="fas fa-minus"></i> Revoke Role
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if pagination.pages > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for p in pagination.iter_pages() %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="?page={{ p }}&search={{ search }}">{{ p }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Assign Role Modal -->
+<div class="modal fade" id="assignRoleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="assignRoleForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <div id="assignUserInfo" class="form-control-plaintext"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="assignRoleSelect" class="form-label">Role</label>
+                        <select class="form-select" id="assignRoleSelect" name="role_id" required>
+                            <option value="">Select a role...</option>
+                            {% for role in roles %}
+                            <option value="{{ role.id }}">{{ role.name }} - {{ role.description }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expiresAt" class="form-label">Expiration Date (Optional)</label>
+                        <input type="datetime-local" class="form-control" id="expiresAt" name="expires_at">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign Role</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Revoke Role Modal -->
+<div class="modal fade" id="revokeRoleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="revokeRoleForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Revoke Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <div id="revokeUserInfo" class="form-control-plaintext"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="revokeRoleSelect" class="form-label">Role to Revoke</label>
+                        <select class="form-select" id="revokeRoleSelect" name="role_id" required>
+                            <option value="">Select a role...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Revoke Role</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- User Permissions Modal -->
+<div class="modal fade" id="userPermissionsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Permissions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="userPermissionsContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentUser = null;
+
+function setAssignUser(userId, userEmail) {
+    currentUser = userId;
+    document.getElementById('assignUserInfo').textContent = userEmail;
+    document.getElementById('assignRoleForm').action = `/admin/rbac/users/${userId}/assign-role`;
+}
+
+function setRevokeUser(userId, userEmail) {
+    currentUser = userId;
+    document.getElementById('revokeUserInfo').textContent = userEmail;
+    document.getElementById('revokeRoleForm').action = `/admin/rbac/users/${userId}/revoke-role`;
+    
+    // Populate roles for this user
+    const user = {{ users|tojson }}.find(u => u.id === userId);
+    const revokeSelect = document.getElementById('revokeRoleSelect');
+    revokeSelect.innerHTML = '<option value="">Select a role...</option>';
+    
+    if (user && user.user_roles) {
+        user.user_roles.forEach(userRole => {
+            const option = document.createElement('option');
+            option.value = userRole.role_id;
+            option.textContent = userRole.role.name;
+            revokeSelect.appendChild(option);
+        });
+    }
+}
+
+function viewUserPermissions(userId) {
+    const modal = new bootstrap.Modal(document.getElementById('userPermissionsModal'));
+    modal.show();
+    
+    // Load user permissions via API
+    fetch(`/api/rbac/user/${userId}/permissions`)
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('userPermissionsContent');
+            
+            if (data.permissions && data.permissions.length > 0) {
+                // Group permissions by category
+                const grouped = {};
+                data.permissions.forEach(perm => {
+                    const category = perm.split('.')[0];
+                    if (!grouped[category]) {
+                        grouped[category] = [];
+                    }
+                    grouped[category].push(perm);
+                });
+                
+                let html = `<h6>Permissions for ${data.email}:</h6>`;
+                for (const [category, perms] of Object.entries(grouped)) {
+                    html += `<div class="mb-3">`;
+                    html += `<h6 class="text-muted text-uppercase">${category}</h6>`;
+                    html += `<div class="row">`;
+                    perms.forEach(perm => {
+                        html += `<div class="col-md-6"><span class="badge bg-primary">${perm}</span></div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = '<p class="text-muted">No permissions assigned to this user.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading permissions:', error);
+            document.getElementById('userPermissionsContent').innerHTML = 
+                '<p class="text-danger">Error loading permissions.</p>';
+        });
+}
+
+// Load permission counts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    {{ users|tojson }}.forEach(user => {
+        fetch(`/api/rbac/user/${user.id}/permissions`)
+            .then(response => response.json())
+            .then(data => {
+                const countElement = document.getElementById(`perm-count-${user.id}`);
+                if (countElement) {
+                    countElement.textContent = data.permissions ? data.permissions.length : 0;
+                }
+            })
+            .catch(() => {
+                // Ignore errors for permission count display
+            });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}System Monitoring Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-chart-line"></i> System Monitoring Dashboard
+        </h2>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#alertsModal">
+                <i class="fas fa-bell"></i> Alerts
+            </button>
+        </div>
+    </div>
+
+    <!-- Server Status Overview -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Server Status Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for server_stat in server_stats %}
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card h-100 {% if server_stat.metrics and server_stat.metrics.is_online %}border-success{% else %}border-danger{% endif %}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="card-title mb-0">{{ server_stat.server.name }}</h6>
+                                        <span class="badge {% if server_stat.metrics and server_stat.metrics.is_online %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if server_stat.metrics and server_stat.metrics.is_online %}Online{% else %}Offline{% endif %}
+                                        </span>
+                                    </div>
+                                    
+                                    {% if server_stat.metrics %}
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="metric-value">{{ server_stat.metrics.player_count or 0 }}</div>
+                                            <div class="metric-label">Players</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-value">{{ "%.1f"|format(server_stat.metrics.cpu_usage or 0) }}%</div>
+                                            <div class="metric-label">CPU</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-value">{{ "%.1f"|format(server_stat.metrics.memory_percentage or 0) }}%</div>
+                                            <div class="metric-label">Memory</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Map: {{ server_stat.metrics.map_name or 'Unknown' }} | 
+                                            Mode: {{ server_stat.metrics.game_mode or 'Unknown' }}
+                                        </small>
+                                    </div>
+                                    {% else %}
+                                    <div class="text-center py-3">
+                                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                                        <p class="mb-0">No metrics available</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if server_stat.alert_count > 0 %}
+                                    <div class="mt-2">
+                                        <span class="badge bg-warning">{{ server_stat.alert_count }} Alert(s)</span>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="mt-3">
+                                        <a href="{{ url_for('monitoring.server_monitoring_detail', server_id=server_stat.server.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-chart-area"></i> Details
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Metrics -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="total-servers">{{ server_stats|length }}</h4>
+                            <p class="mb-0">Total Servers</p>
+                        </div>
+                        <i class="fas fa-server fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="online-servers">{{ server_stats|selectattr('metrics')|selectattr('metrics.is_online')|list|length }}</h4>
+                            <p class="mb-0">Online Servers</p>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="total-players">{{ server_stats|sum(attribute='metrics.player_count')|default(0, true) }}</h4>
+                            <p class="mb-0">Total Players</p>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="active-alerts">{{ server_stats|sum(attribute='alert_count')|default(0, true) }}</h4>
+                            <p class="mb-0">Active Alerts</p>
+                        </div>
+                        <i class="fas fa-bell fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">System CPU Usage</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="cpuChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Memory Usage</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="memoryChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Activity -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Player Activity Over Time</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="playerChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Server Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="serverChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Recent Alerts & Events</h6>
+                </div>
+                <div class="card-body">
+                    <div id="recent-alerts">
+                        <!-- Alerts loaded dynamically -->
+                        <div class="text-center py-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading alerts...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts Management Modal -->
+<div class="modal fade" id="alertsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Alert Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <button class="btn btn-primary" onclick="showCreateAlertForm()">
+                        <i class="fas fa-plus"></i> Create Alert
+                    </button>
+                </div>
+                
+                <div id="alerts-list">
+                    <!-- Alert list loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #495057;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.chart-container {
+    position: relative;
+    height: 200px;
+}
+
+.alert-item {
+    border-left: 4px solid;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.375rem;
+}
+
+.alert-critical {
+    border-left-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+    background-color: #fff3cd;
+}
+
+.alert-info {
+    border-left-color: #0dcaf0;
+    background-color: #d1ecf1;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Chart configurations
+const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+        y: {
+            beginAtZero: true,
+            max: 100
+        }
+    }
+};
+
+// Initialize charts
+let cpuChart, memoryChart, playerChart, serverChart;
+
+function initializeCharts() {
+    // CPU Usage Chart
+    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+    cpuChart = new Chart(cpuCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'CPU Usage (%)',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.4
+            }]
+        },
+        options: chartConfig
+    });
+
+    // Memory Usage Chart
+    const memoryCtx = document.getElementById('memoryChart').getContext('2d');
+    memoryChart = new Chart(memoryCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Memory Usage (%)',
+                data: [],
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.4
+            }]
+        },
+        options: chartConfig
+    });
+
+    // Player Activity Chart
+    const playerCtx = document.getElementById('playerChart').getContext('2d');
+    playerChart = new Chart(playerCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Active Players',
+                data: [],
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Server Distribution Chart
+    const serverCtx = document.getElementById('serverChart').getContext('2d');
+    serverChart = new Chart(serverCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Online', 'Offline'],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// Real-time data updates
+function updateCharts() {
+    fetch('/api/monitoring/dashboard/metrics')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update CPU chart
+            updateChart(cpuChart, data.metrics.cpu_timeline);
+            
+            // Update Memory chart
+            updateChart(memoryChart, data.metrics.memory_timeline);
+            
+            // Update Player chart
+            playerChart.data.labels = data.metrics.player_timeline.labels;
+            playerChart.data.datasets[0].data = data.metrics.player_timeline.data;
+            playerChart.update('none');
+            
+            // Update Server distribution
+            serverChart.data.datasets[0].data = [data.metrics.online_servers, data.metrics.offline_servers];
+            serverChart.update('none');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating charts:', error);
+    });
+}
+
+function updateChart(chart, timelineData) {
+    chart.data.labels = timelineData.labels;
+    chart.data.datasets[0].data = timelineData.data;
+    chart.update('none');
+}
+
+// Load recent alerts
+function loadRecentAlerts() {
+    fetch('/api/monitoring/alerts/recent')
+    .then(response => response.json())
+    .then(data => {
+        const alertsContainer = document.getElementById('recent-alerts');
+        
+        if (data.success && data.alerts.length > 0) {
+            let alertsHtml = '';
+            
+            data.alerts.forEach(alert => {
+                const alertClass = alert.severity === 'critical' ? 'alert-critical' : 
+                                 alert.severity === 'warning' ? 'alert-warning' : 'alert-info';
+                
+                alertsHtml += `
+                    <div class="alert-item ${alertClass}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${alert.message}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    ${alert.server_name} • ${new Date(alert.triggered_at).toLocaleString()}
+                                </small>
+                            </div>
+                            <span class="badge bg-${alert.severity === 'critical' ? 'danger' : alert.severity === 'warning' ? 'warning' : 'info'}">
+                                ${alert.severity.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            alertsContainer.innerHTML = alertsHtml;
+        } else {
+            alertsContainer.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-check-circle text-success"></i>
+                    <p class="mb-0">No recent alerts</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading alerts:', error);
+        document.getElementById('recent-alerts').innerHTML = `
+            <div class="text-center py-3">
+                <i class="fas fa-exclamation-triangle text-warning"></i>
+                <p class="mb-0">Error loading alerts</p>
+            </div>
+        `;
+    });
+}
+
+// Refresh dashboard
+function refreshDashboard() {
+    location.reload();
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadRecentAlerts();
+    
+    // Update charts every 30 seconds
+    setInterval(updateCharts, 30000);
+    
+    // Update alerts every 60 seconds
+    setInterval(loadRecentAlerts, 60000);
+    
+    // Initial chart update
+    setTimeout(updateCharts, 2000);
+});
+
+// Alert management functions
+function showCreateAlertForm() {
+    // Implementation for creating alerts
+    alert('Alert creation form will be implemented here');
+}
+</script>
+{% endblock %}
