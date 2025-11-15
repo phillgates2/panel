@@ -48,6 +48,13 @@ prompt_input() {
     local secret="${3:-false}"
     local value
     
+    # Check if we can read from stdin
+    if [[ ! -t 0 ]]; then
+        warn "Cannot read input in non-interactive mode, using default: $default"
+        echo "$default"
+        return 0
+    fi
+    
     if [[ "$secret" == "true" ]]; then
         echo -n -e "${BLUE}$prompt${NC}"
         [[ -n "$default" ]] && echo -n " (default: [hidden])"
@@ -68,6 +75,16 @@ prompt_confirm() {
     local prompt="$1"
     local default="${2:-n}"
     local response
+    
+    # Check if we can read from stdin
+    if [[ ! -t 0 ]]; then
+        warn "Cannot read input in non-interactive mode, using default: $default"
+        if [[ "$default" == "y" ]]; then
+            echo "y"; return 0
+        else
+            echo "n"; return 1
+        fi
+    fi
     
     while true; do
         echo -n -e "${YELLOW}$prompt${NC} "
@@ -95,6 +112,26 @@ prompt_confirm() {
 }
 
 interactive_config() {
+    # Check if running in interactive terminal
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+        warn "Non-interactive terminal detected. Using development defaults."
+        warn "For interactive setup, run the script directly: ./getpanel.sh"
+        INSTALL_MODE="development"
+        DB_TYPE="sqlite"
+        ADMIN_USERNAME="admin"
+        ADMIN_EMAIL="admin@localhost"
+        ADMIN_PASSWORD="${PANEL_ADMIN_PASSWORD:-admin123}"
+        APP_HOST="0.0.0.0"
+        APP_PORT="8080"
+        DEBUG_MODE="true"
+        DISABLE_CAPTCHA="false"
+        SETUP_NGINX="false"
+        SETUP_SSL="false"
+        SETUP_SYSTEMD="false"
+        SETUP_REDIS="false"
+        return 0
+    fi
+    
     log "🔧 Interactive Configuration"
     echo
     
@@ -103,14 +140,32 @@ interactive_config() {
     echo "  1) Development (SQLite, quick setup)"
     echo "  2) Production (MySQL, full setup)"
     echo "  3) Custom (configure everything)"
+    echo
     
     while true; do
-        mode=$(prompt_input "Select installation mode (1-3)" "1")
+        echo -n -e "${BLUE}Select installation mode (1-3)${NC} (default: 1): "
+        read mode
+        mode="${mode:-1}"  # Use default if empty
+        
         case "$mode" in
-            1|dev|development) INSTALL_MODE="development"; break;;
-            2|prod|production) INSTALL_MODE="production"; break;;
-            3|custom) INSTALL_MODE="custom"; break;;
-            *) echo -e "${RED}Please select 1, 2, or 3${NC}";;
+            1|dev|development) 
+                INSTALL_MODE="development"
+                echo -e "${GREEN}✓ Selected: Development mode${NC}"
+                break
+                ;;
+            2|prod|production) 
+                INSTALL_MODE="production"
+                echo -e "${GREEN}✓ Selected: Production mode${NC}"
+                break
+                ;;
+            3|custom) 
+                INSTALL_MODE="custom"
+                echo -e "${GREEN}✓ Selected: Custom mode${NC}"
+                break
+                ;;
+            *) 
+                echo -e "${RED}Invalid selection '$mode'. Please enter 1, 2, or 3${NC}"
+                ;;
         esac
     done
     
@@ -659,6 +714,20 @@ show_next_steps() {
 main() {
     print_banner
     
+    # Check if running via curl and provide guidance
+    if [[ ! -t 0 ]] && [[ "${PANEL_NONINTERACTIVE:-}" != "true" ]]; then
+        echo -e "${YELLOW}⚠️  Running in non-interactive mode (curl pipe detected)${NC}"
+        echo -e "${YELLOW}   Using development defaults for quick setup.${NC}"
+        echo
+        echo -e "${BLUE}For full interactive configuration:${NC}"
+        echo "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh -o getpanel.sh"
+        echo "  chmod +x getpanel.sh && ./getpanel.sh"
+        echo
+        echo -e "${BLUE}Proceeding with development setup in 3 seconds...${NC}"
+        sleep 3
+        echo
+    fi
+    
     log "Panel Interactive Installer"
     log "Install directory: $INSTALL_DIR"
     log "Repository branch: $BRANCH"
@@ -821,8 +890,12 @@ show_help() {
     echo "  PANEL_ADMIN_PASSWORD   Admin password for non-interactive mode"
     echo
     echo "Examples:"
-    echo "  # Interactive installation (recommended)"
+    echo "  # Quick development setup (non-interactive)"
     echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
+    echo
+    echo "  # Interactive setup (download first, then run)"
+    echo "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh -o getpanel.sh"
+    echo "  chmod +x getpanel.sh && ./getpanel.sh"
     echo
     echo "  # Install to custom directory"
     echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...)"
@@ -830,7 +903,7 @@ show_help() {
     echo "  # Install specific branch"
     echo "  PANEL_BRANCH=develop bash <(curl -fsSL ...)"
     echo
-    echo "  # Non-interactive installation"
+    echo "  # Non-interactive installation with custom password"
     echo "  PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL ...)"
     echo
     echo "  # Uninstall Panel"
