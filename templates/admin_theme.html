@@ -14,6 +14,15 @@
       <input type="checkbox" name="toggle_enabled" value="1" {% if theme_toggle_enabled %}checked{% endif %} /> Allow client theme toggle (Light/Dark)
     </label>
   </div>
+  <div style="margin-bottom:8px;">
+    <label>Forced site theme (used when client toggle is disabled):
+      <select name="forced_theme">
+        <option value="" {% if not theme_forced %}selected{% endif %}>No enforcement (use defaults)</option>
+        <option value="dark" {% if theme_forced == 'dark' %}selected{% endif %}>Dark</option>
+        <option value="light" {% if theme_forced == 'light' %}selected{% endif %}>Light</option>
+      </select>
+    </label>
+  </div>
   <div>
     <textarea name="css" rows="20" style="width:100%; font-family:monospace;">{{ css }}</textarea>
   </div>

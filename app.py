@@ -130,8 +130,24 @@ def inject_user():
             theme_toggle_enabled = (s_toggle.value.strip() == '1')
     except Exception:
         theme_toggle_enabled = True
+    # optional forced theme when toggle disabled: 'dark'|'light'
+    theme_forced = None
+    try:
+        s_forced = db.session.query(SiteSetting).filter_by(key='theme_forced').first()
+        if s_forced and s_forced.value in ('dark','light'):
+            theme_forced = s_forced.value
+    except Exception:
+        theme_forced = None
 
-    return dict(logged_in=bool(user), current_user=user, theme_enabled=theme_enabled, theme_toggle_enabled=theme_toggle_enabled, config=app.config, user_theme_pref=user_theme_pref)
+    return dict(
+        logged_in=bool(user),
+        current_user=user,
+        theme_enabled=theme_enabled,
+        theme_toggle_enabled=theme_toggle_enabled,
+        theme_forced=theme_forced,
+        config=app.config,
+        user_theme_pref=user_theme_pref,
+    )
 
 db = SQLAlchemy(app)
 
@@ -844,6 +860,9 @@ def admin_theme():
         # handle theme enabled toggle
         enabled = request.form.get('enabled') == '1'
         toggle_enabled = request.form.get('toggle_enabled') == '1'
+        forced_theme = request.form.get('forced_theme', '').strip()
+        if forced_theme not in ('dark','light'):
+            forced_theme = ''
         try:
             # persist to DB (upsert)
             s_css = SiteSetting.query.filter_by(key='custom_theme_css').first()
@@ -861,9 +880,15 @@ def admin_theme():
                 s_toggle = SiteSetting(key='theme_toggle_enabled', value=('1' if toggle_enabled else '0'))
             else:
                 s_toggle.value = ('1' if toggle_enabled else '0')
+            s_forced = SiteSetting.query.filter_by(key='theme_forced').first()
+            if not s_forced:
+                s_forced = SiteSetting(key='theme_forced', value=forced_theme)
+            else:
+                s_forced.value = forced_theme
             db.session.add(s_css)
             db.session.add(s_flag)
             db.session.add(s_toggle)
+            db.session.add(s_forced)
             db.session.commit()
 
             flash('Theme saved', 'success')

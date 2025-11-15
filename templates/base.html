@@ -5,40 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Panel</title>
     <script>
-      // Apply saved theme early to avoid flash
-      (function(){
-        try{
-          var serverPref = "{{ user_theme_pref or '' }}";
-          var pref = localStorage.getItem('theme');
-          var sys = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-          var theme = serverPref || pref || sys || 'dark';
-          document.documentElement.setAttribute('data-theme', theme);
-        }catch(e){}
+      (function() {
+        try {
+          var root = document.documentElement;
+          var toggleEnabled = {{ 'true' if theme_toggle_enabled else 'false' }};
+          var forced = '{{ theme_forced or "" }}';
+          if (!toggleEnabled && forced) {
+            root.setAttribute('data-theme', forced);
+          } else {
+            var serverPref = '{{ "light" if (user_theme_pref == "light") else ("dark" if (user_theme_pref == "dark") else "") }}';
+            var local = localStorage.getItem('theme');
+            var theme = local || serverPref;
+            if (!theme) {
+              var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+              theme = prefersLight ? 'light' : 'dark';
+            }
+            root.setAttribute('data-theme', theme);
+          }
+        } catch (e) {}
       })();
     </script>
-    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     {% if theme_enabled %}
     <link rel="stylesheet" href="/theme.css" />
     {% endif %}
-    <header>
+  </head>
   <body>
     <header>
-      <h1>Game Panel</h1>
       <nav>
-        <a href="/">Home</a> | <a href="/register">Register</a> | <a href="/login">Login</a>
-        <div style="display:inline-block; margin-left:12px; font-size:0.9rem; color:var(--muted);">
-          Theme: {% if theme_enabled %}<strong style="color:#86efac;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
-          {% if theme_toggle_enabled %}
-            <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
-              style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
-              <span class="icon" aria-hidden="true">🌙</span>
-              <span class="label">Dark</span>
-            </button>
-            <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
-          {% endif %}
-        </div>
-          Theme: {% if theme_enabled %}<strong style="color:green;">Enabled</strong>{% else %}<strong style="color:#888;">Disabled</strong>{% endif %}
-        </div>
+        <a href="/">Home</a>
+        {% if not logged_in %}
+          <a href="/login">Login</a>
+          <a href="/register">Register</a>
+        {% else %}
+          <a href="/dashboard">Dashboard</a>
+          <a href="/logout">Logout</a>
+        {% endif %}
+        {% if theme_toggle_enabled %}
+          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
+            style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
+            <span class="icon" aria-hidden="true">🌙</span>
+            <span class="label">Dark</span>
+          </button>
+          <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
+        {% endif %}
+      </nav>
     </header>
     <main>
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -52,8 +63,8 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+
     <style>
-      /* Modal styles */
       #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; }
       #confirm-modal .panel { background:#fff; max-width:640px; margin:6% auto; padding:20px; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,0.2); }
       #confirm-modal .panel p { font-size:1rem; margin:0 0 1rem 0; }
@@ -74,7 +85,6 @@
 
     <script>
       (function(){
-        // Theme toggle logic with icon and label
         var btn = document.getElementById('theme-toggle');
         var statusEl = document.getElementById('theme-status');
         function updateToggle(theme){
@@ -97,7 +107,6 @@
           if(statusEl){ statusEl.textContent = 'Current theme: ' + (theme.charAt(0).toUpperCase()+theme.slice(1)) + '. ' + aria + '.'; }
         }
         if(btn){
-          // Initialize label/icon based on current theme
           var curInit = document.documentElement.getAttribute('data-theme') || 'dark';
           updateToggle(curInit);
           btn.addEventListener('click', function(){
@@ -106,7 +115,6 @@
             document.documentElement.setAttribute('data-theme', next);
             updateToggle(next);
             try{ localStorage.setItem('theme', next); }catch(e){}
-            // Persist to server if logged in
             var loggedIn = {{ 'true' if logged_in else 'false' }};
             if(loggedIn){
               try{
@@ -149,4 +157,4 @@
       })();
     </script>
   </body>
-</html>
+  </html>
