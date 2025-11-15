@@ -23,7 +23,18 @@ def generate_captcha_image(length=6):
         font = ImageFont.load_default()
 
     # draw text centered with random small offset
-    w, h = draw.textsize(text, font=font)
+    try:
+        # Pillow >= 8: textbbox gives precise bbox
+        bbox = draw.textbbox((0, 0), text, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+    except Exception:
+        try:
+            w, h = font.getsize(text)
+        except Exception:
+            # fallback to approximate sizes
+            w = len(text) * 10
+            h = 20
     x = (width - w) // 2
     y = (height - h) // 2
     draw.text((x, y), text, font=font, fill=(0, 0, 0))

@@ -5,7 +5,23 @@
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
   <label>New password: <input name="password" type="password" required></label><br>
+  <div>
+    <img id="captcha-img" src="/captcha.png" alt="captcha" />
+    <button type="button" id="refresh">Refresh</button>
+    <button type="button" id="audio">Play audio</button>
+  </div>
+  <label>Captcha: <input name="captcha" required></label><br>
   <button type="submit">Set Password</button>
 </form>
 </div>
+<script>
+document.getElementById('refresh').addEventListener('click', ()=>{
+  const img = document.getElementById('captcha-img');
+  img.src = '/captcha.png?_' + Date.now();
+});
+document.getElementById('audio').addEventListener('click', ()=>{
+  const a = new Audio('/captcha_audio?_' + Date.now());
+  a.play();
+});
+</script>
 {% endblock %}

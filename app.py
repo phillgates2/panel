@@ -44,7 +44,7 @@ def inject_user():
     user_id = session.get('user_id')
     if user_id:
         try:
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
         except Exception:
             user = None
     # theme enabled flag stored in DB (fallback to instance file if DB empty)
@@ -195,6 +195,16 @@ def ensure_csrf_after(response):
     return response
 
 
+@app.context_processor
+def ensure_csrf_for_templates():
+    # Ensure a CSRF token exists before templates render so forms include it.
+    # This is safer than relying on after_request for form rendering in tests
+    # and for real browsers which expect the token in the HTML form.
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    return {}
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -288,6 +298,11 @@ def login():
             return redirect(url_for("login"))
         email = request.form.get("email", "").lower().strip()
         password = request.form.get("password", "")
+        captcha = request.form.get("captcha", "")
+        # captcha verify (if present)
+        if session.get("captcha_text") != captcha:
+            flash("Invalid captcha", "error")
+            return redirect(url_for("login"))
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
@@ -333,6 +348,10 @@ def reset_password(token):
             verify_csrf()
         except Exception:
             flash("Invalid CSRF token", "error")
+            return redirect(url_for("reset_password", token=token))
+        captcha = request.form.get("captcha", "")
+        if session.get("captcha_text") != captcha:
+            flash("Invalid captcha", "error")
             return redirect(url_for("reset_password", token=token))
         password = request.form.get("password", "")
         import re
@@ -512,7 +531,7 @@ def theme_asset(filename):
 @app.route('/theme_asset/id/<int:asset_id>')
 def theme_asset_by_id(asset_id):
     # Serve asset by DB id (preferred)
-    sa = SiteAsset.query.get(asset_id)
+    sa = db.session.get(SiteAsset, asset_id)
     if sa:
         return Response(sa.data, mimetype=sa.mimetype or 'application/octet-stream')
     # fallback to filesystem with name equal to id (unlikely)
@@ -522,7 +541,7 @@ def theme_asset_by_id(asset_id):
 @app.route('/theme_asset/thumb/<int:asset_id>')
 def theme_asset_thumb(asset_id):
     # produce a small thumbnail (PNG) for the asset
-    sa = SiteAsset.query.get(asset_id)
+    sa = db.session.get(SiteAsset, asset_id)
     if not sa:
         abort(404)
     try:
@@ -663,7 +682,7 @@ def admin_theme():
                 aid = None
             if aid:
                 try:
-                    sa = SiteAsset.query.get(aid)
+                    sa = db.session.get(SiteAsset, aid)
                     if sa:
                         # remove filesystem copy if exists
                         assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
@@ -689,7 +708,7 @@ def admin_theme():
                     aid = int(sid)
                 except Exception:
                     continue
-                sa = SiteAsset.query.get(aid)
+                sa = db.session.get(SiteAsset, aid)
                 try:
                     if sa:
                         assets_dir = os.path.join(app.root_path, 'instance', 'theme_assets')
