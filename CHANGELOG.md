@@ -105,7 +105,7 @@ All notable changes to this project will be documented in this file.
   - Automatic system requirements validation (Python 3.8+, Git, Curl)
 
 - **Advanced Configuration Options** ⚙️
-  - **Database Setup**: Interactive choice between SQLite and MySQL with connection configuration
+  - **Database Setup**: Interactive choice between SQLite and MariaDB with connection configuration
   - **Admin User Creation**: Secure password input with email configuration
   - **Application Settings**: Host, port, debug mode, and CAPTCHA preferences
   - **Production Services**: Nginx reverse proxy, SSL certificates, systemd services
@@ -120,7 +120,7 @@ All notable changes to this project will be documented in this file.
   - Optional ML/Analytics dependencies (numpy, scikit-learn, boto3)
   - Dependency verification with error handling
   - Secure environment file generation with random secret keys
-  - MySQL database and user creation with proper permissions
+  - MariaDB database and user creation with proper permissions
   - Nginx configuration with domain setup and SSL certificate provisioning
   - Systemd service configuration for production deployments
   - Complete uninstaller with service cleanup and safety confirmations

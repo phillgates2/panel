@@ -132,8 +132,8 @@ class BackupManager:
         print(f"Creating {backup_type} backup: {backup_name}")
         
         try:
-            # Create MySQL dump
-            self._create_mysql_dump(backup_path, backup_type)
+            # Create MariaDB dump
+            self._create_mariadb_dump(backup_path, backup_type)
             
             # Compress if enabled
             if self.config['backup']['compress']:
@@ -163,8 +163,8 @@ class BackupManager:
             self._send_notification('error', error_msg)
             raise
     
-    def _create_mysql_dump(self, backup_path, backup_type):
-        """Create MySQL database dump."""
+    def _create_mariadb_dump(self, backup_path, backup_type):
+        """Create MariaDB database dump."""
         db_config = self.config['database']
         
         cmd = [
@@ -187,7 +187,7 @@ class BackupManager:
             
         cmd.append(db_config['name'])
         
-        # Execute mysqldump
+        # Execute mysqldump (works with MariaDB)
         with open(backup_path, 'w') as f:
             result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
             

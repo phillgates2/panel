@@ -113,7 +113,7 @@ prompt_confirm() {
     done
 }
 
-configure_mysql_settings() {
+configure_mariadb_settings() {
     # Store original values for reset functionality (these don't need to be local)
     ORIGINAL_DB_HOST="$DB_HOST"
     ORIGINAL_DB_PORT="$DB_PORT"
@@ -122,14 +122,14 @@ configure_mysql_settings() {
     ORIGINAL_DB_PASS="$DB_PASS"
     
     echo
-    echo -e "${BLUE}🔧 MySQL Settings Configuration${NC}"
-    echo -e "${YELLOW}Review and modify your MySQL connection settings${NC}"
+    echo -e "${BLUE}🔧 MariaDB Settings Configuration${NC}"
+    echo -e "${YELLOW}Review and modify your MariaDB connection settings${NC}"
     echo -e "${BLUE}Press Enter to keep current value, or type new value${NC}"
     echo
     
-    display_mysql_menu() {
+    display_mariadb_menu() {
         echo -e "${BLUE}═══════════════════════════════════════${NC}"
-        echo -e "${BLUE}📋 MySQL Configuration Menu${NC}"
+        echo -e "${BLUE}📋 MariaDB Configuration Menu${NC}"
         echo -e "${BLUE}═══════════════════════════════════════${NC}"
         
         # Show current values with visual indicators
@@ -146,7 +146,7 @@ configure_mysql_settings() {
         echo
     }
     
-    display_mysql_menu
+    display_mariadb_menu
     
     while true; do
         echo -n -e "${BLUE}Select setting to modify (1-8)${NC} (default: 8): "
@@ -157,7 +157,7 @@ configure_mysql_settings() {
             1)
                 echo
                 echo -e "${BLUE}Current host: ${YELLOW}$DB_HOST${NC}"
-                echo -n -e "${BLUE}Enter new MySQL Host${NC} (default: $DB_HOST): "
+                echo -n -e "${BLUE}Enter new MariaDB Host${NC} (default: $DB_HOST): "
                 read NEW_DB_HOST
                 NEW_DB_HOST="${NEW_DB_HOST:-$DB_HOST}"
                 if [[ "$NEW_DB_HOST" != "$DB_HOST" ]]; then
@@ -172,7 +172,7 @@ configure_mysql_settings() {
                 echo
                 echo -e "${BLUE}Current port: ${YELLOW}$DB_PORT${NC}"
                 while true; do
-                    echo -n -e "${BLUE}Enter new MySQL Port (1-65535)${NC} (default: $DB_PORT): "
+                    echo -n -e "${BLUE}Enter new MariaDB Port (1-65535)${NC} (default: $DB_PORT): "
                     read NEW_DB_PORT
                     NEW_DB_PORT="${NEW_DB_PORT:-$DB_PORT}"
                     if [[ "$NEW_DB_PORT" =~ ^[0-9]+$ ]] && [[ "$NEW_DB_PORT" -ge 1 ]] && [[ "$NEW_DB_PORT" -le 65535 ]]; then
@@ -252,7 +252,7 @@ configure_mysql_settings() {
                 ;;
             6)
                 echo
-                echo -e "${BLUE}🔍 Testing MySQL connection...${NC}"
+                echo -e "${BLUE}🔍 Testing MariaDB connection...${NC}"
                 echo -e "${BLUE}Connecting to: ${YELLOW}$DB_USER@$DB_HOST:$DB_PORT${NC}"
                 
                 if command -v mysql &> /dev/null; then
@@ -260,11 +260,11 @@ configure_mysql_settings() {
                     if [[ -n "$DB_PASS" ]]; then
                         if timeout 10 mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1 as test;" 2>/dev/null | grep -q "test"; then
                             echo -e "${GREEN}✓ Connection successful!${NC}"
-                            echo -e "${GREEN}✓ MySQL server is accessible${NC}"
+                            echo -e "${GREEN}✓ MariaDB server is accessible${NC}"
                         else
                             echo -e "${RED}✗ Connection failed${NC}"
                             echo -e "${YELLOW}Possible issues:${NC}"
-                            echo -e "  • MySQL server not running on $DB_HOST:$DB_PORT"
+                            echo -e "  • MariaDB server not running on $DB_HOST:$DB_PORT"
                             echo -e "  • Incorrect username/password"
                             echo -e "  • Firewall blocking connection"
                             echo -e "  • User '$DB_USER' doesn't exist or lacks permissions"
@@ -276,20 +276,20 @@ configure_mysql_settings() {
                         else
                             echo -e "${RED}✗ Connection failed${NC}"
                             echo -e "${YELLOW}Possible issues:${NC}"
-                            echo -e "  • MySQL server requires a password for user '$DB_USER'"
+                            echo -e "  • MariaDB server requires a password for user '$DB_USER'"
                             echo -e "  • User '$DB_USER' doesn't exist"
                             echo -e "  • Server not running on $DB_HOST:$DB_PORT"
                         fi
                     fi
                 else
-                    echo -e "${YELLOW}⚠️  MySQL client not available for testing${NC}"
+                    echo -e "${YELLOW}⚠️  MariaDB/MySQL client not available for testing${NC}"
                     echo -e "${BLUE}Connection will be tested during installation${NC}"
                 fi
                 echo
                 ;;
             7)
                 echo
-                echo -e "${YELLOW}🔄 Resetting MySQL settings to original values...${NC}"
+                echo -e "${YELLOW}🔄 Resetting MariaDB settings to original values...${NC}"
                 DB_HOST="$ORIGINAL_DB_HOST"
                 DB_PORT="$ORIGINAL_DB_PORT"  
                 DB_NAME="$ORIGINAL_DB_NAME"
@@ -300,8 +300,8 @@ configure_mysql_settings() {
                 ;;
             8)
                 echo
-                echo -e "${GREEN}💾 Saving MySQL configuration...${NC}"
-                echo -e "${BLUE}Final MySQL settings:${NC}"
+                echo -e "${GREEN}💾 Saving MariaDB configuration...${NC}"
+                echo -e "${BLUE}Final MariaDB settings:${NC}"
                 echo -e "  🏠 Host: ${BLUE}$DB_HOST:$DB_PORT${NC}"
                 echo -e "  🗄️  Database: ${BLUE}$DB_NAME${NC}"
                 echo -e "  👤 User: ${BLUE}$DB_USER${NC}"
@@ -317,7 +317,7 @@ configure_mysql_settings() {
         esac
         
         # Show updated menu after each change
-        display_mysql_menu
+        display_mariadb_menu
     done
 }
 
@@ -351,7 +351,7 @@ interactive_config() {
     # Installation mode
     echo -e "${BLUE}Installation Mode:${NC}"
     echo "  1) Development (SQLite, quick setup)"
-    echo "  2) Production (MySQL, full setup)"
+    echo "  2) Production (MariaDB, full setup)"
     echo "  3) Custom (configure everything)"
     echo
     
@@ -397,19 +397,19 @@ interactive_config() {
             echo -e "${GREEN}✓ Selected: SQLite${NC}"
         else
             DB_TYPE="mysql"
-            echo -e "${GREEN}✓ Selected: MySQL${NC}"
+            echo -e "${GREEN}✓ Selected: MariaDB${NC}"
         fi
     elif [[ "$INSTALL_MODE" == "production" ]]; then
-        if prompt_confirm "Use MySQL? (recommended for production)" "y"; then
+        if prompt_confirm "Use MariaDB? (recommended for production)" "y"; then
             DB_TYPE="mysql"
-            echo -e "${GREEN}✓ Selected: MySQL${NC}"
+            echo -e "${GREEN}✓ Selected: MariaDB${NC}"
         else
             DB_TYPE="sqlite"
             echo -e "${GREEN}✓ Selected: SQLite${NC}"
         fi
     else  # custom mode
         echo "  1) SQLite (simple, file-based)"
-        echo "  2) MySQL (scalable, production-ready)"
+        echo "  2) MariaDB (scalable, production-ready)"
         echo
         while true; do
             echo -n -e "${BLUE}Select database type (1-2)${NC} (default: 1): "
@@ -422,9 +422,9 @@ interactive_config() {
                     echo -e "${GREEN}✓ Selected: SQLite${NC}"
                     break
                     ;;
-                2|mysql|MySQL) 
+                2|mysql|MySQL|mariadb|MariaDB) 
                     DB_TYPE="mysql"
-                    echo -e "${GREEN}✓ Selected: MySQL${NC}"
+                    echo -e "${GREEN}✓ Selected: MariaDB${NC}"
                     break
                     ;;
                 *) 
@@ -436,18 +436,18 @@ interactive_config() {
     
     echo -e "${BLUE}Database Type:${NC} $DB_TYPE"
     
-    # MySQL configuration if selected
+    # MariaDB configuration if selected
     if [[ "$DB_TYPE" == "mysql" ]]; then
         echo
-        echo -e "${BLUE}📊 MySQL Database Configuration${NC}"
-        echo -e "${YELLOW}Configure your MySQL connection settings${NC}"
+        echo -e "${BLUE}📊 MariaDB Database Configuration${NC}"
+        echo -e "${YELLOW}Configure your MariaDB connection settings${NC}"
         echo
         
-        DB_HOST=$(prompt_input "MySQL Host" "localhost")
+        DB_HOST=$(prompt_input "MariaDB Host" "localhost")
         
-        # Port validation for MySQL
+        # Port validation for MariaDB
         while true; do
-            DB_PORT=$(prompt_input "MySQL Port" "3306")
+            DB_PORT=$(prompt_input "MariaDB Port" "3306")
             if [[ "$DB_PORT" =~ ^[0-9]+$ ]] && [[ "$DB_PORT" -ge 1 ]] && [[ "$DB_PORT" -le 65535 ]]; then
                 break
             else
@@ -469,21 +469,21 @@ interactive_config() {
                     echo -e "${RED}Passwords do not match. Please try again.${NC}"
                 fi
             else
-                echo -e "${YELLOW}⚠️  Using empty password - ensure MySQL allows passwordless access for user '$DB_USER'${NC}"
+                echo -e "${YELLOW}⚠️  Using empty password - ensure MariaDB allows passwordless access for user '$DB_USER'${NC}"
                 break
             fi
         done
         
         echo
-        echo -e "${GREEN}✓ MySQL configuration complete${NC}"
+        echo -e "${GREEN}✓ MariaDB configuration complete${NC}"
         echo -e "  Host: $DB_HOST:$DB_PORT"
         echo -e "  Database: $DB_NAME"
         echo -e "  User: $DB_USER"
         echo
         
-        # Allow user to review and modify MySQL settings
-        if prompt_confirm "Review/modify MySQL settings?" "n"; then
-            configure_mysql_settings
+        # Allow user to review and modify MariaDB settings
+        if prompt_confirm "Review/modify MariaDB settings?" "n"; then
+            configure_mariadb_settings
         fi
         
     else
@@ -655,7 +655,7 @@ interactive_config() {
     echo
     echo -e "  ${BLUE}Database Configuration:${NC}"
     echo -e "    Type: $DB_TYPE"
-    [[ "$DB_TYPE" == "mysql" ]] && echo -e "    MySQL: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
+    [[ "$DB_TYPE" == "mysql" ]] && echo -e "    MariaDB: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
     echo
     echo -e "  ${BLUE}Application Settings:${NC}"
     echo -e "    Host: $APP_HOST"
@@ -841,9 +841,9 @@ install_system_deps() {
     
     if [[ "$DB_TYPE" == "mysql" ]]; then
         case "$PKG_MANAGER" in
-            apt-get) packages="$packages mysql-server libmysqlclient-dev";;
-            yum) packages="$packages mysql-server mysql-devel";;
-            apk) packages="$packages mysql mysql-dev";;
+            apt-get) packages="$packages mariadb-server libmariadb-dev";;
+            yum) packages="$packages mariadb-server mariadb-devel";;
+            apk) packages="$packages mariadb mariadb-dev mariadb-client";;
         esac
     fi
     
@@ -934,14 +934,14 @@ install_panel() {
     # Initialize database
     log "Initializing database..."
     if [[ "$DB_TYPE" == "mysql" ]]; then
-        # Setup MySQL database
+        # Setup MariaDB database
         if command -v mysql &> /dev/null; then
             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'%';"
             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "FLUSH PRIVILEGES;"
         else
-            warn "MySQL not found, skipping database setup"
+            warn "MariaDB/MySQL client not found, skipping database setup"
         fi
     fi
     
@@ -1311,7 +1311,7 @@ show_help() {
     echo
     echo "Interactive Configuration Options:"
     echo "  • Installation Mode: Development, Production, or Custom"
-    echo "  • Database: SQLite (development) or MySQL (production)"
+    echo "  • Database: SQLite (development) or MariaDB (production)"
     echo "  • Application Settings: Host, Port, Debug Mode, CAPTCHA"
     echo "  • Security: Secret Key generation, Admin account setup"
     echo "  • Production Services: Nginx, SSL certificates, Systemd"

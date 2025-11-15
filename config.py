@@ -5,10 +5,11 @@ from urllib.parse import quote_plus
 USE_SQLITE = os.environ.get('PANEL_USE_SQLITE', '') == '1'
 
 # Basic config - change values in env or edit directly for local testing
-MYSQL_USER = os.environ.get("PANEL_DB_USER", "paneluser")
-MYSQL_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
-MYSQL_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
-MYSQL_DB = os.environ.get("PANEL_DB_NAME", "paneldb")
+# MariaDB/MySQL connection settings (backward compatible)
+DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
+DB_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
+DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
+DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
 
 SECRET_KEY = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
 
@@ -16,7 +17,7 @@ if USE_SQLITE:
     SQLALCHEMY_DATABASE_URI = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
 else:
     SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASS)}@{MYSQL_HOST}/{MYSQL_DB}"
+        f"mysql+pymysql://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}/{DB_NAME}"
     )
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 

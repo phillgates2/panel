@@ -137,4 +137,4 @@ fi
 echo ""
 echo "Uninstall complete."
 echo "Note: System packages (python3, redis-server, etc.) were not removed."
-echo "Note: MySQL database '$DB_NAME' was not dropped (if it exists)."
+echo "Note: MariaDB database '$DB_NAME' was not dropped (if it exists)."

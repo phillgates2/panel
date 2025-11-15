@@ -135,26 +135,26 @@ DISCORD_WEBHOOK=""
 
 if [[ "$ENVIRONMENT" == "prod" ]]; then
   USE_SQLITE=0
-  DB_USER="$(prompt "MySQL user" "$DB_USER")"
-  DB_PASS="$(prompt_secret "MySQL password")"
-  DB_HOST="$(prompt "MySQL host" "$DB_HOST")"
-  DB_NAME="$(prompt "MySQL database name" "$DB_NAME")"
+  DB_USER="$(prompt "MariaDB user" "$DB_USER")"
+  DB_PASS="$(prompt_secret "MariaDB password")"
+  DB_HOST="$(prompt "MariaDB host" "$DB_HOST")"
+  DB_NAME="$(prompt "MariaDB database name" "$DB_NAME")"
   
-  # Optional: Create MySQL database and user
-  if confirm "Create MySQL database and user (requires MySQL root access)?" N; then
-    MYSQL_ROOT_PASS="$(prompt_secret "MySQL root password")"
+  # Optional: Create MariaDB database and user
+  if confirm "Create MariaDB database and user (requires MariaDB root access)?" N; then
+    DB_ROOT_PASS="$(prompt_secret "MariaDB root password")"
     if [[ "$DRY_RUN" -eq 0 ]]; then
-      mysql -h "$DB_HOST" -u root -p"$MYSQL_ROOT_PASS" <<SQL || {
-        echo "Warning: MySQL database creation failed. You may need to create it manually." >&2
+      mysql -h "$DB_HOST" -u root -p"$DB_ROOT_PASS" <<SQL || {
+        echo "Warning: MariaDB database creation failed. You may need to create it manually." >&2
       }
 CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
 FLUSH PRIVILEGES;
 SQL
-      echo "MySQL database '$DB_NAME' and user '$DB_USER' created."
+      echo "MariaDB database '$DB_NAME' and user '$DB_USER' created."
     else
-      echo "[DRY RUN] Would create MySQL database '$DB_NAME' and user '$DB_USER'"
+      echo "[DRY RUN] Would create MariaDB database '$DB_NAME' and user '$DB_USER'"
     fi
   fi
 else
@@ -450,7 +450,7 @@ fi
 
 # 8) Database backup script
 if [[ "$ENVIRONMENT" == "prod" ]] && [[ "$USE_SQLITE" -eq 0 ]]; then
-  if confirm "Generate MySQL backup cron script?" N; then
+  if confirm "Generate MariaDB backup cron script?" N; then
     BACKUP_SCRIPT="scripts/backup_db.sh"
     if [[ "$DRY_RUN" -eq 0 ]]; then
       cat > "$BACKUP_SCRIPT" <<BACKUP
@@ -527,14 +527,14 @@ services:
       - ./instance:/app/instance
   
   db:
-    image: mysql:8.0
+    image: mariadb:10.11
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpass
-      - MYSQL_DATABASE=$DB_NAME
-      - MYSQL_USER=$DB_USER
-      - MYSQL_PASSWORD=$DB_PASS
+      - MARIADB_ROOT_PASSWORD=rootpass
+      - MARIADB_DATABASE=$DB_NAME
+      - MARIADB_USER=$DB_USER
+      - MARIADB_PASSWORD=$DB_PASS
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
   
   redis:
     image: redis:7-alpine
@@ -548,7 +548,7 @@ services:
       - redis
 
 volumes:
-  mysql_data:
+  mariadb_data:
 DOCKER
     
     # Create Dockerfile if missing

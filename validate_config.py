@@ -102,7 +102,7 @@ class ConfigValidator:
                     if not db_path.parent.exists():
                         self.warnings.append(f"SQLite directory doesn't exist: {db_path.parent}")
         else:
-            # Check MySQL config
+            # Check MariaDB config
             db_user = os.environ.get('PANEL_DB_USER', 'paneluser')
             db_pass = os.environ.get('PANEL_DB_PASS', 'panelpass')
             db_host = os.environ.get('PANEL_DB_HOST', '127.0.0.1')
@@ -122,9 +122,9 @@ class ConfigValidator:
             
             if db_pass == 'panelpass':
                 if is_dev_mode:
-                    self.warnings.append("Using default MySQL password (dev mode)")
+                    self.warnings.append("Using default MariaDB password (dev mode)")
                 else:
-                    self.errors.append("Using default MySQL password in production")
+                    self.errors.append("Using default MariaDB password in production")
             
             # Try to connect (if pymysql available)
             try:

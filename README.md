@@ -25,7 +25,7 @@ Modern Flask-based ET: Legacy server management with optimized user experience a
 
 ### **🚀 Development Features**
 - **Flask Backend** - Modern Python web framework
-- **SQLite/MySQL Support** - Flexible database configurations
+- **SQLite/MariaDB Support** - Flexible database configurations
 - **Virtual Environment** - Clean dependency management
 - **Systemd Integration** - Production service management
 
@@ -71,7 +71,7 @@ The uninstaller automatically removes:
 
 **🎯 Interactive Configuration Options:**
 - **Installation Mode:** Development, Production, or Custom
-- **Database Setup:** SQLite (quick) or MySQL (production)
+- **Database Setup:** SQLite (quick) or MariaDB (production)
 - **Admin User:** Username, email, and password
 - **Application Settings:** Host, port, debug mode, CAPTCHA
 - **Production Services:** Nginx, SSL certificates, systemd
@@ -134,7 +134,7 @@ sudo ./panel.sh install
 1. **Install System Dependencies**
 ```bash
 sudo apt update
-sudo apt install -y python3-venv python3-pip nginx mysql-server git curl
+sudo apt install -y python3-venv python3-pip nginx mariadb-server git curl
 ```
 
 2. **Setup Application**
@@ -150,7 +150,7 @@ sudo ./panel.sh install
 
 The installer will guide you through:
 - Python virtual environment setup
-- Database configuration (MySQL/SQLite)
+- Database configuration (MariaDB/SQLite)
 - Admin user creation
 - SSL certificate setup
 - Systemd service configuration
@@ -161,8 +161,8 @@ The installer will guide you through:
 ### **Environment Variables**
 ```bash
 # Database Configuration
-PANEL_DB_USER=your_db_user          # MySQL username
-PANEL_DB_PASS=your_db_password      # MySQL password  
+PANEL_DB_USER=your_db_user          # MariaDB username
+PANEL_DB_PASS=your_db_password      # MariaDB password  
 PANEL_DB_HOST=127.0.0.1             # Database host
 PANEL_DB_NAME=panel                 # Database name
 PANEL_USE_SQLITE=1                  # Use SQLite for development
@@ -352,9 +352,9 @@ docker build -t panel .
 # Run with SQLite
 docker run -p 8080:8080 -e PANEL_USE_SQLITE=1 panel
 
-# Run with MySQL
+# Run with MariaDB
 docker run -p 8080:8080 \
-  -e PANEL_DB_HOST=mysql-host \
+  -e PANEL_DB_HOST=mariadb-host \
   -e PANEL_DB_USER=user \
   -e PANEL_DB_PASS=pass \
   -e PANEL_DB_NAME=panel \
@@ -364,7 +364,7 @@ docker run -p 8080:8080 \
 ## 📋 **Requirements**
 
 - **Python**: 3.8+
-- **Database**: MySQL 5.7+ or SQLite 3.31+
+- **Database**: MariaDB 10.3+ or SQLite 3.31+
 - **System**: Linux (Ubuntu/Debian/Alpine)
 - **Memory**: 512MB+ RAM
 - **Storage**: 1GB+ available space
