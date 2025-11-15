@@ -175,30 +175,66 @@ interactive_config() {
     echo
     log "Selected: $INSTALL_MODE mode"
     
-    # Database configuration
-    if [[ "$INSTALL_MODE" == "production" ]] || [[ "$INSTALL_MODE" == "custom" ]]; then
-        echo
-        echo -e "${BLUE}Database Configuration:${NC}"
-        
-        if [[ "$INSTALL_MODE" == "custom" ]]; then
-            if prompt_confirm "Use SQLite for development?" "y"; then
-                DB_TYPE="sqlite"
-            else
-                DB_TYPE="mysql"
-            fi
+    # Database configuration (always show for all modes)
+    echo
+    echo -e "${BLUE}Database Configuration:${NC}"
+    echo -e "${YELLOW}Choose your database backend${NC}"
+    
+    # Database type selection with mode-specific defaults
+    if [[ "$INSTALL_MODE" == "development" ]]; then
+        if prompt_confirm "Use SQLite? (recommended for development)" "y"; then
+            DB_TYPE="sqlite"
         else
             DB_TYPE="mysql"
         fi
+    elif [[ "$INSTALL_MODE" == "production" ]]; then
+        if prompt_confirm "Use MySQL? (recommended for production)" "y"; then
+            DB_TYPE="mysql"
+        else
+            DB_TYPE="sqlite"
+        fi
+    else  # custom mode
+        echo "  1) SQLite (simple, file-based)"
+        echo "  2) MySQL (scalable, production-ready)"
+        echo
+        while true; do
+            echo -n -e "${BLUE}Select database type (1-2)${NC} (default: 1): "
+            read db_choice
+            db_choice="${db_choice:-1}"
+            
+            case "$db_choice" in
+                1|sqlite|SQLite) 
+                    DB_TYPE="sqlite"
+                    echo -e "${GREEN}✓ Selected: SQLite${NC}"
+                    break
+                    ;;
+                2|mysql|MySQL) 
+                    DB_TYPE="mysql"
+                    echo -e "${GREEN}✓ Selected: MySQL${NC}"
+                    break
+                    ;;
+                *) 
+                    echo -e "${RED}Invalid selection '$db_choice'. Please enter 1 or 2${NC}"
+                    ;;
+            esac
+        done
+    fi
+    
+    # MySQL configuration if selected
+    if [[ "$DB_TYPE" == "mysql" ]]; then
+        echo
+        echo -e "${YELLOW}Configure MySQL connection settings${NC}"
+        DB_HOST=$(prompt_input "MySQL Host" "localhost")
+        DB_PORT=$(prompt_input "MySQL Port" "3306")
+        DB_NAME=$(prompt_input "Database Name" "panel")
+        DB_USER=$(prompt_input "Database User" "paneluser")
+        DB_PASS=$(prompt_input "Database Password" "" "true")
         
-        if [[ "$DB_TYPE" == "mysql" ]]; then
-            DB_HOST=$(prompt_input "MySQL Host" "localhost")
-            DB_PORT=$(prompt_input "MySQL Port" "3306")
-            DB_NAME=$(prompt_input "Database Name" "panel")
-            DB_USER=$(prompt_input "Database User" "paneluser")
-            DB_PASS=$(prompt_input "Database Password" "" "true")
+        if [[ -z "$DB_PASS" ]]; then
+            echo -e "${YELLOW}Warning: Empty database password - ensure MySQL allows passwordless access${NC}"
         fi
     else
-        DB_TYPE="sqlite"
+        echo -e "${GREEN}✓ Using SQLite - no additional configuration needed${NC}"
     fi
     
     # Admin user configuration
@@ -514,7 +550,8 @@ EOF
 }
 
 install_system_deps() {
-    if [[ "$INSTALL_MODE" == "development" ]]; then
+    if [[ "$INSTALL_MODE" == "development" && "$DB_TYPE" == "sqlite" && "$SETUP_NGINX" == "false" && "$SETUP_REDIS" == "false" ]]; then
+        # Skip system deps for simple development setups
         return 0
     fi
     
@@ -655,7 +692,8 @@ install_panel() {
     fi
     
     # Initialize application database
-    PANEL_USE_SQLITE="${DB_TYPE}" python3 -c "
+    if [[ "$DB_TYPE" == "sqlite" ]]; then
+        PANEL_USE_SQLITE=1 python3 -c "
 from app import app, db, User
 with app.app_context():
     db.create_all()
@@ -674,6 +712,27 @@ with app.app_context():
     else:
         print('Admin user already exists')
 "
+    else
+        python3 -c "
+from app import app, db, User
+with app.app_context():
+    db.create_all()
+    # Create admin user
+    admin = User.query.filter_by(username='$ADMIN_USERNAME').first()
+    if not admin:
+        admin = User(
+            username='$ADMIN_USERNAME',
+            email='$ADMIN_EMAIL',
+            role='system_admin'
+        )
+        admin.set_password('$ADMIN_PASSWORD')
+        db.session.add(admin)
+        db.session.commit()
+        print('Admin user created successfully')
+    else:
+        print('Admin user already exists')
+"
+    fi
     
     # Setup production services
     if [[ "$SETUP_SYSTEMD" == "true" ]]; then
