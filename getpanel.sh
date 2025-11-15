@@ -836,8 +836,27 @@ install_system_deps() {
         sudo $PKG_UPDATE
     fi
     
-    # Install base dependencies with build essentials
-    local packages="python3-venv python3-pip python3-dev build-essential"
+    # Install base dependencies with build essentials and Pillow dependencies
+    case "$PKG_MANAGER" in
+        apt-get) 
+            local packages="python3-venv python3-pip python3-dev build-essential"
+            packages="$packages libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev"
+            packages="$packages libopenjp2-7-dev libtiff5-dev libwebp-dev libharfbuzz-dev"
+            packages="$packages libfribidi-dev libxcb1-dev"
+            ;;
+        yum) 
+            local packages="python3-venv python3-pip python3-devel gcc gcc-c++"
+            packages="$packages libjpeg-devel zlib-devel freetype-devel lcms2-devel"
+            packages="$packages openjpeg2-devel libtiff-devel libwebp-devel harfbuzz-devel"
+            packages="$packages fribidi-devel libxcb-devel"
+            ;;
+        apk) 
+            local packages="python3-dev py3-pip gcc g++ musl-dev"
+            packages="$packages jpeg-dev zlib-dev freetype-dev lcms2-dev"
+            packages="$packages openjpeg-dev tiff-dev libwebp-dev harfbuzz-dev"
+            packages="$packages fribidi-dev libxcb-dev"
+            ;;
+    esac
     
     if [[ "$DB_TYPE" == "mysql" ]]; then
         case "$PKG_MANAGER" in
