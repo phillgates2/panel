@@ -30,38 +30,61 @@
     <link rel="stylesheet" href="/theme.css" />
     {% endif %}
   </head>
-  <body>
+  <body class="fade-in">
     <header>
-      <nav>
-        <a href="/">Home</a>
-        {% if not logged_in %}
-          <a href="/login">Login</a>
-          <a href="/register">Register</a>
-        {% else %}
-          <a href="/dashboard">Dashboard</a>
-          <a href="/logout">Logout</a>
-        {% endif %}
-        {% if theme_toggle_enabled %}
-          <button id="theme-toggle" class="small theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme"
-            style="margin-left:10px; border:1px solid var(--border); background:var(--panel-hover); color:var(--text); padding:6px 10px; border-radius:8px;">
-            <span class="icon" aria-hidden="true">🌙</span>
-            <span class="label">Dark</span>
-          </button>
-          <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
-        {% endif %}
-      </nav>
+      <div class="container">
+        <nav>
+          <div class="nav-brand">
+            <a href="/" class="brand-link">
+              <h3 style="margin: 0; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">⚡ Panel</h3>
+            </a>
+          </div>
+          <div class="nav-links">
+            <a href="/" class="{{ 'active' if request.endpoint == 'index' }}">🏠 Home</a>
+            {% if not logged_in %}
+              <a href="/login" class="{{ 'active' if request.endpoint == 'login' }}">🔐 Login</a>
+              <a href="/register" class="{{ 'active' if request.endpoint == 'register' }}">📝 Register</a>
+            {% else %}
+              <a href="/dashboard" class="{{ 'active' if request.endpoint == 'dashboard' }}">📊 Dashboard</a>
+              <a href="/logout">🚪 Logout</a>
+            {% endif %}
+            {% if theme_toggle_enabled %}
+              <button id="theme-toggle" class="theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme">
+                <span class="icon" aria-hidden="true">🌙</span>
+                <span class="label">Dark</span>
+              </button>
+              <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
+            {% endif %}
+          </div>
+        </nav>
+      </div>
     </header>
+    
     <main>
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <ul>
-            {% for category, msg in messages %}
-              <li class="{{ category }}">{{ msg }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      {% endwith %}
-      {% block content %}{% endblock %}
+      <div class="container slide-in">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="alerts-container">
+              {% for category, msg in messages %}
+                <div class="alert alert-{{ category }}">
+                  {% if category == 'success' %}
+                    <span>✅</span>
+                  {% elif category == 'error' %}
+                    <span>❌</span>
+                  {% elif category == 'warning' %}
+                    <span>⚠️</span>
+                  {% else %}
+                    <span>ℹ️</span>
+                  {% endif %}
+                  {{ msg }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+      </div>
     </main>
 
     <style>

@@ -12,15 +12,19 @@ def _random_text(n=6):
 
 def generate_captcha_image(length=6):
     text = _random_text(length)
-    # create simple image
-    width = 200
-    height = 70
+    # create simple image with 100% bigger dimensions for 50px font
+    width = 640
+    height = 240
     image = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(image)
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 40)
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 50)
     except Exception:
-        font = ImageFont.load_default()
+        # Try to load a larger default font or use built-in with size parameter
+        try:
+            font = ImageFont.load_default(size=50)
+        except Exception:
+            font = ImageFont.load_default()
 
     # draw text centered with random small offset
     try:
@@ -32,9 +36,9 @@ def generate_captcha_image(length=6):
         try:
             w, h = font.getsize(text)
         except Exception:
-            # fallback to approximate sizes
-            w = len(text) * 10
-            h = 20
+            # fallback to approximate sizes for 50px font
+            w = len(text) * 12
+            h = 30
     x = (width - w) // 2
     y = (height - h) // 2
     draw.text((x, y), text, font=font, fill=(0, 0, 0))

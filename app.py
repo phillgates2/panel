@@ -2,7 +2,7 @@ import os
 import time
 import io
 import secrets
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from flask import (
     Flask,
     render_template,
@@ -13,6 +13,7 @@ from flask import (
     send_file,
     flash,
     abort,
+    jsonify,
 )
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
@@ -195,9 +196,12 @@ class Server(db.Model):
     description = db.Column(db.String(512), nullable=True)
     variables_json = db.Column(db.Text, nullable=True)  # structured variables (JSON)
     raw_config = db.Column(db.Text, nullable=True)  # raw server config
+    game_type = db.Column(db.String(32), default='etlegacy', nullable=False)  # game type for configs
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # server owner
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     users = db.relationship('ServerUser', backref='server', cascade='all, delete-orphan')
+    owner = db.relationship('User', foreign_keys=[owner_id])
 
 
 class AuditLog(db.Model):
@@ -233,6 +237,15 @@ class SiteAsset(db.Model):
         data = db.Column(db.LargeBinary, nullable=False)
         mimetype = db.Column(db.String(128), nullable=True)
         created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# Import extended models (this must be after db is defined)
+# Temporarily commented out to avoid circular imports during monitoring system integration
+# from models_extended import (
+#     UserSession, ApiKey, UserActivity, TwoFactorAuth, IpAccessControl,
+#     Notification, ServerTemplate, ScheduledTask, RconCommandHistory,
+#     PerformanceMetric, UserGroup, UserGroupMembership
+# )
 
 
 def is_admin_user(user):
@@ -404,6 +417,33 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
+            
+            # Create session tracking record
+            import secrets
+            session_token = secrets.token_urlsafe(32)
+            session["session_token"] = session_token
+            
+            # TODO: Re-enable session tracking after fixing circular imports
+            # user_session = UserSession(
+            #     user_id=user.id,
+            #     session_token=session_token,
+            #     ip_address=request.remote_addr,
+            #     user_agent=request.headers.get('User-Agent', ''),
+            #     expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+            # )
+            # db.session.add(user_session)
+            
+            # TODO: Re-enable activity logging after fixing circular imports  
+            # db.session.add(UserActivity(
+            #     user_id=user.id,
+            #     activity_type='login',
+            #     ip_address=request.remote_addr,
+            #     user_agent=request.headers.get('User-Agent', ''),
+            #     details=json.dumps({'email': email})
+            # ))
+            
+            db.session.commit()
+            
             # clear captcha on success
             session.pop("captcha_text", None)
             session.pop("captcha_ts", None)
@@ -413,6 +453,41 @@ def login():
             flash("Invalid credentials", "error")
             return redirect(url_for("login"))
     return render_template("login.html")
+
+
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    """Logout the current user and deactivate session."""
+    user_id = session.get("user_id")
+    session_token = session.get("session_token")
+    
+    if user_id and session_token:
+        # TODO: Re-enable session tracking after fixing circular imports
+        # # Deactivate the session in the database
+        # user_session = UserSession.query.filter_by(
+        #     user_id=user_id,
+        #     session_token=session_token,
+        #     is_active=True
+        # ).first()
+        # 
+        # if user_session:
+        #     user_session.is_active = False
+        #     db.session.commit()
+        # 
+        # # Log the logout activity
+        # db.session.add(UserActivity(
+        #     user_id=user_id,
+        #     activity_type='logout',
+        #     ip_address=request.remote_addr,
+        #     user_agent=request.headers.get('User-Agent', '')
+        # ))
+        # db.session.commit()
+        pass
+    
+    # Clear the session
+    session.clear()
+    flash("Logged out successfully", "info")
+    return redirect(url_for("index"))
 
 
 @app.route("/forgot", methods=["GET", "POST"])
@@ -1377,4 +1452,50 @@ if __name__ == "__main__":
                 db.session.commit()
         except Exception:
             db.session.rollback()
+    
+    # Import extended routes
+    # Temporarily commented out to avoid circular imports during monitoring system integration
+    # import routes_extended
+    # import routes_rbac
+    from routes_config import config_bp
+    from monitoring_system import monitoring_bp, start_monitoring
+    from api_monitoring import api_bp
+    from log_analytics import log_analytics_bp, start_log_analytics
+    from multi_server_management import multi_server_bp, start_multi_server_system
+    
+    # Register blueprints
+    app.register_blueprint(config_bp)
+    app.register_blueprint(monitoring_bp)
+    app.register_blueprint(api_bp)
+    app.register_blueprint(log_analytics_bp)
+    app.register_blueprint(multi_server_bp)
+    
+    # Initialize configuration templates within app context
+    with app.app_context():
+        from config_manager import create_default_templates
+        try:
+            create_default_templates()
+        except Exception as e:
+            print(f"Warning: Could not create default templates: {e}")
+    
+    # Start enterprise systems with app instance and proper context
+    with app.app_context():
+        try:
+            start_monitoring(app)
+            print("✓ Real-time monitoring system started")
+        except Exception as e:
+            print(f"Warning: Could not start monitoring: {e}")
+        
+        try:
+            start_log_analytics(app)
+            print("✓ Advanced log analytics system started")
+        except Exception as e:
+            print(f"Warning: Could not start log analytics: {e}")
+        
+        try:
+            start_multi_server_system(app)
+            print("✓ Multi-server management system started")
+        except Exception as e:
+            print(f"Warning: Could not start multi-server system: {e}")
+    
     app.run(host="0.0.0.0", port=8080, debug=True)

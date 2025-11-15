@@ -1,29 +1,79 @@
-# panel — Game server panel scaffold
+# panel — Enterprise Game Server Management Platform
 
-This repository contains a minimal scaffold for a game server panel targeted at ET:Legacy with n!tmod. It includes:
+**🎮 OZ Panel Enterprise Edition**  
+Advanced ET: Legacy server management with enterprise-grade monitoring, analytics, and multi-server orchestration.
 
-- Flask backend with MySQL (user registration/login/forgot password local flow)
-- Local captcha generation (image via Pillow, audio via `espeak`)
-- Password complexity checks and a client-side strength meter
-- A basic RCON client module `rcon_client.py` which sends UDP `rcon` commands (placeholder)
-- Utilities: memory watcher, autodeploy script, example `systemd` unit, and `nginx` config
+## 🚀 **Enterprise Features**
 
-Important notes and next steps
+### **💹 Real-Time Monitoring System**
+- Live server metrics tracking (CPU, memory, disk, network)
+- Automated alerting with configurable thresholds
+- Player session monitoring and analytics
+- Interactive Chart.js dashboards with historical data
 
-- This is a scaffold — you should review and harden before production.
-- Quick interactive install
+### **🔍 Advanced Log Analytics**
+- Machine learning-based anomaly detection
+- Automated pattern recognition and baseline establishment
+- Security event detection and alerting
+- Real-time log processing with intelligent parsing
 
+### **🖥️ Multi-Server Management**
+- Cluster orchestration with automated scaling
+- SSH-based remote server management
+- Centralized configuration management
+- Load balancing and health monitoring
+
+### **🎨 Enhanced Interface**
+- Professional enterprise dashboards
+- Theme editor with logo support
+- Mobile-responsive design
+- Role-based access control
+
+## 🔧 **Core Features**
+- Flask backend with MySQL/SQLite support
+- Advanced authentication with captcha hardening  
+- Password complexity checks and strength validation
+- RCON client for game server communication
+- Comprehensive audit logging and security monitoring
+
+## ⚡ **Quick Start - Enterprise Installation**
+
+### **One-Command Installation**
 ```bash
 ./panel.sh install
 # Or preview with dry-run:
 ./panel.sh install --dry-run
 ```
 
-The installer will:
-- Create a Python virtualenv and install dependencies
-- Generate a secret key and write environment variables to `scripts/env.sh`
-- Initialize the database (SQLite for dev, MySQL for prod)
-- Optionally create an initial system admin user
+The enterprise installer will:
+- 🐍 Create Python virtualenv with enterprise dependencies 
+- 📊 Install monitoring libraries (`psutil`, `paramiko`, `PyYAML`)
+- 🧠 Set up ML analytics (`numpy`, `scikit-learn`)
+- 🔒 Generate secure configuration with secrets
+- 🗄️ Initialize database with enterprise tables
+- 👤 Optionally create system admin user
+- 🚀 Configure production services (nginx, systemd)
+
+### **Management Commands**
+```bash
+./panel.sh start          # Development mode (minimal monitoring)
+./panel.sh start-prod     # Production mode (full features)
+./panel.sh status         # Check service health
+./panel.sh monitoring     # Open monitoring dashboard
+./panel.sh update         # Update installation
+./panel.sh uninstall     # Remove all components
+```
+
+### **Quick Development Start**
+```bash
+# Clone and start in development mode
+git clone <repository>
+cd panel
+./panel.sh install
+./panel.sh start
+
+# Access at: http://localhost:8080
+```
 
 - Manual install (if you prefer not to use the script):
 
