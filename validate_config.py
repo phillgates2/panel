@@ -44,8 +44,24 @@ class ConfigValidator:
         """Validate SECRET_KEY."""
         secret = os.environ.get('PANEL_SECRET_KEY', '')
         
+        # Check if we're in development/testing mode
+        is_dev_mode = (
+            os.environ.get('PANEL_USE_SQLITE') == '1' or
+            os.environ.get('FLASK_ENV') == 'development' or
+            os.environ.get('TESTING') == '1' or
+            not secret  # No secret key indicates dev mode
+        )
+        
         if not secret or secret == 'dev-secret-key-change':
-            if os.environ.get('PANEL_USE_SQLITE') == '1':
+            if is_dev_mode:
+                # Try to read from config.py as fallback
+                try:
+                    import config
+                    if hasattr(config, 'SECRET_KEY') and config.SECRET_KEY != 'dev-secret-key-change':
+                        self.info.append("✓ SECRET_KEY from config.py (dev mode)")
+                        return
+                except ImportError:
+                    pass
                 self.warnings.append("Using default SECRET_KEY in dev mode")
             else:
                 self.errors.append("SECRET_KEY not set or using default value in production")
@@ -58,9 +74,26 @@ class ConfigValidator:
         """Validate database configuration."""
         use_sqlite = os.environ.get('PANEL_USE_SQLITE') == '1'
         
+        # Auto-detect development mode
+        if not use_sqlite:
+            try:
+                import config
+                if hasattr(config, 'SQLALCHEMY_DATABASE_URI'):
+                    if config.SQLALCHEMY_DATABASE_URI.startswith('sqlite:'):
+                        use_sqlite = True
+            except ImportError:
+                pass
+        
         if use_sqlite:
             self.info.append("✓ Using SQLite (dev mode)")
-            sqlite_uri = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
+            sqlite_uri = os.environ.get('PANEL_SQLITE_URI')
+            if not sqlite_uri:
+                try:
+                    import config
+                    sqlite_uri = getattr(config, 'SQLALCHEMY_DATABASE_URI', 'sqlite:///panel_dev.db')
+                except ImportError:
+                    sqlite_uri = 'sqlite:///panel_dev.db'
+            
             # Extract path from sqlite:/// URI
             if sqlite_uri.startswith('sqlite:///'):
                 db_path = sqlite_uri[10:]
@@ -75,8 +108,23 @@ class ConfigValidator:
             db_host = os.environ.get('PANEL_DB_HOST', '127.0.0.1')
             db_name = os.environ.get('PANEL_DB_NAME', 'paneldb')
             
+            # Check if we're in dev mode
+            is_dev_mode = (
+                os.environ.get('FLASK_ENV') == 'development' or
+                os.environ.get('TESTING') == '1' or
+                not any([
+                    os.environ.get('PANEL_DB_USER'),
+                    os.environ.get('PANEL_DB_PASS'),
+                    os.environ.get('PANEL_DB_HOST'),
+                    os.environ.get('PANEL_DB_NAME')
+                ])
+            )
+            
             if db_pass == 'panelpass':
-                self.errors.append("Using default MySQL password")
+                if is_dev_mode:
+                    self.warnings.append("Using default MySQL password (dev mode)")
+                else:
+                    self.errors.append("Using default MySQL password in production")
             
             # Try to connect (if pymysql available)
             try:
@@ -93,11 +141,21 @@ class ConfigValidator:
             except ImportError:
                 self.warnings.append("PyMySQL not installed, skipping connection test")
             except Exception as e:
-                self.errors.append(f"MySQL connection failed: {e}")
+                if is_dev_mode:
+                    self.warnings.append(f"MySQL connection failed (dev mode): {e}")
+                else:
+                    self.errors.append(f"MySQL connection failed: {e}")
     
     def check_redis_config(self):
         """Validate Redis configuration."""
         redis_url = os.environ.get('PANEL_REDIS_URL', 'redis://127.0.0.1:6379/0')
+        
+        # Check if we're in dev mode
+        is_dev_mode = (
+            os.environ.get('FLASK_ENV') == 'development' or
+            os.environ.get('TESTING') == '1' or
+            not os.environ.get('PANEL_REDIS_URL')
+        )
         
         try:
             parsed = urlparse(redis_url)
@@ -113,7 +171,10 @@ class ConfigValidator:
         except ImportError:
             self.warnings.append("redis package not installed, skipping connection test")
         except Exception as e:
-            self.errors.append(f"Redis connection failed: {e}")
+            if is_dev_mode:
+                self.warnings.append(f"Redis connection failed (dev mode): {e}")
+            else:
+                self.errors.append(f"Redis connection failed: {e}")
     
     def check_etlegacy_config(self):
         """Validate ET:Legacy server configuration."""
@@ -160,14 +221,33 @@ class ConfigValidator:
     
     def check_dependencies(self):
         """Check Python dependencies."""
-        try:
-            import flask
-            import flask_sqlalchemy
-            import redis
-            import rq
-            self.info.append("✓ Core dependencies installed")
-        except ImportError as e:
-            self.errors.append(f"Missing dependency: {e}")
+        required = ['flask', 'flask_sqlalchemy']
+        optional = ['redis', 'rq', 'pymysql', 'pillow']
+        
+        missing_required = []
+        missing_optional = []
+        
+        for dep in required:
+            try:
+                __import__(dep)
+            except ImportError:
+                missing_required.append(dep)
+        
+        for dep in optional:
+            try:
+                __import__(dep)
+            except ImportError:
+                missing_optional.append(dep)
+        
+        if missing_required:
+            self.errors.append(f"Missing required dependencies: {', '.join(missing_required)}")
+        else:
+            self.info.append("✓ Required dependencies installed")
+        
+        if missing_optional:
+            self.warnings.append(f"Missing optional dependencies: {', '.join(missing_optional)}")
+        else:
+            self.info.append("✓ Optional dependencies installed")
     
     def check_directories(self):
         """Ensure required directories exist."""

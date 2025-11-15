@@ -31,10 +31,14 @@ from captcha import generate_captcha_image, generate_captcha_audio
 import json
 import io
 from PIL import Image, ImageOps
+from validate_config import ConfigValidator
 
 app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
+
+# Track application startup time
+app.start_time = time.time()
 
 # --- Simple rate limiting helpers (Redis-backed, with in-process fallback) ---
 _rl_fallback_store = {}
@@ -619,6 +623,100 @@ def is_server_mod_user(user):
     if not user or not user.email:
         return False
     return user.is_server_mod()
+
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for system monitoring."""
+    try:
+        # Quick health check
+        validator = ConfigValidator()
+        
+        # Check database connection
+        db.session.execute('SELECT 1')
+        
+        # Check Redis if available
+        redis_healthy = False
+        try:
+            r = _get_redis_conn()
+            if r:
+                r.ping()
+                redis_healthy = True
+        except:
+            pass
+        
+        # Basic health metrics
+        health_data = {
+            'status': 'healthy',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'database': 'connected',
+            'redis': 'connected' if redis_healthy else 'disconnected',
+            'uptime': time.time() - app.start_time if hasattr(app, 'start_time') else None
+        }
+        
+        return jsonify(health_data)
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/health/detailed')
+def detailed_health_check():
+    """Detailed health check for admin monitoring."""
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        validator = ConfigValidator()
+        validator.validate_all()
+        
+        health_data = {
+            'status': 'healthy' if not validator.errors else 'degraded',
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'validation': {
+                'errors': validator.errors,
+                'warnings': validator.warnings,
+                'info': validator.info
+            }
+        }
+        
+        return jsonify(health_data)
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/admin/config/validate')
+def admin_validate_config():
+    """Admin endpoint to validate system configuration."""
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    
+    validator = ConfigValidator()
+    validator.validate_all()
+    
+    return render_template('admin_config_validate.html',
+                         errors=validator.errors,
+                         warnings=validator.warnings,
+                         info=validator.info)
 
 
 @app.route('/admin/tools', methods=['GET'])
