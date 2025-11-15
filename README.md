@@ -1,159 +1,199 @@
-# panel — Enterprise Game Server Management Platform
+# Panel — Modern Game Server Management Platform
 
-**🎮 OZ Panel Enterprise Edition**  
-Advanced ET: Legacy server management with enterprise-grade monitoring, analytics, and multi-server orchestration.
+**🎮 OZ Panel**  
+Modern Flask-based ET: Legacy server management with optimized user experience and enterprise-ready features.
 
-## 🚀 **Enterprise Features**
+## ✨ **Key Features**
 
-### **💹 Real-Time Monitoring System**
-- Live server metrics tracking (CPU, memory, disk, network)
-- Automated alerting with configurable thresholds
-- Player session monitoring and analytics
-- Interactive Chart.js dashboards with historical data
+### **🔐 Enhanced Security & Authentication**
+- **Ultra-Compact Captcha System** - Optimized 50x25 pixel captcha with quality filters
+- **Advanced Authentication** - Secure login/register/password reset flows
+- **Role-Based Access Control** - Admin and user permission management
+- **Audit Logging** - Comprehensive security event tracking
 
-### **🔍 Advanced Log Analytics**
-- Machine learning-based anomaly detection
-- Automated pattern recognition and baseline establishment
-- Security event detection and alerting
-- Real-time log processing with intelligent parsing
+### **🎨 Modern User Interface**
+- **Professional Design** - Glass morphism effects with gradient backgrounds
+- **Responsive Layout** - Mobile-friendly dashboard and forms
+- **Theme System** - Customizable CSS with logo support
+- **Accessibility** - WCAG compliant navigation and interactions
 
-### **🖥️ Multi-Server Management**
-- Cluster orchestration with automated scaling
-- SSH-based remote server management
-- Centralized configuration management
-- Load balancing and health monitoring
+### **🛠️ Server Management**
+- **RCON Integration** - Direct game server communication
+- **Multi-Server Support** - Manage multiple ET: Legacy instances
+- **Configuration Management** - Centralized server settings
+- **Real-Time Status** - Live server monitoring and health checks
 
-### **🎨 Enhanced Interface**
-- Professional enterprise dashboards
-- Theme editor with logo support
-- Mobile-responsive design
-- Role-based access control
+### **🚀 Development Features**
+- **Flask Backend** - Modern Python web framework
+- **SQLite/MySQL Support** - Flexible database configurations
+- **Virtual Environment** - Clean dependency management
+- **Systemd Integration** - Production service management
 
-## 🔧 **Core Features**
-- Flask backend with MySQL/SQLite support
-- Advanced authentication with captcha hardening  
-- Password complexity checks and strength validation
-- RCON client for game server communication
-- Comprehensive audit logging and security monitoring
-
-## ⚡ **Quick Start - Enterprise Installation**
+## ⚡ **Quick Start**
 
 ### **One-Command Installation**
 ```bash
-./panel.sh install
-# Or preview with dry-run:
-./panel.sh install --dry-run
+# Interactive installation (recommended)
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+
+# Install to custom directory
+PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+
+# Install specific branch
+PANEL_BRANCH=develop bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+
+# Non-interactive installation for automation
+PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
 ```
 
-The enterprise installer will:
-- 🐍 Create Python virtualenv with enterprise dependencies 
-- 📊 Install monitoring libraries (`psutil`, `paramiko`, `PyYAML`)
-- 🧠 Set up ML analytics (`numpy`, `scikit-learn`)
-- 🔒 Generate secure configuration with secrets
-- 🗄️ Initialize database with enterprise tables
-- 👤 Optionally create system admin user
-- 🚀 Configure production services (nginx, systemd)
+**🎯 Interactive Configuration Options:**
+- **Installation Mode:** Development, Production, or Custom
+- **Database Setup:** SQLite (quick) or MySQL (production)
+- **Admin User:** Username, email, and password
+- **Application Settings:** Host, port, debug mode, CAPTCHA
+- **Production Services:** Nginx, SSL certificates, systemd
+- **Optional Features:** Redis, Discord webhooks
 
-### **Management Commands**
-```bash
-./panel.sh start          # Development mode (minimal monitoring)
-./panel.sh start-prod     # Production mode (full features)
-./panel.sh status         # Check service health
-./panel.sh monitoring     # Open monitoring dashboard
-./panel.sh update         # Update installation
-./panel.sh uninstall     # Remove all components
-```
+The installer automatically:
+- ✅ Checks system requirements (Python 3.8+, Git, Curl)
+- ✅ Guides you through interactive configuration
+- ✅ Installs system dependencies based on your choices
+- ✅ Sets up Python virtual environment
+- ✅ Creates database and admin user
+- ✅ Configures production services (nginx, SSL, systemd)
+- ✅ Generates secure environment configuration
 
-### **Quick Development Start**
+### **Manual Installation**
 ```bash
-# Clone and start in development mode
-git clone <repository>
+# Clone repository
+git clone https://github.com/phillgates2/panel.git
 cd panel
+
+# Use the built-in installer
 ./panel.sh install
-./panel.sh start
+
+# Or install manually
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run in development mode with SQLite
+PANEL_USE_SQLITE=1 python app.py
 
 # Access at: http://localhost:8080
 ```
 
-- Manual install (if you prefer not to use the script):
-
+### **Management Commands**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+./panel.sh install      # Full installation with setup wizard
+./panel.sh start        # Start development server
+./panel.sh start-prod   # Start production server  
+./panel.sh status       # Check service health
+./panel.sh update       # Update installation
+./panel.sh uninstall    # Remove installation
 ```
 
-- Install system dependencies:
+### **Production Installation**
 
+#### **Automated Setup**
+```bash
+# Install to production directory
+sudo PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+
+# Or clone and run installer
+git clone https://github.com/phillgates2/panel.git /opt/panel
+cd /opt/panel
+sudo ./panel.sh install
+```
+
+#### **Manual Production Setup**
+
+1. **Install System Dependencies**
 ```bash
 sudo apt update
-sudo apt install -y espeak gdb unzip
+sudo apt install -y python3-venv python3-pip nginx mysql-server git curl
 ```
 
-- Configure MySQL and environment variables (example):
-
+2. **Setup Application**
 ```bash
-export PANEL_DB_USER=paneluser
-export PANEL_DB_PASS=panelpass
-export PANEL_DB_HOST=127.0.0.1
-export PANEL_DB_NAME=paneldb
-export PANEL_SECRET_KEY="change-this-secret"
+# Create installation directory
+sudo mkdir -p /opt/panel
+cd /opt/panel
+
+# Clone repository
+sudo git clone https://github.com/phillgates2/panel.git .
+sudo ./panel.sh install
 ```
 
-- Run the app (development):
+The installer will guide you through:
+- Python virtual environment setup
+- Database configuration (MySQL/SQLite)
+- Admin user creation
+- SSL certificate setup
+- Systemd service configuration
+- Nginx reverse proxy setup
 
+## 🔧 **Configuration**
+
+### **Environment Variables**
 ```bash
-python app.py
+# Database Configuration
+PANEL_DB_USER=your_db_user          # MySQL username
+PANEL_DB_PASS=your_db_password      # MySQL password  
+PANEL_DB_HOST=127.0.0.1             # Database host
+PANEL_DB_NAME=panel                 # Database name
+PANEL_USE_SQLITE=1                  # Use SQLite for development
+
+# Security
+PANEL_SECRET_KEY=your-secret-key    # Flask secret key
+PANEL_DISABLE_CAPTCHA=false         # Disable captcha (testing only)
+
+# Optional Features
+PANEL_DISCORD_WEBHOOK=webhook_url   # Discord notifications
 ```
 
-- Production WSGI (gunicorn) + systemd
+### **Captcha System**
+The panel features an optimized captcha system with:
+- **Ultra-compact design** - 50x25 pixel images for seamless UI integration
+- **Quality filters** - SMOOTH and SHARPEN filters for enhanced readability
+- **Smart sizing** - Automatic font scaling based on character count
+- **Security focused** - Excludes confusing characters (0, O, I, 1, L)
 
-1. Create a virtualenv and install deps in `/opt/panel` (example):
+### **System Services**
 
+#### **Gunicorn Service**
 ```bash
-python3 -m venv /opt/panel/.venv
-source /opt/panel/.venv/bin/activate
-pip install -r requirements.txt
-```
-
-2. Adjust `deploy/gunicorn.service` `WorkingDirectory` and `PATH` to match your installation, then install:
-
-```bash
-sudo cp deploy/gunicorn.service /etc/systemd/system/panel-gunicorn.service
+sudo cp deploy/panel-gunicorn.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now panel-gunicorn.service
 ```
 
-3. Nginx
-
-Place `deploy/nginx_game_chrisvanek.conf` into `/etc/nginx/sites-available/` and symlink to `sites-enabled`, then reload nginx.
-
+#### **Nginx Configuration**
 ```bash
-sudo cp deploy/nginx_game_chrisvanek.conf /etc/nginx/sites-available/game.chrisvanek.conf
-sudo ln -s /etc/nginx/sites-available/game.chrisvanek.conf /etc/nginx/sites-enabled/
+sudo cp deploy/nginx_game_chrisvanek.conf /etc/nginx/sites-available/panel.conf
+sudo ln -s /etc/nginx/sites-available/panel.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-4. Obtain TLS certificate (Certbot, example):
-
+#### **SSL Certificate**
 ```bash
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d game.chrisvanek.com
+sudo certbot --nginx -d your-domain.com
 ```
 
-5. Systemd for ET server
+## 🎮 **Game Server Integration**
 
-Place `deploy/etlegacy.service` into `/etc/systemd/system/` and enable it (adjust ExecStart to your start script):
-
+### **ET: Legacy Server Setup**
 ```bash
-sudo cp deploy/etlegacy.service /etc/systemd/system/etlegacy.service
+# Copy service file
+sudo cp deploy/etlegacy.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now etlegacy
+sudo systemctl enable --now etlegacy.service
+```
 
-Server utilities
+### **Server Utilities**
 
-- Memwatch (periodic core dump when Buffers > 1GB): copy `deploy/memwatch.service` and `deploy/memwatch.timer` to `/etc/systemd/system/` and enable the timer:
-
+#### **Memory Monitoring (Memwatch)**
 ```bash
 sudo cp deploy/memwatch.service /etc/systemd/system/
 sudo cp deploy/memwatch.timer /etc/systemd/system/
@@ -161,8 +201,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now memwatch.timer
 ```
 
-- Autodeploy (periodic auto-downloader): copy `deploy/autodeploy.service` and `deploy/autodeploy.timer` and enable the timer. Configure `DOWNLOAD_URL` and optionally `DOWNLOAD_CHECKSUM` in `/etc/default/etlegacy` or via environment for the service:
-
+#### **Auto-deployment**
 ```bash
 sudo cp deploy/autodeploy.service /etc/systemd/system/
 sudo cp deploy/autodeploy.timer /etc/systemd/system/
@@ -170,172 +209,151 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now autodeploy.timer
 ```
 
-Note: The service files assume the scripts are installed at `/opt/panel/scripts/` and that `/etc/default/etlegacy` (optional) can be used to set `DOWNLOAD_URL`, `INSTALL_DIR`, `SERVICE_NAME`, etc. Adjust paths as needed.
+### **Security & Permissions**
 
-Panel user and permissions
-
-- It's safer to run the panel and game server under a dedicated `panel` user instead of `root` or `www-data`.
-- Create the user and group, adjust ownership of installed files:
-
+#### **Dedicated User Setup**
 ```bash
+# Create panel user
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin panel
-sudo mkdir -p /opt/panel /opt/etlegacy /var/log/panel
-sudo chown -R panel:panel /opt/panel /opt/etlegacy /var/log/panel
+sudo mkdir -p /opt/panel /var/log/panel
+sudo chown -R panel:panel /opt/panel /var/log/panel
 ```
 
-- The example systemd units `deploy/panel-gunicorn.service` and `deploy/panel-etlegacy.service` run as the `panel` user. Ensure the `panel` user has permissions to execute the server start script and read/write to the configured directories.
-
-```text
-# Allow web user (www-data) to run the panel wrapper which validates inputs
-www-data ALL=(root) NOPASSWD: /opt/panel/bin/panel-wrapper *
+#### **Sudo Configuration**
+```bash
+# Allow controlled access for wrapper
+echo "www-data ALL=(root) NOPASSWD: /opt/panel/bin/panel-wrapper *" | sudo tee /etc/sudoers.d/panel
 ```
 
+### **Panel Wrapper**
 
-Wrapper build & install
-
-The repository includes a small, audited wrapper binary that validates inputs and sanitizes the environment before running `autodeploy` or `memwatch`. Build and install it as follows (on the server):
+Build the security wrapper for safe command execution:
 
 ```bash
-# build
-cd /path/to/panel/tools
+# Build wrapper
+cd tools
 make
-
-# install to /opt/panel/bin (Makefile has an 'install' target that copies and sets permissions)
 sudo make install
 
-# ensure the wrapper is owned by root and not writable by others
+# Set secure permissions
 sudo chown root:root /opt/panel/bin/panel-wrapper
 sudo chmod 750 /opt/panel/bin/panel-wrapper
 ```
 
-The wrapper accepts two commands:
-- `panel-wrapper autodeploy [download_url]` — optional `download_url` must start with `http://` or `https://` and will be set as `DOWNLOAD_URL` in the environment passed to the deploy script.
-- `panel-wrapper memwatch [pid_file]` — optional `pid_file` must be an absolute path under `/var/run`, `/var/tmp`, or `/tmp` and will be set as `ET_PID_FILE`.
+**Wrapper Commands:**
+- `panel-wrapper autodeploy [url]` - Deploy server updates
+- `panel-wrapper memwatch [pid_file]` - Monitor server memory
 
-The wrapper logs invocations to `/var/log/panel/panel-wrapper.log` and enforces that the target scripts are owned by `panel` or `root` and are executable.
+## 🔄 **Background Services**
 
-Asynchronous tasks (RQ + Redis)
-
-- The panel now supports running long-running admin tasks (autodeploy, memwatch) asynchronously using RQ and Redis. Install Redis and start a worker to process jobs.
-
-Install Redis and run a worker:
-
+### **Redis & Task Queue**
 ```bash
+# Install Redis
 sudo apt install redis-server
 sudo systemctl enable --now redis
-# create and activate the venv, then install dependencies
-source /opt/panel/.venv/bin/activate
+
+# Setup RQ worker
+source venv/bin/activate
 pip install -r requirements.txt
-# run an RQ worker in the background (or as systemd):
 python run_worker.py
 ```
 
-The admin UI enqueues tasks and returns an RQ job id. Check job status with `/admin/job/<job_id>`.
-
-RQ worker systemd unit
-
-To run the RQ worker as the `panel` user via systemd, copy the provided unit file and enable it:
-
+### **Worker Management**
 ```bash
+# Install supervised worker
 sudo cp deploy/rq-worker-supervised.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now rq-worker-supervised.service
-sudo systemctl status rq-worker-supervised.service
-```
 
-Adjust `WorkingDirectory` and `Environment` in the unit to match your installation path if you installed the panel elsewhere.
-
-Supervised worker and logs
-
-- A supervised worker unit `deploy/rq-worker-supervised.service` is provided which redirects worker stdout to `/var/log/panel/worker.log`.
-- Install it and ensure `/var/log/panel` exists and is owned by `panel`:
-
-```bash
-sudo mkdir -p /var/log/panel
-sudo chown panel:panel /var/log/panel
-sudo cp deploy/rq-worker-supervised.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now rq-worker-supervised.service
-sudo systemctl status rq-worker-supervised.service
-```
-
-Worker health check & timer
-
-- A watch script `tools/check_worker.sh` plus `deploy/check-worker.service` and `deploy/check-worker.timer` will periodically check the worker service, restart it if inactive, and send a Discord alert after repeated failures. Install the timer:
-
-```bash
+# Health monitoring
 sudo cp deploy/check-worker.service /etc/systemd/system/
 sudo cp deploy/check-worker.timer /etc/systemd/system/
-sudo systemctl daemon-reload
 sudo systemctl enable --now check-worker.timer
-sudo systemctl status check-worker.timer
 ```
 
-Edit `/opt/panel/tools/check_worker.sh` or environment variables to tune `MAX_FAILS` and `STATE_DIR`.
-
-Discord webhook improvements
-
-- Scripts now post richer embed-style notifications to the configured `PANEL_DISCORD_WEBHOOK`. Set `PANEL_DISCORD_WEBHOOK` in the environment or `/etc/default/etlegacy`.
-
-Log rotation
-
-- A `deploy/panel-logrotate.conf` file is included to rotate `/var/log/panel/*.log` weekly. Install with:
-
+### **Log Management**
 ```bash
+# Setup log rotation
 sudo cp deploy/panel-logrotate.conf /etc/logrotate.d/panel
-sudo logrotate -f /etc/logrotate.d/panel
+sudo mkdir -p /var/log/panel
+sudo chown panel:panel /var/log/panel
 ```
-```
 
-Security and functional items to finish
+## 🎨 **Customization**
 
-- Harden RCON implementation and confirm exact protocol/port for your ET:Legacy + n!tmod build.
-- Wire n!tmod to use MySQL backend — the placeholder here is for the panel's user DB.
-- Add HTTPS/TLS (Let's Encrypt) for `game.chrisvanek.com` on the nginx layer.
-- Add tests, input sanitization, CSRF protection and production WSGI server (gunicorn/uwsgi).
-# panel
-oz panel
+### **Theme Editor**
+- Access at `/admin/theme` (system admin required)
+- Edit CSS in real-time with live preview
+- Upload server logos and assets
+- Mobile-responsive design tools
 
-## Release note
+### **Server Logos**
+- Upload via Theme Editor interface  
+- Served at `/theme_asset/<filename>`
+- Secure filename sanitization
+- Multiple format support
 
-The repository's initial scaffold and admin UI were merged into `main` on 2025-11-14.
-
-- Tag: `scaffold-initial-2025-11-14`
-- Contents: Flask backend, admin pages, templates, deploy/systemd examples, tests (unit + Playwright E2E placeholder), and CI workflow.
-
-If you cloned the repository before this date, sync with the updated `main`:
+## 🧪 **Testing**
 
 ```bash
-git fetch origin
-git checkout main
-git reset --hard origin/main
-```
-
-To run tests and E2E locally, install dependencies and Playwright browsers:
-
-```bash
-python -m pip install -r requirements.txt
+# Install test dependencies
+pip install -r requirements.txt
 python -m playwright install
+
+# Run tests
+python -m pytest tests/
+python -m playwright test
 ```
 
+## 📚 **API Reference**
 
-Theme Editor
-------------
+### **RCON Integration**
+- Direct ET: Legacy server communication
+- Command validation and sanitization
+- Real-time response handling
+- Connection pooling and timeout management
 
-A lightweight Theme Editor is available in the admin UI for system administrators. It allows editing a single CSS file (`static/css/custom_theme.css`) that is applied site-wide.
+### **Admin Features**
+- User management and role assignment
+- Server configuration and monitoring
+- Audit log viewing and export
+- Task queue monitoring and management
 
-- URL: `/admin/theme` (requires a `system_admin` user)
-- The editor provides a textarea with the current CSS and saves changes to `static/css/custom_theme.css`.
-- Changes take effect immediately after saving.
+## 🚀 **Deployment**
 
-Server Logos
-------------
+### **Docker Support** (Optional)
+```bash
+# Build container
+docker build -t panel .
 
-You can upload server logos via the Theme Editor. Uploaded logos are stored in the instance directory and served at `/theme_asset/<filename>`. Use the returned URL from the editor in your CSS (for example, `background-image: url(/theme_asset/logo.png);`).
+# Run with SQLite
+docker run -p 8080:8080 -e PANEL_USE_SQLITE=1 panel
 
-Notes:
-- Uploads are restricted to system administrators via the Theme Editor UI.
-- Filenames are sanitized with `werkzeug.utils.secure_filename` before storing.
+# Run with MySQL
+docker run -p 8080:8080 \
+  -e PANEL_DB_HOST=mysql-host \
+  -e PANEL_DB_USER=user \
+  -e PANEL_DB_PASS=pass \
+  -e PANEL_DB_NAME=panel \
+  panel
+```
 
-If you'd prefer multi-theme support or database-stored themes, I can extend the editor to support previews and named themes.
+## 📋 **Requirements**
+
+- **Python**: 3.8+
+- **Database**: MySQL 5.7+ or SQLite 3.31+
+- **System**: Linux (Ubuntu/Debian/Alpine)
+- **Memory**: 512MB+ RAM
+- **Storage**: 1GB+ available space
+
+## 🔗 **Links**
+
+- **Repository**: https://github.com/phillgates2/panel
+- **Issues**: https://github.com/phillgates2/panel/issues
+- **Documentation**: See `README_DEV.md` for development details
+- **Changelog**: See `CHANGELOG.md` for version history
+
+---
+
+**Panel** - Modern game server management made simple. Built with Flask, optimized for ET: Legacy, designed for scalability.
 
