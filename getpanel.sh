@@ -184,14 +184,18 @@ interactive_config() {
     if [[ "$INSTALL_MODE" == "development" ]]; then
         if prompt_confirm "Use SQLite? (recommended for development)" "y"; then
             DB_TYPE="sqlite"
+            echo -e "${GREEN}✓ Selected: SQLite${NC}"
         else
             DB_TYPE="mysql"
+            echo -e "${GREEN}✓ Selected: MySQL${NC}"
         fi
     elif [[ "$INSTALL_MODE" == "production" ]]; then
         if prompt_confirm "Use MySQL? (recommended for production)" "y"; then
             DB_TYPE="mysql"
+            echo -e "${GREEN}✓ Selected: MySQL${NC}"
         else
             DB_TYPE="sqlite"
+            echo -e "${GREEN}✓ Selected: SQLite${NC}"
         fi
     else  # custom mode
         echo "  1) SQLite (simple, file-based)"
@@ -220,21 +224,55 @@ interactive_config() {
         done
     fi
     
+    echo -e "${BLUE}Database Type:${NC} $DB_TYPE"
+    
     # MySQL configuration if selected
     if [[ "$DB_TYPE" == "mysql" ]]; then
         echo
-        echo -e "${YELLOW}Configure MySQL connection settings${NC}"
+        echo -e "${BLUE}📊 MySQL Database Configuration${NC}"
+        echo -e "${YELLOW}Configure your MySQL connection settings${NC}"
+        echo
+        
         DB_HOST=$(prompt_input "MySQL Host" "localhost")
-        DB_PORT=$(prompt_input "MySQL Port" "3306")
+        
+        # Port validation for MySQL
+        while true; do
+            DB_PORT=$(prompt_input "MySQL Port" "3306")
+            if [[ "$DB_PORT" =~ ^[0-9]+$ ]] && [[ "$DB_PORT" -ge 1 ]] && [[ "$DB_PORT" -le 65535 ]]; then
+                break
+            else
+                echo -e "${RED}Please enter a valid port number (1-65535)${NC}"
+            fi
+        done
+        
         DB_NAME=$(prompt_input "Database Name" "panel")
         DB_USER=$(prompt_input "Database User" "paneluser")
-        DB_PASS=$(prompt_input "Database Password" "" "true")
         
-        if [[ -z "$DB_PASS" ]]; then
-            echo -e "${YELLOW}Warning: Empty database password - ensure MySQL allows passwordless access${NC}"
-        fi
+        # Password with confirmation
+        while true; do
+            DB_PASS=$(prompt_input "Database Password (leave empty for no password)" "" "true")
+            if [[ -n "$DB_PASS" ]]; then
+                DB_PASS_CONFIRM=$(prompt_input "Confirm Database Password" "" "true")
+                if [[ "$DB_PASS" == "$DB_PASS_CONFIRM" ]]; then
+                    break
+                else
+                    echo -e "${RED}Passwords do not match. Please try again.${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠️  Using empty password - ensure MySQL allows passwordless access for user '$DB_USER'${NC}"
+                break
+            fi
+        done
+        
+        echo
+        echo -e "${GREEN}✓ MySQL configuration complete${NC}"
+        echo -e "  Host: $DB_HOST:$DB_PORT"
+        echo -e "  Database: $DB_NAME"
+        echo -e "  User: $DB_USER"
+        
     else
-        echo -e "${GREEN}✓ Using SQLite - no additional configuration needed${NC}"
+        echo
+        echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
     fi
     
     # Admin user configuration
