@@ -716,6 +716,11 @@ check_requirements() {
         warn "Consider upgrading to Python $recommended_version+ for better performance"
     fi
     
+    # Python 3.13 compatibility notice
+    if [[ $(echo -e "$python_version\n3.13" | sort -V | head -n1) == "3.13" ]]; then
+        log "Python $python_version detected - using latest compatible package versions"
+    fi
+    
     # Check pip version and recommend upgrade if old
     if command -v pip3 &> /dev/null; then
         local pip_version=$(pip3 --version 2>/dev/null | cut -d' ' -f2 | cut -d'.' -f1)
@@ -940,7 +945,19 @@ install_panel() {
     # Install optional ML dependencies if requested
     if [[ "${INSTALL_ML_DEPS:-}" == "true" ]]; then
         log "Installing optional ML/Analytics dependencies..."
-        pip install --upgrade numpy==1.25.2 scikit-learn==1.3.2 boto3==1.34.23
+        
+        # Check Python version for ML compatibility
+        local python_version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
+        if [[ $(echo -e "$python_version\n3.13" | sort -V | head -n1) == "3.13" ]]; then
+            log "Python $python_version detected - using latest ML package versions"
+            pip install --upgrade numpy>=1.26.0 scikit-learn>=1.4.0 boto3>=1.35.0
+        elif [[ $(echo -e "$python_version\n3.11" | sort -V | head -n1) == "3.11" ]]; then
+            log "Python $python_version detected - using stable ML package versions"
+            pip install --upgrade numpy>=1.24.0 scikit-learn>=1.3.0 boto3>=1.34.0
+        else
+            log "Python $python_version detected - using compatible ML package versions"
+            pip install --upgrade numpy>=1.21.0 scikit-learn>=1.1.0 boto3>=1.30.0
+        fi
     fi
     
     # Verify critical packages are installed
