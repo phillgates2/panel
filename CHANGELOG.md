@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
  - Captcha hardening across auth flows:
 	 - Add captcha to Forgot Password form (required in non-testing environments).
 	 - Enforce captcha on Login and Reset Password; provide audio via espeak.
+	 - Captcha expiry (3 minutes) and per-IP rate limiting for login/forgot/reset and captcha image.
 	 - Skip captcha validation in TESTING mode and hide captcha UI in tests to unblock Playwright E2E.
 	 - Fix Pillow 10+ compatibility for captcha text sizing (use `textbbox` with fallbacks).
  - SQLAlchemy deprecations resolved: replace `Query.get()` with `db.session.get()`.
