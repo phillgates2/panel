@@ -6,9 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 **Interactive Installation System** - 2025-11-15
 
-- **One-Command Installer** 📦
-  - Created `getpanel.sh` - curl-installable script for instant deployment
+- **One-Command Installer & Uninstaller** 📦
+  - Created `getpanel.sh` - curl-installable script for instant deployment and removal
   - Interactive configuration wizard with step-by-step setup guidance
+  - Complete uninstaller with safety checks and graceful service cleanup
   - Support for development, production, and custom installation modes
   - Non-interactive mode for automation and CI/CD pipelines
   - Automatic system requirements validation (Python 3.8+, Git, Curl)
@@ -20,12 +21,14 @@ All notable changes to this project will be documented in this file.
   - **Production Services**: Nginx reverse proxy, SSL certificates, systemd services
   - **Optional Features**: Redis task queue, Discord webhook notifications
 
-- **Smart Installation Features** ✨
+- **Smart Installation & Removal Features** ✨
   - Automatic system dependency detection and installation (apt/yum/apk)
   - Secure environment file generation with random secret keys
   - MySQL database and user creation with proper permissions
   - Nginx configuration with domain setup and SSL certificate provisioning
   - Systemd service configuration for production deployments
+  - Complete uninstaller with service cleanup and safety confirmations
+  - Graceful service shutdown and configuration removal
   - Comprehensive installation summary with next steps guidance
 
 - **Enhanced Documentation** 📚

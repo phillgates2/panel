@@ -652,35 +652,177 @@ main() {
     show_next_steps
 }
 
+uninstall_panel() {
+    log "🗑️ Panel Uninstaller"
+    echo
+    
+    # Check if installation exists
+    if [[ ! -d "$INSTALL_DIR" ]]; then
+        error "Panel installation not found at $INSTALL_DIR"
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    # Show what will be removed
+    echo -e "${YELLOW}The following will be removed:${NC}"
+    echo "  📁 Installation directory: $INSTALL_DIR"
+    
+    # Check for services
+    local services_found=()
+    if systemctl is-enabled panel-gunicorn.service &>/dev/null; then
+        services_found+=("panel-gunicorn.service")
+    fi
+    if systemctl is-enabled rq-worker-supervised.service &>/dev/null; then
+        services_found+=("rq-worker-supervised.service")
+    fi
+    
+    if [[ ${#services_found[@]} -gt 0 ]]; then
+        echo "  🔧 Systemd services: ${services_found[*]}"
+    fi
+    
+    # Check for nginx config
+    if [[ -f "/etc/nginx/sites-enabled/panel.conf" ]]; then
+        echo "  🌐 Nginx configuration: /etc/nginx/sites-*/panel.conf"
+    fi
+    
+    # Check for database
+    if [[ -f "instance/panel_dev.db" ]]; then
+        echo "  🗄️ SQLite database: instance/panel_dev.db"
+    fi
+    
+    echo
+    warn "This action cannot be undone!"
+    
+    if ! prompt_confirm "Are you sure you want to uninstall Panel?" "n"; then
+        log "Uninstall cancelled"
+        exit 0
+    fi
+    
+    # Stop services
+    log "Stopping services..."
+    for service in "${services_found[@]}"; do
+        if [[ $EUID -eq 0 ]]; then
+            systemctl stop "$service" || true
+            systemctl disable "$service" || true
+            rm -f "/etc/systemd/system/$service"
+        else
+            sudo systemctl stop "$service" || true
+            sudo systemctl disable "$service" || true
+            sudo rm -f "/etc/systemd/system/$service"
+        fi
+        log "✓ Removed service: $service"
+    done
+    
+    if [[ ${#services_found[@]} -gt 0 ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            systemctl daemon-reload
+        else
+            sudo systemctl daemon-reload
+        fi
+    fi
+    
+    # Remove nginx config
+    if [[ -f "/etc/nginx/sites-enabled/panel.conf" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            rm -f /etc/nginx/sites-enabled/panel.conf
+            rm -f /etc/nginx/sites-available/panel.conf
+            nginx -t && systemctl reload nginx || true
+        else
+            sudo rm -f /etc/nginx/sites-enabled/panel.conf
+            sudo rm -f /etc/nginx/sites-available/panel.conf
+            sudo nginx -t && sudo systemctl reload nginx || true
+        fi
+        log "✓ Removed Nginx configuration"
+    fi
+    
+    # Remove installation directory
+    log "Removing installation directory..."
+    cd /
+    rm -rf "$INSTALL_DIR"
+    log "✓ Removed: $INSTALL_DIR"
+    
+    # Remove panel user (optional)
+    if id panel &>/dev/null; then
+        if prompt_confirm "Remove panel system user?" "n"; then
+            if [[ $EUID -eq 0 ]]; then
+                userdel panel || true
+            else
+                sudo userdel panel || true
+            fi
+            log "✓ Removed panel user"
+        fi
+    fi
+    
+    echo
+    echo -e "${GREEN}🎉 Panel uninstalled successfully!${NC}"
+    echo
+    echo -e "${BLUE}Cleanup complete:${NC}"
+    echo "  ✅ Installation directory removed"
+    echo "  ✅ Systemd services removed"
+    echo "  ✅ Nginx configuration removed"
+    echo
+    echo -e "${YELLOW}Note:${NC} Database backups and log files may remain in /var/log/panel"
+    echo
+}
+
+show_help() {
+    echo "Panel Installer & Manager"
+    echo
+    echo "Usage:"
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [command]"
+    echo
+    echo "Commands:"
+    echo "  install     Install Panel (default if no command specified)"
+    echo "  uninstall   Uninstall Panel and remove all components"
+    echo "  --help      Show this help message"
+    echo
+    echo "Environment variables:"
+    echo "  PANEL_INSTALL_DIR      Installation directory (default: \$HOME/panel)"
+    echo "  PANEL_BRANCH           Git branch to install (default: main)"
+    echo "  PANEL_NONINTERACTIVE   Skip interactive prompts (default: false)"
+    echo "  PANEL_ADMIN_PASSWORD   Admin password for non-interactive mode"
+    echo
+    echo "Examples:"
+    echo "  # Interactive installation (recommended)"
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
+    echo
+    echo "  # Install to custom directory"
+    echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...)"
+    echo
+    echo "  # Install specific branch"
+    echo "  PANEL_BRANCH=develop bash <(curl -fsSL ...)"
+    echo
+    echo "  # Non-interactive installation"
+    echo "  PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL ...)"
+    echo
+    echo "  # Uninstall Panel"
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall"
+    echo
+    echo "  # Uninstall from custom directory"
+    echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...) uninstall"
+}
+
 # Handle command line arguments
-case "${1:-}" in
-    --help|-h)
-        echo "Panel Quick Installer"
+case "${1:-install}" in
+    install)
+        main "${@:2}"
+        ;;
+    uninstall)
+        print_banner
+        log "Panel Uninstaller"
+        log "Target directory: $INSTALL_DIR"
         echo
-        echo "Usage:"
-        echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
-        echo
-        echo "Environment variables:"
-        echo "  PANEL_INSTALL_DIR      Installation directory (default: \$HOME/panel)"
-        echo "  PANEL_BRANCH           Git branch to install (default: main)"
-        echo "  PANEL_NONINTERACTIVE   Skip interactive prompts (default: false)"
-        echo "  PANEL_ADMIN_PASSWORD   Admin password for non-interactive mode"
-        echo
-        echo "Examples:"
-        echo "  # Interactive installation (recommended)"
-        echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
-        echo
-        echo "  # Install to custom directory"
-        echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...)"
-        echo
-        echo "  # Install specific branch"
-        echo "  PANEL_BRANCH=develop bash <(curl -fsSL ...)"
-        echo
-        echo "  # Non-interactive installation with defaults"
-        echo "  PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL ...)"
+        check_requirements
+        uninstall_panel
+        ;;
+    --help|-h|help)
+        show_help
         exit 0
         ;;
     *)
-        main "$@"
+        echo -e "${RED}Error: Unknown command '$1'${NC}"
+        echo
+        show_help
+        exit 1
         ;;
 esac

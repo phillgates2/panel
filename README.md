@@ -46,6 +46,29 @@ PANEL_BRANCH=develop bash <(curl -fsSL https://raw.githubusercontent.com/phillga
 PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
 ```
 
+### **One-Command Uninstallation**
+```bash
+# Uninstall Panel completely
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall
+
+# Uninstall from custom directory
+PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall
+```
+
+The uninstaller automatically removes:
+- 🗂️ **Installation Directory** - Complete Panel installation
+- 🔧 **System Services** - Systemd services (gunicorn, workers)  
+- 🌐 **Nginx Configuration** - Reverse proxy and SSL configs
+- 👤 **System User** - Optional panel user removal (interactive prompt)
+- 📋 **Service Registration** - All systemd service files
+- 🔄 **Service Reload** - Automatic systemd daemon reload and nginx restart
+
+**Safety Features:**
+- ⚠️ **Confirmation Required** - Interactive confirmation before removal
+- 📊 **Preview Changes** - Shows what will be removed before proceeding
+- 🛡️ **Graceful Cleanup** - Stops services safely before removal
+- 📝 **Preserves Logs** - Database backups and logs remain in `/var/log/panel`
+
 **🎯 Interactive Configuration Options:**
 - **Installation Mode:** Development, Production, or Custom
 - **Database Setup:** SQLite (quick) or MySQL (production)
