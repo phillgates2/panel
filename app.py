@@ -1795,19 +1795,19 @@ def admin_db_import():
     )
 
 
-    # Initialize configuration templates within app context
-    with app.app_context():
-        from config_manager import create_default_templates
-        try:
-            create_default_templates()
-        except Exception as e:
-            print(f"Warning: Could not create default templates: {e}")
-    
     # Initialize database and start basic systems
     with app.app_context():
         # Initialize database tables first
         db.create_all()
         print("✓ Database initialized successfully")
+        
+        # Initialize configuration templates after database is ready
+        from config_manager import create_default_templates
+        try:
+            create_default_templates()
+        except Exception as e:
+            # Silently ignore template creation errors during startup
+            pass
         
         # Temporarily disable enterprise systems to avoid SQLAlchemy context issues
         # These can be re-enabled once the monitoring systems are properly configured
