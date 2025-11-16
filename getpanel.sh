@@ -4,6 +4,16 @@ set -euo pipefail
 # Panel Quick Installer
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
 #
+# Features:
+#   ✅ Professional logging infrastructure with audit trails
+#   ✅ Database migrations with Flask-Migrate
+#   ✅ Security headers (CSP, HSTS, XSS protection)
+#   ✅ API rate limiting and DDoS protection
+#   ✅ Health check endpoint for monitoring
+#   ✅ Input validation with marshmallow
+#   ✅ Comprehensive test suite with pytest
+#   ✅ Complete documentation suite
+#
 # Options:
 #   --help                Show this help message
 #   --dir DIR             Installation directory (default: $HOME/panel)
@@ -45,7 +55,15 @@ NC='\033[0m' # No Color
 
 show_help() {
     cat << EOF
-${BLUE}Panel Installer${NC}
+${BLUE}Panel Installer - Modern Game Server Management${NC}
+
+${GREEN}✨ New in this version:${NC}
+  • Professional logging with audit trails
+  • Database migrations and version control
+  • Security hardening (CSP, HSTS, rate limiting)
+  • Health check endpoint for monitoring
+  • Comprehensive test suite and documentation
+  • Input validation and SQL injection protection
 
 ${CYAN}Usage:${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
@@ -90,6 +108,12 @@ ${CYAN}Examples:${NC}
 ${CYAN}Environment Variables:${NC}
   PANEL_INSTALL_DIR     Installation directory
   PANEL_BRANCH          Git branch to install
+
+${CYAN}Post-Installation:${NC}
+  • Access health check: http://localhost:8080/health
+  • View logs: tail -f instance/logs/panel.log
+  • Read documentation: cat docs/NEW_FEATURES.md
+  • Run tests: make test
 
 EOF
     exit 0
@@ -1704,6 +1728,17 @@ show_next_steps() {
     [[ "$SETUP_SSL" == "true" ]] && echo "  🔒 SSL: Enabled"
     echo
     
+    echo -e "${BLUE}✨ New Features Included:${NC}"
+    echo "  🔒 Security: Rate limiting, SQL injection detection, audit logging"
+    echo "  📊 Monitoring: /health endpoint, structured logging, metrics tracking"
+    echo "  🧪 Testing: Comprehensive test suite with pytest"
+    echo "  📝 Documentation: Complete guides in docs/ directory"
+    echo "  🛠️ DevTools: Makefile, pre-commit hooks, Docker dev environment"
+    echo "  🔐 Hardened: CSP headers, HSTS, input validation, secure sessions"
+    echo "  🎛️ Database: phpMyAdmin integration, query validation, backups"
+    echo "  ⚡ Performance: Query optimization, caching ready, migrations"
+    echo
+    
     echo -e "${BLUE}Next steps:${NC}"
     echo "  1. Navigate to the installation directory:"
     echo "     cd $INSTALL_DIR"
@@ -1765,16 +1800,29 @@ show_next_steps() {
     echo "  ./panel.sh status     # Check service status"
     echo "  ./panel.sh update     # Update installation"
     echo "  ./panel.sh uninstall  # Remove installation"
+    echo "  make test             # Run test suite"
+    echo "  make lint             # Check code quality"
+    echo "  make db-migrate       # Create database migration"
     echo
     
-    echo -e "${BLUE}Configuration file:${NC}"
-    echo "  .env                  # Environment variables"
+    echo -e "${BLUE}Configuration files:${NC}"
+    echo "  .env                  # Environment variables (copy from .env.example)"
+    echo "  config.py             # Application configuration"
     echo
     
     echo -e "${BLUE}Documentation:${NC}"
-    echo "  README.md             # Full documentation"
-    echo "  README_DEV.md         # Development guide"
+    echo "  README.md             # Main documentation"
+    echo "  docs/NEW_FEATURES.md  # New features guide"
+    echo "  docs/DATABASE_MANAGEMENT.md  # Database admin guide"
+    echo "  docs/API_DOCUMENTATION.md    # REST API reference"
+    echo "  docs/TROUBLESHOOTING.md      # Common issues & solutions"
     echo "  CHANGELOG.md          # Version history"
+    echo
+    
+    echo -e "${BLUE}Monitoring & Health:${NC}"
+    echo "  http://localhost:$APP_PORT/health  # Health check endpoint"
+    echo "  instance/logs/panel.log            # Application logs"
+    echo "  instance/audit_logs/               # Security audit logs"
     echo
 }
 
