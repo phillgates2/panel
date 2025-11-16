@@ -1519,20 +1519,20 @@ setup_mariadb() {
                     warn "Could not start MariaDB service"
                 fi
             else
-                sudo $PKG_INSTALL mariadb-server mariadb-client
+                $SUDO $PKG_INSTALL mariadb-server mariadb-client
                 log "Enabling and starting MariaDB service..."
                 # Try both service names (mariadb and mysql)
-                if sudo systemctl enable mariadb 2>/dev/null; then
+                if $SUDO systemctl enable mariadb 2>/dev/null; then
                     log "Enabled mariadb.service"
-                elif sudo systemctl enable mysql 2>/dev/null; then
+                elif $SUDO systemctl enable mysql 2>/dev/null; then
                     log "Enabled mysql.service"
                 else
                     warn "Could not enable MariaDB service"
                 fi
                 
-                if sudo systemctl start mariadb 2>/dev/null; then
+                if $SUDO systemctl start mariadb 2>/dev/null; then
                     log "Started mariadb.service"
-                elif sudo systemctl start mysql 2>/dev/null; then
+                elif $SUDO systemctl start mysql 2>/dev/null; then
                     log "Started mysql.service"
                 else
                     warn "Could not start MariaDB service"
@@ -1546,9 +1546,9 @@ setup_mariadb() {
                 systemctl enable mariadb 2>/dev/null || systemctl enable mysql 2>/dev/null
                 systemctl start mariadb 2>/dev/null || systemctl start mysql 2>/dev/null
             else
-                sudo $PKG_INSTALL mariadb-server mariadb
-                sudo systemctl enable mariadb 2>/dev/null || sudo systemctl enable mysql 2>/dev/null
-                sudo systemctl start mariadb 2>/dev/null || sudo systemctl start mysql 2>/dev/null
+                $SUDO $PKG_INSTALL mariadb-server mariadb
+                $SUDO systemctl enable mariadb 2>/dev/null || $SUDO systemctl enable mysql 2>/dev/null
+                $SUDO systemctl start mariadb 2>/dev/null || $SUDO systemctl start mysql 2>/dev/null
             fi
             ;;
         apk) 
@@ -1563,12 +1563,12 @@ setup_mariadb() {
                 fi
                 rc-service mariadb start || true
             else
-                sudo $PKG_INSTALL mariadb mariadb-client mariadb-openrc
-                sudo rc-update add mariadb default 2>/dev/null || true
+                $SUDO $PKG_INSTALL mariadb mariadb-client mariadb-openrc
+                $SUDO rc-update add mariadb default 2>/dev/null || true
                 if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
-                    sudo /etc/init.d/mariadb setup
+                    $SUDO /etc/init.d/mariadb setup
                 fi
-                sudo rc-service mariadb start || true
+                $SUDO rc-service mariadb start || true
             fi
             ;;
         pacman)
@@ -1582,12 +1582,12 @@ setup_mariadb() {
                 systemctl enable mariadb 2>/dev/null || true
                 systemctl start mariadb 2>/dev/null || true
             else
-                sudo $PKG_INSTALL mariadb
+                $SUDO $PKG_INSTALL mariadb
                 if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
-                    sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                    $SUDO mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
                 fi
-                sudo systemctl enable mariadb 2>/dev/null || true
-                sudo systemctl start mariadb 2>/dev/null || true
+                $SUDO systemctl enable mariadb 2>/dev/null || true
+                $SUDO systemctl start mariadb 2>/dev/null || true
             fi
             ;;
         zypper)
@@ -1597,9 +1597,9 @@ setup_mariadb() {
                 systemctl enable mariadb 2>/dev/null || true
                 systemctl start mariadb 2>/dev/null || true
             else
-                sudo $PKG_INSTALL mariadb mariadb-client mariadb-tools
-                sudo systemctl enable mariadb 2>/dev/null || true
-                sudo systemctl start mariadb 2>/dev/null || true
+                $SUDO $PKG_INSTALL mariadb mariadb-client mariadb-tools
+                $SUDO systemctl enable mariadb 2>/dev/null || true
+                $SUDO systemctl start mariadb 2>/dev/null || true
             fi
             ;;
         brew)
@@ -1642,7 +1642,7 @@ setup_mariadb() {
                 if [[ $EUID -eq 0 ]]; then
                     systemctl status mariadb 2>&1 | head -15 || systemctl status mysql 2>&1 | head -15 || echo "  No service status available"
                 else
-                    sudo systemctl status mariadb 2>&1 | head -15 || sudo systemctl status mysql 2>&1 | head -15 || echo "  No service status available"
+                    $SUDO systemctl status mariadb 2>&1 | head -15 || $SUDO systemctl status mysql 2>&1 | head -15 || echo "  No service status available"
                 fi
             elif command -v rc-service &>/dev/null; then
                 echo "OpenRC services:"
@@ -1652,7 +1652,7 @@ setup_mariadb() {
                 if [[ $EUID -eq 0 ]]; then
                     rc-service mariadb status 2>&1 || rc-service mysql status 2>&1 || echo "  No service status available"
                 else
-                    sudo rc-service mariadb status 2>&1 || sudo rc-service mysql status 2>&1 || echo "  No service status available"
+                    $SUDO rc-service mariadb status 2>&1 || $SUDO rc-service mysql status 2>&1 || echo "  No service status available"
                 fi
             fi
             
@@ -1734,7 +1734,7 @@ setup_mariadb() {
     local root_mysql_cmd=(mysql "${socket_arg[@]}" -u root)
     if ! echo "SELECT 1;" | "${root_mysql_cmd[@]}" &>/dev/null; then
         if [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null; then
-            root_mysql_cmd=(sudo mysql "${socket_arg[@]}" -u root)
+            root_mysql_cmd=($SUDO mysql "${socket_arg[@]}" -u root)
         fi
     fi
 
@@ -1925,9 +1925,9 @@ check_mariadb_ready() {
                 systemctl start "$service_name" 2>/dev/null || warn "Failed to start $service_name"
             fi
         else
-            if ! sudo systemctl is-active --quiet "$service_name" 2>/dev/null; then
+            if ! $SUDO systemctl is-active --quiet "$service_name" 2>/dev/null; then
                 log "Attempting to start $service_name service..."
-                sudo systemctl start "$service_name" 2>/dev/null || warn "Failed to start $service_name"
+                $SUDO systemctl start "$service_name" 2>/dev/null || warn "Failed to start $service_name"
             fi
         fi
     elif [[ "$service_manager" == "openrc" ]]; then
@@ -1937,9 +1937,9 @@ check_mariadb_ready() {
                 rc-service "$service_name" start 2>/dev/null || warn "Failed to start $service_name"
             fi
         else
-            if ! sudo rc-service "$service_name" status 2>/dev/null | grep -q "started"; then
+            if ! $SUDO rc-service "$service_name" status 2>/dev/null | grep -q "started"; then
                 log "Attempting to start $service_name service..."
-                sudo rc-service "$service_name" start 2>/dev/null || warn "Failed to start $service_name"
+                $SUDO rc-service "$service_name" start 2>/dev/null || warn "Failed to start $service_name"
             fi
         fi
     fi
@@ -2043,13 +2043,13 @@ check_mariadb_ready() {
                     if [[ $EUID -eq 0 ]]; then
                         systemctl start mariadb 2>/dev/null || systemctl start mysql 2>/dev/null || true
                     else
-                        sudo systemctl start mariadb 2>/dev/null || sudo systemctl start mysql 2>/dev/null || true
+                        $SUDO systemctl start mariadb 2>/dev/null || $SUDO systemctl start mysql 2>/dev/null || true
                     fi
                 elif [[ "$service_manager" == "openrc" ]]; then
                     if [[ $EUID -eq 0 ]]; then
                         rc-service mariadb start 2>/dev/null || rc-service mysql start 2>/dev/null || true
                     else
-                        sudo rc-service mariadb start 2>/dev/null || sudo rc-service mysql start 2>/dev/null || true
+                        $SUDO rc-service mariadb start 2>/dev/null || $SUDO rc-service mysql start 2>/dev/null || true
                     fi
                 fi
             fi
@@ -2177,7 +2177,7 @@ FLUSH PRIVILEGES;
                 log "✓ Database user '$DB_USER' created/verified"
                 created_user=true
                 break
-            elif echo "$create_user_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_user_sql" | sudo mysql "${socket_arg[@]}" -u root 2>/dev/null; then
+            elif echo "$create_user_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_user_sql" | $SUDO mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database user '$DB_USER' created/verified (via sudo)"
                 created_user=true
                 break
@@ -2214,7 +2214,7 @@ FLUSH PRIVILEGES;
                 log "✓ Database '$DB_NAME' created/verified"
                 created_db=true
                 break
-            elif echo "$create_db_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_db_sql" | sudo mysql "${socket_arg[@]}" -u root 2>/dev/null; then
+            elif echo "$create_db_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_db_sql" | $SUDO mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database '$DB_NAME' created/verified (via sudo)"
                 created_db=true
                 break
@@ -2355,32 +2355,32 @@ NGINXEOF
                     warn "Nginx configuration test failed - phpMyAdmin may not be accessible"
                 fi
             else
-                echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | sudo debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/app-password-confirm password' | sudo debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | sudo debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | sudo debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect' | sudo debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | $SUDO debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/app-password-confirm password' | $SUDO debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | $SUDO debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | $SUDO debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect' | $SUDO debconf-set-selections
                 
                 # Install phpMyAdmin and PHP-FPM (without Apache2)
-                sudo $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
+                $SUDO $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
                 # Ensure PHP-FPM is running
                 # Detect PHP-FPM service name (varies by PHP version)
                 PHP_FPM_SERVICE=$(systemctl list-unit-files | grep -E "php[0-9.]*-fpm.service" | head -1 | awk '{print $1}')
                 if [[ -n "$PHP_FPM_SERVICE" ]]; then
-                    sudo systemctl enable "$PHP_FPM_SERVICE"
-                    sudo systemctl start "$PHP_FPM_SERVICE"
+                    $SUDO systemctl enable "$PHP_FPM_SERVICE"
+                    $SUDO systemctl start "$PHP_FPM_SERVICE"
                 else
-                    sudo systemctl enable php-fpm 2>/dev/null || true
-                    sudo systemctl start php-fpm 2>/dev/null || true
+                    $SUDO systemctl enable php-fpm 2>/dev/null || true
+                    $SUDO systemctl start php-fpm 2>/dev/null || true
                 fi
                 
                 # Create symlink for phpMyAdmin web files
-                sudo mkdir -p /var/www/phpmyadmin
-                sudo ln -sf /usr/share/phpmyadmin/* /var/www/phpmyadmin/ 2>/dev/null || sudo cp -r /usr/share/phpmyadmin/* /var/www/phpmyadmin/
+                $SUDO mkdir -p /var/www/phpmyadmin
+                $SUDO ln -sf /usr/share/phpmyadmin/* /var/www/phpmyadmin/ 2>/dev/null || $SUDO cp -r /usr/share/phpmyadmin/* /var/www/phpmyadmin/
                 
                 # Create Nginx configuration for phpMyAdmin on port 8081
-                sudo tee /etc/nginx/sites-available/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+                $SUDO tee /etc/nginx/sites-available/phpmyadmin.conf > /dev/null <<'NGINXEOF'
 server {
     listen 8081;
     server_name localhost;
@@ -2405,11 +2405,11 @@ server {
 NGINXEOF
                 
                 # Enable the site
-                sudo ln -sf /etc/nginx/sites-available/phpmyadmin.conf /etc/nginx/sites-enabled/
+                $SUDO ln -sf /etc/nginx/sites-available/phpmyadmin.conf /etc/nginx/sites-enabled/
                 
                 # Test and reload Nginx
-                if sudo nginx -t 2>/dev/null; then
-                    sudo systemctl reload nginx
+                if $SUDO nginx -t 2>/dev/null; then
+                    $SUDO systemctl reload nginx
                     log "✓ phpMyAdmin configured successfully on http://localhost:8081/phpmyadmin"
                 else
                     warn "Nginx configuration test failed - phpMyAdmin may not be accessible"
@@ -2425,11 +2425,11 @@ NGINXEOF
                 systemctl enable php-fpm
                 systemctl start php-fpm
             else
-                sudo $PKG_INSTALL epel-release
-                sudo $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
-                sudo $PKG_INSTALL php-fpm php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
-                sudo systemctl enable php-fpm
-                sudo systemctl start php-fpm
+                $SUDO $PKG_INSTALL epel-release
+                $SUDO $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
+                $SUDO $PKG_INSTALL php-fpm php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
+                $SUDO systemctl enable php-fpm
+                $SUDO systemctl start php-fpm
             fi
             
             # Download and install phpMyAdmin manually
@@ -2471,12 +2471,12 @@ server {
 NGINXEOF
                 nginx -t && systemctl reload nginx
             else
-                sudo mkdir -p /var/www/phpmyadmin
-                sudo cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
-                sudo chown -R nginx:nginx /var/www/phpmyadmin
+                $SUDO mkdir -p /var/www/phpmyadmin
+                $SUDO cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                $SUDO chown -R nginx:nginx /var/www/phpmyadmin
                 
                 # Create Nginx config for phpMyAdmin on port 8081
-                sudo tee /etc/nginx/conf.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+                $SUDO tee /etc/nginx/conf.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
 server {
     listen 8081;
     server_name localhost;
@@ -2499,7 +2499,7 @@ server {
     }
 }
 NGINXEOF
-                sudo nginx -t && sudo systemctl reload nginx
+                $SUDO nginx -t && $SUDO systemctl reload nginx
             fi
             ;;
         apk)
@@ -2553,12 +2553,12 @@ server {
 NGINXEOF
                 rc-service nginx reload
             else
-                sudo mkdir -p /var/www/phpmyadmin
-                sudo cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
-                sudo chown -R nginx:nginx /var/www/phpmyadmin
+                $SUDO mkdir -p /var/www/phpmyadmin
+                $SUDO cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                $SUDO chown -R nginx:nginx /var/www/phpmyadmin
                 
                 # Create Nginx config for phpMyAdmin
-                sudo tee /etc/nginx/http.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+                $SUDO tee /etc/nginx/http.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
 server {
     listen 8081;
     server_name localhost;
@@ -2581,7 +2581,7 @@ server {
     }
 }
 NGINXEOF
-                sudo rc-service nginx reload
+                $SUDO rc-service nginx reload
             fi
             ;;
     esac
@@ -2603,7 +2603,7 @@ install_system_deps() {
     if [[ $EUID -eq 0 ]]; then
         $PKG_UPDATE
     else
-        sudo $PKG_UPDATE
+        $SUDO $PKG_UPDATE
     fi
     
     # Install base dependencies with build essentials and Pillow dependencies
@@ -2681,7 +2681,7 @@ install_system_deps() {
         if [[ $EUID -eq 0 ]]; then
             $PKG_INSTALL $packages
         else
-            sudo $PKG_INSTALL $packages
+            $SUDO $PKG_INSTALL $packages
         fi
     else
         # Install packages without MariaDB (we'll set it up separately)
@@ -2695,7 +2695,7 @@ install_system_deps() {
         if [[ $EUID -eq 0 ]]; then
             $PKG_INSTALL $filtered_packages
         else
-            sudo $PKG_INSTALL $filtered_packages
+            $SUDO $PKG_INSTALL $filtered_packages
         fi
     fi
     
@@ -2817,7 +2817,7 @@ install_panel() {
             if [[ $EUID -eq 0 ]]; then
                 mysql_cmd="mysql -u root"
             else
-                mysql_cmd="sudo mysql -u root"
+                mysql_cmd="$SUDO mysql -u root"
             fi
             
             # Test connection and create database/user (suppress error output for clean testing)
@@ -3149,9 +3149,9 @@ setup_systemd_services() {
         systemctl daemon-reload
         systemctl enable panel-gunicorn.service
     else
-        sudo cp deploy/panel-gunicorn.service /etc/systemd/system/
-        sudo systemctl daemon-reload
-        sudo systemctl enable panel-gunicorn.service
+        $SUDO cp deploy/panel-gunicorn.service /etc/systemd/system/
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl enable panel-gunicorn.service
     fi
     
     log "✓ Systemd services configured"
@@ -3168,9 +3168,9 @@ setup_nginx_config() {
         ln -sf /etc/nginx/sites-available/panel.conf /etc/nginx/sites-enabled/
         nginx -t && systemctl reload nginx
     else
-        sudo cp /tmp/panel.conf /etc/nginx/sites-available/panel.conf
-        sudo ln -sf /etc/nginx/sites-available/panel.conf /etc/nginx/sites-enabled/
-        sudo nginx -t && sudo systemctl reload nginx
+        $SUDO cp /tmp/panel.conf /etc/nginx/sites-available/panel.conf
+        $SUDO ln -sf /etc/nginx/sites-available/panel.conf /etc/nginx/sites-enabled/
+        $SUDO nginx -t && $SUDO systemctl reload nginx
     fi
     
     log "✓ Nginx configuration complete"
@@ -3183,7 +3183,7 @@ setup_ssl_certificate() {
         if [[ $EUID -eq 0 ]]; then
             certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$ADMIN_EMAIL"
         else
-            sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$ADMIN_EMAIL"
+            $SUDO certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --email "$ADMIN_EMAIL"
         fi
         log "✓ SSL certificate configured"
     else
