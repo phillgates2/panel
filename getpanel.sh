@@ -1214,6 +1214,23 @@ EOF
 setup_mariadb() {
     log "Setting up MariaDB..."
     
+    # Detect package manager if not already set
+    if [[ -z "$PKG_MANAGER" ]]; then
+        if command -v apt-get &> /dev/null; then
+            PKG_MANAGER="apt-get"
+            PKG_INSTALL="apt-get install -y"
+        elif command -v yum &> /dev/null; then
+            PKG_MANAGER="yum"
+            PKG_INSTALL="yum install -y"
+        elif command -v apk &> /dev/null; then
+            PKG_MANAGER="apk"
+            PKG_INSTALL="apk add"
+        else
+            echo -e "${RED}✗ Could not detect package manager${NC}"
+            return 1
+        fi
+    fi
+    
     # Install MariaDB server
     case "$PKG_MANAGER" in
         apt-get) 
@@ -1384,6 +1401,23 @@ check_section_complete() {
 
 setup_phpmyadmin() {
     log "Setting up phpMyAdmin with Nginx..."
+    
+    # Detect package manager if not already set
+    if [[ -z "$PKG_MANAGER" ]]; then
+        if command -v apt-get &> /dev/null; then
+            PKG_MANAGER="apt-get"
+            PKG_INSTALL="apt-get install -y"
+        elif command -v yum &> /dev/null; then
+            PKG_MANAGER="yum"
+            PKG_INSTALL="yum install -y"
+        elif command -v apk &> /dev/null; then
+            PKG_MANAGER="apk"
+            PKG_INSTALL="apk add"
+        else
+            echo -e "${RED}✗ Could not detect package manager${NC}"
+            return 1
+        fi
+    fi
     
     # Note: Panel has built-in phpMyAdmin at /admin/database
     # This standalone phpMyAdmin is optional
