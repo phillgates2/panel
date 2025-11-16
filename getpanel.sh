@@ -430,6 +430,12 @@ show_privilege_banner() {
 quick_idempotency_check() {
     [[ "$FORCE_REINSTALL" == "true" ]] && return 0
 
+    # Allow disabling health probing via env for ultra-minimal systems
+    if [[ "${PANEL_SKIP_HEALTH_PROBE:-0}" == "1" ]]; then
+        log "Idempotency: PANEL_SKIP_HEALTH_PROBE=1 set; skipping app health checks"
+        return 0
+    fi
+
     local dir="$INSTALL_DIR"
     local have_env="false"
     local env_file="$dir/.env"
@@ -485,24 +491,25 @@ quick_idempotency_check() {
         fi
     fi
 
-    # App health check: try common endpoints/ports
+    # App health check: try common endpoints/ports with quiet curl output
     local ports_to_try=()
     [[ -n "$panel_port" ]] && ports_to_try+=("$panel_port")
     ports_to_try+=(8080 5000 8000)
 
-    for p in "${ports_to_try[@]}"; do
-        if command -v curl &>/dev/null; then
-            if curl -fsS -m 2 "http://127.0.0.1:${p}/health" | grep -q "OK"; then
+    if command -v curl &>/dev/null; then
+        log "Idempotency: probing for existing Panel instance on common ports"
+        for p in "${ports_to_try[@]}"; do
+            if curl -fsS -m 2 "http://127.0.0.1:${p}/health" 2>/dev/null | grep -q "OK"; then
                 app_ok="true"; panel_port="$p"; log "Idempotency: health check OK on port $p"; break
-            elif curl -fsS -m 2 "http://localhost:${p}/health" | grep -q "OK"; then
+            elif curl -fsS -m 2 "http://localhost:${p}/health" 2>/dev/null | grep -q "OK"; then
                 app_ok="true"; panel_port="$p"; log "Idempotency: health check OK on port $p"; break
             fi
-        fi
-    done
-    # If behind nginx default vhost
-    if [[ "$app_ok" != "true" ]] && command -v curl &>/dev/null; then
-        if curl -fsS -m 2 "http://127.0.0.1/health" | grep -q "OK"; then
-            app_ok="true"
+        done
+        # If behind nginx default vhost
+        if [[ "$app_ok" != "true" ]]; then
+            if curl -fsS -m 2 "http://127.0.0.1/health" 2>/dev/null | grep -q "OK"; then
+                app_ok="true"; log "Idempotency: health check OK via default vhost /health";
+            fi
         fi
     fi
     # Also accept active systemd gunicorn service as signal
@@ -522,6 +529,8 @@ quick_idempotency_check() {
         fi
         echo -e "${YELLOW}Idempotency:${NC} Skipping installation steps. Use --force to reinstall."
         exit 0
+    else
+        log "Idempotency: no existing healthy Panel instance detected; continuing with fresh install"
     fi
 
     return 0
@@ -1126,19 +1135,31 @@ interactive_config() {
             echo
             echo -e "${MAGENTA}MariaDB Installation Options:${NC}"
             
+            # Check if this is a remote database setup
+            local is_remote_db="false"
+            if [[ "$DB_HOST" != "localhost" && "$DB_HOST" != "127.0.0.1" && "$DB_HOST" != "::1" ]]; then
+                is_remote_db="true"
+                log "Remote database detected (host: $DB_HOST)"
+            fi
+            
             # Respect command-line flags
             if [[ "$SKIP_MARIADB" == "true" ]]; then
                 SETUP_MARIADB="false"
                 log "Skipping MariaDB installation (--skip-mariadb flag)"
             elif [[ "$FULL_INSTALL" == "true" ]]; then
                 SETUP_MARIADB="true"
-                log "Installing MariaDB (--full flag)"
-            elif prompt_confirm "Install and configure MariaDB server?" "y"; then
+                log "Installing MariaDB locally (--full flag)"
+            elif [[ "$is_remote_db" == "true" ]]; then
+                SETUP_MARIADB="false"
+                log "Remote database host detected - skipping local MariaDB server installation"
+                echo -e "${YELLOW}Note: Only mariadb-client will be installed for remote connections${NC}"
+            elif prompt_confirm "Install MariaDB server locally? (includes mariadb-server + mariadb-client)" "y"; then
                 SETUP_MARIADB="true"
-                echo -e "${GREEN}✓ Will install and configure MariaDB server${NC}"
+                echo -e "${GREEN}✓ Will install and configure local MariaDB server${NC}"
             else
                 SETUP_MARIADB="false"
-                warn "Assuming MariaDB is already installed and configured"
+                warn "Skipping MariaDB server installation - assuming remote or pre-existing database"
+                echo -e "${YELLOW}Note: Only mariadb-client will be installed for database connections${NC}"
             fi
             
             # phpMyAdmin setup (non-production modes)
@@ -1518,6 +1539,57 @@ EOF
     log "✓ Environment file created"
 }
 
+setup_mariadb_client_only() {
+    log "Installing MariaDB client tools for remote database connections..."
+    
+    case "$PKG_MANAGER" in
+        apt-get)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-client
+            else
+                $SUDO $PKG_INSTALL mariadb-client
+            fi
+            ;;
+        yum|dnf)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb
+            else
+                $SUDO $PKG_INSTALL mariadb
+            fi
+            ;;
+        apk)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-client
+            else
+                $SUDO $PKG_INSTALL mariadb-client
+            fi
+            ;;
+        pacman)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-clients
+            else
+                $SUDO $PKG_INSTALL mariadb-clients
+            fi
+            ;;
+        brew)
+            $PKG_INSTALL mariadb-connector-c
+            ;;
+        zypper)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-client
+            else
+                $SUDO $PKG_INSTALL mariadb-client
+            fi
+            ;;
+        *)
+            warn "Unknown package manager: $PKG_MANAGER - please install MariaDB client manually"
+            return 1
+            ;;
+    esac
+    
+    log "✓ MariaDB client installed"
+}
+
 setup_mariadb() {
     log "Setting up MariaDB..."
     
@@ -1525,7 +1597,7 @@ setup_mariadb() {
     case "$PKG_MANAGER" in
         apt-get) 
             # Debian/Ubuntu: mariadb-server contains server daemon, mariadb-client contains client tools
-            log "Installing MariaDB via apt-get..."
+            log "Installing MariaDB server and client via apt-get..."
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb-server mariadb-client
                 log "Enabling and starting MariaDB service..."
@@ -2740,6 +2812,10 @@ install_system_deps() {
     # Setup MariaDB if requested
     if [[ "$SETUP_MARIADB" == "true" ]]; then
         setup_mariadb
+    elif [[ "$USE_SQLITE" != "1" ]]; then
+        # MariaDB mode but not installing server - install client only for remote connections
+        log "MariaDB client mode (remote database)"
+        setup_mariadb_client_only
     fi
     
     # Setup phpMyAdmin if requested
