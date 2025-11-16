@@ -2069,9 +2069,6 @@ show_next_steps() {
         echo "  Standalone phpMyAdmin (Nginx): http://localhost:8081/"
         echo
         echo "  Note: Both use the same database credentials"
-    fi
-            echo "    → Use Panel's built-in database manager instead"
-        fi
         
         if [[ "$SETUP_MARIADB" == "true" ]]; then
             echo "  MariaDB Root: Use root credentials set during installation"
