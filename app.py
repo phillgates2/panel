@@ -32,6 +32,7 @@ import json
 import io
 from PIL import Image, ImageOps
 from validate_config import ConfigValidator
+from phpmyadmin_integration import PhpMyAdminIntegration, PHPMYADMIN_BASE_TEMPLATE, PHPMYADMIN_HOME_TEMPLATE, PHPMYADMIN_TABLE_TEMPLATE, PHPMYADMIN_QUERY_TEMPLATE
 
 app = Flask(__name__)
 app.config.from_object(config)
@@ -155,6 +156,9 @@ def inject_user():
     )
 
 db = SQLAlchemy(app)
+
+# Initialize phpMyAdmin integration
+phpmyadmin = PhpMyAdminIntegration(app, db)
 
 
 class User(db.Model):
@@ -1569,7 +1573,228 @@ if __name__ == "__main__":
     # app.register_blueprint(log_analytics_bp)
     # app.register_blueprint(multi_server_bp)
     print("✓ Enterprise systems disabled for clean operation")
+
+
+# ===== phpMyAdmin Integration Routes =====
+
+def requires_admin_or_system_admin(f):
+    """Decorator to require admin or system admin access"""
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this area.', 'error')
+            return redirect(url_for('login'))
+        
+        user = db.session.get(User, session['user_id'])
+        if not user or not (user.is_system_admin() or user.is_server_admin()):
+            flash('Insufficient permissions.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
+
+@app.route('/admin/database')
+@requires_admin_or_system_admin 
+def admin_db_home():
+    """Database management home page"""
+    db_info = phpmyadmin.get_database_info()
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + PHPMYADMIN_HOME_TEMPLATE,
+        db_info=db_info,
+        breadcrumb='Database Management'
+    )
+
+
+@app.route('/admin/database/table/<table_name>')
+@requires_admin_or_system_admin
+def admin_db_table(table_name):
+    """View table data with pagination"""
+    limit = int(request.args.get('limit', 50))
+    offset = int(request.args.get('offset', 0))
     
+    result = phpmyadmin.get_table_data(table_name, limit, offset)
+    
+    # Get total count for pagination (simplified)
+    total_result = phpmyadmin.execute_query(f"SELECT COUNT(*) as count FROM `{table_name}`")
+    total = total_result['data'][0]['count'] if total_result['success'] else 0
+    
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + PHPMYADMIN_TABLE_TEMPLATE,
+        table_name=table_name,
+        result=result,
+        limit=limit,
+        offset=offset,
+        total=total,
+        breadcrumb=f'Database Management &gt; Table: {table_name}'
+    )
+
+
+@app.route('/admin/database/table/<table_name>/structure')
+@requires_admin_or_system_admin
+def admin_db_table_structure(table_name):
+    """View table structure"""
+    result = phpmyadmin.get_table_structure(table_name)
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + '''
+        {% block content %}
+        <div class="main-content">
+            <h2>Table Structure: {{ table_name }}</h2>
+            <a href="{{ url_for('admin_db_table', table_name=table_name) }}" class="btn">View Data</a>
+            
+            {% if result.success %}
+            <table>
+                <thead>
+                    <tr>
+                        {% for column in result.data[0].keys() %}
+                        <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in result.data %}
+                    <tr>
+                        {% for value in row.values() %}
+                        <td>{{ value if value is not none else '<em>NULL</em>' }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <div class="alert alert-danger">Error: {{ result.error }}</div>
+            {% endif %}
+        </div>
+        {% endblock %}
+        ''',
+        table_name=table_name,
+        result=result,
+        breadcrumb=f'Database Management &gt; Table: {table_name} &gt; Structure'
+    )
+
+
+@app.route('/admin/database/query', methods=['GET', 'POST'])
+@requires_admin_or_system_admin
+def admin_db_query():
+    """Execute custom SQL queries"""
+    query = request.args.get('query', '')
+    result = None
+    
+    if request.method == 'POST':
+        query = request.form.get('query', '').strip()
+        if query:
+            # Basic security: prevent dangerous operations
+            dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE', 'INSERT', 'UPDATE']
+            query_upper = query.upper()
+            
+            # Allow SELECT and SHOW queries, warn about others
+            if any(keyword in query_upper for keyword in dangerous_keywords):
+                if not request.form.get('confirm_dangerous'):
+                    flash('This query contains potentially dangerous operations. Please confirm if you want to proceed.', 'warning')
+                    return render_template_string(
+                        PHPMYADMIN_BASE_TEMPLATE + PHPMYADMIN_QUERY_TEMPLATE + '''
+                        <form method="post" style="background: #fff3cd; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                            <input type="hidden" name="query" value="{{ query }}">
+                            <p><strong>⚠️ Warning:</strong> This query may modify your database. Are you sure?</p>
+                            <button type="submit" name="confirm_dangerous" value="1" class="btn btn-danger">Yes, Execute</button>
+                            <a href="{{ url_for('admin_db_query') }}" class="btn">Cancel</a>
+                        </form>
+                        ''',
+                        query=query,
+                        result=None,
+                        breadcrumb='Database Management &gt; SQL Query'
+                    )
+            
+            result = phpmyadmin.execute_query(query)
+    
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + PHPMYADMIN_QUERY_TEMPLATE,
+        query=query,
+        result=result,
+        breadcrumb='Database Management &gt; SQL Query'
+    )
+
+
+@app.route('/admin/database/export')
+@requires_admin_or_system_admin
+def admin_db_export():
+    """Export database"""
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + '''
+        {% block content %}
+        <div class="main-content">
+            <h2>Export Database</h2>
+            <p>Database export functionality will be implemented here.</p>
+            
+            <h3>Quick Exports</h3>
+            <a href="{{ url_for('admin_db_export_table', table_name='user') }}" class="btn">Export Users</a>
+            <a href="{{ url_for('admin_db_export_table', table_name='game_server') }}" class="btn">Export Servers</a>
+            
+            <h3>Export Options</h3>
+            <form method="post">
+                <p><label><input type="checkbox" name="include_data" checked> Include Data</label></p>
+                <p><label><input type="checkbox" name="include_structure" checked> Include Structure</label></p>
+                <button type="submit" class="btn btn-success">Export Database</button>
+            </form>
+        </div>
+        {% endblock %}
+        ''',
+        breadcrumb='Database Management &gt; Export'
+    )
+
+
+@app.route('/admin/database/export/<table_name>')
+@requires_admin_or_system_admin
+def admin_db_export_table(table_name):
+    """Export specific table as CSV"""
+    result = phpmyadmin.execute_query(f"SELECT * FROM `{table_name}`")
+    
+    if not result['success']:
+        flash(f'Error exporting table: {result["error"]}', 'error')
+        return redirect(url_for('admin_db_export'))
+    
+    # Generate CSV
+    import csv
+    import io
+    
+    output = io.StringIO()
+    if result['data']:
+        writer = csv.DictWriter(output, fieldnames=result['data'][0].keys())
+        writer.writeheader()
+        writer.writerows(result['data'])
+    
+    response = Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment;filename={table_name}_export.csv'}
+    )
+    return response
+
+
+@app.route('/admin/database/import')
+@requires_admin_or_system_admin
+def admin_db_import():
+    """Import database"""
+    return render_template_string(
+        PHPMYADMIN_BASE_TEMPLATE + '''
+        {% block content %}
+        <div class="main-content">
+            <h2>Import Database</h2>
+            <p>Database import functionality will be implemented here.</p>
+            
+            <form method="post" enctype="multipart/form-data">
+                <p><label for="file">Select SQL file:</label></p>
+                <input type="file" name="file" accept=".sql,.csv" required>
+                <br><br>
+                <button type="submit" class="btn btn-success">Import</button>
+            </form>
+        </div>
+        {% endblock %}
+        ''',
+        breadcrumb='Database Management &gt; Import'
+    )
+
+
     # Initialize configuration templates within app context
     with app.app_context():
         from config_manager import create_default_templates
