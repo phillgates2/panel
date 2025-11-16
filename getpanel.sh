@@ -2,18 +2,167 @@
 set -euo pipefail
 
 # Panel Quick Installer
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
+#
+# Options:
+#   --help                Show this help message
+#   --dir DIR             Installation directory (default: $HOME/panel)
+#   --branch BRANCH       Git branch to install (default: main)
+#   --db-type TYPE        Database type: sqlite or mariadb (default: interactive)
+#   --skip-mariadb        Skip MariaDB installation
+#   --skip-phpmyadmin     Skip phpMyAdmin installation
+#   --skip-redis          Skip Redis installation
+#   --skip-nginx          Skip Nginx configuration
+#   --skip-ssl            Skip SSL/Let's Encrypt setup
+#   --non-interactive     Run without prompts (use defaults)
+#   --sqlite-only         Quick install with SQLite only
+#   --full                Full installation with all components
+#   --uninstall           Uninstall Panel and services
 
 REPO_URL="https://github.com/phillgates2/panel.git"
 INSTALL_DIR="${PANEL_INSTALL_DIR:-$HOME/panel}"
 BRANCH="${PANEL_BRANCH:-main}"
+
+# Installation options (can be overridden by command-line flags)
+DB_TYPE=""
+SKIP_MARIADB=false
+SKIP_PHPMYADMIN=false
+SKIP_REDIS=false
+SKIP_NGINX=false
+SKIP_SSL=false
+NON_INTERACTIVE=false
+SQLITE_ONLY=false
+FULL_INSTALL=false
+UNINSTALL_MODE=false
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+show_help() {
+    cat << EOF
+${BLUE}Panel Installer${NC}
+
+${CYAN}Usage:${NC}
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
+
+${CYAN}Options:${NC}
+  ${GREEN}--help${NC}                Show this help message and exit
+  ${GREEN}--dir DIR${NC}             Installation directory (default: \$HOME/panel)
+  ${GREEN}--branch BRANCH${NC}       Git branch to install (default: main)
+  ${GREEN}--db-type TYPE${NC}        Database type: sqlite or mariadb (default: interactive)
+  ${GREEN}--skip-mariadb${NC}        Skip MariaDB installation
+  ${GREEN}--skip-phpmyadmin${NC}     Skip phpMyAdmin installation  
+  ${GREEN}--skip-redis${NC}          Skip Redis installation
+  ${GREEN}--skip-nginx${NC}          Skip Nginx configuration
+  ${GREEN}--skip-ssl${NC}            Skip SSL/Let's Encrypt setup
+  ${GREEN}--non-interactive${NC}     Run without prompts (use defaults)
+  ${GREEN}--sqlite-only${NC}         Quick install with SQLite only (no MariaDB/phpMyAdmin)
+  ${GREEN}--full${NC}                Full installation with all components
+  ${GREEN}--uninstall${NC}           Uninstall Panel and all services
+
+${CYAN}Examples:${NC}
+  # Interactive installation (default)
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+
+  # Quick SQLite-only installation
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --sqlite-only
+
+  # Full installation with all components
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --full
+
+  # Install to custom directory
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --dir /opt/panel
+
+  # Install specific branch
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --branch develop
+
+  # Non-interactive install with MariaDB
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --non-interactive --db-type mariadb
+
+  # Uninstall Panel
+  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --uninstall
+
+${CYAN}Environment Variables:${NC}
+  PANEL_INSTALL_DIR     Installation directory
+  PANEL_BRANCH          Git branch to install
+
+EOF
+    exit 0
+}
+
+# Parse command-line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                show_help
+                ;;
+            --dir)
+                INSTALL_DIR="$2"
+                shift 2
+                ;;
+            --branch)
+                BRANCH="$2"
+                shift 2
+                ;;
+            --db-type)
+                DB_TYPE="$2"
+                if [[ "$DB_TYPE" != "sqlite" && "$DB_TYPE" != "mariadb" ]]; then
+                    error "Invalid --db-type. Must be 'sqlite' or 'mariadb'"
+                fi
+                shift 2
+                ;;
+            --skip-mariadb)
+                SKIP_MARIADB=true
+                shift
+                ;;
+            --skip-phpmyadmin)
+                SKIP_PHPMYADMIN=true
+                shift
+                ;;
+            --skip-redis)
+                SKIP_REDIS=true
+                shift
+                ;;
+            --skip-nginx)
+                SKIP_NGINX=true
+                shift
+                ;;
+            --skip-ssl)
+                SKIP_SSL=true
+                shift
+                ;;
+            --non-interactive)
+                NON_INTERACTIVE=true
+                shift
+                ;;
+            --sqlite-only)
+                SQLITE_ONLY=true
+                DB_TYPE="sqlite"
+                SKIP_MARIADB=true
+                SKIP_PHPMYADMIN=true
+                shift
+                ;;
+            --full)
+                FULL_INSTALL=true
+                DB_TYPE="mariadb"
+                shift
+                ;;
+            --uninstall)
+                UNINSTALL_MODE=true
+                shift
+                ;;
+            *)
+                error "Unknown option: $1. Use --help for usage information."
+                ;;
+        esac
+    done
+}
 
 print_banner() {
     echo -e "${BLUE}"
@@ -48,6 +197,13 @@ prompt_input() {
     local secret="${3:-false}"
     local value
     
+    # Check for non-interactive mode
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        [[ "$secret" != "true" ]] && log "Using default for '$prompt': $default"
+        echo "$default"
+        return 0
+    fi
+    
     # Check if we can read from stdin
     if [[ ! -t 0 ]]; then
         warn "Cannot read input in non-interactive mode, using default: $default"
@@ -77,6 +233,17 @@ prompt_confirm() {
     local prompt="$1"
     local default="${2:-n}"
     local response
+    
+    # Check for non-interactive mode
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        if [[ "$default" == "y" ]]; then
+            log "Auto-confirming '$prompt': yes"
+            echo "y"; return 0
+        else
+            log "Auto-declining '$prompt': no"
+            echo "n"; return 1
+        fi
+    fi
     
     # Check if we can read from stdin
     if [[ ! -t 0 ]]; then
@@ -506,7 +673,15 @@ interactive_config() {
         # MariaDB setup options
         echo
         echo -e "${BLUE}MariaDB Installation Options:${NC}"
-        if prompt_confirm "Install and configure MariaDB server?" "y"; then
+        
+        # Respect command-line flags
+        if [[ "$SKIP_MARIADB" == "true" ]]; then
+            SETUP_MARIADB="false"
+            log "Skipping MariaDB installation (--skip-mariadb flag)"
+        elif [[ "$FULL_INSTALL" == "true" ]]; then
+            SETUP_MARIADB="true"
+            log "Installing MariaDB (--full flag)"
+        elif prompt_confirm "Install and configure MariaDB server?" "y"; then
             SETUP_MARIADB="true"
             echo -e "${GREEN}✓ Will install and configure MariaDB server${NC}"
         else
@@ -515,7 +690,14 @@ interactive_config() {
         fi
         
         # phpMyAdmin setup
-        if [[ "$SETUP_MARIADB" == "true" ]] || prompt_confirm "Install phpMyAdmin for database management?" "y"; then
+        # phpMyAdmin setup
+        if [[ "$SKIP_PHPMYADMIN" == "true" ]]; then
+            SETUP_PHPMYADMIN="false"
+            log "Skipping phpMyAdmin installation (--skip-phpmyadmin flag)"
+        elif [[ "$FULL_INSTALL" == "true" ]]; then
+            SETUP_PHPMYADMIN="true"
+            log "Installing phpMyAdmin (--full flag)"
+        elif [[ "$SETUP_MARIADB" == "true" ]] || prompt_confirm "Install phpMyAdmin for database management?" "y"; then
             SETUP_PHPMYADMIN="true"
             echo -e "${GREEN}✓ Will install phpMyAdmin${NC}"
             
@@ -627,14 +809,22 @@ interactive_config() {
         echo
         echo -e "${BLUE}Production Services:${NC}"
         
-        if [[ "$INSTALL_MODE" == "production" ]] || prompt_confirm "Configure Nginx reverse proxy?" "y"; then
+        # Nginx setup with flag support
+        if [[ "$SKIP_NGINX" == "true" ]]; then
+            SETUP_NGINX="false"
+            log "Skipping Nginx setup (--skip-nginx flag)"
+        elif [[ "$FULL_INSTALL" == "true" ]] || [[ "$INSTALL_MODE" == "production" ]] || prompt_confirm "Configure Nginx reverse proxy?" "y"; then
             SETUP_NGINX="true"
             DOMAIN_NAME=$(prompt_input "Domain name" "panel.localhost")
         else
             SETUP_NGINX="false"
         fi
         
-        if [[ "$INSTALL_MODE" == "production" ]] || prompt_confirm "Setup SSL certificate?" "y"; then
+        # SSL setup with flag support
+        if [[ "$SKIP_SSL" == "true" ]]; then
+            SETUP_SSL="false"
+            log "Skipping SSL setup (--skip-ssl flag)"
+        elif [[ "$FULL_INSTALL" == "true" ]] || [[ "$INSTALL_MODE" == "production" ]] || prompt_confirm "Setup SSL certificate?" "y"; then
             SETUP_SSL="true"
         else
             SETUP_SSL="false"
@@ -667,7 +857,13 @@ interactive_config() {
     fi
     
     # Redis for background tasks
-    if [[ "$INSTALL_MODE" == "production" ]]; then
+    if [[ "$SKIP_REDIS" == "true" ]]; then
+        SETUP_REDIS="false"
+        log "Skipping Redis installation (--skip-redis flag)"
+    elif [[ "$FULL_INSTALL" == "true" ]]; then
+        SETUP_REDIS="true"
+        log "Installing Redis (--full flag)"
+    elif [[ "$INSTALL_MODE" == "production" ]]; then
         if prompt_confirm "Enable Redis for background task queue? (recommended for production)" "y"; then
             SETUP_REDIS="true"
         else
@@ -1582,17 +1778,107 @@ show_next_steps() {
     echo
 }
 
+uninstall_panel() {
+    print_banner
+    echo -e "${RED}═══════════════════════════════════════${NC}"
+    echo -e "${RED}  Panel Uninstaller${NC}"
+    echo -e "${RED}═══════════════════════════════════════${NC}"
+    echo
+    
+    if [[ ! -d "$INSTALL_DIR" ]]; then
+        error "Panel installation not found at: $INSTALL_DIR"
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    warn "This will remove Panel and all its data!"
+    echo
+    echo "The following will be removed:"
+    echo "  - Panel application directory: $INSTALL_DIR"
+    echo "  - Python virtualenv"
+    echo "  - Database and instance files"
+    echo "  - Systemd services (if installed)"
+    echo "  - Nginx configuration (if installed)"
+    echo
+    
+    if ! prompt_confirm "Are you sure you want to uninstall Panel?" "n"; then
+        log "Uninstall cancelled"
+        exit 0
+    fi
+    
+    # Stop services
+    if command -v systemctl >/dev/null 2>&1; then
+        log "Stopping systemd services..."
+        $SUDO systemctl stop panel-gunicorn.service 2>/dev/null || true
+        $SUDO systemctl stop rq-worker-supervised.service 2>/dev/null || true
+        $SUDO systemctl stop panel-etlegacy.service 2>/dev/null || true
+        $SUDO systemctl disable panel-gunicorn.service 2>/dev/null || true
+        $SUDO systemctl disable rq-worker-supervised.service 2>/dev/null || true
+        $SUDO systemctl disable panel-etlegacy.service 2>/dev/null || true
+        
+        # Remove service files
+        $SUDO rm -f /etc/systemd/system/panel-gunicorn.service
+        $SUDO rm -f /etc/systemd/system/rq-worker-supervised.service
+        $SUDO rm -f /etc/systemd/system/panel-etlegacy.service
+        $SUDO systemctl daemon-reload
+    fi
+    
+    # Remove Nginx configuration
+    if [[ -f /etc/nginx/sites-enabled/panel ]]; then
+        log "Removing Nginx configuration..."
+        $SUDO rm -f /etc/nginx/sites-enabled/panel
+        $SUDO rm -f /etc/nginx/sites-available/panel
+        $SUDO systemctl reload nginx 2>/dev/null || true
+    fi
+    
+    # Remove installation directory
+    log "Removing Panel directory: $INSTALL_DIR"
+    cd "$HOME"
+    rm -rf "$INSTALL_DIR"
+    
+    log "✅ Panel uninstalled successfully"
+    echo
+    echo -e "${BLUE}To reinstall Panel:${NC}"
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
+}
+
 main() {
+    # Parse command-line arguments first
+    parse_args "$@"
+    
+    # Handle uninstall mode
+    if [[ "$UNINSTALL_MODE" == "true" ]]; then
+        uninstall_panel
+        exit 0
+    fi
+    
     print_banner
     
+    # Show installation mode
+    if [[ "$SQLITE_ONLY" == "true" ]]; then
+        echo -e "${CYAN}📦 Quick Installation Mode: SQLite Only${NC}"
+        echo
+    elif [[ "$FULL_INSTALL" == "true" ]]; then
+        echo -e "${CYAN}🚀 Full Installation Mode: All Components${NC}"
+        echo
+    elif [[ "$NON_INTERACTIVE" == "true" ]]; then
+        echo -e "${CYAN}⚡ Non-Interactive Mode: Using Defaults${NC}"
+        echo
+    fi
+    
     # Check if running via curl and provide guidance
-    if [[ ! -t 0 ]] && [[ "${PANEL_NONINTERACTIVE:-}" != "true" ]]; then
+    if [[ ! -t 0 ]] && [[ "${PANEL_NONINTERACTIVE:-}" != "true" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
         echo -e "${YELLOW}⚠️  Running in non-interactive mode (curl pipe detected)${NC}"
         echo -e "${YELLOW}   Using development defaults for quick setup.${NC}"
         echo
         echo -e "${BLUE}For full interactive configuration:${NC}"
         echo "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh -o getpanel.sh"
         echo "  chmod +x getpanel.sh && ./getpanel.sh"
+        echo
+        echo -e "${BLUE}Or use command-line options:${NC}"
+        echo "  bash <(curl -fsSL ...) --sqlite-only  # Quick SQLite install"
+        echo "  bash <(curl -fsSL ...) --full         # Full install"
+        echo "  bash <(curl -fsSL ...) --help         # Show all options"
         echo
         echo -e "${BLUE}Proceeding with development setup in 3 seconds...${NC}"
         sleep 3
@@ -1606,11 +1892,11 @@ main() {
     
     check_requirements
     
-    # Skip interactive config if running non-interactively
-    if [[ "${PANEL_NONINTERACTIVE:-}" == "true" ]]; then
+    # Skip interactive config if running non-interactively or with specific modes
+    if [[ "${PANEL_NONINTERACTIVE:-}" == "true" ]] || [[ "$NON_INTERACTIVE" == "true" ]] || [[ "$SQLITE_ONLY" == "true" ]]; then
         log "Running in non-interactive mode with defaults"
         INSTALL_MODE="development"
-        DB_TYPE="sqlite"
+        DB_TYPE="${DB_TYPE:-sqlite}"
         ADMIN_USERNAME="admin"
         ADMIN_EMAIL="admin@localhost"
         ADMIN_PASSWORD="${PANEL_ADMIN_PASSWORD:-admin123}"
@@ -1750,77 +2036,15 @@ uninstall_panel() {
     echo
 }
 
-show_help() {
-    echo "Panel Installer & Manager"
-    echo
-    echo "Usage:"
-    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [command]"
-    echo
-    echo "Commands:"
-    echo "  install     Install Panel (default if no command specified)"
-    echo "  uninstall   Uninstall Panel and remove all components"
-    echo "  --help      Show this help message"
-    echo
-    echo "Environment variables:"
-    echo "  PANEL_INSTALL_DIR      Installation directory (default: \$HOME/panel)"
-    echo "  PANEL_BRANCH           Git branch to install (default: main)"
-    echo "  PANEL_NONINTERACTIVE   Skip interactive prompts (default: false)"
-    echo "  PANEL_ADMIN_PASSWORD   Admin password for non-interactive mode"
-    echo
-    echo "Interactive Configuration Options:"
-    echo "  • Installation Mode: Development, Production, or Custom"
-    echo "  • Database: SQLite (development) or MariaDB (production)"
-    echo "  • Application Settings: Host, Port, Debug Mode, CAPTCHA"
-    echo "  • Security: Secret Key generation, Admin account setup"
-    echo "  • Production Services: Nginx, SSL certificates, Systemd"
-    echo "  • Optional Features: Redis, Discord webhooks, ML dependencies"
-    echo "  • Logging: Level configuration and detailed monitoring"
-    echo
-    echo "Examples:"
-    echo "  # Quick development setup (non-interactive)"
-    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
-    echo
-    echo "  # Interactive setup (download first, then run)"
-    echo "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh -o getpanel.sh"
-    echo "  chmod +x getpanel.sh && ./getpanel.sh"
-    echo
-    echo "  # Install to custom directory"
-    echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...)"
-    echo
-    echo "  # Install specific branch"
-    echo "  PANEL_BRANCH=develop bash <(curl -fsSL ...)"
-    echo
-    echo "  # Non-interactive installation with custom password"
-    echo "  PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL ...)"
-    echo
-    echo "  # Uninstall Panel"
-    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall"
-    echo
-    echo "  # Uninstall from custom directory"
-    echo "  PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL ...) uninstall"
-}
+# Execute main function with all arguments
+# This allows the script to work both as:
+#   bash getpanel.sh [options]
+#   bash <(curl ...) [options]
+main "$@"
 
 # Handle command line arguments
-case "${1:-install}" in
-    install)
-        main "${@:2}"
-        ;;
-    uninstall)
-        print_banner
-        log "Panel Uninstaller"
-        log "Target directory: $INSTALL_DIR"
-        echo
-        check_requirements
-        uninstall_panel
-        ;;
-    --help|-h|help)
-        show_help
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}Error: Unknown command '$1'${NC}"
-        echo
-        show_help
-        exit 1
-        ;;
-esac
+# Execute main function with all arguments
+# This allows the script to work both as:
+#   bash getpanel.sh [options]
+#   bash <(curl ...) [options]
+main "$@"
