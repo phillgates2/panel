@@ -1688,8 +1688,13 @@ install_panel() {
             # Test connection and create database/user (suppress error output for clean testing)
             if $mysql_cmd -e "SELECT 1 as test;" >/dev/null 2>&1; then
                 log "Using sudo/root authentication for MariaDB setup"
-                $mysql_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
                 
+                # Create database
+                log "Creating database: $DB_NAME"
+                $mysql_cmd -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" || warn "Database $DB_NAME may already exist"
+                
+                # Create users
+                log "Creating database user: $DB_USER"
                 if [[ -n "$DB_PASS" ]]; then
                     $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
                     $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
@@ -1698,12 +1703,22 @@ install_panel() {
                     $mysql_cmd -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
                 fi
                 
+                # Grant privileges
+                log "Granting privileges to $DB_USER on $DB_NAME"
                 $mysql_cmd -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
                 $mysql_cmd -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
                 $mysql_cmd -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
                 
-                mysql_auth_success=true
-                log "✓ MariaDB database and user configured successfully via unix_socket"
+                # Verify database was created
+                if $mysql_cmd -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
+                    mysql_auth_success=true
+                    log "✓ Database '$DB_NAME' created and verified"
+                    log "✓ User '$DB_USER' created with full privileges"
+                    log "✓ MariaDB setup completed successfully via unix_socket"
+                else
+                    warn "Database creation verification failed"
+                    mysql_auth_success=false
+                fi
                 
             else
                 log "Unix_socket authentication failed, trying password authentication..."
@@ -1711,8 +1726,11 @@ install_panel() {
                 # Method 2: Try with empty root password (default on some installations)
                 if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "SELECT 1 as test;" >/dev/null 2>&1; then
                     log "Using empty root password for MariaDB setup"
-                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
                     
+                    log "Creating database: $DB_NAME"
+                    mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" || warn "Database $DB_NAME may already exist"
+                    
+                    log "Creating database user: $DB_USER"
                     if [[ -n "$DB_PASS" ]]; then
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
@@ -1721,12 +1739,21 @@ install_panel() {
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
                     fi
                     
+                    log "Granting privileges to $DB_USER on $DB_NAME"
                     mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
                     mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
                     mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
                     
-                    mysql_auth_success=true
-                    log "✓ MariaDB database and user configured successfully via password authentication"
+                    # Verify database was created
+                    if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
+                        mysql_auth_success=true
+                        log "✓ Database '$DB_NAME' created and verified"
+                        log "✓ User '$DB_USER' created with full privileges"
+                        log "✓ MariaDB setup completed successfully via password authentication"
+                    else
+                        warn "Database creation verification failed"
+                        mysql_auth_success=false
+                    fi
                     
                 # Method 3: Try interactive password prompt (last resort)
                 elif [[ -t 0 ]] && [[ -t 1 ]]; then
@@ -1735,8 +1762,11 @@ install_panel() {
                     
                     if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "SELECT 1 as test;" >/dev/null 2>&1; then
                         log "Using interactive root password for MariaDB setup"
-                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || warn "Database $DB_NAME may already exist"
                         
+                        log "Creating database: $DB_NAME"
+                        mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" || warn "Database $DB_NAME may already exist"
+                        
+                        log "Creating database user: $DB_USER"
                         if [[ -n "$DB_PASS" ]]; then
                             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER may already exist"
                             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';" || warn "User $DB_USER@% may already exist"
@@ -1745,12 +1775,21 @@ install_panel() {
                             mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%';" || warn "User $DB_USER@% may already exist"
                         fi
                         
+                        log "Granting privileges to $DB_USER on $DB_NAME"
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || warn "Failed to grant privileges to $DB_USER@localhost"
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';" || warn "Failed to grant privileges to $DB_USER@%"
                         mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "FLUSH PRIVILEGES;" || warn "Failed to flush privileges"
                         
-                        mysql_auth_success=true
-                        log "✓ MariaDB database and user configured successfully via interactive password"
+                        # Verify database was created
+                        if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
+                            mysql_auth_success=true
+                            log "✓ Database '$DB_NAME' created and verified"
+                            log "✓ User '$DB_USER' created with full privileges"
+                            log "✓ MariaDB setup completed successfully via interactive password"
+                        else
+                            warn "Database creation verification failed"
+                            mysql_auth_success=false
+                        fi
                     else
                         mysql_auth_success=false
                     fi
@@ -1776,7 +1815,7 @@ install_panel() {
                 warn ""
                 warn "  3. Create database and user manually:"
                 warn "     sudo mysql"
-                warn "     CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+                warn "     CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
                 if [[ -n "$DB_PASS" ]]; then
                     warn "     CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
                     warn "     CREATE USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
@@ -1802,13 +1841,58 @@ install_panel() {
         fi
     fi
     
-    # Initialize application database
+    # Initialize application database schema
+    log "Setting up database schema..."
+    
+    # Check if migrations directory exists
+    if [[ -d "migrations" ]]; then
+        log "Using Flask-Migrate for database schema..."
+        
+        # Run migrations
+        if [[ "$DB_TYPE" == "sqlite" ]]; then
+            PANEL_USE_SQLITE=1 python3 -c "
+from flask_migrate import upgrade
+from app import app
+with app.app_context():
+    upgrade()
+    print('✓ Database schema migrated successfully')
+" 2>&1 | grep -v "INFO" || log "Database migrations applied"
+        else
+            python3 -c "
+from flask_migrate import upgrade
+from app import app
+with app.app_context():
+    upgrade()
+    print('✓ Database schema migrated successfully')
+" 2>&1 | grep -v "INFO" || log "Database migrations applied"
+        fi
+    else
+        # Fallback to create_all if migrations not initialized
+        log "Using db.create_all() for database schema..."
+        
+        if [[ "$DB_TYPE" == "sqlite" ]]; then
+            PANEL_USE_SQLITE=1 python3 -c "
+from app import app, db
+with app.app_context():
+    db.create_all()
+    print('✓ Database schema created successfully')
+"
+        else
+            python3 -c "
+from app import app, db
+with app.app_context():
+    db.create_all()
+    print('✓ Database schema created successfully')
+"
+        fi
+    fi
+    
+    # Create admin user
+    log "Creating admin user..."
     if [[ "$DB_TYPE" == "sqlite" ]]; then
         PANEL_USE_SQLITE=1 python3 -c "
 from app import app, db, User
 with app.app_context():
-    db.create_all()
-    # Create admin user
     admin = User.query.filter_by(username='$ADMIN_USERNAME').first()
     if not admin:
         admin = User(
@@ -1819,16 +1903,14 @@ with app.app_context():
         admin.set_password('$ADMIN_PASSWORD')
         db.session.add(admin)
         db.session.commit()
-        print('Admin user created successfully')
+        print('✓ Admin user created: $ADMIN_USERNAME')
     else:
-        print('Admin user already exists')
+        print('✓ Admin user already exists: $ADMIN_USERNAME')
 "
     else
         python3 -c "
 from app import app, db, User
 with app.app_context():
-    db.create_all()
-    # Create admin user
     admin = User.query.filter_by(username='$ADMIN_USERNAME').first()
     if not admin:
         admin = User(
@@ -1839,11 +1921,13 @@ with app.app_context():
         admin.set_password('$ADMIN_PASSWORD')
         db.session.add(admin)
         db.session.commit()
-        print('Admin user created successfully')
+        print('✓ Admin user created: $ADMIN_USERNAME')
     else:
-        print('Admin user already exists')
+        print('✓ Admin user already exists: $ADMIN_USERNAME')
 "
     fi
+    
+    log "✓ Database initialization complete"
     
     # Setup production services
     if [[ "$SETUP_SYSTEMD" == "true" ]]; then
