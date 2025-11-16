@@ -1170,6 +1170,12 @@ setup_mariadb() {
 setup_phpmyadmin() {
     log "Setting up phpMyAdmin..."
     
+    # Note: Panel has built-in phpMyAdmin at /admin/database
+    # This standalone phpMyAdmin is optional
+    
+    warn "Note: Panel includes built-in database management at /admin/database"
+    warn "Standalone phpMyAdmin will be installed on port 8081 to avoid conflicts"
+    
     case "$PKG_MANAGER" in
         apt-get)
             # Set up non-interactive installation
@@ -1181,10 +1187,29 @@ setup_phpmyadmin() {
                 echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | debconf-set-selections
                 $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
+                # Configure Apache to use port 8081 to avoid conflicts with Nginx
+                sed -i 's/Listen 80/Listen 8081/' /etc/apache2/ports.conf
+                sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8081>/' /etc/apache2/sites-available/000-default.conf
+                
                 # Enable Apache modules
                 a2enmod rewrite
-                systemctl enable apache2
-                systemctl restart apache2
+                
+                # Enable and start Apache2, but don't fail if it errors
+                systemctl enable apache2 || warn "Could not enable Apache2 service"
+                if ! systemctl restart apache2 2>/dev/null; then
+                    warn "Apache2 failed to start. Checking for conflicts..."
+                    # Check if port 8081 is in use
+                    if netstat -tlnp 2>/dev/null | grep -q ':8081 ' || ss -tlnp 2>/dev/null | grep -q ':8081 '; then
+                        warn "Port 8081 is already in use. Trying port 8082..."
+                        sed -i 's/Listen 8081/Listen 8082/' /etc/apache2/ports.conf
+                        sed -i 's/<VirtualHost \*:8081>/<VirtualHost *:8082>/' /etc/apache2/sites-available/000-default.conf
+                        systemctl restart apache2 || warn "Could not start Apache2 on port 8082"
+                    else
+                        # Check Apache config
+                        apache2ctl configtest || warn "Apache2 configuration has errors"
+                        warn "Skipping Apache2 - use Panel's built-in database manager instead"
+                    fi
+                fi
             else
                 echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | sudo debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/app-password-confirm password' | sudo debconf-set-selections
@@ -1193,9 +1218,28 @@ setup_phpmyadmin() {
                 echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | sudo debconf-set-selections
                 sudo $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
+                # Configure Apache to use port 8081 to avoid conflicts with Nginx
+                sudo sed -i 's/Listen 80/Listen 8081/' /etc/apache2/ports.conf
+                sudo sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8081>/' /etc/apache2/sites-available/000-default.conf
+                
                 sudo a2enmod rewrite
-                sudo systemctl enable apache2
-                sudo systemctl restart apache2
+                
+                # Enable and start Apache2, but don't fail if it errors
+                sudo systemctl enable apache2 || warn "Could not enable Apache2 service"
+                if ! sudo systemctl restart apache2 2>/dev/null; then
+                    warn "Apache2 failed to start. Checking for conflicts..."
+                    # Check if port 8081 is in use
+                    if sudo netstat -tlnp 2>/dev/null | grep -q ':8081 ' || sudo ss -tlnp 2>/dev/null | grep -q ':8081 '; then
+                        warn "Port 8081 is already in use. Trying port 8082..."
+                        sudo sed -i 's/Listen 8081/Listen 8082/' /etc/apache2/ports.conf
+                        sudo sed -i 's/<VirtualHost \*:8081>/<VirtualHost *:8082>/' /etc/apache2/sites-available/000-default.conf
+                        sudo systemctl restart apache2 || warn "Could not start Apache2 on port 8082"
+                    else
+                        # Check Apache config
+                        sudo apache2ctl configtest || warn "Apache2 configuration has errors"
+                        warn "Skipping Apache2 - use Panel's built-in database manager instead"
+                    fi
+                fi
             fi
             ;;
         yum|dnf)
@@ -1260,8 +1304,21 @@ setup_phpmyadmin() {
             ;;
     esac
     
+    # Determine which port Apache is using
+    local apache_port=8081
+    if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
+        if grep -q 'Listen 8082' /etc/apache2/ports.conf 2>/dev/null || grep -q 'Listen 8082' /etc/httpd/conf/httpd.conf 2>/dev/null; then
+            apache_port=8082
+        fi
+    fi
+    
     log "✓ phpMyAdmin installation complete"
-    log "  Access phpMyAdmin at: http://localhost/phpmyadmin"
+    if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
+        log "  Standalone phpMyAdmin: http://localhost:${apache_port}/phpmyadmin"
+    else
+        warn "  Apache2 not running - use Panel's built-in database manager"
+    fi
+    log "  Panel built-in database manager: http://localhost:8080/admin/database"
 }
 
 install_system_deps() {
@@ -1780,17 +1837,36 @@ show_next_steps() {
     if [[ "$SETUP_PHPMYADMIN" == "true" ]]; then
         echo
         echo -e "${BLUE}Database Management:${NC}"
-        echo "  phpMyAdmin: http://localhost/phpmyadmin"
+        echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
+        
+        # Check if Apache is running and on which port
+        if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
+            local apache_port=8081
+            if grep -q 'Listen 8082' /etc/apache2/ports.conf 2>/dev/null || grep -q 'Listen 8082' /etc/httpd/conf/httpd.conf 2>/dev/null; then
+                apache_port=8082
+            fi
+            echo "  Standalone phpMyAdmin: http://localhost:${apache_port}/phpmyadmin"
+        else
+            echo "  Standalone phpMyAdmin: Not running (Apache failed to start)"
+            echo "    → Use Panel's built-in database manager instead"
+        fi
+        
         if [[ "$SETUP_MARIADB" == "true" ]]; then
             echo "  MariaDB Root: Use root credentials set during installation"
         fi
         echo "  Panel DB User: $DB_USER (for database: $DB_NAME)"
-    elif [[ "$DB_TYPE" == "mysql" ]]; then
+    elif [[ "$DB_TYPE" == "mysql" ]] || [[ "$DB_TYPE" == "mariadb" ]]; then
         echo
         echo -e "${BLUE}Database Management:${NC}"
+        echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  Database: $DB_NAME on $DB_HOST:$DB_PORT"
         echo "  User: $DB_USER"
-        echo "  Access via MySQL client: mysql -h $DB_HOST -u $DB_USER -p $DB_NAME"
+        echo "  MySQL client: mysql -h $DB_HOST -u $DB_USER -p $DB_NAME"
+    else
+        echo
+        echo -e "${BLUE}Database Management:${NC}"
+        echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
+        echo "  SQLite database: $INSTALL_DIR/panel_dev.db"
     fi
     echo
     
