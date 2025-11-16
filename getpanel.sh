@@ -391,11 +391,14 @@ error() {
 # Privilege helper: use sudo when not root
 if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
     SUDO=""
+    SUDO_HINT=""
 else
     if command -v sudo >/dev/null 2>&1; then
         SUDO="sudo"
+        SUDO_HINT="sudo "
     else
         SUDO=""
+        SUDO_HINT=""
     fi
 fi
 
@@ -765,9 +768,9 @@ configure_mariadb_settings() {
                         echo -e "  • MariaDB server not accepting connections"
                         echo
                         echo -e "${MAGENTA}💡 Troubleshooting tips:${NC}"
-                        echo -e "  • Check if MariaDB is running: sudo systemctl status mariadb"
-                        echo -e "  • Verify user exists: sudo mysql -e \"SELECT User,Host FROM mysql.user WHERE User='$DB_USER';\""
-                        echo -e "  • Test root access: sudo mysql"
+                        echo -e "  • Check if MariaDB is running: ${SUDO_HINT}systemctl status mariadb"
+                        echo -e "  • Verify user exists: ${SUDO_HINT}mysql -e \"SELECT User,Host FROM mysql.user WHERE User='$DB_USER';\""
+                        echo -e "  • Test root access: ${SUDO_HINT}mysql"
                     fi
                 else
                     echo -e "${YELLOW}⚠️  MariaDB/MySQL client not available for testing${NC}"
@@ -1771,7 +1774,7 @@ FLUSH PRIVILEGES;"
             log "✓ Root password updated (SET PASSWORD)"
         else
             warn "Could not set root password automatically (root may be using unix_socket auth)."
-            echo -e "${YELLOW}Tip:${NC} You can keep using socket authentication for root (sudo mysql)."
+            echo -e "${YELLOW}Tip:${NC} You can keep using socket authentication for root (${SUDO_HINT}mysql)."
         fi
     else
         log "Keeping existing root authentication method (${root_plugin:-unknown})."
@@ -1859,20 +1862,20 @@ check_mariadb_ready() {
                 echo ""
                 echo -e "${YELLOW}Please install mariadb-server:${NC}"
                 if command -v apt-get &>/dev/null; then
-                    echo "  sudo apt-get install mariadb-server"
+                    echo "  ${SUDO_HINT}apt-get install mariadb-server"
                 elif command -v dnf &>/dev/null; then
-                    echo "  sudo dnf install mariadb-server"
+                    echo "  ${SUDO_HINT}dnf install mariadb-server"
                 elif command -v yum &>/dev/null; then
-                    echo "  sudo yum install mariadb-server"
+                    echo "  ${SUDO_HINT}yum install mariadb-server"
                 elif command -v apk &>/dev/null; then
-                    echo "  sudo apk add mariadb"
+                    echo "  ${SUDO_HINT}apk add mariadb"
                 elif command -v pacman &>/dev/null; then
-                    echo "  sudo pacman -S mariadb"
+                    echo "  ${SUDO_HINT}pacman -S mariadb"
                 fi
                 echo ""
                 echo -e "${YELLOW}Or check if the service needs to be started:${NC}"
-                echo "  sudo systemctl start mariadb"
-                echo "  sudo systemctl enable mariadb"
+                echo "  ${SUDO_HINT}systemctl start mariadb"
+                echo "  ${SUDO_HINT}systemctl enable mariadb"
                 return 1
             fi
         elif command -v mysql &>/dev/null; then
@@ -2075,9 +2078,9 @@ check_mariadb_ready() {
             echo "  View logs: journalctl -xeu $service_name"
             echo "  Restart: systemctl restart $service_name"
         else
-            echo "  Check status: sudo systemctl status $service_name"
-            echo "  View logs: sudo journalctl -xeu $service_name"
-            echo "  Restart: sudo systemctl restart $service_name"
+            echo "  Check status: ${SUDO_HINT}systemctl status $service_name"
+            echo "  View logs: ${SUDO_HINT}journalctl -xeu $service_name"
+            echo "  Restart: ${SUDO_HINT}systemctl restart $service_name"
         fi
     elif [[ "$service_manager" == "openrc" ]]; then
         if [[ $EUID -eq 0 ]]; then
@@ -2085,9 +2088,9 @@ check_mariadb_ready() {
             echo "  View logs: cat /var/log/mysql/error.log"
             echo "  Restart: rc-service $service_name restart"
         else
-            echo "  Check status: sudo rc-service $service_name status"
-            echo "  View logs: sudo cat /var/log/mysql/error.log"
-            echo "  Restart: sudo rc-service $service_name restart"
+            echo "  Check status: ${SUDO_HINT}rc-service $service_name status"
+            echo "  View logs: ${SUDO_HINT}cat /var/log/mysql/error.log"
+            echo "  Restart: ${SUDO_HINT}rc-service $service_name restart"
         fi
     else
         echo "  Check if MariaDB/MySQL is running: ps aux | grep -E 'maria|mysql'"
@@ -2192,7 +2195,7 @@ FLUSH PRIVILEGES;
         if [[ "$created_user" != "true" ]]; then
             warn "Could not create database user automatically"
             echo -e "${YELLOW}You may need to create the user manually:${NC}"
-            echo -e "${WHITE}sudo mysql -u root${NC}"
+            echo -e "${WHITE}${SUDO_HINT}mysql -u root${NC}"
             if [[ -n "$DB_PASS" ]]; then
                 echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
                 echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
@@ -2257,7 +2260,7 @@ FLUSH PRIVILEGES;
             echo -e "  - Password is correct"
             echo ""
             echo -e "${YELLOW}Try creating the user manually:${NC}"
-            echo -e "${WHITE}sudo mysql -u root${NC}"
+            echo -e "${WHITE}${SUDO_HINT}mysql -u root${NC}"
             if [[ -n "$DB_PASS" ]]; then
                 echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
                 echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';${NC}"
@@ -2509,9 +2512,9 @@ NGINXEOF
                 rc-update add php-fpm default
                 rc-service php-fpm start
             else
-                sudo $PKG_INSTALL php-fpm php php-mysqli php-mbstring php-zip php-gd php-json php-curl
-                sudo rc-update add php-fpm default
-                sudo rc-service php-fpm start
+                $SUDO $PKG_INSTALL php-fpm php php-mysqli php-mbstring php-zip php-gd php-json php-curl
+                $SUDO rc-update add php-fpm default
+                $SUDO rc-service php-fpm start
             fi
             
             # Download phpMyAdmin
@@ -2943,13 +2946,13 @@ install_panel() {
                 warn ""
                 warn "🔧 Manual database setup required:"
                 warn "  1. Start MariaDB service:"
-                warn "     sudo systemctl start mariadb"
+                warn "     ${SUDO_HINT}systemctl start mariadb"
                 warn ""
                 warn "  2. Secure MariaDB installation (if not done):"
-                warn "     sudo mysql_secure_installation"
+                warn "     ${SUDO_HINT}mysql_secure_installation"
                 warn ""
                 warn "  3. Create database and user manually:"
-                warn "     sudo mysql"
+                warn "     ${SUDO_HINT}mysql"
                 warn "     CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
                 if [[ -n "$DB_PASS" ]]; then
                     warn "     CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
@@ -3230,7 +3233,7 @@ show_next_steps() {
         echo "     http://localhost:$APP_PORT"
     elif [[ "$SETUP_SYSTEMD" == "true" ]]; then
         echo "  2. Start Panel services:"
-        echo "     sudo systemctl start panel-gunicorn"
+        echo "     ${SUDO_HINT}systemctl start panel-gunicorn"
         echo
         echo "  3. Access the web interface:"
         if [[ "$SETUP_NGINX" == "true" ]]; then
