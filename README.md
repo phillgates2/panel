@@ -22,14 +22,14 @@ curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh 
 # Development (fastest - SQLite only)
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --sqlite-only
 
-# Production (full features)
+# Production
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --full
 
 # Custom directory
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --dir /opt/panel
 
 # Non-interactive (automated deployments)
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --non-interactive --db-type mariadb
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --non-interactive
 
 # See all options
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --help
@@ -60,11 +60,11 @@ curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh 
 - **RQ Dashboard** - Web UI for background job monitoring
 
 ### 🗄️ **Database Management**
-- **Built-in phpMyAdmin** - Full database admin UI (no Apache needed!)
+- **Built-in Database Admin** - Full database admin UI (no Apache needed!)
 - **Served via Nginx** - Port 8081, integrated authentication
 - **Flask-Migrate** - Database version control and migrations
 - **Query Validation** - SQL injection detection and prevention
-- **SQLite & MariaDB** - Flexible database support with UTF8MB4
+- **SQLite Database** - Lightweight, reliable database support
 
 ### 🎨 **Modern Interface**
 - **Responsive Design** - Mobile-friendly admin dashboard
@@ -94,7 +94,7 @@ curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh 
 
 ---
 
-## �� After Installation
+## 📋 After Installation
 
 ### Access Panel
 ```bash
@@ -106,10 +106,10 @@ Username: admin
 Password: [set during installation]
 ```
 
-### Access phpMyAdmin
+### Access Database Admin
 ```bash
-# Served via Nginx on port 8081
-http://localhost:8081
+# Integrated database management interface
+http://localhost:8080/admin/db
 ```
 
 ### Useful Commands
@@ -146,8 +146,6 @@ cd ~/panel  # or your custom directory
 - ✅ **RQ** - Background task processing
 
 ### Optional Components
-- 🔹 **MariaDB** - Production-grade database
-- 🔹 **phpMyAdmin** - Database management (via Nginx)
 - 🔹 **Let's Encrypt** - Free SSL certificates
 - 🔹 **Systemd** - Service management
 
@@ -168,7 +166,7 @@ cd ~/panel  # or your custom directory
 - **Python**: 3.8 or higher
 - **Memory**: 512MB+ RAM
 - **Storage**: 1GB+ available
-- **Network**: Ports 80, 443 (Panel), 8081 (phpMyAdmin)
+- **Network**: Ports 80, 443 (Panel)
 
 ### Production Checklist
 
@@ -179,14 +177,13 @@ cd ~/panel  # or your custom directory
 
 2. **Configure environment** (`.env`)
    - Set strong `SECRET_KEY`
-   - Configure database credentials
+   - Configure database path
    - Enable SSL if using domain
 
 3. **Setup firewall**
    ```bash
    sudo ufw allow 80/tcp
    sudo ufw allow 443/tcp
-   sudo ufw allow 8081/tcp  # phpMyAdmin
    sudo ufw enable
    ```
 

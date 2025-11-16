@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Panel Doctor: Self-healing diagnostics and auto-fix
 # Usage: bash panel-doctor.sh [--fix]
-# Checks: systemd/OpenRC services, MariaDB socket, HTTP port, Flask migrations, instance dirs
+# Checks: systemd/OpenRC services, HTTP port, Flask migrations, instance dirs
 
 FIX_MODE=false
 for arg in "$@"; do
@@ -55,17 +55,7 @@ check_service() {
     fi
 }
 
-# 2. Check MariaDB socket
-check_mariadb_socket() {
-    local socket="/var/run/mysqld/mysqld.sock"
-    [[ -S "$socket" ]] && log "MariaDB socket found: $socket" && return 0
-    socket="/var/lib/mysql/mysql.sock"
-    [[ -S "$socket" ]] && log "MariaDB socket found: $socket" && return 0
-    warn "MariaDB socket not found"
-    return 1
-}
-
-# 3. Check HTTP port (default 8080)
+# 2. Check HTTP port (default 8080)
 check_http_port() {
     local port="8080"
     if ss -ltn | grep -q ":$port "; then
@@ -110,8 +100,6 @@ check_instance_dirs() {
 log "Panel Doctor: Starting diagnostics..."
 check_service "panel-gunicorn.service"
 check_service "rq-worker-supervised.service"
-check_service "mariadb"
-check_mariadb_socket
 check_http_port
 check_migrations
 check_instance_dirs

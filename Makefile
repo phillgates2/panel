@@ -14,10 +14,10 @@ install-dev: ## Install development dependencies
 	pre-commit install
 
 test: ## Run tests with coverage
-	PANEL_USE_SQLITE=1 pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+	pytest tests/ -v --cov=. --cov-report=html --cov-report=term
 
 test-fast: ## Run tests without coverage
-	PANEL_USE_SQLITE=1 pytest tests/ -v
+	pytest tests/ -v
 
 lint: ## Run linters
 	black --check .
@@ -45,10 +45,7 @@ clean: ## Clean up generated files
 	rm -rf build/
 
 dev: ## Run development server
-	PANEL_USE_SQLITE=1 FLASK_DEBUG=1 python app.py
-
-dev-mariadb: ## Run development server with MariaDB
-	python app.py
+	FLASK_DEBUG=1 python app.py
 
 docker-dev: ## Run development environment with Docker
 	docker-compose -f docker-compose.dev.yml up

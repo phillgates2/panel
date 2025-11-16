@@ -9,11 +9,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PANEL_DB_HOST=mariadb
-      - PANEL_DB_PORT=3306
-      - PANEL_DB_USER=panel
-      - PANEL_DB_PASS=panel_dev_password
-      - PANEL_DB_NAME=panel
+      - PANEL_SQLITE_URI=sqlite:///instance/panel.db
       - PANEL_REDIS_URL=redis://redis:6379/0
       - PANEL_SECRET_KEY=dev-secret-key-change-in-production
       - FLASK_ENV=development
@@ -22,27 +18,8 @@ services:
       - ./:/app
       - panel-instance:/app/instance
     depends_on:
-      - mariadb
       - redis
     command: python app.py
-
-  # MariaDB database
-  mariadb:
-    image: mariadb:10.11
-    environment:
-      - MYSQL_ROOT_PASSWORD=root_password
-      - MYSQL_DATABASE=panel
-      - MYSQL_USER=panel
-      - MYSQL_PASSWORD=panel_dev_password
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Redis for caching and task queue
   redis:
@@ -64,33 +41,15 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
-      - PANEL_DB_HOST=mariadb
-      - PANEL_DB_PORT=3306
-      - PANEL_DB_USER=panel
-      - PANEL_DB_PASS=panel_dev_password
-      - PANEL_DB_NAME=panel
+      - PANEL_SQLITE_URI=sqlite:///instance/panel.db
       - PANEL_REDIS_URL=redis://redis:6379/0
     volumes:
       - ./:/app
+      - panel-instance:/app/instance
     depends_on:
-      - mariadb
       - redis
     command: python run_worker.py
 
-  # phpMyAdmin (optional - for direct database access)
-  phpmyadmin:
-    image: phpmyadmin:latest
-    environment:
-      - PMA_HOST=mariadb
-      - PMA_PORT=3306
-      - PMA_USER=panel
-      - PMA_PASSWORD=panel_dev_password
-    ports:
-      - "8081:80"
-    depends_on:
-      - mariadb
-
 volumes:
-  mariadb-data:
   redis-data:
   panel-instance:
