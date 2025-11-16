@@ -1613,16 +1613,50 @@ check_mariadb_ready() {
             service_manager="binary"
             log "Found mysqld binary (no service manager)"
         elif command -v mariadb &>/dev/null; then
-            # Just the client, but service might still work
-            service_exists=true
-            service_name="mariadb"
-            service_manager="client"
-            log "Found mariadb client, will attempt connection"
+            # Just the client - check if server is actually running
+            if pgrep -x mariadbd &>/dev/null || pgrep -x mysqld &>/dev/null; then
+                service_exists=true
+                service_name="mariadb"
+                service_manager="process"
+                log "Found mariadb server process running"
+            else
+                # Client exists but no server process
+                echo -e "${RED}✗ MariaDB client found but server is not running${NC}"
+                echo -e "${YELLOW}The mariadb-client package is installed, but mariadb-server is not running.${NC}"
+                echo ""
+                echo -e "${YELLOW}Please install mariadb-server:${NC}"
+                if command -v apt-get &>/dev/null; then
+                    echo "  sudo apt-get install mariadb-server"
+                elif command -v dnf &>/dev/null; then
+                    echo "  sudo dnf install mariadb-server"
+                elif command -v yum &>/dev/null; then
+                    echo "  sudo yum install mariadb-server"
+                elif command -v apk &>/dev/null; then
+                    echo "  sudo apk add mariadb"
+                elif command -v pacman &>/dev/null; then
+                    echo "  sudo pacman -S mariadb"
+                fi
+                echo ""
+                echo -e "${YELLOW}Or check if the service needs to be started:${NC}"
+                echo "  sudo systemctl start mariadb"
+                echo "  sudo systemctl enable mariadb"
+                return 1
+            fi
         elif command -v mysql &>/dev/null; then
-            service_exists=true
-            service_name="mysql"
-            service_manager="client"
-            log "Found mysql client, will attempt connection"
+            # Just the mysql client - check if server is actually running
+            if pgrep -x mariadbd &>/dev/null || pgrep -x mysqld &>/dev/null; then
+                service_exists=true
+                service_name="mysql"
+                service_manager="process"
+                log "Found mysql server process running"
+            else
+                # Client exists but no server process
+                echo -e "${RED}✗ MySQL client found but server is not running${NC}"
+                echo -e "${YELLOW}The mysql-client package is installed, but mysql-server is not running.${NC}"
+                echo ""
+                echo -e "${YELLOW}Please install mysql-server or mariadb-server${NC}"
+                return 1
+            fi
         fi
     fi
     
@@ -1690,9 +1724,16 @@ check_mariadb_ready() {
             if rc-service mariadb status 2>/dev/null | grep -q "started" || rc-service mysql status 2>/dev/null | grep -q "started"; then
                 service_running=true
             fi
+        elif [[ "$service_manager" == "process" ]] || [[ "$service_manager" == "binary" ]]; then
+            # Check if process is actually running
+            if pgrep -x mariadbd &>/dev/null || pgrep -x mysqld &>/dev/null; then
+                service_running=true
+            fi
         else
-            # No service manager or binary/client only - just try to connect
-            service_running=true
+            # Unknown service manager - try to detect running process
+            if pgrep -x mariadbd &>/dev/null || pgrep -x mysqld &>/dev/null; then
+                service_running=true
+            fi
         fi
         
         if [[ "$service_running" == "true" ]]; then
@@ -1712,6 +1753,22 @@ check_mariadb_ready() {
         else
             if [[ $attempt -eq 0 ]]; then
                 echo -e "${YELLOW}MariaDB service not running yet (attempt $((attempt + 1))/$max_attempts)${NC}"
+                log "Attempting to start the service..."
+                
+                # Try to start it if we can
+                if [[ "$service_manager" == "systemd" ]]; then
+                    if [[ $EUID -eq 0 ]]; then
+                        systemctl start mariadb 2>/dev/null || systemctl start mysql 2>/dev/null || true
+                    else
+                        sudo systemctl start mariadb 2>/dev/null || sudo systemctl start mysql 2>/dev/null || true
+                    fi
+                elif [[ "$service_manager" == "openrc" ]]; then
+                    if [[ $EUID -eq 0 ]]; then
+                        rc-service mariadb start 2>/dev/null || rc-service mysql start 2>/dev/null || true
+                    else
+                        sudo rc-service mariadb start 2>/dev/null || sudo rc-service mysql start 2>/dev/null || true
+                    fi
+                fi
             fi
         fi
         
