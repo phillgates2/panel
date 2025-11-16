@@ -1270,8 +1270,34 @@ setup_mariadb() {
             ;;
     esac
     
-    # Wait for MariaDB to start
-    sleep 3
+    # Wait for MariaDB to start and verify
+    log "Waiting for MariaDB to initialize..."
+    sleep 5
+    
+    # Verify service is running
+    local service_check_attempts=0
+    while [[ $service_check_attempts -lt 6 ]]; do
+        if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
+            log "✓ MariaDB service is active"
+            break
+        elif rc-service mariadb status 2>/dev/null | grep -q "started" || rc-service mysql status 2>/dev/null | grep -q "started"; then
+            log "✓ MariaDB service is active"
+            break
+        fi
+        
+        service_check_attempts=$((service_check_attempts + 1))
+        if [[ $service_check_attempts -lt 6 ]]; then
+            echo -e "${YELLOW}Waiting for MariaDB service... ($service_check_attempts/6)${NC}"
+            sleep 2
+        else
+            warn "MariaDB service may not be running"
+            if [[ $EUID -eq 0 ]]; then
+                systemctl status mariadb 2>&1 | head -10 || systemctl status mysql 2>&1 | head -10 || true
+            else
+                sudo systemctl status mariadb 2>&1 | head -10 || sudo systemctl status mysql 2>&1 | head -10 || true
+            fi
+        fi
+    done
     
     # Secure MariaDB installation
     log "Securing MariaDB installation..."
@@ -1312,23 +1338,60 @@ check_mariadb_ready() {
     local max_attempts=10
     local attempt=0
     
+    # First, check if MariaDB service exists
+    if ! systemctl list-unit-files 2>/dev/null | grep -q mariadb && ! rc-service --list 2>/dev/null | grep -q mariadb; then
+        if ! systemctl list-unit-files 2>/dev/null | grep -q mysql && ! rc-service --list 2>/dev/null | grep -q mysql; then
+            echo -e "${RED}✗ MariaDB/MySQL service not found${NC}"
+            echo -e "${YELLOW}Hint: MariaDB may not be installed correctly${NC}"
+            return 1
+        else
+            # Try mysql service name instead
+            echo -e "${YELLOW}Using 'mysql' service name instead of 'mariadb'${NC}"
+            if [[ $EUID -eq 0 ]]; then
+                systemctl is-active --quiet mysql || systemctl start mysql 2>/dev/null
+            else
+                systemctl is-active --quiet mysql || sudo systemctl start mysql 2>/dev/null
+            fi
+        fi
+    fi
+    
     while [[ $attempt -lt $max_attempts ]]; do
-        if systemctl is-active --quiet mariadb 2>/dev/null || rc-service mariadb status 2>/dev/null | grep -q "started"; then
+        # Check both mariadb and mysql service names
+        local service_running=false
+        if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
+            service_running=true
+        elif rc-service mariadb status 2>/dev/null | grep -q "started" || rc-service mysql status 2>/dev/null | grep -q "started"; then
+            service_running=true
+        fi
+        
+        if [[ "$service_running" == "true" ]]; then
             # Try to connect
             if mysql -u root -e "SELECT 1;" &>/dev/null; then
                 echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
                 return 0
+            else
+                echo -e "${YELLOW}MariaDB service running but connection failed (attempt $((attempt + 1))/$max_attempts)${NC}"
             fi
         fi
         
         attempt=$((attempt + 1))
         if [[ $attempt -lt $max_attempts ]]; then
-            echo -e "${YELLOW}Waiting for MariaDB to start... (attempt $attempt/$max_attempts)${NC}"
+            if [[ $attempt -eq 1 ]]; then
+                echo -e "${YELLOW}Waiting for MariaDB to start...${NC}"
+            fi
             sleep 2
         fi
     done
     
     echo -e "${RED}✗ MariaDB is not running or not accessible${NC}"
+    echo -e "${YELLOW}Troubleshooting:${NC}"
+    if [[ $EUID -eq 0 ]]; then
+        echo "  Check status: systemctl status mariadb"
+        echo "  View logs: journalctl -xeu mariadb"
+    else
+        echo "  Check status: sudo systemctl status mariadb"
+        echo "  View logs: sudo journalctl -xeu mariadb"
+    fi
     return 1
 }
 
