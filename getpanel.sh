@@ -388,6 +388,17 @@ error() {
     exit 1
 }
 
+# Privilege helper: use sudo when not root
+if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+    SUDO=""
+else
+    if command -v sudo >/dev/null 2>&1; then
+        SUDO="sudo"
+    else
+        SUDO=""
+    fi
+fi
+
 # Quick idempotency check: if an existing healthy install is detected, exit early
 quick_idempotency_check() {
     [[ "$FORCE_REINSTALL" == "true" ]] && return 0
@@ -2237,8 +2248,8 @@ FLUSH PRIVILEGES;
             fi
         fi
         
-        else
-            echo -e "${RED}✗ Cannot connect to database as user '$DB_USER'${NC}"
+        # If we reach here, connection failed
+        echo -e "${RED}✗ Cannot connect to database as user '$DB_USER'${NC}"
             echo -e "${YELLOW}Please verify:${NC}"
             echo -e "  - MariaDB is running"
             echo -e "  - Host: ${DB_HOST}:${DB_PORT}"
@@ -2256,7 +2267,6 @@ FLUSH PRIVILEGES;
             fi
             echo -e "${WHITE}FLUSH PRIVILEGES;${NC}"
             return 1
-        fi
     else
         echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
         return 0
@@ -3444,66 +3454,51 @@ uninstall_panel() {
         exit 0
     fi
     
+    # Warn if not root and sudo missing
+    if [[ ${EUID:-$(id -u)} -ne 0 && -z "$SUDO" ]]; then
+        warn "sudo not found; system-level cleanup may be incomplete. Re-run as root for full uninstall."
+    fi
+
     # Stop services
     log "Stopping services..."
     for service in "${services_found[@]}"; do
-        if [[ $EUID -eq 0 ]]; then
-            systemctl stop "$service" || true
-            systemctl disable "$service" || true
-            rm -f "/etc/systemd/system/$service"
-        else
-            sudo systemctl stop "$service" || true
-            sudo systemctl disable "$service" || true
-            sudo rm -f "/etc/systemd/system/$service"
-        fi
+        $SUDO systemctl stop "$service" || true
+        $SUDO systemctl disable "$service" || true
+        $SUDO rm -f "/etc/systemd/system/$service"
         log "✓ Removed service: $service"
     done
     
     if [[ ${#services_found[@]} -gt 0 ]]; then
-        if [[ $EUID -eq 0 ]]; then
-            systemctl daemon-reload
-        else
-            sudo systemctl daemon-reload
-        fi
+        $SUDO systemctl daemon-reload || true
     fi
     
     # Remove nginx config
     if [[ -f "/etc/nginx/sites-enabled/panel.conf" ]]; then
-        if [[ $EUID -eq 0 ]]; then
-            rm -f /etc/nginx/sites-enabled/panel.conf
-            rm -f /etc/nginx/sites-available/panel.conf
-            nginx -t && systemctl reload nginx || true
-        else
-            sudo rm -f /etc/nginx/sites-enabled/panel.conf
-            sudo rm -f /etc/nginx/sites-available/panel.conf
-            sudo nginx -t && sudo systemctl reload nginx || true
-        fi
+        $SUDO rm -f /etc/nginx/sites-enabled/panel.conf
+        $SUDO rm -f /etc/nginx/sites-available/panel.conf
+        $SUDO nginx -t && $SUDO systemctl reload nginx || true
         log "✓ Removed Nginx configuration"
     fi
     
     # Remove log files and backups
     log "Removing logs and backups..."
-    rm -rf "$INSTALL_DIR/instance/logs" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/instance/audit_logs" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/instance/backups" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/backups" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR"/*.log 2>/dev/null || true
+    $SUDO rm -rf "$INSTALL_DIR/instance/logs" 2>/dev/null || true
+    $SUDO rm -rf "$INSTALL_DIR/instance/audit_logs" 2>/dev/null || true
+    $SUDO rm -rf "$INSTALL_DIR/instance/backups" 2>/dev/null || true
+    $SUDO rm -rf "$INSTALL_DIR/backups" 2>/dev/null || true
+    $SUDO rm -rf "$INSTALL_DIR"/*.log 2>/dev/null || true
     log "✓ Removed logs and backups"
     
     # Remove installation directory
     log "Removing installation directory..."
     cd /
-    rm -rf "$INSTALL_DIR"
+    $SUDO rm -rf "$INSTALL_DIR"
     log "✓ Removed: $INSTALL_DIR"
     
     # Remove panel user (optional)
     if id panel &>/dev/null; then
         if prompt_confirm "Remove panel system user?" "n"; then
-            if [[ $EUID -eq 0 ]]; then
-                userdel panel || true
-            else
-                sudo userdel panel || true
-            fi
+            $SUDO userdel panel || true
             log "✓ Removed panel user"
         fi
     fi
