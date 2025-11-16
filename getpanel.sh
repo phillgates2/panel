@@ -2154,6 +2154,8 @@ uninstall_panel() {
     echo "  - Panel application directory: $INSTALL_DIR"
     echo "  - Python virtualenv"
     echo "  - Database and instance files"
+    echo "  - Log files and audit logs"
+    echo "  - Database backups"
     echo "  - Systemd services (if installed)"
     echo "  - Nginx configuration (if installed)"
     echo
@@ -2187,6 +2189,14 @@ uninstall_panel() {
         $SUDO rm -f /etc/nginx/sites-available/panel
         $SUDO systemctl reload nginx 2>/dev/null || true
     fi
+    
+    # Remove log files and backups
+    log "Removing logs and backups..."
+    rm -rf "$INSTALL_DIR/instance/logs" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/instance/audit_logs" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/instance/backups" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/backups" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR"/*.log 2>/dev/null || true
     
     # Remove installation directory
     log "Removing Panel directory: $INSTALL_DIR"
@@ -2294,6 +2304,8 @@ uninstall_panel() {
     # Show what will be removed
     echo -e "${YELLOW}The following will be removed:${NC}"
     echo "  📁 Installation directory: $INSTALL_DIR"
+    echo "  📝 Log files and audit logs"
+    echo "  💾 Database backups"
     
     # Check for services
     local services_found=()
@@ -2362,6 +2374,15 @@ uninstall_panel() {
         fi
         log "✓ Removed Nginx configuration"
     fi
+    
+    # Remove log files and backups
+    log "Removing logs and backups..."
+    rm -rf "$INSTALL_DIR/instance/logs" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/instance/audit_logs" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/instance/backups" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR/backups" 2>/dev/null || true
+    rm -rf "$INSTALL_DIR"/*.log 2>/dev/null || true
+    log "✓ Removed logs and backups"
     
     # Remove installation directory
     log "Removing installation directory..."
