@@ -55,6 +55,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### 🧰 **Installer, Logging & Tooling** - 2025-11-16
+
+- **Unified Panel Entrypoints**
+  - Deprecated legacy helper scripts (`scripts/install.sh`, `scripts/update.sh`, `scripts/uninstall.sh`, `start-dev.sh`) in favor of the consolidated `panel.sh` CLI
+  - Updated `README.md` and `README_DEV.md` to steer users toward `panel.sh` as the primary interface
+- **Self-Healing & Diagnostics**
+  - Added `panel-doctor.sh` to run health checks on services, sockets, ports, migrations, and directories with optional auto-fix mode
+  - Improved MariaDB readiness detection in `getpanel.sh` with broader systemd unit scanning (including templated units) and richer diagnostics
+- **Secrets & Environment Management**
+  - Introduced `scripts/env_generator.sh` for validated `.env` generation with support for `LOG_FORMAT` configuration
+- **Structured Logging Enhancements**
+  - Extended `logging_config.py` with optional JSON log output and per-request correlation IDs controlled via environment variables
+
 ### 🔧 **System Health & Configuration Management** - 2025-11-15
 
 - **Health Check Endpoints** 💓
