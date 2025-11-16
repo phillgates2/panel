@@ -444,18 +444,72 @@ docker run -p 8080:8080 \
 
 ## 📋 **Requirements**
 
-- **Python**: 3.8+
+- **Python**: 3.8+  
 - **Database**: MariaDB 10.3+ or SQLite 3.31+
 - **System**: Linux (Ubuntu/Debian/Alpine)
 - **Memory**: 512MB+ RAM
 - **Storage**: 1GB+ available space
 
+## 📚 **Documentation**
+
+### **User Guides**
+- **[Database Management Guide](docs/DATABASE_MANAGEMENT.md)** - Complete guide to the integrated database manager
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Solutions to common issues and problems
+- **[Main Documentation](docs/README.md)** - Documentation index and learning paths
+
+### **Developer Resources**
+- **[API Documentation](docs/API_DOCUMENTATION.md)** - REST API reference with examples
+- **[Development Guide](README_DEV.md)** - Development setup and best practices
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to Panel
+- **[Changelog](CHANGELOG.md)** - Version history and release notes
+
+### **Quick Links**
+- Installation: See [Quick Start](#quick-start) above
+- Database Manager: [Access Guide](docs/DATABASE_MANAGEMENT.md#accessing-the-database-manager)
+- Common Issues: [Troubleshooting](docs/TROUBLESHOOTING.md#common-issues-and-solutions)
+- API Usage: [Examples](docs/API_DOCUMENTATION.md#examples)
+
 ## 🔗 **Links**
 
 - **Repository**: https://github.com/phillgates2/panel
 - **Issues**: https://github.com/phillgates2/panel/issues
-- **Documentation**: See `README_DEV.md` for development details
-- **Changelog**: See `CHANGELOG.md` for version history
+- **Discussions**: https://github.com/phillgates2/panel/discussions
+- **Documentation**: [docs/](docs/)
+- **CI/CD**: ![CI Status](https://github.com/phillgates2/panel/workflows/Panel%20CI%2FCD/badge.svg)
+
+## 🤝 **Contributing**
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
+```bash
+# Clone repository
+git clone https://github.com/phillgates2/panel.git
+cd panel
+
+# Install pre-commit hooks
+pip install pre-commit
+pre-commit install
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest tests/ -v
+
+# Format code
+black .
+isort .
+```
+
+### Running with Docker
+```bash
+# Development environment
+docker-compose -f docker-compose.dev.yml up
+
+# Access at http://localhost:8080
+# phpMyAdmin at http://localhost:8081
+```
 
 ---
 
