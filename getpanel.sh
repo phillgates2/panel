@@ -45,6 +45,7 @@ NON_INTERACTIVE=false
 SQLITE_ONLY=false
 FULL_INSTALL=false
 UNINSTALL_MODE=false
+FORCE_REINSTALL=false
 
 # System detection variables
 OS_TYPE=""
@@ -241,6 +242,7 @@ show_help() {
     printf "\n"
     printf "${YELLOW}AUTOMATION:${NC}\n"
     printf "  ${MAGENTA}--non-interactive${NC}       Unattended install with defaults\n"
+    printf "  ${MAGENTA}--force${NC}               Force reinstall; skip idempotency check\n"
     printf "  ${RED}--uninstall${NC}             Remove Panel and all data\n"
     printf "\n"
     printf "${YELLOW}QUICK START EXAMPLES:${NC}\n"
@@ -328,6 +330,10 @@ parse_args() {
                 NON_INTERACTIVE=true
                 shift
                 ;;
+            --force)
+                FORCE_REINSTALL=true
+                shift
+                ;;
             --sqlite-only)
                 SQLITE_ONLY=true
                 DB_TYPE="sqlite"
@@ -380,6 +386,102 @@ warn() {
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
     exit 1
+}
+
+# Quick idempotency check: if an existing healthy install is detected, exit early
+quick_idempotency_check() {
+    [[ "$FORCE_REINSTALL" == "true" ]] && return 0
+
+    local dir="$INSTALL_DIR"
+    local have_env="false"
+    local env_file="$dir/.env"
+    local db_type=""
+    local panel_port=""
+    local db_host=""
+    local db_port=""
+    local db_name=""
+    local db_user=""
+    local db_pass=""
+    local db_ok="false"
+    local app_ok="false"
+
+    if [[ -f "$env_file" ]]; then
+        have_env="true"
+        # Read values without sourcing
+        if grep -q '^PANEL_USE_SQLITE=1' "$env_file" 2>/dev/null; then
+            db_type="sqlite"
+        else
+            db_type="mariadb"
+        fi
+        panel_port=$(grep -E '^PANEL_PORT=' "$env_file" | head -n1 | cut -d= -f2- || true)
+        db_host=$(grep -E '^PANEL_DB_HOST=' "$env_file" | head -n1 | cut -d= -f2- || true)
+        db_port=$(grep -E '^PANEL_DB_PORT=' "$env_file" | head -n1 | cut -d= -f2- || true)
+        db_name=$(grep -E '^PANEL_DB_NAME=' "$env_file" | head -n1 | cut -d= -f2- || true)
+        db_user=$(grep -E '^PANEL_DB_USER=' "$env_file" | head -n1 | cut -d= -f2- || true)
+        db_pass=$(grep -E '^PANEL_DB_PASS=' "$env_file" | head -n1 | cut -d= -f2- || true)
+    fi
+
+    # DB check
+    if [[ "$db_type" == "sqlite" ]]; then
+        db_ok="true"
+    elif [[ -n "$db_user" && -n "$db_name" ]]; then
+        # Ensure server is up (tolerant)
+        check_mariadb_ready || true
+        local host="${db_host:-127.0.0.1}"
+        local port="${db_port:-3306}"
+        if command -v mysql &>/dev/null; then
+            if [[ -n "$db_pass" ]]; then
+                if MYSQL_PWD="$db_pass" mysql -h "$host" -P "$port" -u "$db_user" -e "SELECT 1;" &>/dev/null; then
+                    db_ok="true"
+                fi
+            else
+                if mysql -h "$host" -P "$port" -u "$db_user" -e "SELECT 1;" &>/dev/null; then
+                    db_ok="true"
+                fi
+            fi
+        fi
+    fi
+
+    # App health check: try common endpoints/ports
+    local ports_to_try=()
+    [[ -n "$panel_port" ]] && ports_to_try+=("$panel_port")
+    ports_to_try+=(8080 5000 8000)
+
+    for p in "${ports_to_try[@]}"; do
+        if command -v curl &>/dev/null; then
+            if curl -fsS -m 2 "http://127.0.0.1:${p}/health" | grep -q "OK"; then
+                app_ok="true"; panel_port="$p"; break
+            elif curl -fsS -m 2 "http://localhost:${p}/health" | grep -q "OK"; then
+                app_ok="true"; panel_port="$p"; break
+            fi
+        fi
+    done
+    # If behind nginx default vhost
+    if [[ "$app_ok" != "true" ]] && command -v curl &>/dev/null; then
+        if curl -fsS -m 2 "http://127.0.0.1/health" | grep -q "OK"; then
+            app_ok="true"
+        fi
+    fi
+    # Also accept active systemd gunicorn service as signal
+    if [[ "$app_ok" != "true" ]] && command -v systemctl &>/dev/null; then
+        if systemctl is-active --quiet panel-gunicorn 2>/dev/null || systemctl is-active --quiet gunicorn 2>/dev/null; then
+            app_ok="true"
+        fi
+    fi
+
+    if [[ "$have_env" == "true" && "$app_ok" == "true" && "$db_ok" == "true" ]]; then
+        echo -e "${GREEN}✓ Detected existing healthy Panel installation${NC}"
+        [[ -n "$panel_port" ]] && echo -e "  Web: http://localhost:${panel_port}"
+        if [[ "$db_type" == "sqlite" ]]; then
+            echo -e "  DB: SQLite (OK)"
+        else
+            echo -e "  DB: MariaDB (OK)"
+        fi
+        echo -e "${YELLOW}Idempotency:${NC} Skipping installation steps. Use --force to reinstall."
+        exit 0
+    fi
+
+    return 0
 }
 
 prompt_input() {
@@ -3326,6 +3428,9 @@ main() {
     echo
     
     check_requirements
+
+    # Fast path: if existing healthy install is detected, exit early unless forced
+    quick_idempotency_check
     
     # Skip interactive config if running non-interactively or with specific modes
     if [[ "${PANEL_NONINTERACTIVE:-}" == "true" ]] || [[ "$NON_INTERACTIVE" == "true" ]] || [[ "$SQLITE_ONLY" == "true" ]]; then
