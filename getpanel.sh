@@ -1534,6 +1534,54 @@ setup_mariadb() {
             echo ""
         fi
     done
+
+    # Lightweight readiness: mysqladmin ping using detected socket or TCP with sudo fallback
+    local admin_cmd=""
+    if command -v mysqladmin &>/dev/null; then
+        admin_cmd="mysqladmin"
+    elif command -v mariadb-admin &>/dev/null; then
+        admin_cmd="mariadb-admin"
+    fi
+
+    if [[ -n "$admin_cmd" ]]; then
+        # Detect socket path if available
+        local detected_socket=""
+        if command -v my_print_defaults &>/dev/null; then
+            detected_socket=$(my_print_defaults mysqld 2>/dev/null | awk -F= '/^--socket=/{print $2; exit}')
+        fi
+        if [[ -z "$detected_socket" ]]; then
+            for sock in /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock /tmp/mysql.sock; do
+                if [[ -S "$sock" ]]; then
+                    detected_socket="$sock"; break
+                fi
+            done
+        fi
+
+        local ping_attempt=0
+        local ping_max=15
+        while [[ $ping_attempt -lt $ping_max ]]; do
+            if [[ -n "$detected_socket" ]] && $admin_cmd --socket="$detected_socket" -u root ping &>/dev/null; then
+                log "mysqladmin ping OK via socket ($detected_socket)"
+                break
+            elif $admin_cmd -h 127.0.0.1 -P 3306 -u root ping &>/dev/null; then
+                log "mysqladmin ping OK via TCP"
+                break
+            elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null; then
+                if [[ -n "$detected_socket" ]] && sudo -n $admin_cmd --socket="$detected_socket" -u root ping &>/dev/null; then
+                    log "mysqladmin ping OK via sudo socket"
+                    break
+                elif sudo -n $admin_cmd -h 127.0.0.1 -P 3306 -u root ping &>/dev/null; then
+                    log "mysqladmin ping OK via sudo TCP"
+                    break
+                fi
+            fi
+            if [[ $ping_attempt -eq 0 ]]; then
+                echo -e "${YELLOW}Waiting for MariaDB readiness (mysqladmin ping)...${NC}"
+            fi
+            ping_attempt=$((ping_attempt + 1))
+            sleep 2
+        done
+    fi
     
     # Secure MariaDB installation
     log "Securing MariaDB installation..."
@@ -1568,6 +1616,19 @@ setup_mariadb() {
 }
 
 # Validation checker functions
+detect_mariadb_socket() {
+    local sock=""
+    if command -v my_print_defaults &>/dev/null; then
+        sock=$(my_print_defaults mysqld 2>/dev/null | awk -F= '/^--socket=/{print $2; exit}')
+    fi
+    if [[ -z "$sock" ]]; then
+        for s in /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock /tmp/mysql.sock; do
+            if [[ -S "$s" ]]; then sock="$s"; break; fi
+        done
+    fi
+    [[ -n "$sock" ]] && echo "$sock" || true
+}
+
 check_mariadb_ready() {
     log "Checking MariaDB status..."
     
@@ -1724,6 +1785,12 @@ check_mariadb_ready() {
         local service_running=false
         local socket_present=false
         local port_open=false
+        local detected_socket="$(detect_mariadb_socket)"
+        local socket_arg=""
+        if [[ -n "$detected_socket" && -S "$detected_socket" ]]; then
+            socket_present=true
+            socket_arg=(--socket="$detected_socket")
+        fi
         
         if [[ "$service_manager" == "systemd" ]]; then
             if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
@@ -1767,10 +1834,10 @@ check_mariadb_ready() {
 
             # Try to connect using multiple strategies (handle unix_socket auth for root)
             if command -v mysql &>/dev/null; then
-                if mysql -u root -e "SELECT 1;" &>/dev/null; then
+                if mysql "${socket_arg[@]}" -u root -e "SELECT 1;" &>/dev/null; then
                     echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
                     return 0
-                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mysql -u root -e "SELECT 1;" &>/dev/null; then
+                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mysql "${socket_arg[@]}" -u root -e "SELECT 1;" &>/dev/null; then
                     echo -e "${GREEN}✓ MariaDB is running and accessible (via sudo)${NC}"
                     return 0
                 elif mysql -u root -h 127.0.0.1 -P 3306 -e "SELECT 1;" &>/dev/null; then
@@ -1778,10 +1845,10 @@ check_mariadb_ready() {
                     return 0
                 fi
             elif command -v mariadb &>/dev/null; then
-                if mariadb -u root -e "SELECT 1;" &>/dev/null; then
+                if mariadb "${socket_arg[@]}" -u root -e "SELECT 1;" &>/dev/null; then
                     echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
                     return 0
-                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mariadb -u root -e "SELECT 1;" &>/dev/null; then
+                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mariadb "${socket_arg[@]}" -u root -e "SELECT 1;" &>/dev/null; then
                     echo -e "${GREEN}✓ MariaDB is running and accessible (via sudo)${NC}"
                     return 0
                 elif mariadb -u root -h 127.0.0.1 -P 3306 -e "SELECT 1;" &>/dev/null; then
@@ -1930,13 +1997,20 @@ FLUSH PRIVILEGES;
 "
         fi
         
+        # Discover socket for reliable local root access
+        local detected_socket="$(detect_mariadb_socket)"
+        local socket_arg=()
+        if [[ -n "$detected_socket" && -S "$detected_socket" ]]; then
+            socket_arg=(--socket="$detected_socket")
+        fi
+
         # Try to create user as root (passwordless or with unix_socket via sudo), with retries
         while [[ $attempts -lt $max_attempts ]]; do
-            if echo "$create_user_sql" | mysql -u root 2>/dev/null; then
+            if echo "$create_user_sql" | mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database user '$DB_USER' created/verified"
                 created_user=true
                 break
-            elif echo "$create_user_sql" | sudo -n mysql -u root 2>/dev/null || echo "$create_user_sql" | sudo mysql -u root 2>/dev/null; then
+            elif echo "$create_user_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_user_sql" | sudo mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database user '$DB_USER' created/verified (via sudo)"
                 created_user=true
                 break
@@ -1959,11 +2033,11 @@ FLUSH PRIVILEGES;
         
         attempts=0
         while [[ $attempts -lt $max_attempts ]]; do
-            if echo "$create_db_sql" | mysql -u root 2>/dev/null; then
+            if echo "$create_db_sql" | mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database '$DB_NAME' created/verified"
                 created_db=true
                 break
-            elif echo "$create_db_sql" | sudo -n mysql -u root 2>/dev/null || echo "$create_db_sql" | sudo mysql -u root 2>/dev/null; then
+            elif echo "$create_db_sql" | sudo -n mysql "${socket_arg[@]}" -u root 2>/dev/null || echo "$create_db_sql" | sudo mysql "${socket_arg[@]}" -u root 2>/dev/null; then
                 log "✓ Database '$DB_NAME' created/verified (via sudo)"
                 created_db=true
                 break
