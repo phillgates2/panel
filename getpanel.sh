@@ -1571,7 +1571,8 @@ setup_mariadb() {
 check_mariadb_ready() {
     log "Checking MariaDB status..."
     
-    local max_attempts=10
+    # Give MariaDB more time to become ready on first boot
+    local max_attempts=20
     local attempt=0
     
     # First, check if MariaDB service exists - try multiple methods
@@ -1721,6 +1722,8 @@ check_mariadb_ready() {
     while [[ $attempt -lt $max_attempts ]]; do
         # Check if service is running (if we have a service manager)
         local service_running=false
+        local socket_present=false
+        local port_open=false
         
         if [[ "$service_manager" == "systemd" ]]; then
             if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
@@ -1743,18 +1746,60 @@ check_mariadb_ready() {
         fi
         
         if [[ "$service_running" == "true" ]]; then
-            # Try to connect
-            if command -v mysql &>/dev/null && mysql -u root -e "SELECT 1;" &>/dev/null; then
-                echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
-                return 0
-            elif command -v mariadb &>/dev/null && mariadb -u root -e "SELECT 1;" &>/dev/null; then
-                echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
-                return 0
-            else
-                if [[ $attempt -eq 0 ]]; then
-                    echo -e "${YELLOW}MariaDB service running but connection failed (attempt $((attempt + 1))/$max_attempts)${NC}"
-                    log "Hint: Database may still be initializing..."
+            # Detect common socket locations
+            for sock in /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock /tmp/mysql.sock; do
+                if [[ -S "$sock" ]]; then
+                    socket_present=true
+                    break
                 fi
+            done
+
+            # Detect if TCP port 3306 is listening
+            if command -v ss &>/dev/null; then
+                if ss -ltn 2>/dev/null | grep -qE "(:|\.)3306\s"; then
+                    port_open=true
+                fi
+            elif command -v netstat &>/dev/null; then
+                if netstat -tln 2>/dev/null | grep -qE "(:|\.)3306\s"; then
+                    port_open=true
+                fi
+            fi
+
+            # Try to connect using multiple strategies (handle unix_socket auth for root)
+            if command -v mysql &>/dev/null; then
+                if mysql -u root -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
+                    return 0
+                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mysql -u root -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible (via sudo)${NC}"
+                    return 0
+                elif mysql -u root -h 127.0.0.1 -P 3306 -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible (TCP)${NC}"
+                    return 0
+                fi
+            elif command -v mariadb &>/dev/null; then
+                if mariadb -u root -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
+                    return 0
+                elif [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null && sudo -n mariadb -u root -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible (via sudo)${NC}"
+                    return 0
+                elif mariadb -u root -h 127.0.0.1 -P 3306 -e "SELECT 1;" &>/dev/null; then
+                    echo -e "${GREEN}✓ MariaDB is running and accessible (TCP)${NC}"
+                    return 0
+                fi
+            fi
+
+            # If direct connection checks fail but socket/port is ready, proceed
+            if [[ "$socket_present" == "true" || "$port_open" == "true" ]]; then
+                echo -e "${GREEN}✓ MariaDB is running (socket/port detected)${NC}"
+                log "Proceeding: will use sudo/root for initialization if needed"
+                return 0
+            fi
+
+            if [[ $attempt -eq 0 ]]; then
+                echo -e "${YELLOW}MariaDB service running but connection failed (attempt $((attempt + 1))/$max_attempts)${NC}"
+                log "Hint: Database may still be initializing..."
             fi
         else
             if [[ $attempt -eq 0 ]]; then
@@ -1783,6 +1828,7 @@ check_mariadb_ready() {
             if [[ $attempt -eq 1 ]]; then
                 echo -e "${YELLOW}Waiting for MariaDB to start...${NC}"
             fi
+            # Backoff a little as MariaDB initializes
             sleep 2
         fi
     done
@@ -1860,6 +1906,10 @@ check_database_connection() {
     if [[ "$DB_TYPE" == "mysql" ]]; then
         # First, ensure the database user exists with proper permissions
         log "Creating database user and granting permissions..."
+        local attempts=0
+        local max_attempts=5
+        local created_user=false
+        local created_db=false
         
         local create_user_sql=""
         if [[ -n "$DB_PASS" ]]; then
@@ -1880,12 +1930,25 @@ FLUSH PRIVILEGES;
 "
         fi
         
-        # Try to create user as root (passwordless or with existing root password)
-        if echo "$create_user_sql" | mysql -u root 2>/dev/null; then
-            log "✓ Database user '$DB_USER' created/verified"
-        elif echo "$create_user_sql" | sudo mysql -u root 2>/dev/null; then
-            log "✓ Database user '$DB_USER' created/verified (via sudo)"
-        else
+        # Try to create user as root (passwordless or with unix_socket via sudo), with retries
+        while [[ $attempts -lt $max_attempts ]]; do
+            if echo "$create_user_sql" | mysql -u root 2>/dev/null; then
+                log "✓ Database user '$DB_USER' created/verified"
+                created_user=true
+                break
+            elif echo "$create_user_sql" | sudo -n mysql -u root 2>/dev/null || echo "$create_user_sql" | sudo mysql -u root 2>/dev/null; then
+                log "✓ Database user '$DB_USER' created/verified (via sudo)"
+                created_user=true
+                break
+            else
+                attempts=$((attempts + 1))
+                if [[ $attempts -lt $max_attempts ]]; then
+                    log "MariaDB not ready for user creation yet, retrying ($attempts/$max_attempts)..."
+                    sleep 2
+                fi
+            fi
+        done
+        if [[ "$created_user" != "true" ]]; then
             warn "Could not create database user automatically"
             echo -e "${YELLOW}You may need to create the user manually:${NC}"
             echo -e "${WHITE}sudo mysql -u root -e \"$create_user_sql\"${NC}"
@@ -1894,11 +1957,25 @@ FLUSH PRIVILEGES;
         # Now create the database with UTF8MB4
         local create_db_sql="CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
         
-        if echo "$create_db_sql" | mysql -u root 2>/dev/null; then
-            log "✓ Database '$DB_NAME' created/verified"
-        elif echo "$create_db_sql" | sudo mysql -u root 2>/dev/null; then
-            log "✓ Database '$DB_NAME' created/verified (via sudo)"
-        else
+        attempts=0
+        while [[ $attempts -lt $max_attempts ]]; do
+            if echo "$create_db_sql" | mysql -u root 2>/dev/null; then
+                log "✓ Database '$DB_NAME' created/verified"
+                created_db=true
+                break
+            elif echo "$create_db_sql" | sudo -n mysql -u root 2>/dev/null || echo "$create_db_sql" | sudo mysql -u root 2>/dev/null; then
+                log "✓ Database '$DB_NAME' created/verified (via sudo)"
+                created_db=true
+                break
+            else
+                attempts=$((attempts + 1))
+                if [[ $attempts -lt $max_attempts ]]; then
+                    log "MariaDB not ready for database creation yet, retrying ($attempts/$max_attempts)..."
+                    sleep 2
+                fi
+            fi
+        done
+        if [[ "$created_db" != "true" ]]; then
             warn "Could not create database automatically"
         fi
         
