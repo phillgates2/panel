@@ -351,8 +351,13 @@ interactive_config() {
         SETUP_SSL="false"
         SETUP_SYSTEMD="false"
         SETUP_REDIS="false"
+        SETUP_MARIADB="false"
+        SETUP_PHPMYADMIN="false"
         DISCORD_WEBHOOK=""
         INSTALL_ML_DEPS="false"
+        SECRET_KEY_GENERATE="true"
+        ENABLE_LOGGING="true"
+        LOG_LEVEL="INFO"
         return 0
     fi
     
@@ -498,9 +503,49 @@ interactive_config() {
             configure_mariadb_settings
         fi
         
+        # MariaDB setup options
+        echo
+        echo -e "${BLUE}MariaDB Installation Options:${NC}"
+        if prompt_confirm "Install and configure MariaDB server?" "y"; then
+            SETUP_MARIADB="true"
+            echo -e "${GREEN}✓ Will install and configure MariaDB server${NC}"
+        else
+            SETUP_MARIADB="false"
+            warn "Assuming MariaDB is already installed and configured"
+        fi
+        
+        # phpMyAdmin setup
+        if [[ "$SETUP_MARIADB" == "true" ]] || prompt_confirm "Install phpMyAdmin for database management?" "y"; then
+            SETUP_PHPMYADMIN="true"
+            echo -e "${GREEN}✓ Will install phpMyAdmin${NC}"
+            
+            # phpMyAdmin access configuration
+            if [[ -t 0 ]] && [[ -t 1 ]]; then
+                PHPMYADMIN_PORT=$(prompt_input "phpMyAdmin access port (or use default web server)" "default")
+                if [[ "$PHPMYADMIN_PORT" != "default" ]]; then
+                    if [[ "$PHPMYADMIN_PORT" =~ ^[0-9]+$ ]] && [[ "$PHPMYADMIN_PORT" -ge 1024 ]]; then
+                        PHPMYADMIN_CUSTOM_PORT="true"
+                    else
+                        warn "Invalid port, using default web server configuration"
+                        PHPMYADMIN_PORT="default"
+                        PHPMYADMIN_CUSTOM_PORT="false"
+                    fi
+                else
+                    PHPMYADMIN_CUSTOM_PORT="false"
+                fi
+            else
+                PHPMYADMIN_PORT="default"
+                PHPMYADMIN_CUSTOM_PORT="false"
+            fi
+        else
+            SETUP_PHPMYADMIN="false"
+        fi
+        
     else
         echo
         echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
+        SETUP_MARIADB="false"
+        SETUP_PHPMYADMIN="false"
     fi
     
     # Admin user configuration
@@ -667,7 +712,12 @@ interactive_config() {
     echo
     echo -e "  ${BLUE}Database Configuration:${NC}"
     echo -e "    Type: $DB_TYPE"
-    [[ "$DB_TYPE" == "mysql" ]] && echo -e "    MariaDB: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
+    if [[ "$DB_TYPE" == "mysql" ]]; then
+        echo -e "    MariaDB: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
+        echo -e "    MariaDB Installation: ${SETUP_MARIADB}"
+        echo -e "    phpMyAdmin: ${SETUP_PHPMYADMIN}"
+        [[ "$SETUP_PHPMYADMIN" == "true" ]] && echo -e "    phpMyAdmin Access: http://localhost${PHPMYADMIN_PORT:+:$PHPMYADMIN_PORT}/phpmyadmin"
+    fi
     echo
     echo -e "  ${BLUE}Application Settings:${NC}"
     echo -e "    Host: $APP_HOST"
@@ -820,6 +870,180 @@ EOF
     log "✓ Environment file created"
 }
 
+setup_mariadb() {
+    log "Setting up MariaDB..."
+    
+    # Install MariaDB server
+    case "$PKG_MANAGER" in
+        apt-get) 
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-server mariadb-client
+                systemctl enable mariadb
+                systemctl start mariadb
+            else
+                sudo $PKG_INSTALL mariadb-server mariadb-client
+                sudo systemctl enable mariadb
+                sudo systemctl start mariadb
+            fi
+            ;;
+        yum) 
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb-server mariadb
+                systemctl enable mariadb
+                systemctl start mariadb
+            else
+                sudo $PKG_INSTALL mariadb-server mariadb
+                sudo systemctl enable mariadb
+                sudo systemctl start mariadb
+            fi
+            ;;
+        apk) 
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb mariadb-client
+                rc-update add mariadb default
+                /etc/init.d/mariadb setup
+                rc-service mariadb start
+            else
+                sudo $PKG_INSTALL mariadb mariadb-client
+                sudo rc-update add mariadb default
+                sudo /etc/init.d/mariadb setup
+                sudo rc-service mariadb start
+            fi
+            ;;
+    esac
+    
+    # Wait for MariaDB to start
+    sleep 3
+    
+    # Secure MariaDB installation
+    log "Securing MariaDB installation..."
+    
+    # Set root password and secure installation
+    local mysql_root_password=""
+    if [[ -t 0 ]] && [[ -t 1 ]]; then
+        mysql_root_password=$(prompt_input "Set MariaDB root password (leave empty for no password)" "" "true")
+    fi
+    
+    # Run mysql_secure_installation equivalent
+    if [[ -n "$mysql_root_password" ]]; then
+        mysql -u root -e "
+        SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$mysql_root_password');
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+        FLUSH PRIVILEGES;
+        " 2>/dev/null || warn "Could not secure MariaDB automatically"
+    else
+        mysql -u root -e "
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+        FLUSH PRIVILEGES;
+        " 2>/dev/null || warn "Could not secure MariaDB automatically"
+    fi
+    
+    log "✓ MariaDB installation complete"
+}
+
+setup_phpmyadmin() {
+    log "Setting up phpMyAdmin..."
+    
+    case "$PKG_MANAGER" in
+        apt-get)
+            # Set up non-interactive installation
+            if [[ $EUID -eq 0 ]]; then
+                echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/app-password-confirm password' | debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | debconf-set-selections
+                $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
+                
+                # Enable Apache modules
+                a2enmod rewrite
+                systemctl enable apache2
+                systemctl restart apache2
+            else
+                echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | sudo debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/app-password-confirm password' | sudo debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | sudo debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | sudo debconf-set-selections
+                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | sudo debconf-set-selections
+                sudo $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
+                
+                sudo a2enmod rewrite
+                sudo systemctl enable apache2
+                sudo systemctl restart apache2
+            fi
+            ;;
+        yum|dnf)
+            # Install EPEL and Remi repositories for newer PHP
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL epel-release
+                $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
+                $PKG_INSTALL httpd php php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
+                systemctl enable httpd
+                systemctl start httpd
+            else
+                sudo $PKG_INSTALL epel-release
+                sudo $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
+                sudo $PKG_INSTALL httpd php php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
+                sudo systemctl enable httpd
+                sudo systemctl start httpd
+            fi
+            
+            # Download and install phpMyAdmin manually
+            local pma_version="5.2.1"
+            local pma_url="https://files.phpmyadmin.net/phpMyAdmin/${pma_version}/phpMyAdmin-${pma_version}-all-languages.tar.gz"
+            
+            cd /tmp
+            wget "$pma_url" -O phpmyadmin.tar.gz
+            tar xzf phpmyadmin.tar.gz
+            
+            if [[ $EUID -eq 0 ]]; then
+                cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/html/phpmyadmin
+                chown -R apache:apache /var/www/html/phpmyadmin
+            else
+                sudo cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/html/phpmyadmin
+                sudo chown -R apache:apache /var/www/html/phpmyadmin
+            fi
+            ;;
+        apk)
+            # Install Apache and PHP
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL apache2 php-apache2 php php-mysqli php-mbstring php-zip php-gd php-json php-curl
+                rc-update add apache2 default
+                rc-service apache2 start
+            else
+                sudo $PKG_INSTALL apache2 php-apache2 php php-mysqli php-mbstring php-zip php-gd php-json php-curl
+                sudo rc-update add apache2 default
+                sudo rc-service apache2 start
+            fi
+            
+            # Download phpMyAdmin
+            local pma_version="5.2.1"
+            local pma_url="https://files.phpmyadmin.net/phpMyAdmin/${pma_version}/phpMyAdmin-${pma_version}-all-languages.tar.gz"
+            
+            cd /tmp
+            wget "$pma_url" -O phpmyadmin.tar.gz
+            tar xzf phpmyadmin.tar.gz
+            
+            if [[ $EUID -eq 0 ]]; then
+                cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/localhost/htdocs/phpmyadmin
+                chown -R apache:apache /var/www/localhost/htdocs/phpmyadmin
+            else
+                sudo cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/localhost/htdocs/phpmyadmin
+                sudo chown -R apache:apache /var/www/localhost/htdocs/phpmyadmin
+            fi
+            ;;
+    esac
+    
+    log "✓ phpMyAdmin installation complete"
+    log "  Access phpMyAdmin at: http://localhost/phpmyadmin"
+}
+
 install_system_deps() {
     if [[ "$INSTALL_MODE" == "development" && "$DB_TYPE" == "sqlite" && "$SETUP_NGINX" == "false" && "$SETUP_REDIS" == "false" ]]; then
         # Skip system deps for simple development setups
@@ -899,14 +1123,40 @@ install_system_deps() {
         esac
     fi
     
-    # Install packages
-    if [[ $EUID -eq 0 ]]; then
-        $PKG_INSTALL $packages
+    # Install packages (excluding MariaDB if we're setting it up separately)
+    if [[ "$SETUP_MARIADB" != "true" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            $PKG_INSTALL $packages
+        else
+            sudo $PKG_INSTALL $packages
+        fi
     else
-        sudo $PKG_INSTALL $packages
+        # Install packages without MariaDB (we'll set it up separately)
+        local filtered_packages=""
+        for pkg in $packages; do
+            if [[ "$pkg" != *"mariadb"* ]] && [[ "$pkg" != *"mysql"* ]]; then
+                filtered_packages="$filtered_packages $pkg"
+            fi
+        done
+        
+        if [[ $EUID -eq 0 ]]; then
+            $PKG_INSTALL $filtered_packages
+        else
+            sudo $PKG_INSTALL $filtered_packages
+        fi
     fi
     
     log "✓ System dependencies installed"
+    
+    # Setup MariaDB if requested
+    if [[ "$SETUP_MARIADB" == "true" ]]; then
+        setup_mariadb
+    fi
+    
+    # Setup phpMyAdmin if requested
+    if [[ "$SETUP_PHPMYADMIN" == "true" ]]; then
+        setup_phpmyadmin
+    fi
 }
 
 install_panel() {
@@ -1294,6 +1544,23 @@ show_next_steps() {
     echo -e "${BLUE}Login Credentials:${NC}"
     echo "  Username: $ADMIN_USERNAME"
     echo "  Password: [as configured during setup]"
+    
+    # Show database management info
+    if [[ "$SETUP_PHPMYADMIN" == "true" ]]; then
+        echo
+        echo -e "${BLUE}Database Management:${NC}"
+        echo "  phpMyAdmin: http://localhost/phpmyadmin"
+        if [[ "$SETUP_MARIADB" == "true" ]]; then
+            echo "  MariaDB Root: Use root credentials set during installation"
+        fi
+        echo "  Panel DB User: $DB_USER (for database: $DB_NAME)"
+    elif [[ "$DB_TYPE" == "mysql" ]]; then
+        echo
+        echo -e "${BLUE}Database Management:${NC}"
+        echo "  Database: $DB_NAME on $DB_HOST:$DB_PORT"
+        echo "  User: $DB_USER"
+        echo "  Access via MySQL client: mysql -h $DB_HOST -u $DB_USER -p $DB_NAME"
+    fi
     echo
     
     echo -e "${BLUE}Useful commands:${NC}"
@@ -1355,6 +1622,8 @@ main() {
         SETUP_SSL="false"
         SETUP_SYSTEMD="false"
         SETUP_REDIS="false"
+        SETUP_MARIADB="false"
+        SETUP_PHPMYADMIN="false"
         DISCORD_WEBHOOK=""
         INSTALL_ML_DEPS="false"
         SECRET_KEY_GENERATE="true"
