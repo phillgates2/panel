@@ -1437,40 +1437,51 @@ setup_mariadb() {
             # Alpine: mariadb package includes server, mariadb-client for CLI tools, mariadb-openrc for init scripts
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb mariadb-client mariadb-openrc
-                rc-update add mariadb default
-                /etc/init.d/mariadb setup
-                rc-service mariadb start
+                # Ensure service added to default runlevel (idempotent)
+                rc-update add mariadb default 2>/dev/null || true
+                # Initialize datadir only if not already initialized
+                if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
+                    /etc/init.d/mariadb setup
+                fi
+                rc-service mariadb start || true
             else
                 sudo $PKG_INSTALL mariadb mariadb-client mariadb-openrc
-                sudo rc-update add mariadb default
-                sudo /etc/init.d/mariadb setup
-                sudo rc-service mariadb start
+                sudo rc-update add mariadb default 2>/dev/null || true
+                if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
+                    sudo /etc/init.d/mariadb setup
+                fi
+                sudo rc-service mariadb start || true
             fi
             ;;
         pacman)
             # Arch: mariadb package includes server and client
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb
-                mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
-                systemctl enable mariadb
-                systemctl start mariadb
+                # Initialize datadir if empty/not initialized
+                if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
+                    mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                fi
+                systemctl enable mariadb 2>/dev/null || true
+                systemctl start mariadb 2>/dev/null || true
             else
                 sudo $PKG_INSTALL mariadb
-                sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
-                sudo systemctl enable mariadb
-                sudo systemctl start mariadb
+                if [[ ! -d /var/lib/mysql/mysql ]] || [[ -z "$(ls -A /var/lib/mysql 2>/dev/null)" ]]; then
+                    sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                fi
+                sudo systemctl enable mariadb 2>/dev/null || true
+                sudo systemctl start mariadb 2>/dev/null || true
             fi
             ;;
         zypper)
             # openSUSE: mariadb package includes server, mariadb-client for CLI tools
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb mariadb-client mariadb-tools
-                systemctl enable mariadb
-                systemctl start mariadb
+                systemctl enable mariadb 2>/dev/null || true
+                systemctl start mariadb 2>/dev/null || true
             else
                 sudo $PKG_INSTALL mariadb mariadb-client mariadb-tools
-                sudo systemctl enable mariadb
-                sudo systemctl start mariadb
+                sudo systemctl enable mariadb 2>/dev/null || true
+                sudo systemctl start mariadb 2>/dev/null || true
             fi
             ;;
         brew)
