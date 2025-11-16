@@ -11,6 +11,13 @@ Modern Flask-based ET: Legacy server management with optimized user experience a
 - **Role-Based Access Control** - Admin and user permission management
 - **Audit Logging** - Comprehensive security event tracking
 
+### **🗄️ Integrated Database Management**
+- **Built-in phpMyAdmin** - Complete database management within Panel
+- **No External Dependencies** - No separate web server or phpMyAdmin installation needed
+- **Secure Access** - Admin-only authentication with session management
+- **Full SQL IDE** - Query interface, table browser, CSV export
+- **Cross-Database Support** - Works with SQLite and MySQL/MariaDB
+
 ### **🎨 Modern User Interface**
 - **Professional Design** - Glass morphism effects with gradient backgrounds
 - **Responsive Layout** - Mobile-friendly dashboard and forms
@@ -32,27 +39,57 @@ Modern Flask-based ET: Legacy server management with optimized user experience a
 ## ⚡ **Quick Start**
 
 ### **One-Command Installation**
+
+The Panel installer now supports comprehensive command-line options for flexible deployment:
+
 ```bash
-# Interactive installation (recommended)
+# Interactive installation (default - recommended)
 bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
 
-# Install to custom directory
-PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+# Quick SQLite-only installation (development)
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --sqlite-only
+
+# Full installation with all components (production)
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --full
+
+# Custom installation directory
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --dir /opt/panel
 
 # Install specific branch
-PANEL_BRANCH=develop bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --branch develop
 
-# Non-interactive installation for automation
-PANEL_NONINTERACTIVE=true PANEL_ADMIN_PASSWORD=secure123 bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
+# Non-interactive with MariaDB
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --non-interactive --db-type mariadb
+
+# Skip specific components
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --skip-nginx --skip-ssl
+
+# View all options
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --help
 ```
+
+**📋 Installation Options:**
+- `--help` - Show detailed usage information
+- `--dir DIR` - Custom installation directory
+- `--branch BRANCH` - Install specific git branch
+- `--db-type TYPE` - Pre-select database (sqlite/mariadb)
+- `--skip-mariadb` - Skip MariaDB installation
+- `--skip-phpmyadmin` - Skip phpMyAdmin installation (use built-in instead)
+- `--skip-redis` - Skip Redis installation
+- `--skip-nginx` - Skip Nginx configuration
+- `--skip-ssl` - Skip SSL/Let's Encrypt setup
+- `--non-interactive` - Run without prompts (use defaults)
+- `--sqlite-only` - Quick SQLite-only setup
+- `--full` - Complete installation with all components
+- `--uninstall` - Uninstall Panel and services
 
 ### **One-Command Uninstallation**
 ```bash
 # Uninstall Panel completely
-bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --uninstall
 
 # Uninstall from custom directory
-PANEL_INSTALL_DIR=/opt/panel bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) uninstall
+bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --dir /opt/panel --uninstall
 ```
 
 The uninstaller automatically removes:
@@ -72,10 +109,11 @@ The uninstaller automatically removes:
 **🎯 Interactive Configuration Options:**
 - **Installation Mode:** Development, Production, or Custom
 - **Database Setup:** SQLite (quick) or MariaDB (production)
+- **Database Management:** Embedded phpMyAdmin-like interface (no external installation needed)
 - **Admin User:** Username, email, and password
 - **Application Settings:** Host, port, debug mode, CAPTCHA
 - **Production Services:** Nginx, SSL certificates, systemd
-- **Optional Features:** Redis, Discord webhooks
+- **Optional Features:** Redis, Discord webhooks, ML dependencies
 
 The installer automatically:
 - ✅ Checks system requirements (Python 3.8+, Git, Curl)
@@ -85,6 +123,7 @@ The installer automatically:
 - ✅ Creates database and admin user
 - ✅ Configures production services (nginx, SSL, systemd)
 - ✅ Generates secure environment configuration
+- ✅ Sets up integrated database management interface
 
 ### **Manual Installation**
 ```bash
@@ -181,6 +220,44 @@ The panel features an optimized captcha system with:
 - **Quality filters** - SMOOTH and SHARPEN filters for enhanced readability
 - **Smart sizing** - Automatic font scaling based on character count
 - **Security focused** - Excludes confusing characters (0, O, I, 1, L)
+
+### **Integrated Database Management**
+
+Panel includes a complete phpMyAdmin-like interface built directly into the application:
+
+**✨ Features:**
+- **🔍 Database Browser** - View all tables with structure and data
+- **📝 SQL Query Interface** - Execute custom queries with real-time results
+- **📊 Table Viewer** - Browse table data with pagination (50 rows per page)
+- **📤 CSV Export** - Export individual tables as CSV files
+- **🔒 Secure Access** - Admin-only with session authentication
+- **🎨 Responsive Design** - Works on desktop and mobile devices
+
+**🚀 Access:**
+1. Login to Panel as admin (admin@localhost / admin123 by default)
+2. Navigate to **Admin Tools** in the main menu
+3. Click **🗄️ Database Manager**
+4. Start managing your database!
+
+**💡 Common Tasks:**
+```sql
+-- View all users
+SELECT * FROM user LIMIT 10;
+
+-- Count total records
+SELECT COUNT(*) as total FROM user;
+
+-- View game servers
+SELECT * FROM game_server;
+
+-- Check all tables (SQLite)
+SELECT name FROM sqlite_master WHERE type='table';
+
+-- Check all tables (MySQL/MariaDB)
+SHOW TABLES;
+```
+
+**No external phpMyAdmin installation required!** Everything is integrated seamlessly within the Panel interface with proper security and authentication.
 
 ### **System Services**
 
@@ -341,6 +418,10 @@ python -m playwright test
 - Server configuration and monitoring
 - Audit log viewing and export
 - Task queue monitoring and management
+- **Integrated Database Management** - Full phpMyAdmin functionality built-in
+- **SQL Query Interface** - Execute queries with syntax highlighting
+- **Database Browser** - View and export table data
+- **No External Tools Required** - All database management within Panel
 
 ## 🚀 **Deployment**
 
