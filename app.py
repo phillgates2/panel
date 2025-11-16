@@ -699,45 +699,6 @@ def is_server_mod_user(user):
     return user.is_server_mod()
 
 
-@app.route('/health')
-def health_check():
-    """Health check endpoint for system monitoring."""
-    try:
-        # Quick health check
-        validator = ConfigValidator()
-        
-        # Check database connection
-        db.session.execute('SELECT 1')
-        
-        # Check Redis if available
-        redis_healthy = False
-        try:
-            r = _get_redis_conn()
-            if r:
-                r.ping()
-                redis_healthy = True
-        except:
-            pass
-        
-        # Basic health metrics
-        health_data = {
-            'status': 'healthy',
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'database': 'connected',
-            'redis': 'connected' if redis_healthy else 'disconnected',
-            'uptime': time.time() - app.start_time if hasattr(app, 'start_time') else None
-        }
-        
-        return jsonify(health_data)
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        }), 500
-
-
 @app.route('/health/detailed')
 def detailed_health_check():
     """Detailed health check for admin monitoring."""
