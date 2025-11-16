@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2025-11-16
+
+### 🎨 **Installer UX Improvements**
+- **Colorful Terminal Output** - Added magenta, yellow, white colors for better readability
+- **Redesigned --help** - Professional layout with categorized options and examples
+- **Fixed Color Display** - Switched from heredoc to printf for proper ANSI rendering
+- **Visual Hierarchy** - Grouped options by function (Installation, Components, Automation)
+
+### 🗑️ **Enhanced Uninstall**
+- **Complete Cleanup** - Now removes logs, audit logs, and database backups
+- **Clear User Messaging** - Shows exactly what will be removed
+- **Safe Operation** - Confirmation required before deletion
+
+### 🗄️ **Database & phpMyAdmin**
+- **Replaced Apache with Nginx** - phpMyAdmin now served via Nginx on port 8081
+- **No Port Conflicts** - Panel (80/443) and phpMyAdmin (8081) coexist peacefully
+- **Enhanced Database Setup** - Uses Flask-Migrate when available, UTF8MB4 charset
+- **Better Logging** - Detailed step-by-step database creation logs
+- **Verification** - Tests database creation with USE/SELECT validation
+
+### 🔧 **Bug Fixes**
+- **PHP-FPM Service Detection** - Auto-detects correct service name (php8.4-fpm, etc.)
+- **Syntax Errors** - Fixed orphaned if/fi blocks in installer
+- **Wildcard Commands** - Replaced invalid systemctl wildcards with proper detection
+
+### 📚 **Documentation**
+- **Streamlined README** - Easier to scan with clear sections and quick start
+- **Better Examples** - One-line commands for common scenarios
+- **Architecture Diagram** - Visual project structure
+- **Updated Links** - All documentation properly cross-referenced
+
 ## [Unreleased]
 
 ### 🔧 **System Health & Configuration Management** - 2025-11-15
