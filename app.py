@@ -2,6 +2,7 @@ import os
 import time
 import io
 import secrets
+import logging
 from datetime import datetime, date, timezone, timedelta
 from flask import (
     Flask,
@@ -37,6 +38,18 @@ from phpmyadmin_integration import PhpMyAdminIntegration, PHPMYADMIN_BASE_TEMPLA
 app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
+
+# Configure logging
+from logging_config import setup_logging, log_security_event
+logger = setup_logging(app)
+
+# Configure security headers
+from security_headers import configure_security_headers
+configure_security_headers(app)
+
+# Configure rate limiting (optional - uncomment when needed)
+# from rate_limiting import setup_rate_limiting
+# limiter = setup_rate_limiting(app)
 
 # Track application startup time
 app.start_time = time.time()
@@ -371,6 +384,45 @@ def register():
     return render_template("register.html")
 
 
+@app.route("/health")
+def health_check():
+    """Health check endpoint for monitoring and load balancers"""
+    try:
+        # Check database connection
+        db.session.execute(db.text('SELECT 1'))
+        db_status = 'healthy'
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        db_status = 'unhealthy'
+    
+    # Check Redis connection
+    try:
+        redis_conn = _get_redis_conn()
+        if redis_conn and redis_conn.ping():
+            redis_status = 'healthy'
+        else:
+            redis_status = 'unavailable'
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
+        redis_status = 'unhealthy'
+    
+    # Calculate uptime
+    uptime_seconds = int(time.time() - app.start_time)
+    
+    health_data = {
+        'status': 'healthy' if db_status == 'healthy' else 'degraded',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'uptime_seconds': uptime_seconds,
+        'checks': {
+            'database': db_status,
+            'redis': redis_status,
+        }
+    }
+    
+    status_code = 200 if health_data['status'] == 'healthy' else 503
+    return jsonify(health_data), status_code
+
+
 @app.route("/captcha.png")
 def captcha_image():
     # generate image and store the expected text in session
@@ -453,12 +505,27 @@ def login():
             
             db.session.commit()
             
+            # Log security event
+            log_security_event(
+                event_type='login_success',
+                message=f'User login successful: {email}',
+                user_id=user.id,
+                ip_address=request.remote_addr
+            )
+            
             # clear captcha on success
             session.pop("captcha_text", None)
             session.pop("captcha_ts", None)
             flash("Logged in", "success")
             return redirect(url_for("dashboard"))
         else:
+            # Log failed login attempt
+            log_security_event(
+                event_type='login_failed',
+                message=f'Failed login attempt for: {email}',
+                user_id=None,
+                ip_address=request.remote_addr
+            )
             flash("Invalid credentials", "error")
             return redirect(url_for("login"))
     return render_template("login.html")
@@ -1575,7 +1642,7 @@ if __name__ == "__main__":
     # app.register_blueprint(api_bp)
     # app.register_blueprint(log_analytics_bp)
     # app.register_blueprint(multi_server_bp)
-    print("✓ Enterprise systems disabled for clean operation")
+    logger.info("Enterprise systems disabled for clean operation")
 
 
 # ===== phpMyAdmin Integration Routes =====
@@ -1802,7 +1869,7 @@ def admin_db_import():
     with app.app_context():
         # Initialize database tables first
         db.create_all()
-        print("✓ Database initialized successfully")
+        logger.info("Database initialized successfully")
         
         # Initialize configuration templates after database is ready
         from config_manager import create_default_templates
@@ -1810,11 +1877,11 @@ def admin_db_import():
             create_default_templates()
         except Exception as e:
             # Silently ignore template creation errors during startup
-            pass
+            logger.debug(f"Template creation skipped: {e}")
         
         # Temporarily disable enterprise systems to avoid SQLAlchemy context issues
         # These can be re-enabled once the monitoring systems are properly configured
-        print("✓ Enterprise systems disabled for clean operation")
-        print("✓ Panel application ready for use")
+        logger.info("Enterprise systems disabled for clean operation")
+        logger.info("Panel application ready for use")
     
     app.run(host="0.0.0.0", port=8080, debug=True)

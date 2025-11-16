@@ -21,6 +21,12 @@ else:
     )
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+# Logging configuration
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOG_DIR = os.environ.get('LOG_DIR', 'instance/logs')
+AUDIT_LOG_ENABLED = os.environ.get('AUDIT_LOG_ENABLED', 'True') == 'True'
+AUDIT_LOG_DIR = os.environ.get('AUDIT_LOG_DIR', 'instance/audit_logs')
+
 # ET:Legacy server settings (used by RCON and autodeployer)
 ET_SERVER_HOST = os.environ.get("ET_SERVER_HOST", "127.0.0.1")
 ET_SERVER_PORT = int(os.environ.get("ET_SERVER_PORT", 27960))

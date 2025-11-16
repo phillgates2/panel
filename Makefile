@@ -71,13 +71,22 @@ upgrade: ## Upgrade dependencies
 	pip install --upgrade -r requirements-dev.txt
 
 db-migrate: ## Create database migration
-	flask db migrate -m "$(message)"
+	FLASK_APP=migrations_init.py flask db migrate -m "$(message)"
 
 db-upgrade: ## Apply database migrations
-	flask db upgrade
+	FLASK_APP=migrations_init.py flask db upgrade
 
 db-downgrade: ## Rollback database migration
-	flask db downgrade
+	FLASK_APP=migrations_init.py flask db downgrade
+
+db-init: ## Initialize migrations directory
+	FLASK_APP=migrations_init.py flask db init
+
+db-history: ## Show migration history
+	FLASK_APP=migrations_init.py flask db history
+
+db-current: ## Show current migration
+	FLASK_APP=migrations_init.py flask db current
 
 db-backup: ## Backup SQLite database
 	@mkdir -p backups
