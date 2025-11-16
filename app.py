@@ -806,7 +806,7 @@ def admin_tools():
     # Attempt to read logs from configured log dir, fallback to journalctl
     memwatch_log = ''
     autodeploy_log = ''
-    log_dir = getattr(config, 'LOG_DIR', '/var/log/panel')
+    log_dir = config.LOG_DIR  # Already OS-aware from config.py
     mem_file = os.path.join(log_dir, 'memwatch.log')
     auto_file = os.path.join(log_dir, 'autodeploy.log')
     try:
@@ -1538,7 +1538,7 @@ def run_memdump():
         flash('Invalid CSRF token', 'error')
         return redirect(url_for('admin_tools'))
 
-    pid_file = request.form.get('pid_file') or getattr(config, 'ET_PID_FILE', '/var/run/etlegacy.pid')
+    pid_file = request.form.get('pid_file') or config.ET_PID_FILE  # Already OS-aware from config.py
     # Enqueue memwatch task (background)
     try:
         redis_url = os.environ.get('PANEL_REDIS_URL', config.REDIS_URL)

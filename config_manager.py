@@ -10,9 +10,8 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from app import db
+import config
 import hashlib
-
-
 class ConfigTemplate(db.Model):
     """Configuration templates for different server types."""
     __tablename__ = 'config_template'
@@ -213,7 +212,8 @@ class ConfigManager:
         
         try:
             # Create server config directory structure
-            server_path = Path(f"/opt/etlegacy/servers/{server.name}")
+            etlegacy_dir = config.DOWNLOAD_DIR  # Already OS-aware from config.py
+            server_path = Path(f"{etlegacy_dir}/servers/{server.name}")
             server_path.mkdir(parents=True, exist_ok=True)
             
             # Write main server config
@@ -364,10 +364,11 @@ scriptlist maps/radar.script
 scriptlist maps/railgun.script
 scriptlist maps/fueldump.script
 ''',
-                'startup_script': '''#!/bin/bash
-cd /opt/etlegacy
+                'startup_script': f'''#!/bin/bash
+cd {config.DOWNLOAD_DIR}
 ./etlded +set dedicated 2 +set net_port 27960 +exec server.cfg
-''',
+''',  # Use OS-aware path
+
                 'mod_config': '''// n!tmod Configuration
 set nitmod_version "2.3.1"
 set g_shrubbot "shrubbot.cfg"

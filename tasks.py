@@ -7,9 +7,9 @@ import config
 import tempfile
 
 
-# Determine LOG_DIR with fallback to writable temp directory if /var/log/panel is not accessible
+# Determine LOG_DIR with fallback to writable temp directory if configured dir is not accessible
 _log_dir_env = os.environ.get('LOG_DIR')
-_log_dir_config = config.LOG_DIR if hasattr(config, 'LOG_DIR') else '/var/log/panel'
+_log_dir_config = config.LOG_DIR  # Already OS-aware from config.py
 LOG_DIR = _log_dir_env or _log_dir_config
 
 # Try to create LOG_DIR; if it fails (permission denied), fall back to temp directory

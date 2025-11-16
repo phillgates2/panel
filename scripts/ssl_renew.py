@@ -17,12 +17,26 @@ from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# Try to import OS-aware paths
+try:
+    from os_paths import os_paths
+    DEFAULT_LOG_FILE = os.path.join(os_paths.log_dir, 'ssl_renewal.log')
+    DEFAULT_CONFIG_FILE = os.path.join(os_paths.config_dir, 'ssl_config.json')
+    DEFAULT_WEBROOT = '/var/www/html'  # This is typically standard across systems
+    DEFAULT_NGINX_CONFIG = os_paths.nginx_config_dir
+except ImportError:
+    # Fallback to Linux defaults if os_paths not available
+    DEFAULT_LOG_FILE = '/var/log/ssl_renewal.log'
+    DEFAULT_CONFIG_FILE = '/etc/panel/ssl_config.json'
+    DEFAULT_WEBROOT = '/var/www/html'
+    DEFAULT_NGINX_CONFIG = '/etc/nginx/sites-available'
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/ssl_renewal.log'),
+        logging.FileHandler(DEFAULT_LOG_FILE),
         logging.StreamHandler()
     ]
 )
@@ -31,8 +45,8 @@ logger = logging.getLogger(__name__)
 class SSLRenewalManager:
     """Manages SSL certificate renewal and deployment"""
     
-    def __init__(self, config_file='/etc/panel/ssl_config.json'):
-        self.config_file = config_file
+    def __init__(self, config_file=None):
+        self.config_file = config_file if config_file else DEFAULT_CONFIG_FILE
         self.config = self.load_config()
         
     def load_config(self):
@@ -40,8 +54,8 @@ class SSLRenewalManager:
         default_config = {
             "domains": [],
             "email": "admin@example.com",
-            "webroot_path": "/var/www/html",
-            "nginx_config_path": "/etc/nginx/sites-available/panel",
+            "webroot_path": DEFAULT_WEBROOT,
+            "nginx_config_path": os.path.join(DEFAULT_NGINX_CONFIG, "panel"),
             "services_to_reload": ["nginx", "panel-gunicorn"],
             "days_before_expiry": 30,
             "test_mode": False,

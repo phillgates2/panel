@@ -21,11 +21,23 @@ from botocore.exceptions import ClientError
 # Add app path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import OS-aware paths
+try:
+    from os_paths import os_paths
+    DEFAULT_CONFIG_FILE = os.path.join(os_paths.config_dir, 'backup_config.json')
+    DEFAULT_BACKUP_DIR = os_paths.backup_dir
+    DEFAULT_KEY_FILE = os.path.join(os_paths.config_dir, 'backup.key')
+except ImportError:
+    # Fallback for Linux if os_paths not available
+    DEFAULT_CONFIG_FILE = '/etc/panel/backup_config.json'
+    DEFAULT_BACKUP_DIR = '/var/backups/panel'
+    DEFAULT_KEY_FILE = '/etc/panel/backup.key'
+
 class BackupManager:
     """Manages database backups with encryption and cloud storage."""
     
-    def __init__(self, config_file='/etc/panel/backup_config.json'):
-        self.config_file = config_file
+    def __init__(self, config_file=None):
+        self.config_file = config_file or DEFAULT_CONFIG_FILE
         self.config = self.load_config()
         
     def load_config(self):
@@ -39,11 +51,11 @@ class BackupManager:
                 "port": 3306
             },
             "backup": {
-                "directory": "/var/backups/panel",
+                "directory": DEFAULT_BACKUP_DIR,
                 "retention_days": 30,
                 "compress": True,
                 "encrypt": True,
-                "encryption_key_file": "/etc/panel/backup.key"
+                "encryption_key_file": DEFAULT_KEY_FILE
             },
             "cloud": {
                 "enabled": False,
@@ -442,8 +454,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize backup manager
-    config_file = args.config if args.config else '/etc/panel/backup_config.json'
+    # Initialize backup manager with OS-aware default
+    config_file = args.config if args.config else None  # Will use DEFAULT_CONFIG_FILE
     manager = BackupManager(config_file)
     
     try:

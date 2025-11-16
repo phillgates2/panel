@@ -1,5 +1,6 @@
 import os
 from urllib.parse import quote_plus
+from os_paths import os_paths
 
 # Allow a quick dev sqlite mode for local testing/CI when PANEL_USE_SQLITE=1
 USE_SQLITE = os.environ.get('PANEL_USE_SQLITE', '') == '1'
@@ -21,21 +22,21 @@ else:
     )
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-# Logging configuration
+# OS-aware paths with environment variable overrides
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-LOG_DIR = os.environ.get('LOG_DIR', 'instance/logs')
+LOG_DIR = os.environ.get('LOG_DIR', os_paths.log_dir)
 AUDIT_LOG_ENABLED = os.environ.get('AUDIT_LOG_ENABLED', 'True') == 'True'
-AUDIT_LOG_DIR = os.environ.get('AUDIT_LOG_DIR', 'instance/audit_logs')
+AUDIT_LOG_DIR = os.environ.get('AUDIT_LOG_DIR', os.path.join(LOG_DIR, 'audit'))
 
 # ET:Legacy server settings (used by RCON and autodeployer)
 ET_SERVER_HOST = os.environ.get("ET_SERVER_HOST", "127.0.0.1")
 ET_SERVER_PORT = int(os.environ.get("ET_SERVER_PORT", 27960))
 ET_RCON_PASSWORD = os.environ.get("ET_RCON_PASSWORD", "changeme")
 
-# Paths used by utilities
-ET_PID_FILE = os.environ.get("ET_PID_FILE", "/var/run/etlegacy.pid")
-DOWNLOAD_DIR = os.environ.get("PANEL_DOWNLOAD_DIR", "/opt/etlegacy")
-LOG_DIR = os.environ.get("PANEL_LOG_DIR", "/var/log/panel")
+# OS-aware paths with environment variable overrides
+ET_PID_FILE = os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid"))
+DOWNLOAD_DIR = os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir)
+BACKUP_DIR = os.environ.get("PANEL_BACKUP_DIR", os_paths.backup_dir)
 
 # Admin list (comma separated emails) allowed to perform manual deploys/core-dumps
 ADMIN_EMAILS = [e.strip().lower() for e in os.environ.get("PANEL_ADMIN_EMAILS", "").split(",") if e.strip()]
@@ -43,3 +44,7 @@ ADMIN_EMAILS = [e.strip().lower() for e in os.environ.get("PANEL_ADMIN_EMAILS", 
 # Discord webhook for notifications (optional)
 DISCORD_WEBHOOK = os.environ.get("PANEL_DISCORD_WEBHOOK", "")
 REDIS_URL = os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0")
+
+# System information (useful for debugging)
+OS_SYSTEM = os_paths.system
+OS_DISTRO = os_paths.distro
