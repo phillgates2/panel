@@ -2530,16 +2530,20 @@ install_panel() {
         # Run migrations
         if [[ "$DB_TYPE" == "sqlite" ]]; then
             PANEL_USE_SQLITE=1 python3 -c "
-from flask_migrate import upgrade
-from app import app
+from app import app, db
+from flask_migrate import Migrate, upgrade
+# Initialize Migrate
+migrate = Migrate(app, db)
 with app.app_context():
     upgrade()
     print('✓ Database schema migrated successfully')
 " 2>&1 | grep -v "INFO" || log "Database migrations applied"
         else
             python3 -c "
-from flask_migrate import upgrade
-from app import app
+from app import app, db
+from flask_migrate import Migrate, upgrade
+# Initialize Migrate
+migrate = Migrate(app, db)
 with app.app_context():
     upgrade()
     print('✓ Database schema migrated successfully')
@@ -2571,38 +2575,44 @@ with app.app_context():
     if [[ "$DB_TYPE" == "sqlite" ]]; then
         PANEL_USE_SQLITE=1 python3 -c "
 from app import app, db, User
+from datetime import date
 with app.app_context():
-    admin = User.query.filter_by(username='$ADMIN_USERNAME').first()
+    admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
     if not admin:
         admin = User(
-            username='$ADMIN_USERNAME',
+            first_name='Admin',
+            last_name='User',
             email='$ADMIN_EMAIL',
+            dob=date(1990, 1, 1),
             role='system_admin'
         )
         admin.set_password('$ADMIN_PASSWORD')
         db.session.add(admin)
         db.session.commit()
-        print('✓ Admin user created: $ADMIN_USERNAME')
+        print('✓ Admin user created: $ADMIN_EMAIL')
     else:
-        print('✓ Admin user already exists: $ADMIN_USERNAME')
+        print('✓ Admin user already exists: $ADMIN_EMAIL')
 "
     else
         python3 -c "
 from app import app, db, User
+from datetime import date
 with app.app_context():
-    admin = User.query.filter_by(username='$ADMIN_USERNAME').first()
+    admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
     if not admin:
         admin = User(
-            username='$ADMIN_USERNAME',
+            first_name='Admin',
+            last_name='User',
             email='$ADMIN_EMAIL',
+            dob=date(1990, 1, 1),
             role='system_admin'
         )
         admin.set_password('$ADMIN_PASSWORD')
         db.session.add(admin)
         db.session.commit()
-        print('✓ Admin user created: $ADMIN_USERNAME')
+        print('✓ Admin user created: $ADMIN_EMAIL')
     else:
-        print('✓ Admin user already exists: $ADMIN_USERNAME')
+        print('✓ Admin user already exists: $ADMIN_EMAIL')
 "
     fi
     
