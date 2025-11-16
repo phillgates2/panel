@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Panel Quick Installer
+# Version: 2.1.0 (2025-11-16)
 # Usage: bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
 #
 # Features:
@@ -354,6 +355,10 @@ print_banner() {
     Modern Game Server Management
 EOF
     echo -e "${NC}"
+    echo -e "${WHITE}Installer Version: 2.1.0 (2025-11-16)${NC}"
+    echo -e "${YELLOW}Always use the latest version:${NC}"
+    echo -e "${WHITE}bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)${NC}"
+    echo ""
 }
 
 log() {
@@ -2530,24 +2535,46 @@ install_panel() {
         # Run migrations
         if [[ "$DB_TYPE" == "sqlite" ]]; then
             PANEL_USE_SQLITE=1 python3 -c "
-from app import app, db
-from flask_migrate import Migrate, upgrade
-# Initialize Migrate
-migrate = Migrate(app, db)
-with app.app_context():
-    upgrade()
-    print('✓ Database schema migrated successfully')
-" 2>&1 | grep -v "INFO" || log "Database migrations applied"
+import sys
+try:
+    from app import app, db
+    from flask_migrate import Migrate, upgrade
+    # Initialize Migrate
+    migrate = Migrate(app, db)
+    with app.app_context():
+        try:
+            upgrade()
+            print('✓ Database schema migrated successfully')
+        except Exception as e:
+            print(f'Migration upgrade failed: {e}', file=sys.stderr)
+            print('Falling back to db.create_all()', file=sys.stderr)
+            db.create_all()
+            print('✓ Database schema created with db.create_all()')
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>&1 || log "Database migrations applied"
         else
             python3 -c "
-from app import app, db
-from flask_migrate import Migrate, upgrade
-# Initialize Migrate
-migrate = Migrate(app, db)
-with app.app_context():
-    upgrade()
-    print('✓ Database schema migrated successfully')
-" 2>&1 | grep -v "INFO" || log "Database migrations applied"
+import sys
+try:
+    from app import app, db
+    from flask_migrate import Migrate, upgrade
+    # Initialize Migrate
+    migrate = Migrate(app, db)
+    with app.app_context():
+        try:
+            upgrade()
+            print('✓ Database schema migrated successfully')
+        except Exception as e:
+            print(f'Migration upgrade failed: {e}', file=sys.stderr)
+            print('Falling back to db.create_all()', file=sys.stderr)
+            db.create_all()
+            print('✓ Database schema created with db.create_all()')
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>&1 || log "Database migrations applied"
         fi
     else
         # Fallback to create_all if migrations not initialized
@@ -2574,45 +2601,73 @@ with app.app_context():
     log "Creating admin user..."
     if [[ "$DB_TYPE" == "sqlite" ]]; then
         PANEL_USE_SQLITE=1 python3 -c "
-from app import app, db, User
-from datetime import date
-with app.app_context():
-    admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
-    if not admin:
-        admin = User(
-            first_name='Admin',
-            last_name='User',
-            email='$ADMIN_EMAIL',
-            dob=date(1990, 1, 1),
-            role='system_admin'
-        )
-        admin.set_password('$ADMIN_PASSWORD')
-        db.session.add(admin)
-        db.session.commit()
-        print('✓ Admin user created: $ADMIN_EMAIL')
-    else:
-        print('✓ Admin user already exists: $ADMIN_EMAIL')
+import sys
+try:
+    from app import app, db, User
+    from datetime import date
+    with app.app_context():
+        # User model uses email, not username
+        admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
+        if not admin:
+            admin = User(
+                first_name='Admin',
+                last_name='User',
+                email='$ADMIN_EMAIL',
+                dob=date(1990, 1, 1),
+                role='system_admin'
+            )
+            admin.set_password('$ADMIN_PASSWORD')
+            db.session.add(admin)
+            db.session.commit()
+            print('✓ Admin user created: $ADMIN_EMAIL')
+        else:
+            # Update role to ensure it's system_admin
+            if admin.role != 'system_admin':
+                admin.role = 'system_admin'
+                db.session.commit()
+                print('✓ Admin user updated to system_admin: $ADMIN_EMAIL')
+            else:
+                print('✓ Admin user already exists: $ADMIN_EMAIL')
+except Exception as e:
+    print(f'ERROR creating admin user: {e}', file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 "
     else
         python3 -c "
-from app import app, db, User
-from datetime import date
-with app.app_context():
-    admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
-    if not admin:
-        admin = User(
-            first_name='Admin',
-            last_name='User',
-            email='$ADMIN_EMAIL',
-            dob=date(1990, 1, 1),
-            role='system_admin'
-        )
-        admin.set_password('$ADMIN_PASSWORD')
-        db.session.add(admin)
-        db.session.commit()
-        print('✓ Admin user created: $ADMIN_EMAIL')
-    else:
-        print('✓ Admin user already exists: $ADMIN_EMAIL')
+import sys
+try:
+    from app import app, db, User
+    from datetime import date
+    with app.app_context():
+        # User model uses email, not username
+        admin = User.query.filter_by(email='$ADMIN_EMAIL').first()
+        if not admin:
+            admin = User(
+                first_name='Admin',
+                last_name='User',
+                email='$ADMIN_EMAIL',
+                dob=date(1990, 1, 1),
+                role='system_admin'
+            )
+            admin.set_password('$ADMIN_PASSWORD')
+            db.session.add(admin)
+            db.session.commit()
+            print('✓ Admin user created: $ADMIN_EMAIL')
+        else:
+            # Update role to ensure it's system_admin
+            if admin.role != 'system_admin':
+                admin.role = 'system_admin'
+                db.session.commit()
+                print('✓ Admin user updated to system_admin: $ADMIN_EMAIL')
+            else:
+                print('✓ Admin user already exists: $ADMIN_EMAIL')
+except Exception as e:
+    print(f'ERROR creating admin user: {e}', file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 "
     fi
     
