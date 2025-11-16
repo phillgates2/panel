@@ -1366,16 +1366,45 @@ setup_mariadb() {
     # Install MariaDB server
     case "$PKG_MANAGER" in
         apt-get) 
+            log "Installing MariaDB via apt-get..."
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb-server mariadb-client
+                log "Enabling and starting MariaDB service..."
                 # Try both service names (mariadb and mysql)
-                systemctl enable mariadb 2>/dev/null || systemctl enable mysql 2>/dev/null
-                systemctl start mariadb 2>/dev/null || systemctl start mysql 2>/dev/null
+                if systemctl enable mariadb 2>/dev/null; then
+                    log "Enabled mariadb.service"
+                elif systemctl enable mysql 2>/dev/null; then
+                    log "Enabled mysql.service"
+                else
+                    warn "Could not enable MariaDB service"
+                fi
+                
+                if systemctl start mariadb 2>/dev/null; then
+                    log "Started mariadb.service"
+                elif systemctl start mysql 2>/dev/null; then
+                    log "Started mysql.service"
+                else
+                    warn "Could not start MariaDB service"
+                fi
             else
                 sudo $PKG_INSTALL mariadb-server mariadb-client
+                log "Enabling and starting MariaDB service..."
                 # Try both service names (mariadb and mysql)
-                sudo systemctl enable mariadb 2>/dev/null || sudo systemctl enable mysql 2>/dev/null
-                sudo systemctl start mariadb 2>/dev/null || sudo systemctl start mysql 2>/dev/null
+                if sudo systemctl enable mariadb 2>/dev/null; then
+                    log "Enabled mariadb.service"
+                elif sudo systemctl enable mysql 2>/dev/null; then
+                    log "Enabled mysql.service"
+                else
+                    warn "Could not enable MariaDB service"
+                fi
+                
+                if sudo systemctl start mariadb 2>/dev/null; then
+                    log "Started mariadb.service"
+                elif sudo systemctl start mysql 2>/dev/null; then
+                    log "Started mysql.service"
+                else
+                    warn "Could not start MariaDB service"
+                fi
             fi
             ;;
         yum|dnf) 
@@ -1452,12 +1481,46 @@ setup_mariadb() {
             echo -e "${YELLOW}Waiting for MariaDB service... ($service_check_attempts/6)${NC}"
             sleep 2
         else
-            warn "MariaDB service may not be running"
-            if [[ $EUID -eq 0 ]]; then
-                systemctl status mariadb 2>&1 | head -10 || systemctl status mysql 2>&1 | head -10 || true
-            else
-                sudo systemctl status mariadb 2>&1 | head -10 || sudo systemctl status mysql 2>&1 | head -10 || true
+            warn "MariaDB service may not be running - showing diagnostic info"
+            echo ""
+            echo "=== MariaDB Diagnostic Info ==="
+            
+            # Check which services are available
+            if command -v systemctl &>/dev/null; then
+                echo "Systemd services:"
+                systemctl list-unit-files 2>/dev/null | grep -E 'maria|mysql' || echo "  No mariadb/mysql services found"
+                echo ""
+                echo "Service status:"
+                if [[ $EUID -eq 0 ]]; then
+                    systemctl status mariadb 2>&1 | head -15 || systemctl status mysql 2>&1 | head -15 || echo "  No service status available"
+                else
+                    sudo systemctl status mariadb 2>&1 | head -15 || sudo systemctl status mysql 2>&1 | head -15 || echo "  No service status available"
+                fi
+            elif command -v rc-service &>/dev/null; then
+                echo "OpenRC services:"
+                rc-service --list 2>/dev/null | grep -E 'maria|mysql' || echo "  No mariadb/mysql services found"
+                echo ""
+                echo "Service status:"
+                if [[ $EUID -eq 0 ]]; then
+                    rc-service mariadb status 2>&1 || rc-service mysql status 2>&1 || echo "  No service status available"
+                else
+                    sudo rc-service mariadb status 2>&1 || sudo rc-service mysql status 2>&1 || echo "  No service status available"
+                fi
             fi
+            
+            echo ""
+            echo "Installed binaries:"
+            command -v mariadbd && echo "  mariadbd: $(which mariadbd)"
+            command -v mysqld && echo "  mysqld: $(which mysqld)"
+            command -v mariadb && echo "  mariadb client: $(which mariadb)"
+            command -v mysql && echo "  mysql client: $(which mysql)"
+            
+            echo ""
+            echo "Running processes:"
+            ps aux | grep -E '[m]aria|[m]ysql' | head -5 || echo "  No MariaDB/MySQL processes found"
+            
+            echo "=== End Diagnostic Info ==="
+            echo ""
         fi
     done
     
@@ -1503,63 +1566,147 @@ check_mariadb_ready() {
     # First, check if MariaDB service exists - try multiple methods
     local service_exists=false
     local service_name=""
+    local service_manager=""
     
-    # Check for mariadb service
-    if systemctl list-unit-files 2>/dev/null | grep -qE '^mariadb\.service'; then
-        service_exists=true
-        service_name="mariadb"
-    elif systemctl list-unit-files 2>/dev/null | grep -qE '^mysql\.service'; then
-        service_exists=true
-        service_name="mysql"
-    elif rc-service --list 2>/dev/null | grep -q mariadb; then
-        service_exists=true
-        service_name="mariadb"
-    elif rc-service --list 2>/dev/null | grep -q mysql; then
-        service_exists=true
-        service_name="mysql"
-    # Check if mariadb/mysql binaries exist (service might be installed but not via systemd)
-    elif command -v mariadbd &>/dev/null || command -v mysqld &>/dev/null; then
-        service_exists=true
-        service_name="mariadb"
-        log "MariaDB binaries found, attempting direct connection..."
+    # Detect service manager and check for services
+    if command -v systemctl &>/dev/null; then
+        service_manager="systemd"
+        # Check for mariadb service
+        if systemctl list-unit-files 2>/dev/null | grep -qE '^mariadb\.service'; then
+            service_exists=true
+            service_name="mariadb"
+            log "Found mariadb.service in systemd"
+        elif systemctl list-unit-files 2>/dev/null | grep -qE '^mysql\.service'; then
+            service_exists=true
+            service_name="mysql"
+            log "Found mysql.service in systemd"
+        fi
+    elif command -v rc-service &>/dev/null; then
+        service_manager="openrc"
+        # Check for mariadb service in OpenRC
+        if rc-service --list 2>/dev/null | grep -q mariadb; then
+            service_exists=true
+            service_name="mariadb"
+            log "Found mariadb service in OpenRC"
+        elif rc-service --list 2>/dev/null | grep -q mysql; then
+            service_exists=true
+            service_name="mysql"
+            log "Found mysql service in OpenRC"
+        fi
+    fi
+    
+    # If no service found via service manager, check for binaries directly
+    if [[ "$service_exists" == "false" ]]; then
+        if command -v mariadbd &>/dev/null; then
+            service_exists=true
+            service_name="mariadb"
+            service_manager="binary"
+            log "Found mariadbd binary (no service manager)"
+        elif command -v mysqld &>/dev/null; then
+            service_exists=true
+            service_name="mysql"
+            service_manager="binary"
+            log "Found mysqld binary (no service manager)"
+        elif command -v mariadb &>/dev/null; then
+            # Just the client, but service might still work
+            service_exists=true
+            service_name="mariadb"
+            service_manager="client"
+            log "Found mariadb client, will attempt connection"
+        elif command -v mysql &>/dev/null; then
+            service_exists=true
+            service_name="mysql"
+            service_manager="client"
+            log "Found mysql client, will attempt connection"
+        fi
     fi
     
     if [[ "$service_exists" == "false" ]]; then
         echo -e "${RED}✗ MariaDB/MySQL service not found${NC}"
         echo -e "${YELLOW}Troubleshooting:${NC}"
-        echo "  - Check if mariadb-server is installed"
-        echo "  - Run: systemctl list-unit-files | grep -i maria"
-        echo "  - Run: systemctl list-unit-files | grep -i mysql"
+        echo "  - Check if mariadb-server/mariadb is installed:"
+        echo "    Debian/Ubuntu: dpkg -l | grep mariadb"
+        echo "    RHEL/Fedora: rpm -qa | grep mariadb"
+        echo "    Alpine: apk info | grep mariadb"
+        echo "    Arch: pacman -Q | grep mariadb"
+        echo ""
+        echo "  - Check for services:"
+        if [[ "$service_manager" == "systemd" ]] || command -v systemctl &>/dev/null; then
+            echo "    systemctl list-unit-files | grep -E 'maria|mysql'"
+        fi
+        if [[ "$service_manager" == "openrc" ]] || command -v rc-service &>/dev/null; then
+            echo "    rc-service --list | grep -E 'maria|mysql'"
+        fi
+        echo ""
+        echo "  - Check for binaries:"
+        echo "    which mariadbd mysqld mariadb mysql"
         return 1
     fi
     
-    log "Detected service name: $service_name"
+    log "Detected service: $service_name (manager: $service_manager)"
     
     # Try to start the service if not running
-    if [[ -n "$service_name" ]]; then
+    if [[ "$service_manager" == "systemd" ]]; then
         if [[ $EUID -eq 0 ]]; then
-            systemctl is-active --quiet "$service_name" || systemctl start "$service_name" 2>/dev/null
+            if ! systemctl is-active --quiet "$service_name" 2>/dev/null; then
+                log "Attempting to start $service_name service..."
+                systemctl start "$service_name" 2>/dev/null || warn "Failed to start $service_name"
+            fi
         else
-            systemctl is-active --quiet "$service_name" || sudo systemctl start "$service_name" 2>/dev/null
+            if ! sudo systemctl is-active --quiet "$service_name" 2>/dev/null; then
+                log "Attempting to start $service_name service..."
+                sudo systemctl start "$service_name" 2>/dev/null || warn "Failed to start $service_name"
+            fi
+        fi
+    elif [[ "$service_manager" == "openrc" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            if ! rc-service "$service_name" status 2>/dev/null | grep -q "started"; then
+                log "Attempting to start $service_name service..."
+                rc-service "$service_name" start 2>/dev/null || warn "Failed to start $service_name"
+            fi
+        else
+            if ! sudo rc-service "$service_name" status 2>/dev/null | grep -q "started"; then
+                log "Attempting to start $service_name service..."
+                sudo rc-service "$service_name" start 2>/dev/null || warn "Failed to start $service_name"
+            fi
         fi
     fi
     
+    # Wait and verify MariaDB is accessible
     while [[ $attempt -lt $max_attempts ]]; do
-        # Check both mariadb and mysql service names
+        # Check if service is running (if we have a service manager)
         local service_running=false
-        if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
-            service_running=true
-        elif rc-service mariadb status 2>/dev/null | grep -q "started" || rc-service mysql status 2>/dev/null | grep -q "started"; then
+        
+        if [[ "$service_manager" == "systemd" ]]; then
+            if systemctl is-active --quiet mariadb 2>/dev/null || systemctl is-active --quiet mysql 2>/dev/null; then
+                service_running=true
+            fi
+        elif [[ "$service_manager" == "openrc" ]]; then
+            if rc-service mariadb status 2>/dev/null | grep -q "started" || rc-service mysql status 2>/dev/null | grep -q "started"; then
+                service_running=true
+            fi
+        else
+            # No service manager or binary/client only - just try to connect
             service_running=true
         fi
         
         if [[ "$service_running" == "true" ]]; then
             # Try to connect
-            if mysql -u root -e "SELECT 1;" &>/dev/null; then
+            if command -v mysql &>/dev/null && mysql -u root -e "SELECT 1;" &>/dev/null; then
+                echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
+                return 0
+            elif command -v mariadb &>/dev/null && mariadb -u root -e "SELECT 1;" &>/dev/null; then
                 echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
                 return 0
             else
-                echo -e "${YELLOW}MariaDB service running but connection failed (attempt $((attempt + 1))/$max_attempts)${NC}"
+                if [[ $attempt -eq 0 ]]; then
+                    echo -e "${YELLOW}MariaDB service running but connection failed (attempt $((attempt + 1))/$max_attempts)${NC}"
+                    log "Hint: Database may still be initializing..."
+                fi
+            fi
+        else
+            if [[ $attempt -eq 0 ]]; then
+                echo -e "${YELLOW}MariaDB service not running yet (attempt $((attempt + 1))/$max_attempts)${NC}"
             fi
         fi
         
@@ -1574,13 +1721,41 @@ check_mariadb_ready() {
     
     echo -e "${RED}✗ MariaDB is not running or not accessible${NC}"
     echo -e "${YELLOW}Troubleshooting:${NC}"
-    if [[ $EUID -eq 0 ]]; then
-        echo "  Check status: systemctl status mariadb"
-        echo "  View logs: journalctl -xeu mariadb"
+    
+    # Provide context-aware troubleshooting
+    if [[ "$service_manager" == "systemd" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            echo "  Check status: systemctl status $service_name"
+            echo "  View logs: journalctl -xeu $service_name"
+            echo "  Restart: systemctl restart $service_name"
+        else
+            echo "  Check status: sudo systemctl status $service_name"
+            echo "  View logs: sudo journalctl -xeu $service_name"
+            echo "  Restart: sudo systemctl restart $service_name"
+        fi
+    elif [[ "$service_manager" == "openrc" ]]; then
+        if [[ $EUID -eq 0 ]]; then
+            echo "  Check status: rc-service $service_name status"
+            echo "  View logs: cat /var/log/mysql/error.log"
+            echo "  Restart: rc-service $service_name restart"
+        else
+            echo "  Check status: sudo rc-service $service_name status"
+            echo "  View logs: sudo cat /var/log/mysql/error.log"
+            echo "  Restart: sudo rc-service $service_name restart"
+        fi
     else
-        echo "  Check status: sudo systemctl status mariadb"
-        echo "  View logs: sudo journalctl -xeu mariadb"
+        echo "  Check if MariaDB/MySQL is running: ps aux | grep -E 'maria|mysql'"
+        echo "  Try manual connection: mysql -u root"
+        echo "  Check error logs in: /var/log/mysql/ or /var/log/mariadb/"
     fi
+    
+    echo ""
+    echo "  Common issues:"
+    echo "    - Database still initializing (wait 30s and retry)"
+    echo "    - Insufficient permissions (check user/group ownership)"
+    echo "    - Port 3306 already in use (check: netstat -tlnp | grep 3306)"
+    echo "    - Datadir not initialized (may need: mysql_install_db or mariadb-install-db)"
+    
     return 1
 }
 
