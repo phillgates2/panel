@@ -66,6 +66,14 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# Simple helpers
+sql_escape_literal() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\'/\'\\\'\'}"
+    printf "%s" "$s"
+}
+
 # Detect operating system and package manager
 detect_system() {
     echo -e "${MAGENTA}${BOLD}Detecting system...${NC}"
@@ -2008,9 +2016,11 @@ check_database_connection() {
         
         local create_user_sql=""
         if [[ -n "$DB_PASS" ]]; then
+            local esc_pass
+            esc_pass="$(sql_escape_literal "$DB_PASS")"
             create_user_sql="
-CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
-CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${esc_pass}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${esc_pass}';
 GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
 GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
 FLUSH PRIVILEGES;
@@ -2053,7 +2063,17 @@ FLUSH PRIVILEGES;
         if [[ "$created_user" != "true" ]]; then
             warn "Could not create database user automatically"
             echo -e "${YELLOW}You may need to create the user manually:${NC}"
-            echo -e "${WHITE}sudo mysql -u root -e \"$create_user_sql\"${NC}"
+            echo -e "${WHITE}sudo mysql -u root${NC}"
+            if [[ -n "$DB_PASS" ]]; then
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
+            else
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost';${NC}"
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'%';${NC}"
+            fi
+            echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';${NC}"
+            echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';${NC}"
+            echo -e "${WHITE}FLUSH PRIVILEGES;${NC}"
         fi
         
         # Now create the database with UTF8MB4
@@ -2081,18 +2101,24 @@ FLUSH PRIVILEGES;
             warn "Could not create database automatically"
         fi
         
-        # Build connection command to test as the panel user
-        local mysql_cmd="mysql -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER}"
-        
-        if [[ -n "$DB_PASS" ]]; then
-            mysql_cmd="$mysql_cmd -p${DB_PASS}"
-        fi
+        # Build connection command to test as the panel user (use MYSQL_PWD to avoid argv leaks)
+        local mysql_cmd=(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER")
         
         # Try to connect as the panel user
-        if echo "SELECT 1;" | $mysql_cmd 2>/dev/null | grep -q "1"; then
-            echo -e "${GREEN}✓ Database connection successful${NC}"
-            echo -e "${GREEN}✓ Database '$DB_NAME' is ready${NC}"
-            return 0
+        if [[ -n "$DB_PASS" ]]; then
+            if MYSQL_PWD="$DB_PASS" echo "SELECT 1;" | "${mysql_cmd[@]}" 2>/dev/null | grep -q "1"; then
+                echo -e "${GREEN}✓ Database connection successful${NC}"
+                echo -e "${GREEN}✓ Database '$DB_NAME' is ready${NC}"
+                return 0
+            fi
+        else
+            if echo "SELECT 1;" | "${mysql_cmd[@]}" 2>/dev/null | grep -q "1"; then
+                echo -e "${GREEN}✓ Database connection successful${NC}"
+                echo -e "${GREEN}✓ Database '$DB_NAME' is ready${NC}"
+                return 0
+            fi
+        fi
+        
         else
             echo -e "${RED}✗ Cannot connect to database as user '$DB_USER'${NC}"
             echo -e "${YELLOW}Please verify:${NC}"
@@ -2104,7 +2130,7 @@ FLUSH PRIVILEGES;
             echo -e "${YELLOW}Try creating the user manually:${NC}"
             echo -e "${WHITE}sudo mysql -u root${NC}"
             if [[ -n "$DB_PASS" ]]; then
-                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY 'your_password';${NC}"
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '<YOUR_PASSWORD>';${NC}"
                 echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';${NC}"
             else
                 echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost';${NC}"
