@@ -345,7 +345,7 @@ configure_mariadb_settings() {
     display_mariadb_menu
     
     while true; do
-        echo -n -e "${BLUE}Select setting to modify (1-8)${NC} (default: 8): "
+        echo -n -e "${MAGENTA}Select setting to modify (1-8)${NC} (default: 8): "
         read setting_choice
         setting_choice="${setting_choice:-8}"
         
@@ -353,7 +353,7 @@ configure_mariadb_settings() {
             1)
                 echo
                 echo -e "${BLUE}Current host: ${YELLOW}$DB_HOST${NC}"
-                echo -n -e "${BLUE}Enter new MariaDB Host${NC} (default: $DB_HOST): "
+                echo -n -e "${MAGENTA}Enter new MariaDB Host${NC} (default: $DB_HOST): "
                 read NEW_DB_HOST
                 NEW_DB_HOST="${NEW_DB_HOST:-$DB_HOST}"
                 if [[ "$NEW_DB_HOST" != "$DB_HOST" ]]; then
@@ -368,7 +368,7 @@ configure_mariadb_settings() {
                 echo
                 echo -e "${BLUE}Current port: ${YELLOW}$DB_PORT${NC}"
                 while true; do
-                    echo -n -e "${BLUE}Enter new MariaDB Port (1-65535)${NC} (default: $DB_PORT): "
+                    echo -n -e "${MAGENTA}Enter new MariaDB Port (1-65535)${NC} (default: $DB_PORT): "
                     read NEW_DB_PORT
                     NEW_DB_PORT="${NEW_DB_PORT:-$DB_PORT}"
                     if [[ "$NEW_DB_PORT" =~ ^[0-9]+$ ]] && [[ "$NEW_DB_PORT" -ge 1 ]] && [[ "$NEW_DB_PORT" -le 65535 ]]; then
@@ -388,7 +388,7 @@ configure_mariadb_settings() {
             3)
                 echo
                 echo -e "${BLUE}Current database: ${YELLOW}$DB_NAME${NC}"
-                echo -n -e "${BLUE}Enter new Database Name${NC} (default: $DB_NAME): "
+                echo -n -e "${MAGENTA}Enter new Database Name${NC} (default: $DB_NAME): "
                 read NEW_DB_NAME
                 NEW_DB_NAME="${NEW_DB_NAME:-$DB_NAME}"
                 if [[ "$NEW_DB_NAME" != "$DB_NAME" ]]; then
@@ -402,7 +402,7 @@ configure_mariadb_settings() {
             4)
                 echo
                 echo -e "${BLUE}Current user: ${YELLOW}$DB_USER${NC}"
-                echo -n -e "${BLUE}Enter new Database User${NC} (default: $DB_USER): "
+                echo -n -e "${MAGENTA}Enter new Database User${NC} (default: $DB_USER): "
                 read NEW_DB_USER
                 NEW_DB_USER="${NEW_DB_USER:-$DB_USER}"
                 if [[ "$NEW_DB_USER" != "$DB_USER" ]]; then
@@ -419,7 +419,7 @@ configure_mariadb_settings() {
                 if prompt_confirm "Change database password?" "y"; then
                     while true; do
                         echo
-                        echo -n -e "${BLUE}Enter new password (leave empty for no password)${NC}: "
+                        echo -n -e "${MAGENTA}Enter new password (leave empty for no password)${NC}: "
                         read -s NEW_DB_PASS
                         echo
                         if [[ -n "$NEW_DB_PASS" ]]; then
@@ -569,7 +569,7 @@ interactive_config() {
     echo
     
     while true; do
-        echo -n -e "${BLUE}Select installation mode (1-3)${NC} (default: 1): "
+        echo -n -e "${MAGENTA}Select installation mode (1-3)${NC} (default: 1): "
         read mode
         mode="${mode:-1}"  # Use default if empty
         
@@ -746,7 +746,7 @@ interactive_config() {
             echo "  2) MariaDB (scalable, production-ready)"
             echo
             while true; do
-                echo -n -e "${BLUE}Select database type (1-2)${NC} (default: 1): "
+                echo -n -e "${MAGENTA}Select database type (1-2)${NC} (default: 1): "
                 read db_choice
                 db_choice="${db_choice:-1}"
                 
