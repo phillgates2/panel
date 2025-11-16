@@ -1193,8 +1193,15 @@ setup_phpmyadmin() {
                 $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
                 # Ensure PHP-FPM is running
-                systemctl enable php*-fpm || systemctl enable php-fpm
-                systemctl start php*-fpm || systemctl start php-fpm
+                # Detect PHP-FPM service name (varies by PHP version)
+                PHP_FPM_SERVICE=$(systemctl list-unit-files | grep -E "php[0-9.]*-fpm.service" | head -1 | awk '{print $1}')
+                if [[ -n "$PHP_FPM_SERVICE" ]]; then
+                    systemctl enable "$PHP_FPM_SERVICE"
+                    systemctl start "$PHP_FPM_SERVICE"
+                else
+                    systemctl enable php-fpm 2>/dev/null || true
+                    systemctl start php-fpm 2>/dev/null || true
+                fi
                 
                 # Create symlink for phpMyAdmin web files
                 mkdir -p /var/www/phpmyadmin
@@ -1246,8 +1253,15 @@ NGINXEOF
                 sudo $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
                 # Ensure PHP-FPM is running
-                sudo systemctl enable php*-fpm || sudo systemctl enable php-fpm
-                sudo systemctl start php*-fpm || sudo systemctl start php-fpm
+                # Detect PHP-FPM service name (varies by PHP version)
+                PHP_FPM_SERVICE=$(systemctl list-unit-files | grep -E "php[0-9.]*-fpm.service" | head -1 | awk '{print $1}')
+                if [[ -n "$PHP_FPM_SERVICE" ]]; then
+                    sudo systemctl enable "$PHP_FPM_SERVICE"
+                    sudo systemctl start "$PHP_FPM_SERVICE"
+                else
+                    sudo systemctl enable php-fpm 2>/dev/null || true
+                    sudo systemctl start php-fpm 2>/dev/null || true
+                fi
                 
                 # Create symlink for phpMyAdmin web files
                 sudo mkdir -p /var/www/phpmyadmin
