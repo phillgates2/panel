@@ -1168,94 +1168,139 @@ setup_mariadb() {
 }
 
 setup_phpmyadmin() {
-    log "Setting up phpMyAdmin..."
+    log "Setting up phpMyAdmin with Nginx..."
     
     # Note: Panel has built-in phpMyAdmin at /admin/database
     # This standalone phpMyAdmin is optional
     
     warn "Note: Panel includes built-in database management at /admin/database"
-    warn "Standalone phpMyAdmin will be installed on port 8081 to avoid conflicts"
+    warn "Standalone phpMyAdmin will be served via Nginx on port 8081"
     
     case "$PKG_MANAGER" in
         apt-get)
-            # Set up non-interactive installation
+            # Install phpMyAdmin without Apache2 dependency
             if [[ $EUID -eq 0 ]]; then
                 echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/app-password-confirm password' | debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | debconf-set-selections
-                $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
+                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect' | debconf-set-selections
                 
-                # Configure Apache to use port 8081 to avoid conflicts with Nginx
-                sed -i 's/Listen 80/Listen 8081/' /etc/apache2/ports.conf
-                sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8081>/' /etc/apache2/sites-available/000-default.conf
+                # Install phpMyAdmin and PHP-FPM (without Apache2)
+                $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
-                # Enable Apache modules
-                a2enmod rewrite
+                # Ensure PHP-FPM is running
+                systemctl enable php*-fpm || systemctl enable php-fpm
+                systemctl start php*-fpm || systemctl start php-fpm
                 
-                # Enable and start Apache2, but don't fail if it errors
-                systemctl enable apache2 || warn "Could not enable Apache2 service"
-                if ! systemctl restart apache2 2>/dev/null; then
-                    warn "Apache2 failed to start. Checking for conflicts..."
-                    # Check if port 8081 is in use
-                    if netstat -tlnp 2>/dev/null | grep -q ':8081 ' || ss -tlnp 2>/dev/null | grep -q ':8081 '; then
-                        warn "Port 8081 is already in use. Trying port 8082..."
-                        sed -i 's/Listen 8081/Listen 8082/' /etc/apache2/ports.conf
-                        sed -i 's/<VirtualHost \*:8081>/<VirtualHost *:8082>/' /etc/apache2/sites-available/000-default.conf
-                        systemctl restart apache2 || warn "Could not start Apache2 on port 8082"
-                    else
-                        # Check Apache config
-                        apache2ctl configtest || warn "Apache2 configuration has errors"
-                        warn "Skipping Apache2 - use Panel's built-in database manager instead"
-                    fi
+                # Create symlink for phpMyAdmin web files
+                mkdir -p /var/www/phpmyadmin
+                ln -sf /usr/share/phpmyadmin/* /var/www/phpmyadmin/ 2>/dev/null || cp -r /usr/share/phpmyadmin/* /var/www/phpmyadmin/
+                
+                # Create Nginx configuration for phpMyAdmin on port 8081
+                cat > /etc/nginx/sites-available/phpmyadmin.conf <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                
+                # Enable the site
+                ln -sf /etc/nginx/sites-available/phpmyadmin.conf /etc/nginx/sites-enabled/
+                
+                # Test and reload Nginx
+                if nginx -t 2>/dev/null; then
+                    systemctl reload nginx
+                    log "✓ phpMyAdmin configured successfully on http://localhost:8081/phpmyadmin"
+                else
+                    warn "Nginx configuration test failed - phpMyAdmin may not be accessible"
                 fi
             else
                 echo 'phpmyadmin phpmyadmin/dbconfig-install boolean true' | sudo debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/app-password-confirm password' | sudo debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/mysql/admin-pass password' | sudo debconf-set-selections
                 echo 'phpmyadmin phpmyadmin/mysql/app-pass password' | sudo debconf-set-selections
-                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2' | sudo debconf-set-selections
-                sudo $PKG_INSTALL phpmyadmin apache2 php libapache2-mod-php php-mysql php-mbstring php-zip php-gd php-json php-curl
+                echo 'phpmyadmin phpmyadmin/reconfigure-webserver multiselect' | sudo debconf-set-selections
                 
-                # Configure Apache to use port 8081 to avoid conflicts with Nginx
-                sudo sed -i 's/Listen 80/Listen 8081/' /etc/apache2/ports.conf
-                sudo sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8081>/' /etc/apache2/sites-available/000-default.conf
+                # Install phpMyAdmin and PHP-FPM (without Apache2)
+                sudo $PKG_INSTALL phpmyadmin php-fpm php-mysql php-mbstring php-zip php-gd php-json php-curl
                 
-                sudo a2enmod rewrite
+                # Ensure PHP-FPM is running
+                sudo systemctl enable php*-fpm || sudo systemctl enable php-fpm
+                sudo systemctl start php*-fpm || sudo systemctl start php-fpm
                 
-                # Enable and start Apache2, but don't fail if it errors
-                sudo systemctl enable apache2 || warn "Could not enable Apache2 service"
-                if ! sudo systemctl restart apache2 2>/dev/null; then
-                    warn "Apache2 failed to start. Checking for conflicts..."
-                    # Check if port 8081 is in use
-                    if sudo netstat -tlnp 2>/dev/null | grep -q ':8081 ' || sudo ss -tlnp 2>/dev/null | grep -q ':8081 '; then
-                        warn "Port 8081 is already in use. Trying port 8082..."
-                        sudo sed -i 's/Listen 8081/Listen 8082/' /etc/apache2/ports.conf
-                        sudo sed -i 's/<VirtualHost \*:8081>/<VirtualHost *:8082>/' /etc/apache2/sites-available/000-default.conf
-                        sudo systemctl restart apache2 || warn "Could not start Apache2 on port 8082"
-                    else
-                        # Check Apache config
-                        sudo apache2ctl configtest || warn "Apache2 configuration has errors"
-                        warn "Skipping Apache2 - use Panel's built-in database manager instead"
-                    fi
+                # Create symlink for phpMyAdmin web files
+                sudo mkdir -p /var/www/phpmyadmin
+                sudo ln -sf /usr/share/phpmyadmin/* /var/www/phpmyadmin/ 2>/dev/null || sudo cp -r /usr/share/phpmyadmin/* /var/www/phpmyadmin/
+                
+                # Create Nginx configuration for phpMyAdmin on port 8081
+                sudo tee /etc/nginx/sites-available/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                
+                # Enable the site
+                sudo ln -sf /etc/nginx/sites-available/phpmyadmin.conf /etc/nginx/sites-enabled/
+                
+                # Test and reload Nginx
+                if sudo nginx -t 2>/dev/null; then
+                    sudo systemctl reload nginx
+                    log "✓ phpMyAdmin configured successfully on http://localhost:8081/phpmyadmin"
+                else
+                    warn "Nginx configuration test failed - phpMyAdmin may not be accessible"
                 fi
             fi
             ;;
         yum|dnf)
-            # Install EPEL and Remi repositories for newer PHP
+            # Install PHP-FPM and phpMyAdmin (Nginx will already be installed)
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL epel-release
                 $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
-                $PKG_INSTALL httpd php php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
-                systemctl enable httpd
-                systemctl start httpd
+                $PKG_INSTALL php-fpm php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
+                systemctl enable php-fpm
+                systemctl start php-fpm
             else
                 sudo $PKG_INSTALL epel-release
                 sudo $PKG_INSTALL https://rpms.remirepo.net/enterprise/remi-release-8.rpm || true
-                sudo $PKG_INSTALL httpd php php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
-                sudo systemctl enable httpd
-                sudo systemctl start httpd
+                sudo $PKG_INSTALL php-fpm php-mysqlnd php-mbstring php-zip php-gd php-json php-curl
+                sudo systemctl enable php-fpm
+                sudo systemctl start php-fpm
             fi
             
             # Download and install phpMyAdmin manually
@@ -1267,23 +1312,77 @@ setup_phpmyadmin() {
             tar xzf phpmyadmin.tar.gz
             
             if [[ $EUID -eq 0 ]]; then
-                cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/html/phpmyadmin
-                chown -R apache:apache /var/www/html/phpmyadmin
+                mkdir -p /var/www/phpmyadmin
+                cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                chown -R nginx:nginx /var/www/phpmyadmin
+                
+                # Create Nginx config for phpMyAdmin on port 8081
+                cat > /etc/nginx/conf.d/phpmyadmin.conf <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php-fpm/www.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                nginx -t && systemctl reload nginx
             else
-                sudo cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/html/phpmyadmin
-                sudo chown -R apache:apache /var/www/html/phpmyadmin
+                sudo mkdir -p /var/www/phpmyadmin
+                sudo cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                sudo chown -R nginx:nginx /var/www/phpmyadmin
+                
+                # Create Nginx config for phpMyAdmin on port 8081
+                sudo tee /etc/nginx/conf.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php-fpm/www.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                sudo nginx -t && sudo systemctl reload nginx
             fi
             ;;
         apk)
-            # Install Apache and PHP
+            # Install PHP-FPM and phpMyAdmin (Nginx will already be installed)
             if [[ $EUID -eq 0 ]]; then
-                $PKG_INSTALL apache2 php-apache2 php php-mysqli php-mbstring php-zip php-gd php-json php-curl
-                rc-update add apache2 default
-                rc-service apache2 start
+                $PKG_INSTALL php-fpm php php-mysqli php-mbstring php-zip php-gd php-json php-curl
+                rc-update add php-fpm default
+                rc-service php-fpm start
             else
-                sudo $PKG_INSTALL apache2 php-apache2 php php-mysqli php-mbstring php-zip php-gd php-json php-curl
-                sudo rc-update add apache2 default
-                sudo rc-service apache2 start
+                sudo $PKG_INSTALL php-fpm php php-mysqli php-mbstring php-zip php-gd php-json php-curl
+                sudo rc-update add php-fpm default
+                sudo rc-service php-fpm start
             fi
             
             # Download phpMyAdmin
@@ -1295,29 +1394,71 @@ setup_phpmyadmin() {
             tar xzf phpmyadmin.tar.gz
             
             if [[ $EUID -eq 0 ]]; then
-                cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/localhost/htdocs/phpmyadmin
-                chown -R apache:apache /var/www/localhost/htdocs/phpmyadmin
+                mkdir -p /var/www/phpmyadmin
+                cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                chown -R nginx:nginx /var/www/phpmyadmin
+                
+                # Create Nginx config for phpMyAdmin
+                cat > /etc/nginx/http.d/phpmyadmin.conf <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                rc-service nginx reload
             else
-                sudo cp -r "phpMyAdmin-${pma_version}-all-languages" /var/www/localhost/htdocs/phpmyadmin
-                sudo chown -R apache:apache /var/www/localhost/htdocs/phpmyadmin
+                sudo mkdir -p /var/www/phpmyadmin
+                sudo cp -r "phpMyAdmin-${pma_version}-all-languages"/* /var/www/phpmyadmin/
+                sudo chown -R nginx:nginx /var/www/phpmyadmin
+                
+                # Create Nginx config for phpMyAdmin
+                sudo tee /etc/nginx/http.d/phpmyadmin.conf > /dev/null <<'NGINXEOF'
+server {
+    listen 8081;
+    server_name localhost;
+    root /var/www/phpmyadmin;
+    index index.php;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXEOF
+                sudo rc-service nginx reload
             fi
             ;;
     esac
     
-    # Determine which port Apache is using
-    local apache_port=8081
-    if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
-        if grep -q 'Listen 8082' /etc/apache2/ports.conf 2>/dev/null || grep -q 'Listen 8082' /etc/httpd/conf/httpd.conf 2>/dev/null; then
-            apache_port=8082
-        fi
-    fi
-    
     log "✓ phpMyAdmin installation complete"
-    if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
-        log "  Standalone phpMyAdmin: http://localhost:${apache_port}/phpmyadmin"
-    else
-        warn "  Apache2 not running - use Panel's built-in database manager"
-    fi
+    log "  Standalone phpMyAdmin (Nginx): http://localhost:8081/"
     log "  Panel built-in database manager: http://localhost:8080/admin/database"
 }
 
@@ -1838,16 +1979,10 @@ show_next_steps() {
         echo
         echo -e "${BLUE}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
-        
-        # Check if Apache is running and on which port
-        if systemctl is-active apache2 >/dev/null 2>&1 || systemctl is-active httpd >/dev/null 2>&1; then
-            local apache_port=8081
-            if grep -q 'Listen 8082' /etc/apache2/ports.conf 2>/dev/null || grep -q 'Listen 8082' /etc/httpd/conf/httpd.conf 2>/dev/null; then
-                apache_port=8082
-            fi
-            echo "  Standalone phpMyAdmin: http://localhost:${apache_port}/phpmyadmin"
-        else
-            echo "  Standalone phpMyAdmin: Not running (Apache failed to start)"
+        echo "  Standalone phpMyAdmin (Nginx): http://localhost:8081/"
+        echo
+        echo "  Note: Both use the same database credentials"
+    fi
             echo "    → Use Panel's built-in database manager instead"
         fi
         
