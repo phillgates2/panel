@@ -3303,79 +3303,7 @@ show_next_steps() {
     echo
 }
 
-uninstall_panel() {
-    print_banner
-    echo -e "${RED}═══════════════════════════════════════${NC}"
-    echo -e "${RED}  Panel Uninstaller${NC}"
-    echo -e "${RED}═══════════════════════════════════════${NC}"
-    echo
-    
-    if [[ ! -d "$INSTALL_DIR" ]]; then
-        error "Panel installation not found at: $INSTALL_DIR"
-    fi
-    
-    cd "$INSTALL_DIR"
-    
-    warn "This will remove Panel and all its data!"
-    echo
-    echo "The following will be removed:"
-    echo "  - Panel application directory: $INSTALL_DIR"
-    echo "  - Python virtualenv"
-    echo "  - Database and instance files"
-    echo "  - Log files and audit logs"
-    echo "  - Database backups"
-    echo "  - Systemd services (if installed)"
-    echo "  - Nginx configuration (if installed)"
-    echo
-    
-    if ! prompt_confirm "Are you sure you want to uninstall Panel?" "n"; then
-        log "Uninstall cancelled"
-        exit 0
-    fi
-    
-    # Stop services
-    if command -v systemctl >/dev/null 2>&1; then
-        log "Stopping systemd services..."
-        $SUDO systemctl stop panel-gunicorn.service 2>/dev/null || true
-        $SUDO systemctl stop rq-worker-supervised.service 2>/dev/null || true
-        $SUDO systemctl stop panel-etlegacy.service 2>/dev/null || true
-        $SUDO systemctl disable panel-gunicorn.service 2>/dev/null || true
-        $SUDO systemctl disable rq-worker-supervised.service 2>/dev/null || true
-        $SUDO systemctl disable panel-etlegacy.service 2>/dev/null || true
-        
-        # Remove service files
-        $SUDO rm -f /etc/systemd/system/panel-gunicorn.service
-        $SUDO rm -f /etc/systemd/system/rq-worker-supervised.service
-        $SUDO rm -f /etc/systemd/system/panel-etlegacy.service
-        $SUDO systemctl daemon-reload
-    fi
-    
-    # Remove Nginx configuration
-    if [[ -f /etc/nginx/sites-enabled/panel ]]; then
-        log "Removing Nginx configuration..."
-        $SUDO rm -f /etc/nginx/sites-enabled/panel
-        $SUDO rm -f /etc/nginx/sites-available/panel
-        $SUDO systemctl reload nginx 2>/dev/null || true
-    fi
-    
-    # Remove log files and backups
-    log "Removing logs and backups..."
-    rm -rf "$INSTALL_DIR/instance/logs" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/instance/audit_logs" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/instance/backups" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR/backups" 2>/dev/null || true
-    rm -rf "$INSTALL_DIR"/*.log 2>/dev/null || true
-    
-    # Remove installation directory
-    log "Removing Panel directory: $INSTALL_DIR"
-    cd "$HOME"
-    rm -rf "$INSTALL_DIR"
-    
-    log "✅ Panel uninstalled successfully"
-    echo
-    echo -e "${MAGENTA}To reinstall Panel:${NC}"
-    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
-}
+ 
 
 main() {
     # Parse command-line arguments first
@@ -3592,13 +3520,6 @@ uninstall_panel() {
     echo
 }
 
-# Execute main function with all arguments
-# This allows the script to work both as:
-#   bash getpanel.sh [options]
-#   bash <(curl ...) [options]
-main "$@"
-
-# Handle command line arguments
 # Execute main function with all arguments
 # This allows the script to work both as:
 #   bash getpanel.sh [options]
