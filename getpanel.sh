@@ -59,9 +59,9 @@ SERVICE_MANAGER=""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+# BLUE='\033[0;34m'  # Deprecated - use MAGENTA instead
 MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
+# CYAN='\033[0;36m'  # Deprecated - use MAGENTA instead
 WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
@@ -396,13 +396,13 @@ prompt_input() {
     
     # Output prompt to stderr so it doesn't get captured by command substitution
     if [[ "$secret" == "true" ]]; then
-        echo -n -e "${BLUE}$prompt${NC}" >&2
+        echo -n -e "${MAGENTA}$prompt${NC}" >&2
         [[ -n "$default" ]] && echo -n " (default: [hidden])" >&2
         echo -n ": " >&2
         read -s value
         echo >&2
     else
-        echo -n -e "${BLUE}$prompt${NC}" >&2
+        echo -n -e "${MAGENTA}$prompt${NC}" >&2
         [[ -n "$default" ]] && echo -n " (default: $default)" >&2
         echo -n ": " >&2
         read value
@@ -472,27 +472,27 @@ configure_mariadb_settings() {
     ORIGINAL_DB_PASS="$DB_PASS"
     
     echo
-    echo -e "${BLUE}🔧 MariaDB Settings Configuration${NC}"
+    echo -e "${MAGENTA}🔧 MariaDB Settings Configuration${NC}"
     echo -e "${YELLOW}Review and modify your MariaDB connection settings${NC}"
     echo -e "${MAGENTA}Press Enter to keep current value, or type new value${NC}"
     echo
     
     display_mariadb_menu() {
-        echo -e "${BLUE}═══════════════════════════════════════${NC}"
-        echo -e "${BLUE}📋 MariaDB Configuration Menu${NC}"
-        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo -e "${MAGENTA}═══════════════════════════════════════${NC}"
+        echo -e "${MAGENTA}📋 MariaDB Configuration Menu${NC}"
+        echo -e "${MAGENTA}═══════════════════════════════════════${NC}"
         
         # Show current values with visual indicators
-        echo -e "  ${BLUE}1)${NC} Host: ${YELLOW}$DB_HOST${NC}"
-        echo -e "  ${BLUE}2)${NC} Port: ${YELLOW}$DB_PORT${NC}"
-        echo -e "  ${BLUE}3)${NC} Database: ${YELLOW}$DB_NAME${NC}"
-        echo -e "  ${BLUE}4)${NC} User: ${YELLOW}$DB_USER${NC}"
-        echo -e "  ${BLUE}5)${NC} Password: ${DB_PASS:+${GREEN}[Set - Hidden]${NC}}${DB_PASS:-${RED}[Not Set]${NC}}"
+        echo -e "  ${MAGENTA}1)${NC} Host: ${YELLOW}$DB_HOST${NC}"
+        echo -e "  ${MAGENTA}2)${NC} Port: ${YELLOW}$DB_PORT${NC}"
+        echo -e "  ${MAGENTA}3)${NC} Database: ${YELLOW}$DB_NAME${NC}"
+        echo -e "  ${MAGENTA}4)${NC} User: ${YELLOW}$DB_USER${NC}"
+        echo -e "  ${MAGENTA}5)${NC} Password: ${DB_PASS:+${GREEN}[Set - Hidden]${NC}}${DB_PASS:-${RED}[Not Set]${NC}}"
         echo
         echo -e "  ${MAGENTA}6)${NC} 🔍 Test connection with current settings"
         echo -e "  ${YELLOW}7)${NC} 🔄 Reset all to original values"
         echo -e "  ${GREEN}8)${NC} 💾 Save configuration and continue"
-        echo -e "${BLUE}═══════════════════════════════════════${NC}"
+        echo -e "${MAGENTA}═══════════════════════════════════════${NC}"
         echo
     }
     
@@ -506,13 +506,13 @@ configure_mariadb_settings() {
         case "$setting_choice" in
             1)
                 echo
-                echo -e "${BLUE}Current host: ${YELLOW}$DB_HOST${NC}"
+                echo -e "${MAGENTA}Current host: ${YELLOW}$DB_HOST${NC}"
                 echo -n -e "${MAGENTA}Enter new MariaDB Host${NC} (default: $DB_HOST): "
                 read NEW_DB_HOST
                 NEW_DB_HOST="${NEW_DB_HOST:-$DB_HOST}"
                 if [[ "$NEW_DB_HOST" != "$DB_HOST" ]]; then
                     DB_HOST="$NEW_DB_HOST"
-                    echo -e "${GREEN}✓ Host updated to: ${BLUE}$DB_HOST${NC}"
+                    echo -e "${GREEN}✓ Host updated to: ${MAGENTA}$DB_HOST${NC}"
                 else
                     echo -e "${YELLOW}Host unchanged${NC}"
                 fi
@@ -520,7 +520,7 @@ configure_mariadb_settings() {
                 ;;
             2)
                 echo
-                echo -e "${BLUE}Current port: ${YELLOW}$DB_PORT${NC}"
+                echo -e "${MAGENTA}Current port: ${YELLOW}$DB_PORT${NC}"
                 while true; do
                     echo -n -e "${MAGENTA}Enter new MariaDB Port (1-65535)${NC} (default: $DB_PORT): "
                     read NEW_DB_PORT
@@ -528,7 +528,7 @@ configure_mariadb_settings() {
                     if [[ "$NEW_DB_PORT" =~ ^[0-9]+$ ]] && [[ "$NEW_DB_PORT" -ge 1 ]] && [[ "$NEW_DB_PORT" -le 65535 ]]; then
                         if [[ "$NEW_DB_PORT" != "$DB_PORT" ]]; then
                             DB_PORT="$NEW_DB_PORT"
-                            echo -e "${GREEN}✓ Port updated to: ${BLUE}$DB_PORT${NC}"
+                            echo -e "${GREEN}✓ Port updated to: ${MAGENTA}$DB_PORT${NC}"
                         else
                             echo -e "${YELLOW}Port unchanged${NC}"
                         fi
@@ -541,13 +541,13 @@ configure_mariadb_settings() {
                 ;;
             3)
                 echo
-                echo -e "${BLUE}Current database: ${YELLOW}$DB_NAME${NC}"
+                echo -e "${MAGENTA}Current database: ${YELLOW}$DB_NAME${NC}"
                 echo -n -e "${MAGENTA}Enter new Database Name${NC} (default: $DB_NAME): "
                 read NEW_DB_NAME
                 NEW_DB_NAME="${NEW_DB_NAME:-$DB_NAME}"
                 if [[ "$NEW_DB_NAME" != "$DB_NAME" ]]; then
                     DB_NAME="$NEW_DB_NAME"
-                    echo -e "${GREEN}✓ Database name updated to: ${BLUE}$DB_NAME${NC}"
+                    echo -e "${GREEN}✓ Database name updated to: ${MAGENTA}$DB_NAME${NC}"
                 else
                     echo -e "${YELLOW}Database name unchanged${NC}"
                 fi
@@ -555,13 +555,13 @@ configure_mariadb_settings() {
                 ;;
             4)
                 echo
-                echo -e "${BLUE}Current user: ${YELLOW}$DB_USER${NC}"
+                echo -e "${MAGENTA}Current user: ${YELLOW}$DB_USER${NC}"
                 echo -n -e "${MAGENTA}Enter new Database User${NC} (default: $DB_USER): "
                 read NEW_DB_USER
                 NEW_DB_USER="${NEW_DB_USER:-$DB_USER}"
                 if [[ "$NEW_DB_USER" != "$DB_USER" ]]; then
                     DB_USER="$NEW_DB_USER"
-                    echo -e "${GREEN}✓ User updated to: ${BLUE}$DB_USER${NC}"
+                    echo -e "${GREEN}✓ User updated to: ${MAGENTA}$DB_USER${NC}"
                 else
                     echo -e "${YELLOW}User unchanged${NC}"
                 fi
@@ -569,7 +569,7 @@ configure_mariadb_settings() {
                 ;;
             5)
                 echo
-                echo -e "${BLUE}Current password status: ${DB_PASS:+${GREEN}[Set]${NC}}${DB_PASS:-${RED}[Empty]${NC}}"
+                echo -e "${MAGENTA}Current password status: ${DB_PASS:+${GREEN}[Set]${NC}}${DB_PASS:-${RED}[Empty]${NC}}"
                 if prompt_confirm "Change database password?" "y"; then
                     while true; do
                         echo
@@ -577,7 +577,7 @@ configure_mariadb_settings() {
                         read -s NEW_DB_PASS
                         echo
                         if [[ -n "$NEW_DB_PASS" ]]; then
-                            echo -n -e "${BLUE}Confirm new password${NC}: "
+                            echo -n -e "${MAGENTA}Confirm new password${NC}: "
                             read -s DB_PASS_CONFIRM
                             echo
                             if [[ "$NEW_DB_PASS" == "$DB_PASS_CONFIRM" ]]; then
@@ -602,11 +602,11 @@ configure_mariadb_settings() {
                 ;;
             6)
                 echo
-                echo -e "${BLUE}🔍 Testing MariaDB connection...${NC}"
-                echo -e "${BLUE}Connecting to: ${YELLOW}$DB_USER@$DB_HOST:$DB_PORT${NC}"
+                echo -e "${MAGENTA}🔍 Testing MariaDB connection...${NC}"
+                echo -e "${MAGENTA}Connecting to: ${YELLOW}$DB_USER@$DB_HOST:$DB_PORT${NC}"
                 
                 if command -v mysql &> /dev/null; then
-                    echo -e "${BLUE}Testing connection (this may take a few seconds)...${NC}"
+                    echo -e "${MAGENTA}Testing connection (this may take a few seconds)...${NC}"
                     
                     # Test connection with timeout and better error handling
                     local connection_success=false
@@ -638,14 +638,14 @@ configure_mariadb_settings() {
                         echo -e "  • Firewall blocking connection"
                         echo -e "  • MariaDB server not accepting connections"
                         echo
-                        echo -e "${BLUE}💡 Troubleshooting tips:${NC}"
+                        echo -e "${MAGENTA}💡 Troubleshooting tips:${NC}"
                         echo -e "  • Check if MariaDB is running: sudo systemctl status mariadb"
                         echo -e "  • Verify user exists: sudo mysql -e \"SELECT User,Host FROM mysql.user WHERE User='$DB_USER';\""
                         echo -e "  • Test root access: sudo mysql"
                     fi
                 else
                     echo -e "${YELLOW}⚠️  MariaDB/MySQL client not available for testing${NC}"
-                    echo -e "${BLUE}Connection will be tested during installation${NC}"
+                    echo -e "${MAGENTA}Connection will be tested during installation${NC}"
                 fi
                 echo
                 ;;
@@ -664,9 +664,9 @@ configure_mariadb_settings() {
                 echo
                 echo -e "${GREEN}💾 Saving MariaDB configuration...${NC}"
                 echo -e "${MAGENTA}Final MariaDB settings:${NC}"
-                echo -e "  🏠 Host: ${BLUE}$DB_HOST:$DB_PORT${NC}"
-                echo -e "  🗄️  Database: ${BLUE}$DB_NAME${NC}"
-                echo -e "  👤 User: ${BLUE}$DB_USER${NC}"
+                echo -e "  🏠 Host: ${MAGENTA}$DB_HOST:$DB_PORT${NC}"
+                echo -e "  🗄️  Database: ${MAGENTA}$DB_NAME${NC}"
+                echo -e "  👤 User: ${MAGENTA}$DB_USER${NC}"
                 echo -e "  🔑 Password: ${DB_PASS:+${GREEN}[Set]${NC}}${DB_PASS:-${RED}[Empty]${NC}}"
                 echo
                 return 0
@@ -770,7 +770,7 @@ interactive_config() {
         SETUP_MARIADB="true"
         
         # MariaDB configuration
-        echo -e "${BLUE}📊 MariaDB Database Configuration${NC}"
+        echo -e "${MAGENTA}📊 MariaDB Database Configuration${NC}"
         echo -e "${YELLOW}Configure your MariaDB connection settings${NC}"
         echo
         
@@ -868,7 +868,7 @@ interactive_config() {
         
         if prompt_confirm "Review database configuration summary?" "y"; then
             echo
-            echo -e "${BLUE}Database Configuration Summary:${NC}"
+            echo -e "${MAGENTA}Database Configuration Summary:${NC}"
             echo -e "  Type: MariaDB"
             echo -e "  Host: $DB_HOST:$DB_PORT"
             echo -e "  Database: $DB_NAME"
@@ -922,12 +922,12 @@ interactive_config() {
             done
         fi
         
-        echo -e "${BLUE}Database Type:${NC} $DB_TYPE"
+        echo -e "${MAGENTA}Database Type:${NC} $DB_TYPE"
         
         # MariaDB configuration if selected (non-production modes)
         if [[ "$DB_TYPE" == "mysql" ]]; then
             echo
-            echo -e "${BLUE}📊 MariaDB Database Configuration${NC}"
+            echo -e "${MAGENTA}📊 MariaDB Database Configuration${NC}"
             echo -e "${YELLOW}Configure your MariaDB connection settings${NC}"
             echo
             
@@ -971,7 +971,7 @@ interactive_config() {
             
             # MariaDB setup options (non-production modes)
             echo
-            echo -e "${BLUE}MariaDB Installation Options:${NC}"
+            echo -e "${MAGENTA}MariaDB Installation Options:${NC}"
             
             # Respect command-line flags
             if [[ "$SKIP_MARIADB" == "true" ]]; then
@@ -1013,7 +1013,7 @@ interactive_config() {
     
     # Admin user configuration
     echo
-    echo -e "${BLUE}Admin User Setup:${NC}"
+    echo -e "${MAGENTA}Admin User Setup:${NC}"
     echo -e "${YELLOW}Configure the initial administrator account${NC}"
     ADMIN_USERNAME=$(prompt_input "Admin Username" "admin")
     ADMIN_EMAIL=$(prompt_input "Admin Email" "admin@localhost")
@@ -1036,7 +1036,7 @@ interactive_config() {
     
     # Application settings (always show for better user control)
     echo
-    echo -e "${BLUE}Application Settings:${NC}"
+    echo -e "${MAGENTA}Application Settings:${NC}"
     echo -e "${YELLOW}Configure how Panel runs and behaves${NC}"
     
     APP_HOST=$(prompt_input "Application Host (0.0.0.0 for all interfaces)" "0.0.0.0")
@@ -1077,7 +1077,7 @@ interactive_config() {
     
     # Security settings
     echo
-    echo -e "${BLUE}Security Settings:${NC}"
+    echo -e "${MAGENTA}Security Settings:${NC}"
     if prompt_confirm "Generate random SECRET_KEY? (recommended)" "y"; then
         SECRET_KEY_GENERATE="true"
     else
@@ -1094,7 +1094,7 @@ interactive_config() {
     # Production services
     if [[ "$INSTALL_MODE" == "production" ]] || [[ "$INSTALL_MODE" == "custom" ]]; then
         echo
-        echo -e "${BLUE}Production Services:${NC}"
+        echo -e "${MAGENTA}Production Services:${NC}"
         
         # Nginx setup with flag support
         if [[ "$SKIP_NGINX" == "true" ]]; then
@@ -1134,7 +1134,7 @@ interactive_config() {
     
     # Optional features (always show for all modes)
     echo
-    echo -e "${BLUE}Optional Features & Integrations:${NC}"
+    echo -e "${MAGENTA}Optional Features & Integrations:${NC}"
     echo -e "${YELLOW}Enable additional functionality and external integrations${NC}"
     
     # Discord integration
@@ -1171,7 +1171,7 @@ interactive_config() {
     # ML/Analytics dependencies
     if prompt_confirm "Install ML/Analytics dependencies (numpy, scikit-learn, boto3)?" "n"; then
         INSTALL_ML_DEPS="true"
-        echo -e "${BLUE}This will install: numpy, scikit-learn, boto3${NC}"
+        echo -e "${MAGENTA}This will install: numpy, scikit-learn, boto3${NC}"
     else
         INSTALL_ML_DEPS="false"
     fi
@@ -1180,7 +1180,7 @@ interactive_config() {
     
     # Logging configuration
     echo
-    echo -e "${BLUE}Logging & Monitoring:${NC}"
+    echo -e "${MAGENTA}Logging & Monitoring:${NC}"
     if prompt_confirm "Enable detailed application logging?" "y"; then
         ENABLE_LOGGING="true"
         LOG_LEVEL=$(prompt_input "Log level (DEBUG/INFO/WARNING/ERROR)" "INFO")
@@ -1202,10 +1202,10 @@ interactive_config() {
     echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
     log "📋 Installation Configuration:"
-    echo -e "  ${BLUE}Installation Mode:${NC} $INSTALL_MODE"
-    echo -e "  ${BLUE}Install Directory:${NC} $INSTALL_DIR"
+    echo -e "  ${MAGENTA}Installation Mode:${NC} $INSTALL_MODE"
+    echo -e "  ${MAGENTA}Install Directory:${NC} $INSTALL_DIR"
     echo
-    echo -e "  ${BLUE}Database Configuration:${NC}"
+    echo -e "  ${MAGENTA}Database Configuration:${NC}"
     echo -e "    Type: $DB_TYPE"
     if [[ "$DB_TYPE" == "mysql" ]]; then
         echo -e "    MariaDB: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
@@ -1214,25 +1214,25 @@ interactive_config() {
         [[ "$SETUP_PHPMYADMIN" == "true" ]] && echo -e "    phpMyAdmin Access: http://localhost:8081"
     fi
     echo
-    echo -e "  ${BLUE}Application Settings:${NC}"
+    echo -e "  ${MAGENTA}Application Settings:${NC}"
     echo -e "    Host: $APP_HOST"
     echo -e "    Port: $APP_PORT"
     echo -e "    Debug Mode: $DEBUG_MODE"
     echo -e "    CAPTCHA Disabled: $DISABLE_CAPTCHA"
     echo -e "    Secret Key: ${SECRET_KEY_GENERATE:+[Generated]}${SECRET_KEY:+[Custom]}"
     echo
-    echo -e "  ${BLUE}Admin Account:${NC}"
+    echo -e "  ${MAGENTA}Admin Account:${NC}"
     echo -e "    Username: $ADMIN_USERNAME"
     echo -e "    Email: $ADMIN_EMAIL"
     echo -e "    Password: [Configured]"
     echo
-    echo -e "  ${BLUE}Production Services:${NC}"
+    echo -e "  ${MAGENTA}Production Services:${NC}"
     echo -e "    Nginx: ${SETUP_NGINX}"
     [[ "$SETUP_NGINX" == "true" ]] && echo -e "    Domain: $DOMAIN_NAME"
     echo -e "    SSL: ${SETUP_SSL}"
     echo -e "    Systemd: ${SETUP_SYSTEMD}"
     echo
-    echo -e "  ${BLUE}Optional Features:${NC}"
+    echo -e "  ${MAGENTA}Optional Features:${NC}"
     echo -e "    Redis Queue: ${SETUP_REDIS}"
     echo -e "    ML/Analytics: ${INSTALL_ML_DEPS}"
     echo -e "    Discord Webhooks: ${DISCORD_WEBHOOK:+Enabled}${DISCORD_WEBHOOK:-Disabled}"
@@ -1368,9 +1368,10 @@ EOF
 setup_mariadb() {
     log "Setting up MariaDB..."
     
-    # Install MariaDB server
+    # Install MariaDB server - ensure server packages are installed, not just client
     case "$PKG_MANAGER" in
         apt-get) 
+            # Debian/Ubuntu: mariadb-server contains server daemon, mariadb-client contains client tools
             log "Installing MariaDB via apt-get..."
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb-server mariadb-client
@@ -1413,6 +1414,7 @@ setup_mariadb() {
             fi
             ;;
         yum|dnf) 
+            # RHEL/CentOS/Fedora: mariadb-server contains server daemon, mariadb contains client tools
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb-server mariadb
                 systemctl enable mariadb 2>/dev/null || systemctl enable mysql 2>/dev/null
@@ -1424,19 +1426,21 @@ setup_mariadb() {
             fi
             ;;
         apk) 
+            # Alpine: mariadb package includes server, mariadb-client for CLI tools, mariadb-openrc for init scripts
             if [[ $EUID -eq 0 ]]; then
-                $PKG_INSTALL mariadb mariadb-client
+                $PKG_INSTALL mariadb mariadb-client mariadb-openrc
                 rc-update add mariadb default
                 /etc/init.d/mariadb setup
                 rc-service mariadb start
             else
-                sudo $PKG_INSTALL mariadb mariadb-client
+                sudo $PKG_INSTALL mariadb mariadb-client mariadb-openrc
                 sudo rc-update add mariadb default
                 sudo /etc/init.d/mariadb setup
                 sudo rc-service mariadb start
             fi
             ;;
         pacman)
+            # Arch: mariadb package includes server and client
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb
                 mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
@@ -1450,17 +1454,19 @@ setup_mariadb() {
             fi
             ;;
         zypper)
+            # openSUSE: mariadb package includes server, mariadb-client for CLI tools
             if [[ $EUID -eq 0 ]]; then
-                $PKG_INSTALL mariadb mariadb-client
+                $PKG_INSTALL mariadb mariadb-client mariadb-tools
                 systemctl enable mariadb
                 systemctl start mariadb
             else
-                sudo $PKG_INSTALL mariadb mariadb-client
+                sudo $PKG_INSTALL mariadb mariadb-client mariadb-tools
                 sudo systemctl enable mariadb
                 sudo systemctl start mariadb
             fi
             ;;
         brew)
+            # macOS: mariadb package includes server and client
             $PKG_INSTALL mariadb
             brew services start mariadb
             ;;
@@ -2554,7 +2560,7 @@ install_panel() {
                 # Method 3: Try interactive password prompt (last resort)
                 elif [[ -t 0 ]] && [[ -t 1 ]]; then
                     log "Attempting interactive root password authentication..."
-                    echo -e "${BLUE}MariaDB root password required for database setup${NC}"
+                    echo -e "${MAGENTA}MariaDB root password required for database setup${NC}"
                     
                     if mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p -e "SELECT 1 as test;" >/dev/null 2>&1; then
                         log "Using interactive root password for MariaDB setup"
@@ -3044,7 +3050,7 @@ uninstall_panel() {
     
     log "✅ Panel uninstalled successfully"
     echo
-    echo -e "${BLUE}To reinstall Panel:${NC}"
+    echo -e "${MAGENTA}To reinstall Panel:${NC}"
     echo "  bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)"
 }
 
@@ -3084,16 +3090,16 @@ main() {
         echo -e "${YELLOW}⚠️  Running in non-interactive mode (curl pipe detected)${NC}"
         echo -e "${YELLOW}   Using development defaults for quick setup.${NC}"
         echo
-        echo -e "${BLUE}For full interactive configuration:${NC}"
+        echo -e "${MAGENTA}For full interactive configuration:${NC}"
         echo "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh -o getpanel.sh"
         echo "  chmod +x getpanel.sh && ./getpanel.sh"
         echo
-        echo -e "${BLUE}Or use command-line options:${NC}"
+        echo -e "${MAGENTA}Or use command-line options:${NC}"
         echo "  bash <(curl -fsSL ...) --sqlite-only  # Quick SQLite install"
         echo "  bash <(curl -fsSL ...) --full         # Full install"
         echo "  bash <(curl -fsSL ...) --help         # Show all options"
         echo
-        echo -e "${BLUE}Proceeding with development setup in 3 seconds...${NC}"
+        echo -e "${MAGENTA}Proceeding with development setup in 3 seconds...${NC}"
         sleep 3
         echo
     fi
@@ -3251,7 +3257,7 @@ uninstall_panel() {
     echo
     echo -e "${GREEN}🎉 Panel uninstalled successfully!${NC}"
     echo
-    echo -e "${BLUE}Cleanup complete:${NC}"
+    echo -e "${MAGENTA}Cleanup complete:${NC}"
     echo "  ✅ Installation directory removed"
     echo "  ✅ Systemd services removed"
     echo "  ✅ Nginx configuration removed"
