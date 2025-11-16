@@ -793,6 +793,20 @@ def admin_validate_config():
                          info=validator.info)
 
 
+@app.route('/admin/browser-info', methods=['GET'])
+def admin_browser_info():
+    """Display browser and system detection information"""
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login'))
+    user = db.session.get(User, uid)
+    if not is_system_admin_user(user):
+        flash('Admin access required', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('browser_info.html')
+
+
 @app.route('/admin/tools', methods=['GET'])
 def admin_tools():
     uid = session.get('user_id')
