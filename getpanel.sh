@@ -60,7 +60,7 @@ show_help() {
     cat << EOF
 ${MAGENTA}${BOLD}Panel Installer - Modern Game Server Management${NC}
 
-${CYAN}✨ New in this version:${NC}
+${MAGENTA}✨ New in this version:${NC}
   • Professional logging with audit trails
   • Database migrations and version control
   • Security hardening (CSP, HSTS, rate limiting)
@@ -76,11 +76,11 @@ ${YELLOW}Options:${NC}
   ${GREEN}--dir DIR${NC}             Installation directory (default: \$HOME/panel)
   ${GREEN}--branch BRANCH${NC}       Git branch to install (default: main)
   ${GREEN}--db-type TYPE${NC}        Database type: sqlite or mariadb (default: interactive)
-  ${CYAN}--skip-mariadb${NC}        Skip MariaDB installation
-  ${CYAN}--skip-phpmyadmin${NC}     Skip phpMyAdmin installation  
-  ${CYAN}--skip-redis${NC}          Skip Redis installation
-  ${CYAN}--skip-nginx${NC}          Skip Nginx configuration
-  ${CYAN}--skip-ssl${NC}            Skip SSL/Let's Encrypt setup
+  ${MAGENTA}--skip-mariadb${NC}        Skip MariaDB installation
+  ${MAGENTA}--skip-phpmyadmin${NC}     Skip phpMyAdmin installation  
+  ${MAGENTA}--skip-redis${NC}          Skip Redis installation
+  ${MAGENTA}--skip-nginx${NC}          Skip Nginx configuration
+  ${MAGENTA}--skip-ssl${NC}            Skip SSL/Let's Encrypt setup
   ${MAGENTA}--non-interactive${NC}     Run without prompts (use defaults)
   ${MAGENTA}--sqlite-only${NC}         Quick install with SQLite only (no MariaDB/phpMyAdmin)
   ${MAGENTA}--full${NC}                Full installation with all components
@@ -109,14 +109,14 @@ ${YELLOW}Examples:${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --uninstall
 
 ${YELLOW}Environment Variables:${NC}
-  ${CYAN}PANEL_INSTALL_DIR${NC}     Installation directory
-  ${CYAN}PANEL_BRANCH${NC}          Git branch to install
+  ${MAGENTA}PANEL_INSTALL_DIR${NC}     Installation directory
+  ${MAGENTA}PANEL_BRANCH${NC}          Git branch to install
 
 ${MAGENTA}Post-Installation:${NC}
-  ${GREEN}•${NC} Access health check: ${CYAN}http://localhost:8080/health${NC}
-  ${GREEN}•${NC} View logs: ${CYAN}tail -f instance/logs/panel.log${NC}
-  ${GREEN}•${NC} Read documentation: ${CYAN}cat docs/NEW_FEATURES.md${NC}
-  ${GREEN}•${NC} Run tests: ${CYAN}make test${NC}
+  ${GREEN}•${NC} Access health check: ${MAGENTA}http://localhost:8080/health${NC}
+  ${GREEN}•${NC} View logs: ${MAGENTA}tail -f instance/logs/panel.log${NC}
+  ${GREEN}•${NC} Read documentation: ${MAGENTA}cat docs/NEW_FEATURES.md${NC}
+  ${GREEN}•${NC} Run tests: ${MAGENTA}make test${NC}
 
 EOF
     exit 0
@@ -318,7 +318,7 @@ configure_mariadb_settings() {
     echo
     echo -e "${BLUE}🔧 MariaDB Settings Configuration${NC}"
     echo -e "${YELLOW}Review and modify your MariaDB connection settings${NC}"
-    echo -e "${CYAN}Press Enter to keep current value, or type new value${NC}"
+    echo -e "${MAGENTA}Press Enter to keep current value, or type new value${NC}"
     echo
     
     display_mariadb_menu() {
@@ -333,7 +333,7 @@ configure_mariadb_settings() {
         echo -e "  ${BLUE}4)${NC} User: ${YELLOW}$DB_USER${NC}"
         echo -e "  ${BLUE}5)${NC} Password: ${DB_PASS:+${GREEN}[Set - Hidden]${NC}}${DB_PASS:-${RED}[Not Set]${NC}}"
         echo
-        echo -e "  ${CYAN}6)${NC} 🔍 Test connection with current settings"
+        echo -e "  ${MAGENTA}6)${NC} 🔍 Test connection with current settings"
         echo -e "  ${YELLOW}7)${NC} 🔄 Reset all to original values"
         echo -e "  ${GREEN}8)${NC} 💾 Save configuration and continue"
         echo -e "${BLUE}═══════════════════════════════════════${NC}"
@@ -556,7 +556,7 @@ interactive_config() {
     fi
     
     log "🔧 Interactive Configuration"
-    echo -e "${CYAN}Configure your Panel installation step by step${NC}"
+    echo -e "${MAGENTA}Configure your Panel installation step by step${NC}"
     echo
     
     # Installation mode
@@ -2017,7 +2017,7 @@ show_next_steps() {
     echo
     echo -e "${GREEN}🎉 Panel installed successfully!${NC}"
     echo
-    echo -e "${CYAN}Configuration Summary:${NC}"
+    echo -e "${MAGENTA}Configuration Summary:${NC}"
     echo "  📁 Install Directory: $INSTALL_DIR"
     echo "  🗄️ Database: $DB_TYPE"
     echo "  👤 Admin User: $ADMIN_USERNAME"
@@ -2040,7 +2040,7 @@ show_next_steps() {
     
     echo -e "${YELLOW}Next steps:${NC}"
     echo "  ${WHITE}1.${NC} Navigate to the installation directory:"
-    echo "     ${CYAN}cd $INSTALL_DIR${NC}"
+    echo "     ${MAGENTA}cd $INSTALL_DIR${NC}"
     echo
     
     if [[ "$INSTALL_MODE" == "development" ]]; then
@@ -2078,7 +2078,7 @@ show_next_steps() {
     # Show database management info
     if [[ "$SETUP_PHPMYADMIN" == "true" ]]; then
         echo
-        echo -e "${CYAN}Database Management:${NC}"
+        echo -e "${MAGENTA}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  Standalone phpMyAdmin (Nginx): http://localhost:8081/"
         echo
@@ -2090,48 +2090,48 @@ show_next_steps() {
         echo "  Panel DB User: $DB_USER (for database: $DB_NAME)"
     elif [[ "$DB_TYPE" == "mysql" ]] || [[ "$DB_TYPE" == "mariadb" ]]; then
         echo
-        echo -e "${CYAN}Database Management:${NC}"
+        echo -e "${MAGENTA}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  Database: $DB_NAME on $DB_HOST:$DB_PORT"
         echo "  User: $DB_USER"
         echo "  MySQL client: mysql -h $DB_HOST -u $DB_USER -p $DB_NAME"
     else
         echo
-        echo -e "${CYAN}Database Management:${NC}"
+        echo -e "${MAGENTA}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  SQLite database: $INSTALL_DIR/panel_dev.db"
     fi
     echo
     
     echo -e "${YELLOW}Useful commands:${NC}"
-    echo "  ${CYAN}./panel.sh start${NC}      # Start development server"
-    echo "  ${CYAN}./panel.sh start-prod${NC} # Start production server"
-    echo "  ${CYAN}./panel.sh status${NC}     # Check service status"
-    echo "  ${CYAN}./panel.sh update${NC}     # Update installation"
-    echo "  ${CYAN}./panel.sh uninstall${NC}  # Remove installation"
-    echo "  ${CYAN}make test${NC}             # Run test suite"
-    echo "  ${CYAN}make lint${NC}             # Check code quality"
-    echo "  ${CYAN}make db-migrate${NC}       # Create database migration"
+    echo "  ${MAGENTA}./panel.sh start${NC}      # Start development server"
+    echo "  ${MAGENTA}./panel.sh start-prod${NC} # Start production server"
+    echo "  ${MAGENTA}./panel.sh status${NC}     # Check service status"
+    echo "  ${MAGENTA}./panel.sh update${NC}     # Update installation"
+    echo "  ${MAGENTA}./panel.sh uninstall${NC}  # Remove installation"
+    echo "  ${MAGENTA}make test${NC}             # Run test suite"
+    echo "  ${MAGENTA}make lint${NC}             # Check code quality"
+    echo "  ${MAGENTA}make db-migrate${NC}       # Create database migration"
     echo
     
     echo -e "${MAGENTA}Configuration files:${NC}"
-    echo "  ${CYAN}.env${NC}                  # Environment variables (copy from .env.example)"
-    echo "  ${CYAN}config.py${NC}             # Application configuration"
+    echo "  ${MAGENTA}.env${NC}                  # Environment variables (copy from .env.example)"
+    echo "  ${MAGENTA}config.py${NC}             # Application configuration"
     echo
     
     echo -e "${GREEN}Documentation:${NC}"
-    echo "  ${CYAN}README.md${NC}             # Main documentation"
-    echo "  ${CYAN}docs/NEW_FEATURES.md${NC}  # New features guide"
-    echo "  ${CYAN}docs/DATABASE_MANAGEMENT.md${NC}  # Database admin guide"
-    echo "  ${CYAN}docs/API_DOCUMENTATION.md${NC}    # REST API reference"
-    echo "  ${CYAN}docs/TROUBLESHOOTING.md${NC}      # Common issues & solutions"
-    echo "  ${CYAN}CHANGELOG.md${NC}          # Version history"
+    echo "  ${MAGENTA}README.md${NC}             # Main documentation"
+    echo "  ${MAGENTA}docs/NEW_FEATURES.md${NC}  # New features guide"
+    echo "  ${MAGENTA}docs/DATABASE_MANAGEMENT.md${NC}  # Database admin guide"
+    echo "  ${MAGENTA}docs/API_DOCUMENTATION.md${NC}    # REST API reference"
+    echo "  ${MAGENTA}docs/TROUBLESHOOTING.md${NC}      # Common issues & solutions"
+    echo "  ${MAGENTA}CHANGELOG.md${NC}          # Version history"
     echo
     
     echo -e "${YELLOW}Monitoring & Health:${NC}"
-    echo "  ${CYAN}http://localhost:$APP_PORT/health${NC}  # Health check endpoint"
-    echo "  ${CYAN}instance/logs/panel.log${NC}            # Application logs"
-    echo "  ${CYAN}instance/audit_logs/${NC}               # Security audit logs"
+    echo "  ${MAGENTA}http://localhost:$APP_PORT/health${NC}  # Health check endpoint"
+    echo "  ${MAGENTA}instance/logs/panel.log${NC}            # Application logs"
+    echo "  ${MAGENTA}instance/audit_logs/${NC}               # Security audit logs"
     echo
 }
 
@@ -2223,13 +2223,13 @@ main() {
     
     # Show installation mode
     if [[ "$SQLITE_ONLY" == "true" ]]; then
-        echo -e "${CYAN}📦 Quick Installation Mode: SQLite Only${NC}"
+        echo -e "${MAGENTA}📦 Quick Installation Mode: SQLite Only${NC}"
         echo
     elif [[ "$FULL_INSTALL" == "true" ]]; then
-        echo -e "${CYAN}🚀 Full Installation Mode: All Components${NC}"
+        echo -e "${MAGENTA}🚀 Full Installation Mode: All Components${NC}"
         echo
     elif [[ "$NON_INTERACTIVE" == "true" ]]; then
-        echo -e "${CYAN}⚡ Non-Interactive Mode: Using Defaults${NC}"
+        echo -e "${MAGENTA}⚡ Non-Interactive Mode: Using Defaults${NC}"
         echo
     fi
     
