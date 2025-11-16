@@ -431,24 +431,25 @@ def login():
             session_token = secrets.token_urlsafe(32)
             session["session_token"] = session_token
             
-            # TODO: Re-enable session tracking after fixing circular imports
-            # user_session = UserSession(
-            #     user_id=user.id,
-            #     session_token=session_token,
-            #     ip_address=request.remote_addr,
-            #     user_agent=request.headers.get('User-Agent', ''),
-            #     expires_at=datetime.now(timezone.utc) + timedelta(days=30)
-            # )
-            # db.session.add(user_session)
+            # Lazy import to avoid circular dependency
+            from models_extended import UserSession, UserActivity
             
-            # TODO: Re-enable activity logging after fixing circular imports  
-            # db.session.add(UserActivity(
-            #     user_id=user.id,
-            #     activity_type='login',
-            #     ip_address=request.remote_addr,
-            #     user_agent=request.headers.get('User-Agent', ''),
-            #     details=json.dumps({'email': email})
-            # ))
+            user_session = UserSession(
+                user_id=user.id,
+                session_token=session_token,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', ''),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+            )
+            db.session.add(user_session)
+            
+            db.session.add(UserActivity(
+                user_id=user.id,
+                activity_type='login',
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', ''),
+                details=json.dumps({'email': email})
+            ))
             
             db.session.commit()
             
@@ -470,26 +471,28 @@ def logout():
     session_token = session.get("session_token")
     
     if user_id and session_token:
-        # TODO: Re-enable session tracking after fixing circular imports
-        # # Deactivate the session in the database
-        # user_session = UserSession.query.filter_by(
-        #     user_id=user_id,
-        #     session_token=session_token,
-        #     is_active=True
-        # ).first()
-        # 
-        # if user_session:
-        #     user_session.is_active = False
-        #     db.session.commit()
-        # 
-        # # Log the logout activity
-        # db.session.add(UserActivity(
-        #     user_id=user_id,
-        #     activity_type='logout',
-        #     ip_address=request.remote_addr,
-        #     user_agent=request.headers.get('User-Agent', '')
-        # ))
-        # db.session.commit()
+        # Lazy import to avoid circular dependency
+        from models_extended import UserSession, UserActivity
+        
+        # Deactivate the session in the database
+        user_session = UserSession.query.filter_by(
+            user_id=user_id,
+            session_token=session_token,
+            is_active=True
+        ).first()
+        
+        if user_session:
+            user_session.is_active = False
+            db.session.commit()
+        
+        # Log the logout activity
+        db.session.add(UserActivity(
+            user_id=user_id,
+            activity_type='logout',
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent', '')
+        ))
+        db.session.commit()
         pass
     
     # Clear the session
