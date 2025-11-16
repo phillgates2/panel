@@ -427,6 +427,11 @@ quick_idempotency_check() {
     elif [[ -n "$db_user" && -n "$db_name" ]]; then
         # Ensure server is up (tolerant)
         check_mariadb_ready || true
+        # Show detected socket (if any) for transparency
+        if command -v my_print_defaults &>/dev/null || [[ -S "/run/mysqld/mysqld.sock" ]] || [[ -S "/var/run/mysqld/mysqld.sock" ]] || [[ -S "/tmp/mysql.sock" ]]; then
+            local q_sock="$(detect_mariadb_socket)" || true
+            [[ -n "$q_sock" ]] && log "Idempotency: using detected MariaDB socket: $q_sock"
+        fi
         local host="${db_host:-127.0.0.1}"
         local port="${db_port:-3306}"
         if command -v mysql &>/dev/null; then
@@ -450,9 +455,9 @@ quick_idempotency_check() {
     for p in "${ports_to_try[@]}"; do
         if command -v curl &>/dev/null; then
             if curl -fsS -m 2 "http://127.0.0.1:${p}/health" | grep -q "OK"; then
-                app_ok="true"; panel_port="$p"; break
+                app_ok="true"; panel_port="$p"; log "Idempotency: health check OK on port $p"; break
             elif curl -fsS -m 2 "http://localhost:${p}/health" | grep -q "OK"; then
-                app_ok="true"; panel_port="$p"; break
+                app_ok="true"; panel_port="$p"; log "Idempotency: health check OK on port $p"; break
             fi
         fi
     done
