@@ -402,6 +402,23 @@ else
     fi
 fi
 
+export SUDO SUDO_HINT
+
+# Display a concise privilege summary banner
+show_privilege_banner() {
+    local status_msg=""
+    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+        status_msg="Running as root (no sudo needed)."
+    else
+        if [[ -n "$SUDO" ]]; then
+            status_msg="Non-root user; sudo escalation available."
+        else
+            status_msg="Non-root user; sudo NOT available (some system steps may skip)."
+        fi
+    fi
+    echo -e "${MAGENTA}Privilege Context:${NC} $status_msg"
+}
+
 # Quick idempotency check: if an existing healthy install is detected, exit early
 quick_idempotency_check() {
     [[ "$FORCE_REINSTALL" == "true" ]] && return 0
@@ -3329,6 +3346,7 @@ main() {
     fi
     
     print_banner
+    show_privilege_banner
     
     # Detect operating system early
     if ! detect_system; then
