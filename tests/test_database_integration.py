@@ -62,11 +62,12 @@ class TestDatabaseSecurity:
         allowed, message = DatabaseSecurity.rate_limit_check(user_id, 'query')
         assert allowed is True
         
-        # Simulate hitting rate limit
-        for _ in range(DatabaseSecurity.MAX_QUERIES_PER_MINUTE):
+        # Simulate hitting rate limit (we need to exceed MAX_QUERIES_PER_MINUTE)
+        # First request already done above, so do MAX-1 more to reach limit
+        for _ in range(DatabaseSecurity.MAX_QUERIES_PER_MINUTE - 1):
             DatabaseSecurity.rate_limit_check(user_id, 'query')
         
-        # Should block after limit
+        # Next request should be blocked (exceeds limit)
         allowed, message = DatabaseSecurity.rate_limit_check(user_id, 'query')
         assert allowed is False
         assert 'Rate limit' in message

@@ -14,7 +14,7 @@ class DatabaseSecurity:
     """Security features for database operations"""
     
     # Rate limiting storage
-    _query_attempts = defaultdict(lambda: deque(maxlen=20))
+    _query_attempts = defaultdict(lambda: deque(maxlen=100))  # Enough to track queries
     _failed_logins = defaultdict(lambda: deque(maxlen=10))
     
     # Dangerous SQL patterns

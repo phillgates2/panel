@@ -5,7 +5,7 @@ Tracks all database operations for security and compliance
 
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -20,7 +20,7 @@ class QueryAuditLog:
     def log_query(self, user_id, user_email, query, success, execution_time=None, error=None, ip_address=None):
         """Log a database query"""
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'user_id': user_id,
             'user_email': user_email,
             'query': query,
