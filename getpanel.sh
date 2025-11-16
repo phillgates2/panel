@@ -1585,31 +1585,59 @@ setup_mariadb() {
     
     # Secure MariaDB installation
     log "Securing MariaDB installation..."
-    
-    # Set root password and secure installation
+
+    # Build a root mysql command that prefers socket auth and falls back to sudo
+    local detected_socket="$(detect_mariadb_socket)"
+    local socket_arg=()
+    if [[ -n "$detected_socket" && -S "$detected_socket" ]]; then
+        socket_arg=(--socket="$detected_socket")
+        log "Detected MariaDB socket: $detected_socket"
+    fi
+
+    local root_mysql_cmd=(mysql "${socket_arg[@]}" -u root)
+    if ! echo "SELECT 1;" | "${root_mysql_cmd[@]}" &>/dev/null; then
+        if [[ $EUID -ne 0 ]] && sudo -n true 2>/dev/null; then
+            root_mysql_cmd=(sudo mysql "${socket_arg[@]}" -u root)
+        fi
+    fi
+
+    # Detect current auth plugin for root@localhost (MariaDB 10.4+ keeps users in mysql.user)
+    local root_plugin=""
+    root_plugin=$(echo "SELECT plugin FROM mysql.user WHERE User='root' AND Host='localhost' LIMIT 1;" | "${root_mysql_cmd[@]}" -N 2>/dev/null || true)
+    if [[ -n "$root_plugin" ]]; then
+        log "Root auth plugin: $root_plugin"
+    fi
+
+    # Ask for optional root password (TTY only)
     local mysql_root_password=""
     if [[ -t 0 ]] && [[ -t 1 ]]; then
-        mysql_root_password=$(prompt_input "Set MariaDB root password (leave empty for no password)" "" "true")
+        mysql_root_password=$(prompt_input "Set MariaDB root password (leave empty to keep current socket/password auth)" "" "true")
     fi
-    
-    # Run mysql_secure_installation equivalent
+
+    # Cleanup tasks applied regardless of password strategy
+    local secure_sql="
+DELETE FROM mysql.user WHERE User='';
+DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+FLUSH PRIVILEGES;"
+
+    # Apply cleanup
+    echo "$secure_sql" | "${root_mysql_cmd[@]}" 2>/dev/null || warn "Could not apply cleanup hardening automatically"
+
+    # Only attempt to change root password if the user provided one
     if [[ -n "$mysql_root_password" ]]; then
-        mysql -u root -e "
-        SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$mysql_root_password');
-        DELETE FROM mysql.user WHERE User='';
-        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-        DROP DATABASE IF EXISTS test;
-        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-        FLUSH PRIVILEGES;
-        " 2>/dev/null || warn "Could not secure MariaDB automatically"
+        # Try modern ALTER USER first, then fallback to SET PASSWORD
+        if echo "ALTER USER 'root'@'localhost' IDENTIFIED BY '${mysql_root_password}'; FLUSH PRIVILEGES;" | "${root_mysql_cmd[@]}" 2>/dev/null; then
+            log "✓ Root password updated (ALTER USER)"
+        elif echo "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('${mysql_root_password}'); FLUSH PRIVILEGES;" | "${root_mysql_cmd[@]}" 2>/dev/null; then
+            log "✓ Root password updated (SET PASSWORD)"
+        else
+            warn "Could not set root password automatically (root may be using unix_socket auth)."
+            echo -e "${YELLOW}Tip:${NC} You can keep using socket authentication for root (sudo mysql)."
+        fi
     else
-        mysql -u root -e "
-        DELETE FROM mysql.user WHERE User='';
-        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-        DROP DATABASE IF EXISTS test;
-        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-        FLUSH PRIVILEGES;
-        " 2>/dev/null || warn "Could not secure MariaDB automatically"
+        log "Keeping existing root authentication method (${root_plugin:-unknown})."
     fi
     
     log "✓ MariaDB installation complete"
