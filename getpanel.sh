@@ -598,60 +598,24 @@ interactive_config() {
     echo
     log "Selected: $INSTALL_MODE mode"
     
-    # Database configuration (always show for all modes)
-    echo
-    echo -e "${MAGENTA}Database Configuration:${NC}"
-    echo -e "${YELLOW}Choose your database backend${NC}"
-    
-    # Database type selection with mode-specific defaults
-    if [[ "$INSTALL_MODE" == "development" ]]; then
-        if prompt_confirm "Use SQLite? (recommended for development)" "y"; then
-            DB_TYPE="sqlite"
-            echo -e "${GREEN}✓ Selected: SQLite${NC}"
-        else
-            DB_TYPE="mysql"
-            echo -e "${GREEN}✓ Selected: MariaDB${NC}"
-        fi
-    elif [[ "$INSTALL_MODE" == "production" ]]; then
-        if prompt_confirm "Use MariaDB? (recommended for production)" "y"; then
-            DB_TYPE="mysql"
-            echo -e "${GREEN}✓ Selected: MariaDB${NC}"
-        else
-            DB_TYPE="sqlite"
-            echo -e "${GREEN}✓ Selected: SQLite${NC}"
-        fi
-    else  # custom mode
-        echo "  1) SQLite (simple, file-based)"
-        echo "  2) MariaDB (scalable, production-ready)"
+    # ============================================================================
+    # PRODUCTION MODE: Install and configure database infrastructure FIRST
+    # ============================================================================
+    if [[ "$INSTALL_MODE" == "production" ]]; then
         echo
-        while true; do
-            echo -n -e "${BLUE}Select database type (1-2)${NC} (default: 1): "
-            read db_choice
-            db_choice="${db_choice:-1}"
-            
-            case "$db_choice" in
-                1|sqlite|SQLite) 
-                    DB_TYPE="sqlite"
-                    echo -e "${GREEN}✓ Selected: SQLite${NC}"
-                    break
-                    ;;
-                2|mysql|MySQL|mariadb|MariaDB) 
-                    DB_TYPE="mysql"
-                    echo -e "${GREEN}✓ Selected: MariaDB${NC}"
-                    break
-                    ;;
-                *) 
-                    echo -e "${RED}Invalid selection '$db_choice'. Please enter 1 or 2${NC}"
-                    ;;
-            esac
-        done
-    fi
-    
-    echo -e "${BLUE}Database Type:${NC} $DB_TYPE"
-    
-    # MariaDB configuration if selected
-    if [[ "$DB_TYPE" == "mysql" ]]; then
+        echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BOLD}${WHITE}  Production Mode: Database Infrastructure Setup${NC}"
+        echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo
+        echo -e "${YELLOW}Production deployments require MariaDB and phpMyAdmin.${NC}"
+        echo -e "${YELLOW}We'll set these up first to ensure database connectivity.${NC}"
+        echo
+        
+        # Force MariaDB setup for production
+        DB_TYPE="mysql"
+        SETUP_MARIADB="true"
+        
+        # MariaDB configuration
         echo -e "${BLUE}📊 MariaDB Database Configuration${NC}"
         echo -e "${YELLOW}Configure your MariaDB connection settings${NC}"
         echo
@@ -694,69 +658,203 @@ interactive_config() {
         echo -e "  User: $DB_USER"
         echo
         
-        # Allow user to review and modify MariaDB settings
-        if prompt_confirm "Review/modify MariaDB settings?" "n"; then
-            configure_mariadb_settings
-        fi
-        
-        # MariaDB setup options
-        echo
-        echo -e "${BLUE}MariaDB Installation Options:${NC}"
-        
-        # Respect command-line flags
-        if [[ "$SKIP_MARIADB" == "true" ]]; then
-            SETUP_MARIADB="false"
-            log "Skipping MariaDB installation (--skip-mariadb flag)"
-        elif [[ "$FULL_INSTALL" == "true" ]]; then
-            SETUP_MARIADB="true"
-            log "Installing MariaDB (--full flag)"
-        elif prompt_confirm "Install and configure MariaDB server?" "y"; then
-            SETUP_MARIADB="true"
-            echo -e "${GREEN}✓ Will install and configure MariaDB server${NC}"
-        else
-            SETUP_MARIADB="false"
-            warn "Assuming MariaDB is already installed and configured"
-        fi
-        
-        # phpMyAdmin setup
-        # phpMyAdmin setup
-        if [[ "$SKIP_PHPMYADMIN" == "true" ]]; then
-            SETUP_PHPMYADMIN="false"
-            log "Skipping phpMyAdmin installation (--skip-phpmyadmin flag)"
-        elif [[ "$FULL_INSTALL" == "true" ]]; then
-            SETUP_PHPMYADMIN="true"
-            log "Installing phpMyAdmin (--full flag)"
-        elif [[ "$SETUP_MARIADB" == "true" ]] || prompt_confirm "Install phpMyAdmin for database management?" "y"; then
-            SETUP_PHPMYADMIN="true"
-            echo -e "${GREEN}✓ Will install phpMyAdmin${NC}"
+        # Install MariaDB immediately
+        echo -e "${BOLD}${YELLOW}Installing MariaDB server...${NC}"
+        if setup_mariadb; then
+            check_section_complete "MariaDB Installation"
             
-            # phpMyAdmin access configuration
-            if [[ -t 0 ]] && [[ -t 1 ]]; then
-                PHPMYADMIN_PORT=$(prompt_input "phpMyAdmin access port (or use default web server)" "default")
-                if [[ "$PHPMYADMIN_PORT" != "default" ]]; then
-                    if [[ "$PHPMYADMIN_PORT" =~ ^[0-9]+$ ]] && [[ "$PHPMYADMIN_PORT" -ge 1024 ]]; then
-                        PHPMYADMIN_CUSTOM_PORT="true"
-                    else
-                        warn "Invalid port, using default web server configuration"
-                        PHPMYADMIN_PORT="default"
-                        PHPMYADMIN_CUSTOM_PORT="false"
-                    fi
-                else
-                    PHPMYADMIN_CUSTOM_PORT="false"
+            # Verify MariaDB is running
+            if ! check_mariadb_ready; then
+                echo -e "${RED}Failed to verify MariaDB installation${NC}"
+                if ! prompt_confirm "Continue anyway? (not recommended)" "n"; then
+                    exit 1
+                fi
+            fi
+            
+            # Verify database connection
+            if ! check_database_connection; then
+                echo -e "${RED}Failed to connect to database${NC}"
+                if ! prompt_confirm "Continue anyway? (not recommended)" "n"; then
+                    exit 1
+                fi
+            fi
+        else
+            echo -e "${RED}MariaDB installation failed${NC}"
+            if ! prompt_confirm "Continue anyway? (not recommended)" "n"; then
+                exit 1
+            fi
+        fi
+        
+        # Install phpMyAdmin immediately
+        if [[ "$SKIP_PHPMYADMIN" != "true" ]]; then
+            echo
+            echo -e "${BOLD}${YELLOW}Installing phpMyAdmin for database management...${NC}"
+            SETUP_PHPMYADMIN="true"
+            
+            if setup_phpmyadmin; then
+                check_section_complete "phpMyAdmin Installation"
+                
+                # Verify phpMyAdmin installation
+                if ! check_phpmyadmin_ready; then
+                    warn "phpMyAdmin installation could not be verified"
                 fi
             else
-                PHPMYADMIN_PORT="default"
-                PHPMYADMIN_CUSTOM_PORT="false"
+                warn "phpMyAdmin installation encountered issues"
             fi
         else
             SETUP_PHPMYADMIN="false"
+            log "Skipping phpMyAdmin installation (--skip-phpmyadmin flag)"
         fi
         
-    else
         echo
-        echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
-        SETUP_MARIADB="false"
-        SETUP_PHPMYADMIN="false"
+        echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BOLD}${GREEN}  Database Infrastructure Ready!${NC}"
+        echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo
+        
+        if prompt_confirm "Review database configuration summary?" "y"; then
+            echo
+            echo -e "${BLUE}Database Configuration Summary:${NC}"
+            echo -e "  Type: MariaDB"
+            echo -e "  Host: $DB_HOST:$DB_PORT"
+            echo -e "  Database: $DB_NAME"
+            echo -e "  User: $DB_USER"
+            echo -e "  phpMyAdmin: http://localhost:8081"
+            echo
+        fi
+    fi
+    
+    # ============================================================================
+    # Database Configuration (for non-production modes)
+    # ============================================================================
+    if [[ "$INSTALL_MODE" != "production" ]]; then
+        echo
+        echo -e "${MAGENTA}Database Configuration:${NC}"
+        echo -e "${YELLOW}Choose your database backend${NC}"
+        
+        # Database type selection with mode-specific defaults
+        if [[ "$INSTALL_MODE" == "development" ]]; then
+            if prompt_confirm "Use SQLite? (recommended for development)" "y"; then
+                DB_TYPE="sqlite"
+                echo -e "${GREEN}✓ Selected: SQLite${NC}"
+            else
+                DB_TYPE="mysql"
+                echo -e "${GREEN}✓ Selected: MariaDB${NC}"
+            fi
+        else  # custom mode
+            echo "  1) SQLite (simple, file-based)"
+            echo "  2) MariaDB (scalable, production-ready)"
+            echo
+            while true; do
+                echo -n -e "${BLUE}Select database type (1-2)${NC} (default: 1): "
+                read db_choice
+                db_choice="${db_choice:-1}"
+                
+                case "$db_choice" in
+                    1|sqlite|SQLite) 
+                        DB_TYPE="sqlite"
+                        echo -e "${GREEN}✓ Selected: SQLite${NC}"
+                        break
+                        ;;
+                    2|mysql|MySQL|mariadb|MariaDB) 
+                        DB_TYPE="mysql"
+                        echo -e "${GREEN}✓ Selected: MariaDB${NC}"
+                        break
+                        ;;
+                    *) 
+                        echo -e "${RED}Invalid selection '$db_choice'. Please enter 1 or 2${NC}"
+                        ;;
+                esac
+            done
+        fi
+        
+        echo -e "${BLUE}Database Type:${NC} $DB_TYPE"
+        
+        # MariaDB configuration if selected (non-production modes)
+        if [[ "$DB_TYPE" == "mysql" ]]; then
+            echo
+            echo -e "${BLUE}📊 MariaDB Database Configuration${NC}"
+            echo -e "${YELLOW}Configure your MariaDB connection settings${NC}"
+            echo
+            
+            DB_HOST=$(prompt_input "MariaDB Host" "localhost")
+            
+            # Port validation for MariaDB
+            while true; do
+                DB_PORT=$(prompt_input "MariaDB Port" "3306")
+                if [[ "$DB_PORT" =~ ^[0-9]+$ ]] && [[ "$DB_PORT" -ge 1 ]] && [[ "$DB_PORT" -le 65535 ]]; then
+                    break
+                else
+                    echo -e "${RED}Please enter a valid port number (1-65535)${NC}"
+                fi
+            done
+            
+            DB_NAME=$(prompt_input "Database Name" "panel")
+            DB_USER=$(prompt_input "Database User" "paneluser")
+            
+            # Password with confirmation
+            while true; do
+                DB_PASS=$(prompt_input "Database Password (leave empty for no password)" "" "true")
+                if [[ -n "$DB_PASS" ]]; then
+                    DB_PASS_CONFIRM=$(prompt_input "Confirm Database Password" "" "true")
+                    if [[ "$DB_PASS" == "$DB_PASS_CONFIRM" ]]; then
+                        break
+                    else
+                        echo -e "${RED}Passwords do not match. Please try again.${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}⚠️  Using empty password - ensure MariaDB allows passwordless access for user '$DB_USER'${NC}"
+                    break
+                fi
+            done
+            
+            echo
+            echo -e "${GREEN}✓ MariaDB configuration complete${NC}"
+            echo -e "  Host: $DB_HOST:$DB_PORT"
+            echo -e "  Database: $DB_NAME"
+            echo -e "  User: $DB_USER"
+            echo
+            
+            # MariaDB setup options (non-production modes)
+            echo
+            echo -e "${BLUE}MariaDB Installation Options:${NC}"
+            
+            # Respect command-line flags
+            if [[ "$SKIP_MARIADB" == "true" ]]; then
+                SETUP_MARIADB="false"
+                log "Skipping MariaDB installation (--skip-mariadb flag)"
+            elif [[ "$FULL_INSTALL" == "true" ]]; then
+                SETUP_MARIADB="true"
+                log "Installing MariaDB (--full flag)"
+            elif prompt_confirm "Install and configure MariaDB server?" "y"; then
+                SETUP_MARIADB="true"
+                echo -e "${GREEN}✓ Will install and configure MariaDB server${NC}"
+            else
+                SETUP_MARIADB="false"
+                warn "Assuming MariaDB is already installed and configured"
+            fi
+            
+            # phpMyAdmin setup (non-production modes)
+            if [[ "$SKIP_PHPMYADMIN" == "true" ]]; then
+                SETUP_PHPMYADMIN="false"
+                log "Skipping phpMyAdmin installation (--skip-phpmyadmin flag)"
+            elif [[ "$FULL_INSTALL" == "true" ]]; then
+                SETUP_PHPMYADMIN="true"
+                log "Installing phpMyAdmin (--full flag)"
+            elif [[ "$SETUP_MARIADB" == "true" ]] || prompt_confirm "Install phpMyAdmin for database management?" "y"; then
+                SETUP_PHPMYADMIN="true"
+                echo -e "${GREEN}✓ Will install phpMyAdmin${NC}"
+            else
+                SETUP_PHPMYADMIN="false"
+            fi
+        else
+            echo
+            echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
+            SETUP_MARIADB="false"
+            SETUP_PHPMYADMIN="false"
+        fi
+        
+        check_section_complete "Database Configuration"
     fi
     
     # Admin user configuration
@@ -779,6 +877,8 @@ interactive_config() {
             echo -e "${RED}Password must be at least 8 characters long${NC}"
         fi
     done
+    
+    check_section_complete "Admin User Configuration"
     
     # Application settings (always show for better user control)
     echo
@@ -819,6 +919,8 @@ interactive_config() {
         DISABLE_CAPTCHA="false"
     fi
     
+    check_section_complete "Application Settings"
+    
     # Security settings
     echo
     echo -e "${BLUE}Security Settings:${NC}"
@@ -832,6 +934,8 @@ interactive_config() {
             SECRET_KEY_GENERATE="false"
         fi
     fi
+    
+    check_section_complete "Security Configuration"
     
     # Production services
     if [[ "$INSTALL_MODE" == "production" ]] || [[ "$INSTALL_MODE" == "custom" ]]; then
@@ -868,6 +972,10 @@ interactive_config() {
         SETUP_NGINX="false"
         SETUP_SSL="false"
         SETUP_SYSTEMD="false"
+    fi
+    
+    if [[ "$INSTALL_MODE" == "production" ]] || [[ "$INSTALL_MODE" == "custom" ]]; then
+        check_section_complete "Production Services Configuration"
     fi
     
     # Optional features (always show for all modes)
@@ -914,6 +1022,8 @@ interactive_config() {
         INSTALL_ML_DEPS="false"
     fi
     
+    check_section_complete "Optional Features"
+    
     # Logging configuration
     echo
     echo -e "${BLUE}Logging & Monitoring:${NC}"
@@ -929,9 +1039,15 @@ interactive_config() {
         LOG_LEVEL="WARNING"
     fi
     
+    check_section_complete "Logging Configuration"
+    
     # Show comprehensive configuration summary
     echo
-    log "📋 Complete Configuration Summary:"
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}${WHITE}  Complete Configuration Summary${NC}"
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    log "📋 Installation Configuration:"
     echo -e "  ${BLUE}Installation Mode:${NC} $INSTALL_MODE"
     echo -e "  ${BLUE}Install Directory:${NC} $INSTALL_DIR"
     echo
@@ -941,7 +1057,7 @@ interactive_config() {
         echo -e "    MariaDB: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
         echo -e "    MariaDB Installation: ${SETUP_MARIADB}"
         echo -e "    phpMyAdmin: ${SETUP_PHPMYADMIN}"
-        [[ "$SETUP_PHPMYADMIN" == "true" ]] && echo -e "    phpMyAdmin Access: http://localhost${PHPMYADMIN_PORT:+:$PHPMYADMIN_PORT}/phpmyadmin"
+        [[ "$SETUP_PHPMYADMIN" == "true" ]] && echo -e "    phpMyAdmin Access: http://localhost:8081"
     fi
     echo
     echo -e "  ${BLUE}Application Settings:${NC}"
@@ -1170,6 +1286,100 @@ setup_mariadb() {
     fi
     
     log "✓ MariaDB installation complete"
+}
+
+# Validation checker functions
+check_mariadb_ready() {
+    log "Checking MariaDB status..."
+    
+    local max_attempts=10
+    local attempt=0
+    
+    while [[ $attempt -lt $max_attempts ]]; do
+        if systemctl is-active --quiet mariadb 2>/dev/null || rc-service mariadb status 2>/dev/null | grep -q "started"; then
+            # Try to connect
+            if mysql -u root -e "SELECT 1;" &>/dev/null; then
+                echo -e "${GREEN}✓ MariaDB is running and accessible${NC}"
+                return 0
+            fi
+        fi
+        
+        attempt=$((attempt + 1))
+        if [[ $attempt -lt $max_attempts ]]; then
+            echo -e "${YELLOW}Waiting for MariaDB to start... (attempt $attempt/$max_attempts)${NC}"
+            sleep 2
+        fi
+    done
+    
+    echo -e "${RED}✗ MariaDB is not running or not accessible${NC}"
+    return 1
+}
+
+check_phpmyadmin_ready() {
+    log "Checking phpMyAdmin installation..."
+    
+    # Check if phpMyAdmin files exist
+    if [[ -d "/var/www/phpmyadmin" ]] && [[ -f "/var/www/phpmyadmin/index.php" ]]; then
+        echo -e "${GREEN}✓ phpMyAdmin files installed successfully${NC}"
+        
+        # Check if Nginx is serving it
+        if systemctl is-active --quiet nginx 2>/dev/null || rc-service nginx status 2>/dev/null | grep -q "started"; then
+            # Try to access phpMyAdmin
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081 | grep -q "200\|302"; then
+                echo -e "${GREEN}✓ phpMyAdmin is accessible at http://localhost:8081${NC}"
+                return 0
+            else
+                echo -e "${YELLOW}⚠ phpMyAdmin installed but not yet accessible (Nginx may need configuration)${NC}"
+                return 0
+            fi
+        else
+            echo -e "${YELLOW}⚠ phpMyAdmin installed but Nginx is not running${NC}"
+            return 0
+        fi
+    else
+        echo -e "${RED}✗ phpMyAdmin installation failed${NC}"
+        return 1
+    fi
+}
+
+check_database_connection() {
+    log "Verifying database connection..."
+    
+    if [[ "$DB_TYPE" == "mysql" ]]; then
+        # Build connection command
+        local mysql_cmd="mysql -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER}"
+        
+        if [[ -n "$DB_PASS" ]]; then
+            mysql_cmd="$mysql_cmd -p${DB_PASS}"
+        fi
+        
+        # Try to connect and create database if needed
+        if echo "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" | $mysql_cmd 2>/dev/null; then
+            echo -e "${GREEN}✓ Database connection successful${NC}"
+            echo -e "${GREEN}✓ Database '$DB_NAME' is ready${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Cannot connect to database${NC}"
+            echo -e "${YELLOW}Please verify:${NC}"
+            echo -e "  - MariaDB is running"
+            echo -e "  - Host: ${DB_HOST}:${DB_PORT}"
+            echo -e "  - User: ${DB_USER}"
+            echo -e "  - Password is correct"
+            return 1
+        fi
+    else
+        echo -e "${GREEN}✓ Using SQLite - database will be created automatically${NC}"
+        return 0
+    fi
+}
+
+check_section_complete() {
+    local section_name="$1"
+    echo
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}✓ $section_name completed successfully${NC}"
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
 }
 
 setup_phpmyadmin() {
