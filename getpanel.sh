@@ -1795,25 +1795,80 @@ check_database_connection() {
     log "Verifying database connection..."
     
     if [[ "$DB_TYPE" == "mysql" ]]; then
-        # Build connection command
+        # First, ensure the database user exists with proper permissions
+        log "Creating database user and granting permissions..."
+        
+        local create_user_sql=""
+        if [[ -n "$DB_PASS" ]]; then
+            create_user_sql="
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
+FLUSH PRIVILEGES;
+"
+        else
+            create_user_sql="
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'%';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
+FLUSH PRIVILEGES;
+"
+        fi
+        
+        # Try to create user as root (passwordless or with existing root password)
+        if echo "$create_user_sql" | mysql -u root 2>/dev/null; then
+            log "✓ Database user '$DB_USER' created/verified"
+        elif echo "$create_user_sql" | sudo mysql -u root 2>/dev/null; then
+            log "✓ Database user '$DB_USER' created/verified (via sudo)"
+        else
+            warn "Could not create database user automatically"
+            echo -e "${YELLOW}You may need to create the user manually:${NC}"
+            echo -e "${WHITE}sudo mysql -u root -e \"$create_user_sql\"${NC}"
+        fi
+        
+        # Now create the database with UTF8MB4
+        local create_db_sql="CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        
+        if echo "$create_db_sql" | mysql -u root 2>/dev/null; then
+            log "✓ Database '$DB_NAME' created/verified"
+        elif echo "$create_db_sql" | sudo mysql -u root 2>/dev/null; then
+            log "✓ Database '$DB_NAME' created/verified (via sudo)"
+        else
+            warn "Could not create database automatically"
+        fi
+        
+        # Build connection command to test as the panel user
         local mysql_cmd="mysql -h ${DB_HOST} -P ${DB_PORT} -u ${DB_USER}"
         
         if [[ -n "$DB_PASS" ]]; then
             mysql_cmd="$mysql_cmd -p${DB_PASS}"
         fi
         
-        # Try to connect and create database if needed
-        if echo "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" | $mysql_cmd 2>/dev/null; then
+        # Try to connect as the panel user
+        if echo "SELECT 1;" | $mysql_cmd 2>/dev/null | grep -q "1"; then
             echo -e "${GREEN}✓ Database connection successful${NC}"
             echo -e "${GREEN}✓ Database '$DB_NAME' is ready${NC}"
             return 0
         else
-            echo -e "${RED}✗ Cannot connect to database${NC}"
+            echo -e "${RED}✗ Cannot connect to database as user '$DB_USER'${NC}"
             echo -e "${YELLOW}Please verify:${NC}"
             echo -e "  - MariaDB is running"
             echo -e "  - Host: ${DB_HOST}:${DB_PORT}"
             echo -e "  - User: ${DB_USER}"
             echo -e "  - Password is correct"
+            echo ""
+            echo -e "${YELLOW}Try creating the user manually:${NC}"
+            echo -e "${WHITE}sudo mysql -u root${NC}"
+            if [[ -n "$DB_PASS" ]]; then
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY 'your_password';${NC}"
+                echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';${NC}"
+            else
+                echo -e "${WHITE}CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost';${NC}"
+                echo -e "${WHITE}GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';${NC}"
+            fi
+            echo -e "${WHITE}FLUSH PRIVILEGES;${NC}"
             return 1
         fi
     else
