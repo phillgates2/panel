@@ -3,10 +3,34 @@ Centralized logging configuration for Panel
 Provides structured logging with proper levels and handlers
 """
 
+import json
 import logging
 import os
+import uuid
+from flask import g, request
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
+
+
+class JSONFormatter(logging.Formatter):
+    """Custom JSON log formatter"""
+    def format(self, record):
+        log_record = {
+            'timestamp': self.formatTime(record, self.datefmt),
+            'level': record.levelname,
+            'name': record.name,
+            'message': record.getMessage(),
+            'correlation_id': getattr(record, 'correlation_id', None),
+        }
+        if record.exc_info:
+            log_record['exception'] = self.formatException(record.exc_info)
+        return json.dumps(log_record)
+
+
+def correlation_id_middleware():
+    """Middleware to generate and attach correlation IDs to requests"""
+    correlation_id = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))
+    g.correlation_id = correlation_id
 
 
 def setup_logging(app):
@@ -96,7 +120,33 @@ def setup_logging(app):
     werkzeug_logger = logging.getLogger('werkzeug')
     werkzeug_logger.setLevel(logging.INFO if app.debug else logging.WARNING)
     
-    app.logger.info('Logging configured successfully')
+    # Determine log format
+    log_format = os.environ.get('LOG_FORMAT', 'text').lower()
+    if log_format == 'json':
+        formatter = JSONFormatter()
+    else:
+        formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+    # Apply formatter to handlers
+    for handler in app.logger.handlers:
+        handler.setFormatter(formatter)
+
+    # Add correlation ID to log records
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):
+        record = old_factory(*args, **kwargs)
+        record.correlation_id = getattr(g, 'correlation_id', None)
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
+    app.before_request(correlation_id_middleware)
+
+    app.logger.info('Logging configured successfully with format: %s', log_format)
     app.logger.info(f'Log level: {log_level_name}')
     app.logger.info(f'Log directory: {log_dir}')
     

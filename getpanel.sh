@@ -211,6 +211,13 @@ detect_system() {
     echo -e "  Package Mgr:    ${WHITE}$PKG_MANAGER${NC}"
     echo -e "  Service Mgr:    ${WHITE}$SERVICE_MANAGER${NC}"
     echo
+
+    # Extra diagnostic: show any MariaDB/MySQL units early for odd service names
+    if command -v systemctl &>/dev/null; then
+        echo -e "${YELLOW}MariaDB/MySQL units detected (diagnostic):${NC}"
+        systemctl list-units --type=service 2>/dev/null | grep -Ei 'maria|mysql' || echo "  (none visible via systemctl list-units)"
+        echo
+    fi
     
     return 0
 }
@@ -1829,7 +1836,7 @@ check_mariadb_ready() {
     # Detect service manager and check for services
     if command -v systemctl &>/dev/null; then
         service_manager="systemd"
-        # Check for mariadb service
+        # Check for common and templated MariaDB/MySQL unit names
         if systemctl list-unit-files 2>/dev/null | grep -qE '^mariadb\.service'; then
             service_exists=true
             service_name="mariadb"
@@ -1838,6 +1845,15 @@ check_mariadb_ready() {
             service_exists=true
             service_name="mysql"
             log "Found mysql.service in systemd"
+        elif systemctl list-unit-files 2>/dev/null | grep -qE '^mariadb@.*\.service'; then
+            service_exists=true
+            # Use the template base name; systemctl start mariadb@ will error, but we primarily need readiness checks
+            service_name="mariadb@"
+            log "Found mariadb@.service template in systemd"
+        elif systemctl list-unit-files 2>/dev/null | grep -qE '^mysql@.*\.service'; then
+            service_exists=true
+            service_name="mysql@"
+            log "Found mysql@.service template in systemd"
         fi
     elif command -v rc-service &>/dev/null; then
         service_manager="openrc"

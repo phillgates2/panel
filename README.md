@@ -117,29 +117,20 @@ http://localhost:8081
 # Navigate to installation
 cd ~/panel  # or your custom directory
 
-# Activate environment
-source venv/bin/activate
+# Preferred: use the unified panel CLI
+./panel.sh help          # See available commands
+./panel.sh start         # Start development server
+./panel.sh start-prod    # Start production server
+./panel.sh status        # Check service status
+./panel.sh update        # Update installation
+./panel.sh uninstall     # Remove installation
 
-# Check status
-make status
-
-# View logs
-make logs
-
-# Run tests
-make test
-
-# Create database migration
-make db-migrate
-
-# Backup database
-make db-backup
-
-# Start development server
-make dev
-
-# Start production server
-make prod
+# Legacy helper scripts (deprecated)
+# These now forward to panel.sh and will be removed in a future release:
+#   scripts/install.sh
+#   scripts/update.sh
+#   scripts/uninstall.sh
+#   start-dev.sh
 ```
 
 ---

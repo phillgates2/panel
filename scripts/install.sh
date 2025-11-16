@@ -1,203 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Interactive installer for the Panel app
-# - Creates a Python virtualenv and installs requirements
-# - Writes an env file with configuration
-# - Initializes the database and optionally creates an admin user
-# - Sets up local instance directories
-# - Optionally configures production services (nginx, systemd, SSL)
+# Deprecated installer wrapper.
+# This script now delegates to the unified panel CLI.
 
 HERE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$HERE_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-# Parse flags
-DRY_RUN=0
-for arg in "$@"; do
-  case "$arg" in
-    --dry-run) DRY_RUN=1; shift;;
-    *) ;;
-  esac
-done
+echo "[DEPRECATED] Use ./panel.sh install instead of scripts/install.sh" >&2
 
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "=== DRY RUN MODE - No changes will be made ==="
-fi
-
-prompt() {
-  local msg="$1"; shift
-  local def="${1-}"; shift || true
-  local var
-  if [[ -n "$def" ]]; then
-    read -rp "$msg [$def]: " var || true
-    echo "${var:-$def}"
-  else
-    read -rp "$msg: " var || true
-    echo "$var"
-  fi
-}
-
-prompt_secret() {
-  local msg="$1"
-  local var
-  read -rsp "$msg: " var || true
-  echo
-  echo "$var"
-}
-
-confirm() {
-  local msg="$1"; shift
-  local def="${1:-N}"; shift || true
-  local ans
-  read -rp "$msg [$def]: " ans || true
-  ans="${ans:-$def}"
-  case "$ans" in
-    y|Y|yes|YES) return 0;;
-    *) return 1;;
-  esac
-}
-
-# ----- Apt helpers -----
-has_cmd() { command -v "$1" >/dev/null 2>&1; }
-apt_available() { has_cmd apt; }
-SUDO=""; if [[ ${EUID:-$(id -u)} -ne 0 ]] && has_cmd sudo; then SUDO="sudo"; fi
-APT_UPDATED=0
-apt_update_once() { if [[ $APT_UPDATED -eq 0 ]]; then [[ "$DRY_RUN" -eq 0 ]] && $SUDO apt update || echo "[DRY RUN] Would run: apt update"; APT_UPDATED=1; fi }
-ensure_apt_pkgs() {
-  # usage: ensure_apt_pkgs pkg1 pkg2 ...
-  local missing=()
-  for p in "$@"; do
-    if ! dpkg -s "$p" >/dev/null 2>&1; then
-      missing+=("$p")
-    fi
-  done
-  if ((${#missing[@]})); then
-    echo "Installing packages: ${missing[*]}"
-    apt_update_once
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      $SUDO apt install -y "${missing[@]}"
-    else
-      echo "[DRY RUN] Would install: ${missing[*]}"
-    fi
-  else
-    echo "All requested packages already installed."
-  fi
-}
-
-# Pre-flight: ensure core tools via apt if missing
-if ! has_cmd python3; then
-  if apt_available; then
-    echo "python3 not found. Attempting to install via apt..."
-    ensure_apt_pkgs python3
-  else
-    echo "python3 not found and apt not available. Please install Python 3." >&2
-    exit 1
-  fi
-fi
-
-# 1) Environment selection
-ENVIRONMENT="$(prompt "Environment (dev/prod)" "dev")"
-if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
-  echo "Invalid environment: $ENVIRONMENT (expected 'dev' or 'prod')" >&2
+if [[ ! -x ./panel.sh ]]; then
+  echo "Error: ./panel.sh not found or not executable." >&2
   exit 1
 fi
 
-VENVDIR="$(prompt "Virtualenv directory" ".venv")"
-REDIS_URL_DEFAULT="redis://127.0.0.1:6379/0"
-REDIS_URL="$(prompt "Redis URL" "$REDIS_URL_DEFAULT")"
-
-# System dependency checks and installation
-if apt_available && confirm "Check and install missing system dependencies via apt?" Y; then
-  # Essential for runtime and script features
-  REQ_PKGS=(python3 python3-venv unzip espeak)
-  # Helpful utilities used in repo/scripts and optional services
-  OPT_PKGS=(gdb redis-server make)
-  ensure_apt_pkgs "${REQ_PKGS[@]}" "${OPT_PKGS[@]}"
-else
-  echo "Skipping automatic system dependency installation."
-fi
-
-# Generate a secret key
-SECRET_KEY="$(python3 - <<'PY'
-import secrets
-print(secrets.token_hex(32))
-PY
-)"
-
-USE_SQLITE=1
-SQLITE_URI="sqlite:///panel_dev.db"
-DB_USER="paneluser"
-DB_PASS="panelpass"
-DB_HOST="127.0.0.1"
-DB_NAME="paneldb"
-DISCORD_WEBHOOK=""
-
-if [[ "$ENVIRONMENT" == "prod" ]]; then
-  USE_SQLITE=0
-  DB_USER="$(prompt "MariaDB user" "$DB_USER")"
-  DB_PASS="$(prompt_secret "MariaDB password")"
-  DB_HOST="$(prompt "MariaDB host" "$DB_HOST")"
-  DB_NAME="$(prompt "MariaDB database name" "$DB_NAME")"
-  
-  # Optional: Create MariaDB database and user
-  if confirm "Create MariaDB database and user (requires MariaDB root access)?" N; then
-    DB_ROOT_PASS="$(prompt_secret "MariaDB root password")"
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      mysql -h "$DB_HOST" -u root -p"$DB_ROOT_PASS" <<SQL || {
-        echo "Warning: MariaDB database creation failed. You may need to create it manually." >&2
-      }
-CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';
-GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
-FLUSH PRIVILEGES;
-SQL
-      echo "MariaDB database '$DB_NAME' and user '$DB_USER' created."
-    else
-      echo "[DRY RUN] Would create MariaDB database '$DB_NAME' and user '$DB_USER'"
-    fi
-  fi
-else
-  # dev: allow overriding SQLite URI
-  SQLITE_URI="$(prompt "SQLite URI" "$SQLITE_URI")"
-fi
-
-# Optional Discord webhook
-if confirm "Configure Discord webhook for notifications?" N; then
-  DISCORD_WEBHOOK="$(prompt "Discord webhook URL" "")"
-fi
-
-CREATE_ADMIN=0
-if confirm "Create an initial system admin user now?" N; then
-  CREATE_ADMIN=1
-  ADMIN_EMAIL="$(prompt "Admin email" "admin@example.com")"
-  ADMIN_FIRST="$(prompt "Admin first name" "Admin")"
-  ADMIN_LAST="$(prompt "Admin last name" "User")"
-  ADMIN_DOB="$(prompt "Admin date of birth (YYYY-MM-DD)" "2000-01-01")"
-  while true; do
-    ADMIN_PASS1="$(prompt_secret "Admin password")"
-    ADMIN_PASS2="$(prompt_secret "Confirm admin password")"
-    if [[ "$ADMIN_PASS1" == "$ADMIN_PASS2" && -n "$ADMIN_PASS1" ]]; then
-      break
-    fi
-    echo "Passwords do not match or empty. Please try again." >&2
-  done
-fi
-
-# 2) Create virtualenv and install requirements
-if [[ "$DRY_RUN" -eq 0 ]]; then
-  python3 -m venv "$VENVDIR"
-  # shellcheck disable=SC1090
-  source "$VENVDIR/bin/activate"
-  pip install -U pip wheel
-  pip install -r requirements.txt
-else
-  echo "[DRY RUN] Would create virtualenv at $VENVDIR and install requirements"
-fi
-
-# 2.5) Optionally install Playwright browsers for E2E tests
-INSTALL_PLAYWRIGHT=0
-if confirm "Install Playwright Chromium for E2E tests?" N; then
+exec ./panel.sh install "$@"
   INSTALL_PLAYWRIGHT=1
   echo "Installing Playwright Chromium..."
   if [[ "$DRY_RUN" -eq 0 ]]; then
