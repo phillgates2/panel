@@ -57,72 +57,70 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 show_help() {
-    cat << EOF
-
-${MAGENTA}${BOLD}╔════════════════════════════════════════════════════════════════╗
-║                    Panel Installer v2.0                        ║
-║            Modern Game Server Management Platform              ║
-╚════════════════════════════════════════════════════════════════╝${NC}
-
-${YELLOW}USAGE:${NC}
-  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- [OPTIONS]
-
-${YELLOW}INSTALLATION OPTIONS:${NC}
-  ${GREEN}--help, -h${NC}              Display this help message
-  ${GREEN}--dir DIR${NC}               Set installation directory (default: ~/panel)
-  ${GREEN}--branch BRANCH${NC}         Install from specific git branch (default: main)
-  ${GREEN}--db-type TYPE${NC}          Database: 'sqlite' or 'mariadb' (default: interactive)
-
-${YELLOW}COMPONENT SELECTION:${NC}
-  ${MAGENTA}--full${NC}                  Install everything (recommended for production)
-  ${MAGENTA}--sqlite-only${NC}           Quick dev setup: SQLite only, no extras
-  ${MAGENTA}--skip-mariadb${NC}          Don't install MariaDB server
-  ${MAGENTA}--skip-phpmyadmin${NC}       Don't install phpMyAdmin
-  ${MAGENTA}--skip-redis${NC}            Don't install Redis
-  ${MAGENTA}--skip-nginx${NC}            Don't configure Nginx
-  ${MAGENTA}--skip-ssl${NC}              Don't setup SSL/Let's Encrypt
-
-${YELLOW}AUTOMATION:${NC}
-  ${MAGENTA}--non-interactive${NC}       Unattended install with defaults
-  ${RED}--uninstall${NC}             Remove Panel and all data
-
-${YELLOW}QUICK START EXAMPLES:${NC}
-
-  ${WHITE}# Development (fastest)${NC}
-  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --sqlite-only
-
-  ${WHITE}# Production (full featured)${NC}
-  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --full
-
-  ${WHITE}# Custom location${NC}
-  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --dir /opt/panel
-
-  ${WHITE}# Automated deployment${NC}
-  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --non-interactive --db-type mariadb
-
-${YELLOW}NEW FEATURES:${NC}
-  ${GREEN}✓${NC} Professional logging with audit trails
-  ${GREEN}✓${NC} Database migrations & version control
-  ${GREEN}✓${NC} Security: CSP, HSTS, rate limiting, SQL injection protection
-  ${GREEN}✓${NC} Health check endpoint for monitoring
-  ${GREEN}✓${NC} Comprehensive test suite & documentation
-  ${GREEN}✓${NC} Input validation & secure sessions
-
-${YELLOW}AFTER INSTALLATION:${NC}
-  ${GREEN}•${NC} Health Check:    ${MAGENTA}http://localhost:8080/health${NC}
-  ${GREEN}•${NC} View Logs:       ${MAGENTA}tail -f instance/logs/panel.log${NC}
-  ${GREEN}•${NC} Documentation:   ${MAGENTA}cat docs/NEW_FEATURES.md${NC}
-  ${GREEN}•${NC} Run Tests:       ${MAGENTA}make test${NC}
-
-${YELLOW}ENVIRONMENT VARIABLES:${NC}
-  ${MAGENTA}PANEL_INSTALL_DIR${NC}      Override default installation directory
-  ${MAGENTA}PANEL_BRANCH${NC}           Override default git branch
-
-${YELLOW}SUPPORT:${NC}
-  Documentation: https://github.com/phillgates2/panel
-  Issues: https://github.com/phillgates2/panel/issues
-
-EOF
+    printf "\n"
+    printf "${MAGENTA}${BOLD}╔════════════════════════════════════════════════════════════════╗${NC}\n"
+    printf "${MAGENTA}${BOLD}║                    Panel Installer v2.0                        ║${NC}\n"
+    printf "${MAGENTA}${BOLD}║            Modern Game Server Management Platform              ║${NC}\n"
+    printf "${MAGENTA}${BOLD}╚════════════════════════════════════════════════════════════════╝${NC}\n"
+    printf "\n"
+    printf "${YELLOW}USAGE:${NC}\n"
+    printf "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- [OPTIONS]\n"
+    printf "\n"
+    printf "${YELLOW}INSTALLATION OPTIONS:${NC}\n"
+    printf "  ${GREEN}--help, -h${NC}              Display this help message\n"
+    printf "  ${GREEN}--dir DIR${NC}               Set installation directory (default: ~/panel)\n"
+    printf "  ${GREEN}--branch BRANCH${NC}         Install from specific git branch (default: main)\n"
+    printf "  ${GREEN}--db-type TYPE${NC}          Database: 'sqlite' or 'mariadb' (default: interactive)\n"
+    printf "\n"
+    printf "${YELLOW}COMPONENT SELECTION:${NC}\n"
+    printf "  ${MAGENTA}--full${NC}                  Install everything (recommended for production)\n"
+    printf "  ${MAGENTA}--sqlite-only${NC}           Quick dev setup: SQLite only, no extras\n"
+    printf "  ${MAGENTA}--skip-mariadb${NC}          Don't install MariaDB server\n"
+    printf "  ${MAGENTA}--skip-phpmyadmin${NC}       Don't install phpMyAdmin\n"
+    printf "  ${MAGENTA}--skip-redis${NC}            Don't install Redis\n"
+    printf "  ${MAGENTA}--skip-nginx${NC}            Don't configure Nginx\n"
+    printf "  ${MAGENTA}--skip-ssl${NC}              Don't setup SSL/Let's Encrypt\n"
+    printf "\n"
+    printf "${YELLOW}AUTOMATION:${NC}\n"
+    printf "  ${MAGENTA}--non-interactive${NC}       Unattended install with defaults\n"
+    printf "  ${RED}--uninstall${NC}             Remove Panel and all data\n"
+    printf "\n"
+    printf "${YELLOW}QUICK START EXAMPLES:${NC}\n"
+    printf "\n"
+    printf "  ${WHITE}# Development (fastest)${NC}\n"
+    printf "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --sqlite-only\n"
+    printf "\n"
+    printf "  ${WHITE}# Production (full featured)${NC}\n"
+    printf "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --full\n"
+    printf "\n"
+    printf "  ${WHITE}# Custom location${NC}\n"
+    printf "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --dir /opt/panel\n"
+    printf "\n"
+    printf "  ${WHITE}# Automated deployment${NC}\n"
+    printf "  curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh | bash -s -- --non-interactive --db-type mariadb\n"
+    printf "\n"
+    printf "${YELLOW}NEW FEATURES:${NC}\n"
+    printf "  ${GREEN}✓${NC} Professional logging with audit trails\n"
+    printf "  ${GREEN}✓${NC} Database migrations & version control\n"
+    printf "  ${GREEN}✓${NC} Security: CSP, HSTS, rate limiting, SQL injection protection\n"
+    printf "  ${GREEN}✓${NC} Health check endpoint for monitoring\n"
+    printf "  ${GREEN}✓${NC} Comprehensive test suite & documentation\n"
+    printf "  ${GREEN}✓${NC} Input validation & secure sessions\n"
+    printf "\n"
+    printf "${YELLOW}AFTER INSTALLATION:${NC}\n"
+    printf "  ${GREEN}•${NC} Health Check:    ${MAGENTA}http://localhost:8080/health${NC}\n"
+    printf "  ${GREEN}•${NC} View Logs:       ${MAGENTA}tail -f instance/logs/panel.log${NC}\n"
+    printf "  ${GREEN}•${NC} Documentation:   ${MAGENTA}cat docs/NEW_FEATURES.md${NC}\n"
+    printf "  ${GREEN}•${NC} Run Tests:       ${MAGENTA}make test${NC}\n"
+    printf "\n"
+    printf "${YELLOW}ENVIRONMENT VARIABLES:${NC}\n"
+    printf "  ${MAGENTA}PANEL_INSTALL_DIR${NC}      Override default installation directory\n"
+    printf "  ${MAGENTA}PANEL_BRANCH${NC}           Override default git branch\n"
+    printf "\n"
+    printf "${YELLOW}SUPPORT:${NC}\n"
+    printf "  Documentation: https://github.com/phillgates2/panel\n"
+    printf "  Issues: https://github.com/phillgates2/panel/issues\n"
+    printf "\n"
     exit 0
 }
 
