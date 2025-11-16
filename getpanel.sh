@@ -50,14 +50,17 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 show_help() {
     cat << EOF
-${BLUE}Panel Installer - Modern Game Server Management${NC}
+${MAGENTA}${BOLD}Panel Installer - Modern Game Server Management${NC}
 
-${GREEN}✨ New in this version:${NC}
+${CYAN}✨ New in this version:${NC}
   • Professional logging with audit trails
   • Database migrations and version control
   • Security hardening (CSP, HSTS, rate limiting)
@@ -65,55 +68,55 @@ ${GREEN}✨ New in this version:${NC}
   • Comprehensive test suite and documentation
   • Input validation and SQL injection protection
 
-${CYAN}Usage:${NC}
+${YELLOW}Usage:${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) [OPTIONS]
 
-${CYAN}Options:${NC}
+${YELLOW}Options:${NC}
   ${GREEN}--help${NC}                Show this help message and exit
   ${GREEN}--dir DIR${NC}             Installation directory (default: \$HOME/panel)
   ${GREEN}--branch BRANCH${NC}       Git branch to install (default: main)
   ${GREEN}--db-type TYPE${NC}        Database type: sqlite or mariadb (default: interactive)
-  ${GREEN}--skip-mariadb${NC}        Skip MariaDB installation
-  ${GREEN}--skip-phpmyadmin${NC}     Skip phpMyAdmin installation  
-  ${GREEN}--skip-redis${NC}          Skip Redis installation
-  ${GREEN}--skip-nginx${NC}          Skip Nginx configuration
-  ${GREEN}--skip-ssl${NC}            Skip SSL/Let's Encrypt setup
-  ${GREEN}--non-interactive${NC}     Run without prompts (use defaults)
-  ${GREEN}--sqlite-only${NC}         Quick install with SQLite only (no MariaDB/phpMyAdmin)
-  ${GREEN}--full${NC}                Full installation with all components
-  ${GREEN}--uninstall${NC}           Uninstall Panel and all services
+  ${CYAN}--skip-mariadb${NC}        Skip MariaDB installation
+  ${CYAN}--skip-phpmyadmin${NC}     Skip phpMyAdmin installation  
+  ${CYAN}--skip-redis${NC}          Skip Redis installation
+  ${CYAN}--skip-nginx${NC}          Skip Nginx configuration
+  ${CYAN}--skip-ssl${NC}            Skip SSL/Let's Encrypt setup
+  ${MAGENTA}--non-interactive${NC}     Run without prompts (use defaults)
+  ${MAGENTA}--sqlite-only${NC}         Quick install with SQLite only (no MariaDB/phpMyAdmin)
+  ${MAGENTA}--full${NC}                Full installation with all components
+  ${RED}--uninstall${NC}           Uninstall Panel and all services
 
-${CYAN}Examples:${NC}
-  # Interactive installation (default)
+${YELLOW}Examples:${NC}
+  ${WHITE}# Interactive installation (default)${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh)
 
-  # Quick SQLite-only installation
+  ${WHITE}# Quick SQLite-only installation${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --sqlite-only
 
-  # Full installation with all components
+  ${WHITE}# Full installation with all components${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --full
 
-  # Install to custom directory
+  ${WHITE}# Install to custom directory${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --dir /opt/panel
 
-  # Install specific branch
+  ${WHITE}# Install specific branch${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --branch develop
 
-  # Non-interactive install with MariaDB
+  ${WHITE}# Non-interactive install with MariaDB${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --non-interactive --db-type mariadb
 
-  # Uninstall Panel
+  ${WHITE}# Uninstall Panel${NC}
   bash <(curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/getpanel.sh) --uninstall
 
-${CYAN}Environment Variables:${NC}
-  PANEL_INSTALL_DIR     Installation directory
-  PANEL_BRANCH          Git branch to install
+${YELLOW}Environment Variables:${NC}
+  ${CYAN}PANEL_INSTALL_DIR${NC}     Installation directory
+  ${CYAN}PANEL_BRANCH${NC}          Git branch to install
 
-${CYAN}Post-Installation:${NC}
-  • Access health check: http://localhost:8080/health
-  • View logs: tail -f instance/logs/panel.log
-  • Read documentation: cat docs/NEW_FEATURES.md
-  • Run tests: make test
+${MAGENTA}Post-Installation:${NC}
+  ${GREEN}•${NC} Access health check: ${CYAN}http://localhost:8080/health${NC}
+  ${GREEN}•${NC} View logs: ${CYAN}tail -f instance/logs/panel.log${NC}
+  ${GREEN}•${NC} Read documentation: ${CYAN}cat docs/NEW_FEATURES.md${NC}
+  ${GREEN}•${NC} Run tests: ${CYAN}make test${NC}
 
 EOF
     exit 0
@@ -189,7 +192,7 @@ parse_args() {
 }
 
 print_banner() {
-    echo -e "${BLUE}"
+    echo -e "${MAGENTA}${BOLD}"
     cat << 'EOF'
   ____                  _ 
  |  _ \ __ _ _ __   ___| |
@@ -315,7 +318,7 @@ configure_mariadb_settings() {
     echo
     echo -e "${BLUE}🔧 MariaDB Settings Configuration${NC}"
     echo -e "${YELLOW}Review and modify your MariaDB connection settings${NC}"
-    echo -e "${BLUE}Press Enter to keep current value, or type new value${NC}"
+    echo -e "${CYAN}Press Enter to keep current value, or type new value${NC}"
     echo
     
     display_mariadb_menu() {
@@ -504,7 +507,7 @@ configure_mariadb_settings() {
             8)
                 echo
                 echo -e "${GREEN}💾 Saving MariaDB configuration...${NC}"
-                echo -e "${BLUE}Final MariaDB settings:${NC}"
+                echo -e "${MAGENTA}Final MariaDB settings:${NC}"
                 echo -e "  🏠 Host: ${BLUE}$DB_HOST:$DB_PORT${NC}"
                 echo -e "  🗄️  Database: ${BLUE}$DB_NAME${NC}"
                 echo -e "  👤 User: ${BLUE}$DB_USER${NC}"
@@ -553,11 +556,11 @@ interactive_config() {
     fi
     
     log "🔧 Interactive Configuration"
-    echo -e "${BLUE}Configure your Panel installation step by step${NC}"
+    echo -e "${CYAN}Configure your Panel installation step by step${NC}"
     echo
     
     # Installation mode
-    echo -e "${BLUE}Installation Mode:${NC}"
+    echo -e "${MAGENTA}Installation Mode:${NC}"
     echo "  1) Development (SQLite, quick setup)"
     echo "  2) Production (MariaDB, full setup)"
     echo "  3) Custom (configure everything)"
@@ -595,7 +598,7 @@ interactive_config() {
     
     # Database configuration (always show for all modes)
     echo
-    echo -e "${BLUE}Database Configuration:${NC}"
+    echo -e "${MAGENTA}Database Configuration:${NC}"
     echo -e "${YELLOW}Choose your database backend${NC}"
     
     # Database type selection with mode-specific defaults
@@ -2000,7 +2003,7 @@ show_next_steps() {
     echo
     echo -e "${GREEN}🎉 Panel installed successfully!${NC}"
     echo
-    echo -e "${BLUE}Configuration Summary:${NC}"
+    echo -e "${CYAN}Configuration Summary:${NC}"
     echo "  📁 Install Directory: $INSTALL_DIR"
     echo "  🗄️ Database: $DB_TYPE"
     echo "  👤 Admin User: $ADMIN_USERNAME"
@@ -2010,7 +2013,7 @@ show_next_steps() {
     [[ "$SETUP_SSL" == "true" ]] && echo "  🔒 SSL: Enabled"
     echo
     
-    echo -e "${BLUE}✨ New Features Included:${NC}"
+    echo -e "${MAGENTA}✨ New Features Included:${NC}"
     echo "  🔒 Security: Rate limiting, SQL injection detection, audit logging"
     echo "  📊 Monitoring: /health endpoint, structured logging, metrics tracking"
     echo "  🧪 Testing: Comprehensive test suite with pytest"
@@ -2021,9 +2024,9 @@ show_next_steps() {
     echo "  ⚡ Performance: Query optimization, caching ready, migrations"
     echo
     
-    echo -e "${BLUE}Next steps:${NC}"
-    echo "  1. Navigate to the installation directory:"
-    echo "     cd $INSTALL_DIR"
+    echo -e "${YELLOW}Next steps:${NC}"
+    echo "  ${WHITE}1.${NC} Navigate to the installation directory:"
+    echo "     ${CYAN}cd $INSTALL_DIR${NC}"
     echo
     
     if [[ "$INSTALL_MODE" == "development" ]]; then
@@ -2054,14 +2057,14 @@ show_next_steps() {
     fi
     
     echo
-    echo -e "${BLUE}Login Credentials:${NC}"
+    echo -e "${MAGENTA}Login Credentials:${NC}"
     echo "  Username: $ADMIN_USERNAME"
     echo "  Password: [as configured during setup]"
     
     # Show database management info
     if [[ "$SETUP_PHPMYADMIN" == "true" ]]; then
         echo
-        echo -e "${BLUE}Database Management:${NC}"
+        echo -e "${CYAN}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  Standalone phpMyAdmin (Nginx): http://localhost:8081/"
         echo
@@ -2076,48 +2079,48 @@ show_next_steps() {
         echo "  Panel DB User: $DB_USER (for database: $DB_NAME)"
     elif [[ "$DB_TYPE" == "mysql" ]] || [[ "$DB_TYPE" == "mariadb" ]]; then
         echo
-        echo -e "${BLUE}Database Management:${NC}"
+        echo -e "${CYAN}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  Database: $DB_NAME on $DB_HOST:$DB_PORT"
         echo "  User: $DB_USER"
         echo "  MySQL client: mysql -h $DB_HOST -u $DB_USER -p $DB_NAME"
     else
         echo
-        echo -e "${BLUE}Database Management:${NC}"
+        echo -e "${CYAN}Database Management:${NC}"
         echo "  Panel Built-in: http://localhost:$APP_PORT/admin/database"
         echo "  SQLite database: $INSTALL_DIR/panel_dev.db"
     fi
     echo
     
-    echo -e "${BLUE}Useful commands:${NC}"
-    echo "  ./panel.sh start      # Start development server"
-    echo "  ./panel.sh start-prod # Start production server"
-    echo "  ./panel.sh status     # Check service status"
-    echo "  ./panel.sh update     # Update installation"
-    echo "  ./panel.sh uninstall  # Remove installation"
-    echo "  make test             # Run test suite"
-    echo "  make lint             # Check code quality"
-    echo "  make db-migrate       # Create database migration"
+    echo -e "${YELLOW}Useful commands:${NC}"
+    echo "  ${CYAN}./panel.sh start${NC}      # Start development server"
+    echo "  ${CYAN}./panel.sh start-prod${NC} # Start production server"
+    echo "  ${CYAN}./panel.sh status${NC}     # Check service status"
+    echo "  ${CYAN}./panel.sh update${NC}     # Update installation"
+    echo "  ${CYAN}./panel.sh uninstall${NC}  # Remove installation"
+    echo "  ${CYAN}make test${NC}             # Run test suite"
+    echo "  ${CYAN}make lint${NC}             # Check code quality"
+    echo "  ${CYAN}make db-migrate${NC}       # Create database migration"
     echo
     
-    echo -e "${BLUE}Configuration files:${NC}"
-    echo "  .env                  # Environment variables (copy from .env.example)"
-    echo "  config.py             # Application configuration"
+    echo -e "${MAGENTA}Configuration files:${NC}"
+    echo "  ${CYAN}.env${NC}                  # Environment variables (copy from .env.example)"
+    echo "  ${CYAN}config.py${NC}             # Application configuration"
     echo
     
-    echo -e "${BLUE}Documentation:${NC}"
-    echo "  README.md             # Main documentation"
-    echo "  docs/NEW_FEATURES.md  # New features guide"
-    echo "  docs/DATABASE_MANAGEMENT.md  # Database admin guide"
-    echo "  docs/API_DOCUMENTATION.md    # REST API reference"
-    echo "  docs/TROUBLESHOOTING.md      # Common issues & solutions"
-    echo "  CHANGELOG.md          # Version history"
+    echo -e "${GREEN}Documentation:${NC}"
+    echo "  ${CYAN}README.md${NC}             # Main documentation"
+    echo "  ${CYAN}docs/NEW_FEATURES.md${NC}  # New features guide"
+    echo "  ${CYAN}docs/DATABASE_MANAGEMENT.md${NC}  # Database admin guide"
+    echo "  ${CYAN}docs/API_DOCUMENTATION.md${NC}    # REST API reference"
+    echo "  ${CYAN}docs/TROUBLESHOOTING.md${NC}      # Common issues & solutions"
+    echo "  ${CYAN}CHANGELOG.md${NC}          # Version history"
     echo
     
-    echo -e "${BLUE}Monitoring & Health:${NC}"
-    echo "  http://localhost:$APP_PORT/health  # Health check endpoint"
-    echo "  instance/logs/panel.log            # Application logs"
-    echo "  instance/audit_logs/               # Security audit logs"
+    echo -e "${YELLOW}Monitoring & Health:${NC}"
+    echo "  ${CYAN}http://localhost:$APP_PORT/health${NC}  # Health check endpoint"
+    echo "  ${CYAN}instance/logs/panel.log${NC}            # Application logs"
+    echo "  ${CYAN}instance/audit_logs/${NC}               # Security audit logs"
     echo
 }
 
