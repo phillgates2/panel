@@ -1215,7 +1215,7 @@ setup_mariadb() {
     log "Setting up MariaDB..."
     
     # Detect package manager if not already set
-    if [[ -z "$PKG_MANAGER" ]]; then
+    if [[ -z "${PKG_MANAGER:-}" ]]; then
         if command -v apt-get &> /dev/null; then
             PKG_MANAGER="apt-get"
             PKG_INSTALL="apt-get install -y"
@@ -1403,7 +1403,7 @@ setup_phpmyadmin() {
     log "Setting up phpMyAdmin with Nginx..."
     
     # Detect package manager if not already set
-    if [[ -z "$PKG_MANAGER" ]]; then
+    if [[ -z "${PKG_MANAGER:-}" ]]; then
         if command -v apt-get &> /dev/null; then
             PKG_MANAGER="apt-get"
             PKG_INSTALL="apt-get install -y"
