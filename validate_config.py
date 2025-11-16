@@ -46,7 +46,6 @@ class ConfigValidator:
         
         # Check if we're in development/testing mode
         is_dev_mode = (
-            os.environ.get('PANEL_USE_SQLITE') == '1' or
             os.environ.get('FLASK_ENV') == 'development' or
             os.environ.get('TESTING') == '1' or
             not secret  # No secret key indicates dev mode
@@ -71,80 +70,23 @@ class ConfigValidator:
             self.info.append(f"✓ SECRET_KEY configured ({len(secret)} chars)")
     
     def check_database_config(self):
-        """Validate database configuration."""
-        use_sqlite = os.environ.get('PANEL_USE_SQLITE') == '1'
-        
-        # Auto-detect development mode
-        if not use_sqlite:
+        """Validate database configuration (SQLite only)."""
+        self.info.append("✓ Using SQLite")
+        sqlite_uri = os.environ.get('PANEL_SQLITE_URI')
+        if not sqlite_uri:
             try:
                 import config
-                if hasattr(config, 'SQLALCHEMY_DATABASE_URI'):
-                    if config.SQLALCHEMY_DATABASE_URI.startswith('sqlite:'):
-                        use_sqlite = True
+                sqlite_uri = getattr(config, 'SQLALCHEMY_DATABASE_URI', 'sqlite:///panel_dev.db')
             except ImportError:
-                pass
+                sqlite_uri = 'sqlite:///panel_dev.db'
         
-        if use_sqlite:
-            self.info.append("✓ Using SQLite (dev mode)")
-            sqlite_uri = os.environ.get('PANEL_SQLITE_URI')
-            if not sqlite_uri:
-                try:
-                    import config
-                    sqlite_uri = getattr(config, 'SQLALCHEMY_DATABASE_URI', 'sqlite:///panel_dev.db')
-                except ImportError:
-                    sqlite_uri = 'sqlite:///panel_dev.db'
-            
-            # Extract path from sqlite:/// URI
-            if sqlite_uri.startswith('sqlite:///'):
-                db_path = sqlite_uri[10:]
-                if not db_path.startswith('/'):
-                    db_path = Path(db_path)
-                    if not db_path.parent.exists():
-                        self.warnings.append(f"SQLite directory doesn't exist: {db_path.parent}")
-        else:
-            # Check MariaDB config
-            db_user = os.environ.get('PANEL_DB_USER', 'paneluser')
-            db_pass = os.environ.get('PANEL_DB_PASS', 'panelpass')
-            db_host = os.environ.get('PANEL_DB_HOST', '127.0.0.1')
-            db_name = os.environ.get('PANEL_DB_NAME', 'paneldb')
-            
-            # Check if we're in dev mode
-            is_dev_mode = (
-                os.environ.get('FLASK_ENV') == 'development' or
-                os.environ.get('TESTING') == '1' or
-                not any([
-                    os.environ.get('PANEL_DB_USER'),
-                    os.environ.get('PANEL_DB_PASS'),
-                    os.environ.get('PANEL_DB_HOST'),
-                    os.environ.get('PANEL_DB_NAME')
-                ])
-            )
-            
-            if db_pass == 'panelpass':
-                if is_dev_mode:
-                    self.warnings.append("Using default MariaDB password (dev mode)")
-                else:
-                    self.errors.append("Using default MariaDB password in production")
-            
-            # Try to connect (if pymysql available)
-            try:
-                import pymysql
-                conn = pymysql.connect(
-                    host=db_host,
-                    user=db_user,
-                    password=db_pass,
-                    database=db_name,
-                    connect_timeout=5
-                )
-                conn.close()
-                self.info.append(f"✓ MySQL connection successful ({db_user}@{db_host}/{db_name})")
-            except ImportError:
-                self.warnings.append("PyMySQL not installed, skipping connection test")
-            except Exception as e:
-                if is_dev_mode:
-                    self.warnings.append(f"MySQL connection failed (dev mode): {e}")
-                else:
-                    self.errors.append(f"MySQL connection failed: {e}")
+        # Extract path from sqlite:/// URI
+        if sqlite_uri.startswith('sqlite:///'):
+            db_path = sqlite_uri[10:]
+            if not db_path.startswith('/'):
+                db_path = Path(db_path)
+                if not db_path.parent.exists():
+                    self.warnings.append(f"SQLite directory doesn't exist: {db_path.parent}")
     
     def check_redis_config(self):
         """Validate Redis configuration."""
@@ -224,8 +166,7 @@ class ConfigValidator:
         }
         optional = {
             'redis': 'redis',
-            'rq': 'rq', 
-            'pymysql': 'pymysql',
+            'rq': 'rq',
             'pillow': 'PIL'  # Pillow installs as PIL
         }
         

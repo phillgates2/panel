@@ -44,11 +44,7 @@ class BackupManager:
         """Load backup configuration."""
         default_config = {
             "database": {
-                "host": "localhost",
-                "user": "paneluser",
-                "password": "panelpass", 
-                "name": "paneldb",
-                "port": 3306
+                "path": "panel.db"
             },
             "backup": {
                 "directory": DEFAULT_BACKUP_DIR,
@@ -138,14 +134,14 @@ class BackupManager:
         backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate backup filename
-        backup_name = f"panel_backup_{backup_type}_{timestamp}.sql"
+        backup_name = f"panel_backup_{backup_type}_{timestamp}.db"
         backup_path = backup_dir / backup_name
         
         print(f"Creating {backup_type} backup: {backup_name}")
         
         try:
-            # Create MariaDB dump
-            self._create_mariadb_dump(backup_path, backup_type)
+            # Create SQLite backup
+            self._create_sqlite_backup(backup_path)
             
             # Compress if enabled
             if self.config['backup']['compress']:
@@ -175,36 +171,28 @@ class BackupManager:
             self._send_notification('error', error_msg)
             raise
     
-    def _create_mariadb_dump(self, backup_path, backup_type):
-        """Create MariaDB database dump."""
-        db_config = self.config['database']
-        
-        cmd = [
-            'mysqldump',
-            f'--host={db_config["host"]}',
-            f'--port={db_config["port"]}',
-            f'--user={db_config["user"]}',
-            f'--password={db_config["password"]}',
-            '--single-transaction',
-            '--routines',
-            '--triggers',
-            '--add-drop-table',
-            '--disable-keys',
-            '--extended-insert'
+    def _create_sqlite_backup(self, backup_path):
+        """Create SQLite database backup."""
+        # Find the SQLite database file
+        # Try common locations
+        possible_db_paths = [
+            'panel_dev.db',
+            'panel.db',
+            'instance/panel.db',
+            'instance/panel_dev.db'
         ]
         
-        # Add incremental backup options
-        if backup_type == 'incremental':
-            cmd.extend(['--flush-logs', '--master-data=2'])
-            
-        cmd.append(db_config['name'])
+        db_path = None
+        for path in possible_db_paths:
+            if os.path.exists(path):
+                db_path = path
+                break
         
-        # Execute mysqldump (works with MariaDB)
-        with open(backup_path, 'w') as f:
-            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
-            
-        if result.returncode != 0:
-            raise Exception(f"mysqldump failed: {result.stderr}")
+        if not db_path:
+            raise Exception("SQLite database file not found")
+        
+        # Copy the SQLite database file
+        shutil.copy2(db_path, backup_path)
     
     def _compress_backup(self, backup_path):
         """Compress backup file using gzip."""
@@ -343,26 +331,36 @@ class BackupManager:
         if processed_file.suffix == '.gz':
             processed_file = self._decompress_backup(processed_file)
         
-        # Restore database
-        db_config = self.config['database']
-        target_db = target_database or db_config['name']
-        
-        cmd = [
-            'mysql',
-            f'--host={db_config["host"]}',
-            f'--port={db_config["port"]}',
-            f'--user={db_config["user"]}',
-            f'--password={db_config["password"]}',
-            target_db
+        # Restore SQLite database
+        # Find target database path
+        possible_db_paths = [
+            'panel_dev.db',
+            'panel.db',
+            'instance/panel.db',
+            'instance/panel_dev.db'
         ]
         
-        with open(processed_file, 'r') as f:
-            result = subprocess.run(cmd, stdin=f, stderr=subprocess.PIPE, text=True)
+        db_path = None
+        for path in possible_db_paths:
+            if os.path.exists(path):
+                db_path = path
+                break
         
-        if result.returncode != 0:
-            raise Exception(f"Database restore failed: {result.stderr}")
+        if not db_path:
+            # Use default location
+            db_path = 'instance/panel.db'
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
-        print(f"Database restored successfully to {target_db}")
+        # Backup current database
+        if os.path.exists(db_path):
+            backup_current = f"{db_path}.restore_backup"
+            shutil.copy2(db_path, backup_current)
+            print(f"Current database backed up to: {backup_current}")
+        
+        # Restore from backup
+        shutil.copy2(processed_file, db_path)
+        
+        print(f"Database restored successfully to {db_path}")
         
         # Cleanup temporary files
         if processed_file != backup_path:

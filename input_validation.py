@@ -72,7 +72,7 @@ class RconCommandSchema(Schema):
 class DatabaseQuerySchema(Schema):
     """Validation schema for database queries"""
     query = fields.Str(required=True, validate=validate.Length(min=1, max=10000))
-    database = fields.Str(validate=validate.OneOf(['sqlite', 'mysql']))
+    database = fields.Str(validate=validate.OneOf(['sqlite']))
 
 
 class UserUpdateSchema(Schema):

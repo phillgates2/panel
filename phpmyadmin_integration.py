@@ -1,6 +1,6 @@
 """
 phpMyAdmin Integration for Panel
-Provides embedded database management interface
+Provides embedded database management interface for SQLite
 """
 
 import os
@@ -9,88 +9,51 @@ import tempfile
 import shutil
 from flask import render_template_string, request, redirect, url_for, flash, session
 from werkzeug.security import check_password_hash
-import pymysql
 import sqlite3
 
 
 class PhpMyAdminIntegration:
-    """Embedded phpMyAdmin-like functionality for Panel"""
+    """Embedded phpMyAdmin-like functionality for Panel (SQLite only)"""
     
     def __init__(self, app, db):
         self.app = app
         self.db = db
         
-    def is_mysql(self):
-        """Check if using MySQL/MariaDB"""
-        return not os.getenv('PANEL_USE_SQLITE', '0') == '1'
-        
     def get_db_connection(self):
-        """Get database connection based on configuration"""
-        if self.is_mysql():
-            return pymysql.connect(
-                host=os.getenv('PANEL_DB_HOST', 'localhost'),
-                port=int(os.getenv('PANEL_DB_PORT', '3306')),
-                user=os.getenv('PANEL_DB_USER', 'panel'),
-                password=os.getenv('PANEL_DB_PASS', ''),
-                database=os.getenv('PANEL_DB_NAME', 'panel'),
-                charset='utf8mb4',
-                cursorclass=pymysql.cursors.DictCursor
-            )
-        else:
-            db_path = os.path.join(self.app.instance_path, 'panel.db')
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row  # Dict-like access
-            return conn
+        """Get SQLite database connection"""
+        db_path = os.path.join(self.app.instance_path, 'panel.db')
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row  # Dict-like access
+        return conn
     
     def execute_query(self, query, params=None):
         """Execute a database query safely"""
         try:
             conn = self.get_db_connection()
-            if self.is_mysql():
-                with conn.cursor() as cursor:
-                    cursor.execute(query, params or ())
-                    if query.strip().upper().startswith('SELECT') or query.strip().upper().startswith('SHOW') or query.strip().upper().startswith('DESCRIBE'):
-                        results = cursor.fetchall()
-                        conn.close()
-                        return {'success': True, 'data': results}
-                    else:
-                        conn.commit()
-                        conn.close()
-                        return {'success': True, 'message': f'Query executed successfully. {cursor.rowcount} rows affected.'}
+            cursor = conn.cursor()
+            cursor.execute(query, params or ())
+            if query.strip().upper().startswith('SELECT') or query.strip().upper().startswith('PRAGMA'):
+                results = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+                return {'success': True, 'data': results}
             else:
-                cursor = conn.cursor()
-                cursor.execute(query, params or ())
-                if query.strip().upper().startswith('SELECT') or query.strip().upper().startswith('PRAGMA'):
-                    results = [dict(row) for row in cursor.fetchall()]
-                    conn.close()
-                    return {'success': True, 'data': results}
-                else:
-                    conn.commit()
-                    conn.close()
-                    return {'success': True, 'message': f'Query executed successfully. {cursor.rowcount} rows affected.'}
+                conn.commit()
+                conn.close()
+                return {'success': True, 'message': f'Query executed successfully. {cursor.rowcount} rows affected.'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
     def get_tables(self):
         """Get list of tables in the database"""
-        if self.is_mysql():
-            result = self.execute_query("SHOW TABLES")
-        else:
-            result = self.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
+        result = self.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
         
         if result['success']:
-            if self.is_mysql():
-                return [list(row.values())[0] for row in result['data']]
-            else:
-                return [row['name'] for row in result['data']]
+            return [row['name'] for row in result['data']]
         return []
     
     def get_table_structure(self, table_name):
         """Get table structure"""
-        if self.is_mysql():
-            return self.execute_query(f"DESCRIBE `{table_name}`")
-        else:
-            return self.execute_query(f"PRAGMA table_info(`{table_name}`)")
+        return self.execute_query(f"PRAGMA table_info(`{table_name}`)")
     
     def get_table_data(self, table_name, limit=100, offset=0):
         """Get table data with pagination"""
@@ -100,23 +63,14 @@ class PhpMyAdminIntegration:
     def get_database_info(self):
         """Get database information"""
         info = {
-            'type': 'MySQL/MariaDB' if self.is_mysql() else 'SQLite',
+            'type': 'SQLite',
             'tables': self.get_tables()
         }
         
-        if self.is_mysql():
-            result = self.execute_query("SELECT VERSION() as version")
-            if result['success'] and result['data']:
-                info['version'] = result['data'][0]['version']
-            
-            result = self.execute_query("SELECT DATABASE() as database_name")
-            if result['success'] and result['data']:
-                info['database'] = result['data'][0]['database_name']
-        else:
-            result = self.execute_query("SELECT sqlite_version() as version")
-            if result['success'] and result['data']:
-                info['version'] = result['data'][0]['version']
-            info['database'] = 'panel.db'
+        result = self.execute_query("SELECT sqlite_version() as version")
+        if result['success'] and result['data']:
+            info['version'] = result['data'][0]['version']
+        info['database'] = 'panel.db'
         
         return info
 
@@ -322,7 +276,7 @@ PHPMYADMIN_QUERY_TEMPLATE = '''
     
     <h3>Quick Queries</h3>
     <div>
-        <a href="{{ url_for('admin_db_query') }}?query=SHOW TABLES" class="btn">Show Tables</a>
+        <a href="{{ url_for('admin_db_query') }}?query=SELECT name FROM sqlite_master WHERE type='table'" class="btn">Show Tables</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT * FROM user LIMIT 10" class="btn">View Users</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT COUNT(*) as total_users FROM user" class="btn">Count Users</a>
     </div>

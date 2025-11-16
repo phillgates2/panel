@@ -1,25 +1,11 @@
 import os
-from urllib.parse import quote_plus
 from os_paths import os_paths
 
-# Allow a quick dev sqlite mode for local testing/CI when PANEL_USE_SQLITE=1
-USE_SQLITE = os.environ.get('PANEL_USE_SQLITE', '') == '1'
-
 # Basic config - change values in env or edit directly for local testing
-# MariaDB/MySQL connection settings (backward compatible)
-DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
-DB_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
-DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
-DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
-
 SECRET_KEY = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
 
-if USE_SQLITE:
-    SQLALCHEMY_DATABASE_URI = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
-else:
-    SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}/{DB_NAME}"
-    )
+# SQLite database configuration
+SQLALCHEMY_DATABASE_URI = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # OS-aware paths with environment variable overrides
