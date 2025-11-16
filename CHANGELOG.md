@@ -2,7 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.0] - 2025-11-16
+## [2.1.0] - 2025-01-16
+
+### 🚀 **Installation Flow Reorganization**
+- **Production Mode Early Database Setup** - MariaDB and phpMyAdmin now installed immediately after selecting production mode
+- **Validation Checkers** - Added comprehensive validation functions for each configuration section
+  - `check_mariadb_ready()` - Verifies MariaDB service is running and accessible (10 retry attempts)
+  - `check_phpmyadmin_ready()` - Confirms phpMyAdmin installation and HTTP accessibility
+  - `check_database_connection()` - Tests database connectivity and creates database with UTF8MB4
+  - `check_section_complete()` - Visual completion markers between configuration sections
+- **Early Failure Detection** - Database issues caught early before app configuration begins
+- **Better Error Handling** - Option to abort or continue when database setup fails
+- **Improved UX** - Clear visual separators and progress indicators throughout installation
+- **Section Markers** - Each configuration section now has a completion marker for better visibility
+
+### ✨ **Enhanced Production Deployment**
+- **Immediate Database Verification** - Database infrastructure verified before continuing with configuration
+- **phpMyAdmin Instant Access** - Database management UI available immediately at http://localhost:8081
+- **Better Flow** - Database setup → Verify → Admin config → App settings → Services
+- **Configuration Summary** - Enhanced summary with bold section headers and clear structure
+
+## [2.0.0] - 2025-01-16
 
 ### 🎨 **Installer UX Improvements**
 - **Colorful Terminal Output** - Added magenta, yellow, white colors for better readability
