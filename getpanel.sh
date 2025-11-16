@@ -45,6 +45,15 @@ SQLITE_ONLY=false
 FULL_INSTALL=false
 UNINSTALL_MODE=false
 
+# System detection variables
+OS_TYPE=""
+OS_DISTRO=""
+OS_VERSION=""
+PKG_MANAGER=""
+PKG_UPDATE=""
+PKG_INSTALL=""
+SERVICE_MANAGER=""
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -55,6 +64,146 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
+
+# Detect operating system and package manager
+detect_system() {
+    echo -e "${MAGENTA}${BOLD}Detecting system...${NC}"
+    
+    # Detect OS type
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        OS_TYPE="linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OS_TYPE="macos"
+    elif [[ "$OSTYPE" == "freebsd"* ]]; then
+        OS_TYPE="freebsd"
+    else
+        OS_TYPE="unknown"
+    fi
+    
+    # Detect Linux distribution
+    if [[ "$OS_TYPE" == "linux" ]]; then
+        if [[ -f /etc/os-release ]]; then
+            . /etc/os-release
+            OS_DISTRO="${ID}"
+            OS_VERSION="${VERSION_ID:-unknown}"
+            
+            case "$OS_DISTRO" in
+                ubuntu|debian|linuxmint|pop|zorin)
+                    PKG_MANAGER="apt-get"
+                    PKG_UPDATE="apt-get update"
+                    PKG_INSTALL="apt-get install -y"
+                    SERVICE_MANAGER="systemd"
+                    ;;
+                fedora|rhel|centos|rocky|almalinux)
+                    PKG_MANAGER="dnf"
+                    PKG_UPDATE="dnf check-update || true"
+                    PKG_INSTALL="dnf install -y"
+                    SERVICE_MANAGER="systemd"
+                    ;;
+                amzn)
+                    PKG_MANAGER="yum"
+                    PKG_UPDATE="yum update -y"
+                    PKG_INSTALL="yum install -y"
+                    SERVICE_MANAGER="systemd"
+                    ;;
+                alpine)
+                    PKG_MANAGER="apk"
+                    PKG_UPDATE="apk update"
+                    PKG_INSTALL="apk add"
+                    SERVICE_MANAGER="openrc"
+                    ;;
+                arch|manjaro)
+                    PKG_MANAGER="pacman"
+                    PKG_UPDATE="pacman -Sy"
+                    PKG_INSTALL="pacman -S --noconfirm"
+                    SERVICE_MANAGER="systemd"
+                    ;;
+                opensuse*|sles)
+                    PKG_MANAGER="zypper"
+                    PKG_UPDATE="zypper refresh"
+                    PKG_INSTALL="zypper install -y"
+                    SERVICE_MANAGER="systemd"
+                    ;;
+                *)
+                    # Fallback detection
+                    if command -v apt-get &> /dev/null; then
+                        PKG_MANAGER="apt-get"
+                        PKG_UPDATE="apt-get update"
+                        PKG_INSTALL="apt-get install -y"
+                        SERVICE_MANAGER="systemd"
+                    elif command -v dnf &> /dev/null; then
+                        PKG_MANAGER="dnf"
+                        PKG_UPDATE="dnf check-update || true"
+                        PKG_INSTALL="dnf install -y"
+                        SERVICE_MANAGER="systemd"
+                    elif command -v yum &> /dev/null; then
+                        PKG_MANAGER="yum"
+                        PKG_UPDATE="yum update -y"
+                        PKG_INSTALL="yum install -y"
+                        SERVICE_MANAGER="systemd"
+                    elif command -v apk &> /dev/null; then
+                        PKG_MANAGER="apk"
+                        PKG_UPDATE="apk update"
+                        PKG_INSTALL="apk add"
+                        SERVICE_MANAGER="openrc"
+                    elif command -v pacman &> /dev/null; then
+                        PKG_MANAGER="pacman"
+                        PKG_UPDATE="pacman -Sy"
+                        PKG_INSTALL="pacman -S --noconfirm"
+                        SERVICE_MANAGER="systemd"
+                    elif command -v zypper &> /dev/null; then
+                        PKG_MANAGER="zypper"
+                        PKG_UPDATE="zypper refresh"
+                        PKG_INSTALL="zypper install -y"
+                        SERVICE_MANAGER="systemd"
+                    else
+                        echo -e "${RED}✗ Could not detect package manager${NC}"
+                        return 1
+                    fi
+                    ;;
+            esac
+        else
+            # Fallback for older systems without /etc/os-release
+            if command -v apt-get &> /dev/null; then
+                PKG_MANAGER="apt-get"
+                PKG_UPDATE="apt-get update"
+                PKG_INSTALL="apt-get install -y"
+                SERVICE_MANAGER="systemd"
+                OS_DISTRO="debian-based"
+            elif command -v yum &> /dev/null; then
+                PKG_MANAGER="yum"
+                PKG_UPDATE="yum update -y"
+                PKG_INSTALL="yum install -y"
+                SERVICE_MANAGER="systemd"
+                OS_DISTRO="rhel-based"
+            fi
+        fi
+    elif [[ "$OS_TYPE" == "macos" ]]; then
+        if command -v brew &> /dev/null; then
+            PKG_MANAGER="brew"
+            PKG_UPDATE="brew update"
+            PKG_INSTALL="brew install"
+            SERVICE_MANAGER="launchd"
+            OS_DISTRO="macos"
+            OS_VERSION=$(sw_vers -productVersion)
+        else
+            echo -e "${RED}✗ Homebrew is required on macOS${NC}"
+            echo -e "${YELLOW}Install it from: https://brew.sh${NC}"
+            return 1
+        fi
+    fi
+    
+    # Display detected system information
+    echo -e "${GREEN}✓ System detected:${NC}"
+    echo -e "  OS Type:        ${WHITE}$OS_TYPE${NC}"
+    echo -e "  Distribution:   ${WHITE}$OS_DISTRO${NC}"
+    echo -e "  Version:        ${WHITE}$OS_VERSION${NC}"
+    echo -e "  Package Mgr:    ${WHITE}$PKG_MANAGER${NC}"
+    echo -e "  Service Mgr:    ${WHITE}$SERVICE_MANAGER${NC}"
+    echo
+    
+    return 0
+}
 
 show_help() {
     printf "\n"
@@ -1214,23 +1363,6 @@ EOF
 setup_mariadb() {
     log "Setting up MariaDB..."
     
-    # Detect package manager if not already set
-    if [[ -z "${PKG_MANAGER:-}" ]]; then
-        if command -v apt-get &> /dev/null; then
-            PKG_MANAGER="apt-get"
-            PKG_INSTALL="apt-get install -y"
-        elif command -v yum &> /dev/null; then
-            PKG_MANAGER="yum"
-            PKG_INSTALL="yum install -y"
-        elif command -v apk &> /dev/null; then
-            PKG_MANAGER="apk"
-            PKG_INSTALL="apk add"
-        else
-            echo -e "${RED}✗ Could not detect package manager${NC}"
-            return 1
-        fi
-    fi
-    
     # Install MariaDB server
     case "$PKG_MANAGER" in
         apt-get) 
@@ -1246,7 +1378,7 @@ setup_mariadb() {
                 sudo systemctl start mariadb 2>/dev/null || sudo systemctl start mysql 2>/dev/null
             fi
             ;;
-        yum) 
+        yum|dnf) 
             if [[ $EUID -eq 0 ]]; then
                 $PKG_INSTALL mariadb-server mariadb
                 systemctl enable mariadb 2>/dev/null || systemctl enable mysql 2>/dev/null
@@ -1269,6 +1401,34 @@ setup_mariadb() {
                 sudo /etc/init.d/mariadb setup
                 sudo rc-service mariadb start
             fi
+            ;;
+        pacman)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb
+                mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                systemctl enable mariadb
+                systemctl start mariadb
+            else
+                sudo $PKG_INSTALL mariadb
+                sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                sudo systemctl enable mariadb
+                sudo systemctl start mariadb
+            fi
+            ;;
+        zypper)
+            if [[ $EUID -eq 0 ]]; then
+                $PKG_INSTALL mariadb mariadb-client
+                systemctl enable mariadb
+                systemctl start mariadb
+            else
+                sudo $PKG_INSTALL mariadb mariadb-client
+                sudo systemctl enable mariadb
+                sudo systemctl start mariadb
+            fi
+            ;;
+        brew)
+            $PKG_INSTALL mariadb
+            brew services start mariadb
             ;;
     esac
     
@@ -1493,23 +1653,6 @@ check_section_complete() {
 
 setup_phpmyadmin() {
     log "Setting up phpMyAdmin with Nginx..."
-    
-    # Detect package manager if not already set
-    if [[ -z "${PKG_MANAGER:-}" ]]; then
-        if command -v apt-get &> /dev/null; then
-            PKG_MANAGER="apt-get"
-            PKG_INSTALL="apt-get install -y"
-        elif command -v yum &> /dev/null; then
-            PKG_MANAGER="yum"
-            PKG_INSTALL="yum install -y"
-        elif command -v apk &> /dev/null; then
-            PKG_MANAGER="apk"
-            PKG_INSTALL="apk add"
-        else
-            echo -e "${RED}✗ Could not detect package manager${NC}"
-            return 1
-        fi
-    fi
     
     # Note: Panel has built-in phpMyAdmin at /admin/database
     # This standalone phpMyAdmin is optional
@@ -1823,25 +1966,7 @@ install_system_deps() {
         return 0
     fi
     
-    log "Installing system dependencies..."
-    
-    # Detect package manager
-    if command -v apt-get &> /dev/null; then
-        PKG_MANAGER="apt-get"
-        PKG_UPDATE="apt-get update"
-        PKG_INSTALL="apt-get install -y"
-    elif command -v yum &> /dev/null; then
-        PKG_MANAGER="yum"
-        PKG_UPDATE="yum update -y"
-        PKG_INSTALL="yum install -y"
-    elif command -v apk &> /dev/null; then
-        PKG_MANAGER="apk"
-        PKG_UPDATE="apk update"
-        PKG_INSTALL="apk add"
-    else
-        warn "Unknown package manager, skipping system dependencies"
-        return 0
-    fi
+    log "Installing system dependencies for $OS_DISTRO..."
     
     # Update package list
     if [[ $EUID -eq 0 ]]; then
@@ -1858,7 +1983,7 @@ install_system_deps() {
             packages="$packages libopenjp2-7-dev libtiff5-dev libwebp-dev libharfbuzz-dev"
             packages="$packages libfribidi-dev libxcb1-dev"
             ;;
-        yum) 
+        yum|dnf) 
             local packages="python3-venv python3-pip python3-devel gcc gcc-c++"
             packages="$packages libjpeg-devel zlib-devel freetype-devel lcms2-devel"
             packages="$packages openjpeg2-devel libtiff-devel libwebp-devel harfbuzz-devel"
@@ -1870,13 +1995,34 @@ install_system_deps() {
             packages="$packages openjpeg-dev tiff-dev libwebp-dev harfbuzz-dev"
             packages="$packages fribidi-dev libxcb-dev"
             ;;
+        pacman)
+            local packages="python python-pip python-virtualenv base-devel"
+            packages="$packages libjpeg-turbo zlib freetype2 lcms2"
+            packages="$packages openjpeg2 libtiff libwebp harfbuzz"
+            packages="$packages fribidi libxcb"
+            ;;
+        zypper)
+            local packages="python3-venv python3-pip python3-devel gcc gcc-c++"
+            packages="$packages libjpeg8-devel zlib-devel freetype2-devel lcms2-devel"
+            packages="$packages openjpeg2-devel libtiff-devel libwebp-devel harfbuzz-devel"
+            packages="$packages fribidi-devel libxcb-devel"
+            ;;
+        brew)
+            local packages="python3"
+            packages="$packages jpeg zlib freetype lcms2"
+            packages="$packages openjpeg libtiff webp harfbuzz"
+            packages="$packages fribidi libxcb"
+            ;;
     esac
     
     if [[ "$DB_TYPE" == "mysql" ]]; then
         case "$PKG_MANAGER" in
             apt-get) packages="$packages mariadb-server libmariadb-dev";;
-            yum) packages="$packages mariadb-server mariadb-devel";;
+            yum|dnf) packages="$packages mariadb-server mariadb-devel";;
             apk) packages="$packages mariadb mariadb-dev mariadb-client";;
+            pacman) packages="$packages mariadb";;
+            zypper) packages="$packages mariadb mariadb-client";;
+            brew) packages="$packages mariadb";;
         esac
     fi
     
@@ -1891,8 +2037,11 @@ install_system_deps() {
     if [[ "$SETUP_SSL" == "true" ]]; then
         case "$PKG_MANAGER" in
             apt-get) packages="$packages certbot python3-certbot-nginx";;
-            yum) packages="$packages certbot python3-certbot-nginx";;
+            yum|dnf) packages="$packages certbot python3-certbot-nginx";;
             apk) packages="$packages certbot certbot-nginx";;
+            pacman) packages="$packages certbot certbot-nginx";;
+            zypper) packages="$packages certbot python3-certbot-nginx";;
+            brew) packages="$packages certbot";;
         esac
     fi
     
@@ -2558,6 +2707,13 @@ main() {
     fi
     
     print_banner
+    
+    # Detect operating system early
+    if ! detect_system; then
+        echo -e "${RED}✗ System detection failed${NC}"
+        echo -e "${YELLOW}This installer may not support your system${NC}"
+        exit 1
+    fi
     
     # Show installation mode
     if [[ "$SQLITE_ONLY" == "true" ]]; then
