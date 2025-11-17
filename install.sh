@@ -1039,24 +1039,51 @@ main() {
     log "Redis is running ✓"
     
     # Check Nginx - REQUIRED for production
-    if command -v nginx &>/dev/null; then
-        if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
-            warn "Nginx is not running. Attempting to start..."
-            if command -v systemctl &>/dev/null; then
-                $SUDO systemctl start nginx 2>/dev/null || true
-            elif command -v service &>/dev/null; then
-                $SUDO service nginx start 2>/dev/null || true
-            fi
-            sleep 2
-            # Verify again
-            if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
-                error "Nginx failed to start. Please check nginx configuration and start it manually: sudo systemctl start nginx"
-            fi
+    if ! command -v nginx &>/dev/null; then
+        warn "Nginx is not installed. Installing now..."
+        
+        # Install nginx based on package manager
+        case "$PKG_MANAGER" in
+            apt-get)
+                $SUDO apt-get update -qq
+                $SUDO apt-get install -y -qq nginx
+                ;;
+            dnf|yum)
+                $SUDO $PKG_MANAGER install -y -q nginx
+                ;;
+            apk)
+                $SUDO apk add --no-cache nginx
+                ;;
+            pacman)
+                $SUDO pacman -S --noconfirm --needed nginx
+                ;;
+            brew)
+                brew install nginx
+                ;;
+        esac
+        
+        # Verify installation
+        if ! command -v nginx &>/dev/null; then
+            error "Failed to install nginx. Please install it manually and rerun the installer."
         fi
-        log "Nginx is running ✓"
-    else
-        warn "Nginx is not installed. For production use, install nginx manually."
+        log "Nginx installed successfully ✓"
     fi
+    
+    # Now verify nginx is running
+    if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
+        warn "Nginx is not running. Attempting to start..."
+        if command -v systemctl &>/dev/null; then
+            $SUDO systemctl start nginx 2>/dev/null || true
+        elif command -v service &>/dev/null; then
+            $SUDO service nginx start 2>/dev/null || true
+        fi
+        sleep 2
+        # Verify again
+        if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
+            error "Nginx failed to start. Please check nginx configuration and start it manually: sudo systemctl start nginx"
+        fi
+    fi
+    log "Nginx is running ✓"
     
     echo
     
