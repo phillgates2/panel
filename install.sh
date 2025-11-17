@@ -1040,9 +1040,9 @@ main() {
     
     # Check Nginx - REQUIRED for production
     if ! command -v nginx &>/dev/null; then
-        warn "Nginx is not installed. Installing now..."
+        log "Nginx is not installed. Installing now..."
         
-        # Install nginx based on package manager
+        # Install nginx based on package manager  
         case "$PKG_MANAGER" in
             apt-get)
                 $SUDO apt-get update -qq
@@ -1067,6 +1067,15 @@ main() {
             error "Failed to install nginx. Please install it manually and rerun the installer."
         fi
         log "Nginx installed successfully ✓"
+        
+        # Configure nginx after fresh install
+        log "Configuring Nginx server..."
+        if [[ "$PKG_MANAGER" == "apt-get" ]]; then
+            if [[ -L "/etc/nginx/sites-enabled/default" ]]; then
+                log "Removing default nginx site..."
+                $SUDO rm -f /etc/nginx/sites-enabled/default
+            fi
+        fi
     fi
     
     # Now verify nginx is running

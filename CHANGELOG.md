@@ -65,6 +65,14 @@ All notable changes to this project will be documented in this file.
   - Shows detailed status if nginx fails to start
   - Verifies nginx is listening on port 80
   - Services verified before panel installation begins
+  
+- **Auto-Install Production Dependencies** - Full automation for production setup
+  - Nginx auto-installs if not present (no manual steps required)
+  - PostgreSQL auto-installs when --postgresql flag is used
+  - Redis auto-installs and auto-starts
+  - All dependencies checked and installed automatically
+  - Removes default nginx site configuration on Debian/Ubuntu
+  - Complete hands-free production setup
 
 #### Documentation Updates
 - **README** - Added installer flags reference section
