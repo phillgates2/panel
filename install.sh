@@ -1038,13 +1038,24 @@ main() {
     fi
     log "Redis is running ✓"
     
-    # Check Nginx (only warn, not critical)
+    # Check Nginx - REQUIRED for production
     if command -v nginx &>/dev/null; then
         if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
-            warn "Nginx is not running. For production, configure nginx after installation."
-        else
-            log "Nginx is running ✓"
+            warn "Nginx is not running. Attempting to start..."
+            if command -v systemctl &>/dev/null; then
+                $SUDO systemctl start nginx 2>/dev/null || true
+            elif command -v service &>/dev/null; then
+                $SUDO service nginx start 2>/dev/null || true
+            fi
+            sleep 2
+            # Verify again
+            if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
+                error "Nginx failed to start. Please check nginx configuration and start it manually: sudo systemctl start nginx"
+            fi
         fi
+        log "Nginx is running ✓"
+    else
+        warn "Nginx is not installed. For production use, install nginx manually."
     fi
     
     echo
