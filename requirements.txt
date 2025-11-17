@@ -7,6 +7,9 @@ Pillow==10.4.0
 gunicorn==21.2.0
 werkzeug==3.0.1
 
+# Database Drivers
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+
 # Security and Rate Limiting
 Flask-Limiter==3.5.0
 Flask-Talisman==1.1.0

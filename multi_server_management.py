@@ -459,7 +459,7 @@ class DeploymentManager:
         deployment = ServerDeployment(
             deployment_type=deployment_type,
             config_data=config,
-            initiated_by=current_user.username if current_user and current_user.is_authenticated else 'system',
+            initiated_by=current_user.email if current_user and current_user.is_authenticated else 'system',
             total_steps=len(server_ids) * 3  # stop, update, start
         )
         

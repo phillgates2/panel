@@ -1,13 +1,19 @@
 [Unit]
-Description=Gunicorn instance to serve panel (run as panel user)
-After=network.target
+Description=Gunicorn instance to serve panel
+After=network.target postgresql.service redis.service
 
 [Service]
-User=panel
-Group=panel
-WorkingDirectory=/opt/panel
-Environment="PATH=/opt/panel/.venv/bin"
-ExecStart=/opt/panel/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8080 app:app
+Type=notify
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/panel
+Environment="PATH=/home/YOUR_USER/panel/venv/bin"
+Environment="PANEL_USE_SQLITE=0"
+ExecStart=/home/YOUR_USER/panel/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8080 app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
 Restart=on-failure
 RestartSec=5s
 

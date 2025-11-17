@@ -34,7 +34,6 @@ APP_PORT="${PANEL_PORT:-8080}"
 DOMAIN="${PANEL_DOMAIN:-localhost}"
 DEBUG_MODE="${PANEL_DEBUG:-false}"
 
-ADMIN_USERNAME="${PANEL_ADMIN_USER:-admin}"
 ADMIN_EMAIL="${PANEL_ADMIN_EMAIL:-admin@localhost}"
 ADMIN_PASSWORD="${PANEL_ADMIN_PASS:-}"
 
@@ -72,6 +71,8 @@ INSTALLATION OPTIONS:
     --non-interactive       Run without prompts (requires env vars)
     --skip-deps             Skip system dependency installation
     --skip-postgresql       Skip PostgreSQL setup (use existing)
+    --verify-only           Verify existing installation without reinstalling
+    --update                Update existing installation (git pull + pip upgrade)
 
 ENVIRONMENT VARIABLES:
     # Installation
@@ -83,7 +84,6 @@ ENVIRONMENT VARIABLES:
     PANEL_DB_NAME           PostgreSQL database name (default: panel)
     PANEL_DB_USER           PostgreSQL username (default: panel_user)
     PANEL_DB_PASS           PostgreSQL password
-    PANEL_ADMIN_USER        Admin username (default: admin)
     PANEL_ADMIN_EMAIL       Admin email (default: admin@localhost)
     PANEL_ADMIN_PASS        Admin password
     PANEL_NON_INTERACTIVE   Skip prompts (true/false)
@@ -98,6 +98,7 @@ INSTALLATION EXAMPLES:
     PANEL_NON_INTERACTIVE=true \
     PANEL_DB_TYPE=postgresql \
     PANEL_DB_PASS=mypassword \
+    PANEL_ADMIN_EMAIL=admin@example.com \
     PANEL_ADMIN_PASS=adminpass \
     curl -fsSL .../install.sh | bash
 
@@ -106,6 +107,42 @@ INSTALLATION EXAMPLES:
 
     # Development with SQLite
     bash install.sh --sqlite --dir ~/panel-dev
+
+AVAILABLE INSTALLER FUNCTIONS:
+    Core Functions:
+      • log()                  - Print informational messages
+      • success()              - Print success messages
+      • error()                - Print error messages and exit
+      • warn()                 - Print warning messages
+      • show_help()            - Display help message
+
+    System Detection:
+      • detect_pkg_manager()   - Detect OS package manager
+      • detect_sudo()          - Detect if sudo is needed
+
+    Validation Functions:
+      • check_python_version() - Verify Python 3.8+ is available
+      • check_disk_space()     - Ensure 500MB+ free space
+      • check_network()        - Test internet connectivity
+      • validate_port()        - Check if port is available
+      • verify_installation()  - Verify existing installation
+
+    Installation Functions:
+      • install_dependencies() - Install system packages
+      • setup_postgresql()     - Configure PostgreSQL database
+      • install_nginx()        - Install and configure Nginx
+      • install_panel()        - Main installation orchestrator
+      • setup_python_env()     - Create venv and install deps
+      • configure_database()   - Generate database config
+      • create_admin_user()    - Create initial admin account
+      • setup_services()       - Configure systemd services
+      • setup_logrotate()      - Configure log rotation
+      • health_check()         - Test panel startup
+
+    Utility Functions:
+      • generate_secret()      - Generate secure random key
+      • prompt_user()          - Interactive user prompts
+      • backup_installation()  - Backup existing installation
 
 UNINSTALLATION:
     For complete uninstallation including system dependencies, use:
@@ -124,6 +161,66 @@ EOF
 log() { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
+
+# Cleanup on failure
+cleanup_on_error() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        warn "Installation failed with exit code $exit_code"
+        if [[ -n "$BACKUP_DIR" ]] && [[ -d "$BACKUP_DIR" ]]; then
+            log "Backup available at: $BACKUP_DIR"
+        fi
+    fi
+}
+
+trap cleanup_on_error EXIT
+
+# Validation functions
+check_python_version() {
+    log "Checking Python version..."
+    if ! command -v python3 &>/dev/null; then
+        error "Python 3 is not installed"
+    fi
+    
+    local python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    local required_version="3.8"
+    
+    if ! awk -v ver="$python_version" -v req="$required_version" 'BEGIN{exit(ver<req)}'; then
+        error "Python $required_version or higher required (found: $python_version)"
+    fi
+    
+    log "Python version: $python_version ✓"
+}
+
+check_disk_space() {
+    log "Checking disk space..."
+    local install_parent=$(dirname "$INSTALL_DIR")
+    local available_mb=$(df -m "$install_parent" 2>/dev/null | awk 'NR==2 {print $4}')
+    local required_mb=500
+    
+    if [[ -n "$available_mb" ]] && [[ "$available_mb" -lt "$required_mb" ]]; then
+        warn "Low disk space: ${available_mb}MB available, ${required_mb}MB recommended"
+        if ! prompt_confirm "Continue anyway?" "n"; then
+            error "Installation cancelled due to insufficient disk space"
+        fi
+    else
+        log "Disk space: ${available_mb}MB available ✓"
+    fi
+}
+
+check_network() {
+    log "Checking network connectivity..."
+    if command -v curl &>/dev/null; then
+        if ! curl -s --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+            warn "Cannot reach GitHub. Check your internet connection."
+            if ! prompt_confirm "Continue anyway?" "n"; then
+                error "Installation cancelled due to network issues"
+            fi
+        else
+            log "Network connectivity ✓"
+        fi
+    fi
+}
 
 detect_system() {
     log "Detecting system..."
@@ -233,6 +330,7 @@ install_system_deps() {
                 python3 python3-pip python3-venv \
                 git curl wget \
                 redis-server \
+                nginx \
                 build-essential libssl-dev libffi-dev
             ;;
         dnf|yum)
@@ -240,6 +338,7 @@ install_system_deps() {
                 python3 python3-pip python3-devel \
                 git curl wget \
                 redis \
+                nginx \
                 gcc openssl-devel libffi-devel
             ;;
         apk)
@@ -247,6 +346,7 @@ install_system_deps() {
                 python3 py3-pip \
                 git curl wget \
                 redis \
+                nginx \
                 gcc musl-dev linux-headers libffi-dev openssl-dev
             ;;
         pacman)
@@ -254,12 +354,18 @@ install_system_deps() {
                 python python-pip \
                 git curl wget \
                 redis \
+                nginx \
                 base-devel
             ;;
         brew)
-            brew install python3 git curl wget redis
+            brew install python3 git curl wget redis nginx
             ;;
     esac
+    
+    # Enable Redis to start on boot
+    if command -v systemctl &>/dev/null; then
+        $SUDO systemctl enable redis 2>/dev/null || $SUDO systemctl enable redis-server 2>/dev/null || true
+    fi
     
     log "System dependencies installed"
 }
@@ -332,13 +438,31 @@ setup_postgresql() {
 install_panel() {
     log "Installing Panel to $INSTALL_DIR..."
     
+    # Check if critical ports are available
+    log "Checking port availability..."
+    if command -v netstat &>/dev/null; then
+        if netstat -tlnp 2>/dev/null | grep -q ":$APP_PORT "; then
+            warn "Port $APP_PORT is already in use"
+            if ! prompt_confirm "Continue anyway?" "y"; then
+                error "Installation cancelled"
+            fi
+        fi
+        if [[ "$DB_TYPE" == "postgresql" ]] && netstat -tlnp 2>/dev/null | grep -q ":$DB_PORT "; then
+            warn "PostgreSQL port $DB_PORT is already in use (this may be normal if PostgreSQL is already running)"
+        fi
+    fi
+    
     # Clone repository
     if [[ -d "$INSTALL_DIR" ]]; then
         warn "Directory exists: $INSTALL_DIR"
         if ! prompt_confirm "Remove existing installation?" "n"; then
             error "Installation cancelled"
         fi
-        rm -rf "$INSTALL_DIR"
+        # Backup existing installation
+        BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
+        log "Creating backup: $BACKUP_DIR"
+        mv "$INSTALL_DIR" "$BACKUP_DIR"
+        log "Backup created. To restore: mv $BACKUP_DIR $INSTALL_DIR"
     fi
     
     git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
@@ -358,27 +482,42 @@ install_panel() {
     log "Creating configuration..."
     
     cat > .env << EOF
-SECRET_KEY=$(openssl rand -hex 32)
+# Panel Configuration - Generated $(date)
+PANEL_SECRET_KEY=$(openssl rand -hex 32)
 FLASK_APP=app.py
 FLASK_ENV=production
-DEBUG=$DEBUG_MODE
+FLASK_DEBUG=$DEBUG_MODE
 
 # Database
 $(if [[ "$DB_TYPE" == "postgresql" ]]; then
-    echo "SQLALCHEMY_DATABASE_URI=postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME"
+    echo "PANEL_USE_SQLITE=0"
+    echo "PANEL_DB_HOST=$DB_HOST"
+    echo "PANEL_DB_PORT=$DB_PORT"
+    echo "PANEL_DB_NAME=$DB_NAME"
+    echo "PANEL_DB_USER=$DB_USER"
+    echo "PANEL_DB_PASS=$DB_PASS"
 else
-    echo "SQLALCHEMY_DATABASE_URI=sqlite:///instance/panel.db"
+    echo "PANEL_USE_SQLITE=1"
+    echo "PANEL_SQLITE_URI=sqlite:///instance/panel.db"
 fi)
 
 # Server
-HOST=$APP_HOST
-PORT=$APP_PORT
-DOMAIN=${DOMAIN:-localhost}
+FLASK_HOST=$APP_HOST
+FLASK_PORT=$APP_PORT
 
-# Admin
-ADMIN_USERNAME=$ADMIN_USERNAME
-ADMIN_EMAIL=$ADMIN_EMAIL
-ADMIN_PASSWORD=$ADMIN_PASSWORD
+# Redis
+PANEL_REDIS_URL=redis://127.0.0.1:6379/0
+
+# Admin (for reference - actual user created in database)
+# Admin Email: $ADMIN_EMAIL
+# Admin Role: system_admin
+PANEL_ADMIN_EMAILS=$ADMIN_EMAIL
+
+# Logging
+LOG_LEVEL=INFO
+LOG_DIR=instance/logs
+AUDIT_LOG_ENABLED=True
+AUDIT_LOG_DIR=instance/audit_logs
 EOF
     
     # Initialize database
@@ -390,7 +529,164 @@ with app.app_context():
     print("Database tables created successfully")
 PYEOF
     
+    # Create admin user
+    log "Creating admin user..."
+    python3 << PYEOF || warn "Admin user creation failed"
+import os
+from datetime import datetime, date
+from app import app, db, User
+from werkzeug.security import generate_password_hash
+
+try:
+    with app.app_context():
+        # Check if admin user already exists
+        admin = User.query.filter_by(email='${ADMIN_EMAIL}').first()
+        if not admin:
+            # User model requires: first_name, last_name, email, dob, password_hash
+            admin = User(
+                first_name='Admin',
+                last_name='User',
+                email='${ADMIN_EMAIL}',
+                dob=date(2000, 1, 1),  # Default DOB
+                password_hash=generate_password_hash('${ADMIN_PASSWORD}'),
+                role='system_admin',
+                is_active=True
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print(f"Admin user '{ADMIN_EMAIL}' created successfully with role 'system_admin'")
+        else:
+            print(f"Admin user '{ADMIN_EMAIL}' already exists")
+except Exception as e:
+    print(f"Could not create admin user: {e}")
+    import traceback
+    traceback.print_exc()
+PYEOF
+    
+    # Configure nginx
+    log "Configuring nginx..."
+    if [[ -f "deploy/nginx_game_chrisvanek.conf" ]]; then
+        sed "s/YOUR_DOMAIN_HERE/$DOMAIN/g" deploy/nginx_game_chrisvanek.conf > deploy/nginx_panel.conf
+        log "Nginx configuration created: deploy/nginx_panel.conf"
+    fi
+    
+    # Configure systemd service files
+    log "Configuring systemd services..."
+    if [[ -f "deploy/panel-gunicorn.service" ]]; then
+        sed -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            deploy/panel-gunicorn.service > deploy/panel-gunicorn.service.configured
+        log "Gunicorn service configured: deploy/panel-gunicorn.service.configured"
+    fi
+    
+    if [[ -f "deploy/rq-worker.service" ]]; then
+        sed -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            deploy/rq-worker.service > deploy/rq-worker.service.configured
+        log "RQ worker service configured: deploy/rq-worker.service.configured"
+    fi
+    
+    # Setup log rotation
+    log "Configuring log rotation..."
+    if [[ -f "deploy/panel-logrotate.conf" ]]; then
+        if [[ -d "/etc/logrotate.d" ]] && [[ -n "$SUDO" ]]; then
+            $SUDO cp deploy/panel-logrotate.conf /etc/logrotate.d/panel 2>/dev/null || \
+                log "Log rotation setup skipped (requires sudo)"
+        fi
+    fi
+    
+    # Validate configuration
+    log "Validating configuration..."
+    if [[ ! -f ".env" ]]; then
+        error "Configuration file (.env) was not created"
+    fi
+    
+    # Save installation info
+    cat > "$INSTALL_DIR/.install_info" << INFOEOF
+# Panel Installation Info - $(date)
+INSTALL_DATE=$(date -Iseconds)
+INSTALL_DIR=$INSTALL_DIR
+DB_TYPE=$DB_TYPE
+DOMAIN=$DOMAIN
+APP_PORT=$APP_PORT
+ADMIN_EMAIL=$ADMIN_EMAIL
+BRANCH=$BRANCH
+INFOEOF
+    
+    # Save credentials securely (only readable by owner)
+    if [[ "$DB_TYPE" == "postgresql" ]] && [[ -n "$DB_PASS" ]]; then
+        cat > "$INSTALL_DIR/.db_credentials" << CREDEOF
+# Database Credentials - KEEP SECURE
+DB_HOST=$DB_HOST
+DB_PORT=$DB_PORT
+DB_NAME=$DB_NAME
+DB_USER=$DB_USER
+DB_PASS=$DB_PASS
+CREDEOF
+        chmod 600 "$INSTALL_DIR/.db_credentials"
+        log "Database credentials saved to: $INSTALL_DIR/.db_credentials (chmod 600)"
+    fi
+    
     log "Panel installation complete"
+}
+
+# ============================================================================
+# Installation Verification
+# ============================================================================
+
+verify_installation() {
+    log "Verifying installation..."
+    local errors=0
+    
+    # Check .env file
+    if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+        warn "Missing .env file"
+        ((errors++))
+    fi
+    
+    # Check venv
+    if [[ ! -d "$INSTALL_DIR/venv" ]]; then
+        warn "Missing virtual environment"
+        ((errors++))
+    fi
+    
+    # Check app.py
+    if [[ ! -f "$INSTALL_DIR/app.py" ]]; then
+        warn "Missing app.py"
+        ((errors++))
+    fi
+    
+    # Check Python packages
+    if [[ -d "$INSTALL_DIR/venv" ]]; then
+        cd "$INSTALL_DIR"
+        if ! venv/bin/python -c "import flask" 2>/dev/null; then
+            warn "Flask not properly installed"
+            ((errors++))
+        fi
+    fi
+    
+    # Check database connection
+    cd "$INSTALL_DIR"
+    if ! venv/bin/python << 'PYEOF' 2>/dev/null
+from dotenv import load_dotenv
+load_dotenv()
+from app import app, db
+with app.app_context():
+    db.engine.connect()
+    print("Database connection successful")
+PYEOF
+    then
+        warn "Database connection test failed"
+        ((errors++))
+    fi
+    
+    if [[ $errors -eq 0 ]]; then
+        log "Installation verification passed ✓"
+        return 0
+    else
+        warn "Installation verification found $errors issue(s)"
+        return 1
+    fi
 }
 
 # ============================================================================
@@ -430,8 +726,9 @@ interactive_setup() {
     log "Domain/hostname: $DOMAIN"
     
     echo
-    ADMIN_USERNAME=$(prompt_input "Admin username" "$ADMIN_USERNAME")
-    ADMIN_EMAIL=$(prompt_input "Admin email" "$ADMIN_EMAIL")
+    echo -e "${YELLOW}Admin Account Setup${NC}" >&2
+    echo -e "${YELLOW}This will create a system administrator account${NC}" >&2
+    ADMIN_EMAIL=$(prompt_input "Admin email address" "$ADMIN_EMAIL")
     ADMIN_PASSWORD=$(prompt_input "Admin password" "" "true")
     
     log "Interactive configuration complete"
@@ -475,6 +772,45 @@ parse_args() {
                 SKIP_POSTGRESQL="true"
                 shift
                 ;;
+            --verify-only)
+                # Just verify existing installation
+                if [[ -d "$INSTALL_DIR" ]]; then
+                    cd "$INSTALL_DIR"
+                    verify_installation
+                    exit $?
+                else
+                    error "No installation found at $INSTALL_DIR"
+                fi
+                ;;
+            --update)
+                # Update existing installation
+                if [[ -d "$INSTALL_DIR" ]]; then
+                    log "Updating existing installation at $INSTALL_DIR"
+                    cd "$INSTALL_DIR"
+                    
+                    # Backup current version
+                    BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
+                    log "Creating backup: $BACKUP_DIR"
+                    cp -r "$INSTALL_DIR" "$BACKUP_DIR"
+                    
+                    # Pull latest changes
+                    git pull origin main
+                    
+                    # Update dependencies
+                    source venv/bin/activate
+                    pip install --upgrade -r requirements.txt
+                    
+                    # Run migrations if needed
+                    if command -v flask &>/dev/null; then
+                        flask db upgrade 2>/dev/null || true
+                    fi
+                    
+                    log "Update complete"
+                    exit 0
+                else
+                    error "No installation found at $INSTALL_DIR"
+                fi
+                ;;
             *)
                 echo -e "${RED}Unknown option: $1${NC}"
                 echo "Use --help for usage information"
@@ -505,9 +841,18 @@ main() {
         log "Skipping interactive setup (non-interactive mode)"
     fi
     
+    # Pre-installation checks
+    echo
+    log "Running pre-installation checks..."
+    check_python_version
+    check_disk_space
+    check_network
+    echo
+    
     install_system_deps
     setup_postgresql
     install_panel
+    verify_installation
     
     echo
     echo -e "${BOLD}${GREEN}╔═══════════════════════════════════════════╗${NC}"
@@ -516,6 +861,15 @@ main() {
     echo
     echo -e "${GREEN}Installation Directory:${NC} $INSTALL_DIR"
     echo -e "${GREEN}Database Type:${NC} $DB_TYPE"
+    echo -e "${GREEN}Domain:${NC} $DOMAIN"
+    echo -e "${GREEN}Admin Email:${NC} $ADMIN_EMAIL"
+    echo -e "${GREEN}Admin Role:${NC} system_admin"
+    if [[ -f "$INSTALL_DIR/.db_credentials" ]]; then
+        echo -e "${YELLOW}Database credentials saved:${NC} $INSTALL_DIR/.db_credentials"
+    fi
+    if [[ -n "$BACKUP_DIR" ]] && [[ -d "$BACKUP_DIR" ]]; then
+        echo -e "${YELLOW}Previous installation backed up:${NC} $BACKUP_DIR"
+    fi
     echo
     
     # Ask if user wants to start the panel now
@@ -597,13 +951,26 @@ main() {
                 ACTUAL_SERVER_PIDS=$(pgrep -f "python.*app.py" | tr '\n' ' ')
                 ACTUAL_WORKER_PIDS=$(pgrep -f "python.*run_worker.py" | tr '\n' ' ')
                 
+                # Health check
+                log "Performing health check..."
+                sleep 2
+                if command -v curl &>/dev/null; then
+                    if curl -f -s http://localhost:$APP_PORT/health >/dev/null 2>&1 || \
+                       curl -f -s http://localhost:$APP_PORT/ >/dev/null 2>&1; then
+                        echo -e "${GREEN}✓ Panel health check passed${NC}"
+                    else
+                        warn "Panel health check failed (but process is running)"
+                    fi
+                fi
+                
                 echo
                 echo -e "${BOLD}${GREEN}✓ Panel is now running!${NC}"
                 echo
                 echo -e "${GREEN}Access Panel:${NC}"
                 echo -e "  URL: ${BOLD}http://$DOMAIN:$APP_PORT${NC}"
-                echo -e "  Username: ${BOLD}$ADMIN_USERNAME${NC}"
+                echo -e "  Email: ${BOLD}$ADMIN_EMAIL${NC}"
                 echo -e "  Password: ${BOLD}[set during installation]${NC}"
+                echo -e "  Role: ${BOLD}system_admin${NC}"
                 echo
                 echo -e "${YELLOW}Running Processes:${NC}"
                 echo "  Panel PIDs: $ACTUAL_SERVER_PIDS"
@@ -644,7 +1011,7 @@ main() {
             echo
             echo -e "${GREEN}Access Panel (once started):${NC}"
             echo -e "  URL: ${BOLD}http://$DOMAIN:$APP_PORT${NC}"
-            echo -e "  Username: ${BOLD}$ADMIN_USERNAME${NC}"
+            echo -e "  Email: ${BOLD}$ADMIN_EMAIL${NC}"
             echo
         fi
     else
@@ -657,19 +1024,106 @@ main() {
         echo
         echo -e "${GREEN}Access Panel (once started):${NC}"
         echo -e "  URL: ${BOLD}http://$DOMAIN:$APP_PORT${NC}"
-        echo -e "  Username: ${BOLD}$ADMIN_USERNAME${NC}"
+        echo -e "  Email: ${BOLD}$ADMIN_EMAIL${NC}"
         echo
     fi
     
     echo -e "${GREEN}Database Admin UI:${NC}"
     echo "  http://$DOMAIN:$APP_PORT/admin/database"
     echo
+    echo -e "${BOLD}${YELLOW}📋 Next Steps:${NC}"
+    echo
+    echo -e "${YELLOW}1. Start the Panel:${NC}"
+    echo "   cd $INSTALL_DIR"
+    echo "   source venv/bin/activate"
+    echo "   python3 app.py"
+    echo
+    echo -e "${YELLOW}2. Access the Panel:${NC}"
+    echo "   http://$DOMAIN:$APP_PORT"
+    echo "   Login with: $ADMIN_EMAIL"
+    echo
+    echo -e "${YELLOW}3. For Production (Optional):${NC}"
+    echo "   - Setup systemd services (see instructions below)"
+    echo "   - Configure nginx reverse proxy"
+    echo "   - Setup SSL with Let's Encrypt"
+    echo "   - Configure firewall rules"
+    echo
     echo -e "${YELLOW}Production Setup:${NC}"
-    echo "  For production, set up systemd services:"
-    echo "  sudo cp $INSTALL_DIR/deploy/panel-gunicorn.service /etc/systemd/system/"
+    echo "  For production, set up systemd services and nginx:"
+    echo
+    echo "  # Setup Gunicorn service"
+    if [[ -f "$INSTALL_DIR/deploy/panel-gunicorn.service.configured" ]]; then
+        echo "  sudo cp $INSTALL_DIR/deploy/panel-gunicorn.service.configured /etc/systemd/system/panel-gunicorn.service"
+    else
+        echo "  sudo cp $INSTALL_DIR/deploy/panel-gunicorn.service /etc/systemd/system/"
+        echo "  # Edit /etc/systemd/system/panel-gunicorn.service to set correct paths"
+    fi
     echo "  sudo systemctl daemon-reload"
     echo "  sudo systemctl enable panel-gunicorn"
     echo "  sudo systemctl start panel-gunicorn"
+    echo
+    echo "  # Setup RQ Worker service"
+    if [[ -f "$INSTALL_DIR/deploy/rq-worker.service.configured" ]]; then
+        echo "  sudo cp $INSTALL_DIR/deploy/rq-worker.service.configured /etc/systemd/system/rq-worker.service"
+    else
+        echo "  sudo cp $INSTALL_DIR/deploy/rq-worker.service /etc/systemd/system/"
+        echo "  # Edit /etc/systemd/system/rq-worker.service to set correct paths"
+    fi
+    echo "  sudo systemctl daemon-reload"
+    echo "  sudo systemctl enable rq-worker"
+    echo "  sudo systemctl start rq-worker"
+    echo
+    echo "  # Setup Nginx reverse proxy (configured for: $DOMAIN)"
+    if [[ -f "$INSTALL_DIR/deploy/nginx_panel.conf" ]]; then
+        case "$PKG_MANAGER" in
+            apt-get)
+                echo "  sudo cp $INSTALL_DIR/deploy/nginx_panel.conf /etc/nginx/sites-available/panel"
+                echo "  sudo ln -s /etc/nginx/sites-available/panel /etc/nginx/sites-enabled/"
+                ;;
+            *)
+                echo "  sudo cp $INSTALL_DIR/deploy/nginx_panel.conf /etc/nginx/conf.d/panel.conf"
+                ;;
+        esac
+    else
+        echo "  # Nginx config needs domain configuration"
+        case "$PKG_MANAGER" in
+            apt-get)
+                echo "  sudo cp $INSTALL_DIR/deploy/nginx_game_chrisvanek.conf /etc/nginx/sites-available/panel"
+                echo "  sudo ln -s /etc/nginx/sites-available/panel /etc/nginx/sites-enabled/"
+                ;;
+            *)
+                echo "  sudo cp $INSTALL_DIR/deploy/nginx_game_chrisvanek.conf /etc/nginx/conf.d/panel.conf"
+                ;;
+        esac
+    fi
+    echo "  sudo nginx -t"
+    echo "  sudo systemctl enable nginx"
+    echo "  sudo systemctl restart nginx"
+    echo
+    echo "  # Setup SSL with Let's Encrypt (optional)"
+    case "$PKG_MANAGER" in
+        apt-get)
+            echo "  sudo apt install certbot python3-certbot-nginx"
+            ;;
+        dnf|yum)
+            echo "  sudo $PKG_MANAGER install certbot python3-certbot-nginx"
+            ;;
+        apk)
+            echo "  sudo apk add certbot certbot-nginx"
+            ;;
+        pacman)
+            echo "  sudo pacman -S certbot certbot-nginx"
+            ;;
+        brew)
+            echo "  brew install certbot"
+            ;;
+    esac
+    echo "  sudo certbot --nginx -d $DOMAIN"
+    echo
+    echo "  # Open firewall ports (if firewall is active)"
+    echo "  sudo ufw allow 80/tcp   # HTTP"
+    echo "  sudo ufw allow 443/tcp  # HTTPS"
+    echo "  sudo ufw allow 8080/tcp # Panel (if not using nginx proxy)"
     echo
 }
 

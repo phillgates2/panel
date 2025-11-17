@@ -23,6 +23,10 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 import config
 import subprocess
 import os
@@ -191,6 +195,13 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    @property
+    def display_name(self):
+        """Return full name or email as display name"""
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        return self.email
 
     def is_system_admin(self):
         return (self.role == 'system_admin') or (self.email.lower() in getattr(config, 'ADMIN_EMAILS', []))
@@ -1865,4 +1876,9 @@ def admin_db_import():
         logger.info("Enterprise systems disabled for clean operation")
         logger.info("Panel application ready for use")
     
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    # Read host and port from environment or config
+    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    port = int(os.environ.get('FLASK_PORT', 8080))
+    debug = os.environ.get('FLASK_DEBUG', 'True').lower() in ('true', '1', 'yes')
+    
+    app.run(host=host, port=port, debug=debug)

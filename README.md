@@ -19,7 +19,7 @@ The installer supports both **PostgreSQL** (production) and **SQLite** (developm
 ### Installation Options
 
 ```bash
-# Show all options
+# Show all options and available functions
 bash install.sh --help
 
 # Custom installation directory
@@ -39,6 +39,12 @@ bash install.sh --skip-deps
 
 # Use specific branch
 bash install.sh --branch develop
+
+# Verify existing installation
+bash install.sh --verify-only
+
+# Update existing installation (git pull + pip upgrade)
+bash install.sh --update
 ```
 
 ### Non-Interactive Installation
@@ -52,7 +58,6 @@ PANEL_DB_PORT=5432 \
 PANEL_DB_NAME=panel \
 PANEL_DB_USER=panel_user \
 PANEL_DB_PASS=secure_password \
-PANEL_ADMIN_USER=admin \
 PANEL_ADMIN_EMAIL=admin@example.com \
 PANEL_ADMIN_PASS=admin_password \
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
@@ -62,7 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh |
 ```bash
 PANEL_NON_INTERACTIVE=true \
 PANEL_DB_TYPE=sqlite \
-PANEL_ADMIN_USER=admin \
+PANEL_ADMIN_EMAIL=admin@localhost \
 PANEL_ADMIN_PASS=admin123 \
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
 ```
@@ -150,7 +155,7 @@ bash uninstall.sh --dir /opt/panel
 http://localhost:8080
 
 # Login with credentials set during installation
-Username: admin
+Email: admin@localhost (or your specified email)
 Password: [your password]
 ```
 

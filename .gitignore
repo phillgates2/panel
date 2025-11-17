@@ -26,6 +26,12 @@ test_captcha*.png
 .env.test
 .env.production
 
+# Installer generated files
+.install_info
+.db_credentials
+*.configured
+deploy/nginx_panel.conf
+
 # IDE
 .vscode/
 .idea/

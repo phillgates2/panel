@@ -3,11 +3,12 @@ Description=RQ worker for panel (process background tasks)
 After=network.target redis.service
 
 [Service]
-User=panel
-Group=panel
-WorkingDirectory=/opt/panel
-Environment="PATH=/opt/panel/.venv/bin"
-ExecStart=/opt/panel/.venv/bin/python /opt/panel/run_worker.py
+Type=simple
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/panel
+Environment="PATH=/home/YOUR_USER/panel/venv/bin"
+ExecStart=/home/YOUR_USER/panel/venv/bin/python /home/YOUR_USER/panel/run_worker.py
 Restart=always
 RestartSec=5
 

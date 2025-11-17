@@ -67,7 +67,7 @@
                                         <span class="text-muted">In progress</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ deployment.deployer.username if deployment.deployer else 'System' }}</td>
+                                    <td>{{ deployment.deployer.email if deployment.deployer else 'System' }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-info" 

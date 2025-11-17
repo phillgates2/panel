@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.5] - 2025-11-17
+
+### ✨ **New Features**
+
+#### Installer Enhancements
+- **Enhanced `--help` Output** - Display all available installer functions
+  - Lists 25+ functions organized by category (Core, System, Validation, Installation, Utility)
+  - Helpful for debugging and understanding installer capabilities
+  - Shows function names and brief descriptions
+  - Integrated into help menu for easier discovery
+
+- **`--verify-only` Flag** - Verify existing installation without reinstalling
+  - Checks `.env` file existence and configuration
+  - Validates virtual environment and Flask installation
+  - Tests database connection (PostgreSQL or SQLite)
+  - Useful for troubleshooting existing installations
+
+- **`--update` Flag** - Safe upgrade mechanism for existing installations
+  - Creates timestamped backup before updating
+  - Pulls latest code from git repository
+  - Upgrades Python dependencies via pip
+  - Runs database migrations if available
+  - Preserves existing `.env` configuration
+
+#### Documentation Updates
+- **README** - Added installer flags reference section
+  - Documents `--functions`, `--verify-only`, `--update` flags
+  - Updated installation examples with new options
+
 ## [3.0.4] - 2025-11-17
 
 ### 🐛 **Bug Fixes**

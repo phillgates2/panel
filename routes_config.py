@@ -319,7 +319,7 @@ def config_version_details(server_id, version_id):
             'change_summary': version.change_summary,
             'created_at': version.created_at.isoformat(),
             'is_active': version.is_active,
-            'creator': version.creator.username if version.creator else 'Unknown'
+            'creator': version.creator.email if version.creator else 'Unknown'
         },
         'deployments': [{
             'id': d.id,
@@ -327,7 +327,7 @@ def config_version_details(server_id, version_id):
             'log': d.deployment_log,
             'started_at': d.started_at.isoformat(),
             'completed_at': d.completed_at.isoformat() if d.completed_at else None,
-            'deployer': d.deployer.username if d.deployer else 'Unknown'
+            'deployer': d.deployer.email if d.deployer else 'Unknown'
         } for d in deployments]
     })
 
