@@ -26,6 +26,32 @@ All notable changes to this project will be documented in this file.
   - Runs database migrations if available
   - Preserves existing `.env` configuration
 
+- **Smart Dependency Checking** - Idempotent installation
+  - Detects already-installed packages before attempting installation
+  - Skips existing dependencies, only installs missing ones
+  - Reduces installation time on repeat runs
+  - Clear logging shows what's installed vs. skipped
+
+- **Automatic Service Configuration**
+  - Redis server automatically enabled and started
+  - Nginx server automatically enabled and started
+  - Health checks verify services are running
+  - Multiple fallback methods for service startup
+
+#### Bug Fixes
+- **Fixed Python Version Check** - Corrected version comparison logic
+  - Replaced incorrect awk floating-point comparison with `sort -V`
+  - Now correctly accepts Python 3.8+ (including 3.13)
+  - Previously rejected valid Python versions due to logic error
+
+- **Fixed psycopg2-binary Build Error** - Added PostgreSQL development libraries
+  - apt-get: Added `libpq-dev` and `postgresql-client`
+  - dnf/yum: Added `postgresql-devel`
+  - apk: Added `postgresql-dev`
+  - pacman: Added `postgresql-libs`
+  - brew: Added `postgresql`
+  - Resolves "fatal error: libpq-fe.h: No such file or directory"
+
 #### Documentation Updates
 - **README** - Added installer flags reference section
   - Documents `--functions`, `--verify-only`, `--update` flags

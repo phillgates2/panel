@@ -352,7 +352,7 @@ install_system_deps() {
     
     case "$PKG_MANAGER" in
         apt-get)
-            deps_map=("python3" "python3-pip" "python3-venv" "git" "curl" "wget" "redis-server" "nginx" "build-essential" "libssl-dev" "libffi-dev")
+            deps_map=("python3" "python3-pip" "python3-venv" "git" "curl" "wget" "redis-server" "nginx" "build-essential" "libssl-dev" "libffi-dev" "libpq-dev" "postgresql-client")
             for dep in "${deps_map[@]}"; do
                 if ! check_installed "$dep"; then
                     to_install+=("$dep")
@@ -367,7 +367,7 @@ install_system_deps() {
             fi
             ;;
         dnf|yum)
-            deps_map=("python3" "python3-pip" "python3-devel" "git" "curl" "wget" "redis" "nginx" "gcc" "openssl-devel" "libffi-devel")
+            deps_map=("python3" "python3-pip" "python3-devel" "git" "curl" "wget" "redis" "nginx" "gcc" "openssl-devel" "libffi-devel" "postgresql-devel")
             for dep in "${deps_map[@]}"; do
                 if ! check_installed "$dep"; then
                     to_install+=("$dep")
@@ -381,7 +381,7 @@ install_system_deps() {
             fi
             ;;
         apk)
-            deps_map=("python3" "py3-pip" "git" "curl" "wget" "redis" "nginx" "gcc" "musl-dev" "linux-headers" "libffi-dev" "openssl-dev")
+            deps_map=("python3" "py3-pip" "git" "curl" "wget" "redis" "nginx" "gcc" "musl-dev" "linux-headers" "libffi-dev" "openssl-dev" "postgresql-dev")
             for dep in "${deps_map[@]}"; do
                 if ! check_installed "$dep"; then
                     to_install+=("$dep")
@@ -395,7 +395,7 @@ install_system_deps() {
             fi
             ;;
         pacman)
-            deps_map=("python" "python-pip" "git" "curl" "wget" "redis" "nginx" "base-devel")
+            deps_map=("python" "python-pip" "git" "curl" "wget" "redis" "nginx" "base-devel" "postgresql-libs")
             for dep in "${deps_map[@]}"; do
                 if ! check_installed "$dep"; then
                     to_install+=("$dep")
@@ -409,7 +409,7 @@ install_system_deps() {
             fi
             ;;
         brew)
-            deps_map=("python3" "git" "curl" "wget" "redis" "nginx")
+            deps_map=("python3" "git" "curl" "wget" "redis" "nginx" "postgresql")
             for dep in "${deps_map[@]}"; do
                 if ! check_installed "$dep"; then
                     to_install+=("$dep")
