@@ -52,6 +52,12 @@ All notable changes to this project will be documented in this file.
   - brew: Added `postgresql`
   - Resolves "fatal error: libpq-fe.h: No such file or directory"
 
+- **Fixed Python 3.13 Compatibility** - Updated psycopg2-binary version
+  - Updated from 2.9.9 to >=2.9.10 for Python 3.13 support
+  - Added fallback to use prebuilt binary wheels when compilation fails
+  - Installer now tries binary-only installation first
+  - Prevents build errors from deprecated Python 3.13 APIs
+
 #### Documentation Updates
 - **README** - Added installer flags reference section
   - Documents `--functions`, `--verify-only`, `--update` flags

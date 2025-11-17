@@ -584,7 +584,22 @@ install_panel() {
     # Install Python dependencies
     log "Installing Python dependencies..."
     pip install --upgrade pip wheel setuptools
-    pip install -r requirements.txt
+    
+    # Try installing requirements, fallback to binary-only for psycopg2 on Python 3.13+
+    if ! pip install -r requirements.txt 2>&1 | tee /tmp/pip_install.log; then
+        warn "Initial pip install failed, trying with binary-only psycopg2..."
+        # Install everything except psycopg2 first
+        grep -v "psycopg2" requirements.txt > /tmp/requirements_no_psycopg2.txt
+        pip install -r /tmp/requirements_no_psycopg2.txt
+        # Then install psycopg2-binary from prebuilt wheel only
+        pip install psycopg2-binary --only-binary :all: || {
+            warn "Could not install prebuilt psycopg2-binary wheel"
+            warn "Attempting to build from source (may fail on Python 3.13)..."
+            pip install psycopg2-binary
+        }
+        rm -f /tmp/requirements_no_psycopg2.txt
+    fi
+    rm -f /tmp/pip_install.log
     
     # Create .env file
     log "Creating configuration..."

@@ -8,7 +8,9 @@ gunicorn==21.2.0
 werkzeug==3.0.1
 
 # Database Drivers
-psycopg2-binary==2.9.9  # PostgreSQL adapter
+# Note: For Python 3.13+, psycopg2-binary 2.9.10+ is required
+# If build fails, try: pip install psycopg2-binary --only-binary :all:
+psycopg2-binary>=2.9.10  # PostgreSQL adapter
 
 # Security and Rate Limiting
 Flask-Limiter==3.5.0
