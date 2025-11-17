@@ -458,20 +458,67 @@ install_system_deps() {
     # Configure Nginx
     log "Configuring Nginx server..."
     if command -v nginx &>/dev/null; then
+        # On Debian/Ubuntu, remove default site that conflicts with port 80
+        if [[ "$PKG_MANAGER" == "apt-get" ]]; then
+            if [[ -L "/etc/nginx/sites-enabled/default" ]]; then
+                log "Removing default nginx site..."
+                $SUDO rm -f /etc/nginx/sites-enabled/default
+            fi
+        fi
+        
         # Test nginx configuration
-        if $SUDO nginx -t &>/dev/null; then
+        if $SUDO nginx -t 2>&1 | grep -q "successful"; then
             log "Nginx configuration valid ✓"
+        else
+            warn "Nginx configuration test failed, attempting to fix..."
+            # Create basic nginx config if missing
+            if [[ ! -f "/etc/nginx/nginx.conf" ]]; then
+                warn "Missing nginx.conf - reinstalling nginx"
+                case "$PKG_MANAGER" in
+                    apt-get)
+                        $SUDO apt-get install --reinstall -y nginx
+                        ;;
+                esac
+            fi
         fi
         
         # Enable and start Nginx
         if command -v systemctl &>/dev/null; then
             $SUDO systemctl enable nginx 2>/dev/null || true
-            $SUDO systemctl start nginx 2>/dev/null || true
-            if systemctl is-active --quiet nginx; then
-                log "Nginx server started ✓"
+            # Stop nginx first to clear any errors
+            $SUDO systemctl stop nginx 2>/dev/null || true
+            sleep 1
+            # Start nginx
+            if $SUDO systemctl start nginx 2>&1; then
+                sleep 1
+                if systemctl is-active --quiet nginx; then
+                    log "Nginx server started ✓"
+                else
+                    warn "Nginx failed to start. Checking status..."
+                    $SUDO systemctl status nginx --no-pager -l 2>&1 | head -20 || true
+                    warn "You may need to configure nginx manually"
+                fi
+            else
+                warn "Failed to start nginx service"
             fi
         elif command -v service &>/dev/null; then
-            $SUDO service nginx start 2>/dev/null || true
+            $SUDO service nginx stop 2>/dev/null || true
+            sleep 1
+            if $SUDO service nginx start 2>&1; then
+                log "Nginx server started ✓"
+            else
+                warn "Failed to start nginx via service command"
+            fi
+        fi
+        
+        # Verify nginx is listening
+        sleep 2
+        if command -v netstat &>/dev/null; then
+            if netstat -tlnp 2>/dev/null | grep -q ":80.*nginx"; then
+                log "Nginx is listening on port 80 ✓"
+            else
+                warn "Nginx may not be listening on port 80"
+            fi
         fi
     fi
     
@@ -972,7 +1019,36 @@ main() {
     check_network
     echo
     
+    # Install and configure system dependencies BEFORE panel installation
     install_system_deps
+    
+    # Verify critical services are running before proceeding
+    log "Verifying critical services..."
+    
+    # Check Redis
+    if ! pgrep -x redis-server > /dev/null 2>&1; then
+        warn "Redis is not running. Attempting to start..."
+        if command -v systemctl &>/dev/null; then
+            $SUDO systemctl start redis 2>/dev/null || $SUDO systemctl start redis-server 2>/dev/null || true
+        fi
+        sleep 2
+        if ! pgrep -x redis-server > /dev/null 2>&1; then
+            error "Redis failed to start. Please start it manually: sudo systemctl start redis"
+        fi
+    fi
+    log "Redis is running ✓"
+    
+    # Check Nginx (only warn, not critical)
+    if command -v nginx &>/dev/null; then
+        if ! systemctl is-active --quiet nginx 2>/dev/null && ! pgrep nginx > /dev/null 2>&1; then
+            warn "Nginx is not running. For production, configure nginx after installation."
+        else
+            log "Nginx is running ✓"
+        fi
+    fi
+    
+    echo
+    
     setup_postgresql
     install_panel
     verify_installation

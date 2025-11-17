@@ -58,6 +58,14 @@ All notable changes to this project will be documented in this file.
   - Installer now tries binary-only installation first
   - Prevents build errors from deprecated Python 3.13 APIs
 
+- **Fixed Nginx Startup on Debian/Ubuntu** - Enhanced nginx configuration
+  - Automatically removes conflicting default site on Debian/Ubuntu
+  - Stops and restarts nginx to clear any errors
+  - Added configuration validation and error recovery
+  - Shows detailed status if nginx fails to start
+  - Verifies nginx is listening on port 80
+  - Services verified before panel installation begins
+
 #### Documentation Updates
 - **README** - Added installer flags reference section
   - Documents `--functions`, `--verify-only`, `--update` flags
