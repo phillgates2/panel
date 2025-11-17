@@ -724,9 +724,9 @@ try:
             )
             db.session.add(admin)
             db.session.commit()
-            print(f"Admin user '{ADMIN_EMAIL}' created successfully with role 'system_admin'")
+            print(f"Admin user '${ADMIN_EMAIL}' created successfully with role 'system_admin'")
         else:
-            print(f"Admin user '{ADMIN_EMAIL}' already exists")
+            print(f"Admin user '${ADMIN_EMAIL}' already exists")
 except Exception as e:
     print(f"Could not create admin user: {e}")
     import traceback
