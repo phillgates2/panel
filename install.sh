@@ -1020,6 +1020,7 @@ main() {
     echo
     
     # Install and configure system dependencies BEFORE panel installation
+    log "Installing system dependencies (nginx, redis, build tools, etc.)..."
     install_system_deps
     
     # Verify critical services are running before proceeding
@@ -1039,86 +1040,26 @@ main() {
     log "Redis is running ✓"
     
     # Check Nginx - REQUIRED for production
+    # Nginx should already be installed by install_system_deps
     if ! command -v nginx &>/dev/null; then
-        log "Nginx is not installed. Installing now..."
-        
-        # Install nginx based on package manager  
-        case "$PKG_MANAGER" in
-            apt-get)
-                log "Installing nginx via apt-get..."
-                $SUDO apt-get update -qq || warn "apt-get update failed"
-                if ! $SUDO apt-get install -y -qq nginx 2>&1 | tee /tmp/nginx_install.log; then
-                    warn "apt-get install failed. Log:"
-                    cat /tmp/nginx_install.log
-                    rm -f /tmp/nginx_install.log
-                fi
-                ;;
-            dnf|yum)
-                log "Installing nginx via $PKG_MANAGER..."
-                $SUDO $PKG_MANAGER install -y -q nginx 2>&1 | tee /tmp/nginx_install.log || {
-                    warn "$PKG_MANAGER install failed. Log:"
-                    cat /tmp/nginx_install.log
-                    rm -f /tmp/nginx_install.log
-                }
-                ;;
-            apk)
-                log "Installing nginx via apk..."
-                $SUDO apk add --no-cache nginx 2>&1 | tee /tmp/nginx_install.log || {
-                    warn "apk add failed. Log:"
-                    cat /tmp/nginx_install.log
-                    rm -f /tmp/nginx_install.log
-                }
-                ;;
-            pacman)
-                log "Installing nginx via pacman..."
-                $SUDO pacman -S --noconfirm --needed nginx 2>&1 | tee /tmp/nginx_install.log || {
-                    warn "pacman install failed. Log:"
-                    cat /tmp/nginx_install.log
-                    rm -f /tmp/nginx_install.log
-                }
-                ;;
-            brew)
-                log "Installing nginx via brew..."
-                brew install nginx 2>&1 | tee /tmp/nginx_install.log || {
-                    warn "brew install failed. Log:"
-                    cat /tmp/nginx_install.log
-                    rm -f /tmp/nginx_install.log
-                }
-                ;;
-        esac
-        
-        # Give package manager time to complete
-        sleep 2
-        
-        # Verify installation
-        if ! command -v nginx &>/dev/null; then
-            warn "Nginx installation may have failed. Checking package installation..."
-            
-            # Try to find nginx binary
-            if [[ -f /usr/sbin/nginx ]]; then
-                log "Found nginx at /usr/sbin/nginx"
-                export PATH="/usr/sbin:$PATH"
-            elif [[ -f /usr/local/sbin/nginx ]]; then
-                log "Found nginx at /usr/local/sbin/nginx"
-                export PATH="/usr/local/sbin:$PATH"
-            elif [[ -f /usr/local/bin/nginx ]]; then
-                log "Found nginx at /usr/local/bin/nginx"
-                export PATH="/usr/local/bin:$PATH"
-            else
-                error "Failed to install nginx. Package manager: $PKG_MANAGER. Please install it manually: sudo $PKG_MANAGER install nginx"
-            fi
+        # Try to find nginx binary in common locations
+        if [[ -f /usr/sbin/nginx ]]; then
+            export PATH="/usr/sbin:$PATH"
+        elif [[ -f /usr/local/sbin/nginx ]]; then
+            export PATH="/usr/local/sbin:$PATH"
+        elif [[ -f /usr/local/bin/nginx ]]; then
+            export PATH="/usr/local/bin:$PATH"
+        else
+            error "Nginx was not installed by the package manager.
+Check if SKIP_DEPS=true is set: echo \$SKIP_DEPS
+Try installing manually: sudo $PKG_MANAGER install nginx"
         fi
-        
-        log "Nginx installed successfully ✓"
-        
-        # Configure nginx after fresh install
-        log "Configuring Nginx server..."
-        if [[ "$PKG_MANAGER" == "apt-get" ]]; then
-            if [[ -L "/etc/nginx/sites-enabled/default" ]]; then
-                log "Removing default nginx site..."
-                $SUDO rm -f /etc/nginx/sites-enabled/default
-            fi
-        fi
+    fi
+    
+    # Configure nginx (remove default site on Debian/Ubuntu)
+    if [[ "$PKG_MANAGER" == "apt-get" ]] && [[ -L "/etc/nginx/sites-enabled/default" ]]; then
+        log "Removing default nginx site..."
+        $SUDO rm -f /etc/nginx/sites-enabled/default
     fi
     
     # Now verify nginx is running
