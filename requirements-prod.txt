@@ -1,0 +1,40 @@
+# Core Flask Dependencies - Latest Stable Versions (Nov 2025)
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+alembic==1.13.1
+psycopg2-binary==2.9.9
+Pillow==10.4.0
+gunicorn==21.2.0
+werkzeug==3.0.1
+
+# Task Queue and Caching
+rq==1.16.2
+redis==5.0.1
+
+# HTTP and Networking
+requests==2.31.0
+urllib3==2.1.0
+
+# Authentication and Security
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+cryptography==46.0.3
+email-validator==2.1.0
+
+# Real-time Communication
+flask-socketio==5.3.6
+python-socketio==5.10.0
+
+# Monitoring and Metrics
+prometheus-flask-exporter==0.23.0
+
+# Enterprise Dependencies - Optimized Versions
+psutil==5.9.6
+paramiko==3.4.0
+PyYAML==6.0.1
+python-dotenv==1.0.0
+
+# Development and Deployment
+setuptools==69.0.2
+wheel==0.42.0

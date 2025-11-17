@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily logrotate for panel logs
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=panel-logrotate.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Create Server</h2>
+<form method="post" action="{{ url_for('admin_create_server') }}" data-confirm-message="Create this server?"><!-- will show confirmation modal -->
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <label>Name</label><br/>
+  <input name="name" /><br/>
+  <label>Description</label><br/>
+  <input name="description" /><br/>
+  <button type="submit" class="confirm-btn">Create</button>
+</form>
+<p><a href="{{ url_for('admin_servers') }}">Back to servers</a></p>
+{% endblock %}

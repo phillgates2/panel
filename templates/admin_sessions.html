@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - All Sessions{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>All User Sessions</h1>
+    <p class="text-muted">System administrator view of all user sessions.</p>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">Filters</h5>
+                <div>
+                    <span class="badge bg-success">{{ sessions|selectattr('is_active')|list|length }} Active</span>
+                    <span class="badge bg-secondary">{{ sessions|rejectattr('is_active')|list|length }} Inactive</span>
+                </div>
+            </div>
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="user" class="form-label">User</label>
+                    <select name="user" id="user" class="form-select">
+                        <option value="">All Users</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if filters.user == u.id %}selected{% endif %}>
+                            {{ u.email }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="active_only" class="form-label">Status</label>
+                    <select name="active_only" id="active_only" class="form-select">
+                        <option value="1" {% if filters.active_only %}selected{% endif %}>Active Only</option>
+                        <option value="0" {% if not filters.active_only %}selected{% endif %}>All Sessions</option>
+                    </select>
+                </div>
+                <div class="col-md-2 align-self-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+                <div class="col-md-3 align-self-end">
+                    <a href="/scripts/session_cleanup.py" class="btn btn-warning w-100">
+                        <i class="fas fa-broom"></i> Cleanup Expired
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>User</th>
+                        <th>IP Address</th>
+                        <th>Created</th>
+                        <th>Last Activity</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr {% if not session.is_active %}class="text-muted"{% endif %}>
+                        <td>
+                            {% if session.user %}
+                                <strong>{{ session.user.email }}</strong><br>
+                                <small class="text-muted">{{ session.user.first_name }} {{ session.user.last_name }}</small>
+                            {% else %}
+                                <span class="text-danger">Unknown User</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <code>{{ session.ip_address or 'Unknown' }}</code>
+                        </td>
+                        <td>
+                            <span class="text-muted small">{{ session.created_at.strftime('%m/%d/%Y') }}</span><br>
+                            <strong>{{ session.created_at.strftime('%H:%M:%S') }}</strong>
+                        </td>
+                        <td>
+                            <span class="text-muted small">{{ session.last_activity.strftime('%m/%d/%Y') }}</span><br>
+                            <strong>{{ session.last_activity.strftime('%H:%M:%S') }}</strong>
+                        </td>
+                        <td>
+                            <span class="text-muted small">{{ session.expires_at.strftime('%m/%d/%Y') }}</span><br>
+                            <strong>{{ session.expires_at.strftime('%H:%M:%S') }}</strong>
+                            {% set now = moment().utc() %}
+                            {% set expires = moment(session.expires_at) %}
+                            {% if expires < now %}
+                                <br><span class="badge bg-danger">Expired</span>
+                            {% elif (expires - now).days < 1 %}
+                                <br><span class="badge bg-warning">Expires Soon</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if session.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if session.is_active %}
+                            <form method="post" action="{{ url_for('admin_revoke_session', session_id=session.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-danger btn-sm" 
+                                        onclick="return confirm('Revoke this session for {{ session.user.email if session.user else 'unknown user' }}?')">
+                                    <i class="fas fa-times"></i> Revoke
+                                </button>
+                            </form>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <em>No sessions found matching the selected filters.</em>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if pagination.pages > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pagination.prev_num }}&user={{ filters.user or '' }}&active_only={{ filters.active_only|int }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for p in pagination.iter_pages() %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="?page={{ p }}&user={{ filters.user or '' }}&active_only={{ filters.active_only|int }}">{{ p }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pagination.next_num }}&user={{ filters.user or '' }}&active_only={{ filters.active_only|int }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

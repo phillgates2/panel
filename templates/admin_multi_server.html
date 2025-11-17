@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-Server Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-network-wired"></i> Multi-Server Management
+        </h2>
+        <div class="btn-group">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClusterModal">
+                <i class="fas fa-plus"></i> Create Cluster
+            </button>
+            <button class="btn btn-outline-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Cluster Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ cluster_data|length }}</h4>
+                            <p class="mb-0">Server Clusters</p>
+                        </div>
+                        <i class="fas fa-layer-group fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ cluster_data|sum(attribute='stats.online_servers') }}</h4>
+                            <p class="mb-0">Online Servers</p>
+                        </div>
+                        <i class="fas fa-server fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ cluster_data|sum(attribute='stats.total_players') }}</h4>
+                            <p class="mb-0">Active Players</p>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ recent_deployments|selectattr('status', 'equalto', 'IN_PROGRESS')|list|length }}</h4>
+                            <p class="mb-0">Active Deployments</p>
+                        </div>
+                        <i class="fas fa-rocket fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Clusters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Server Clusters</h5>
+                </div>
+                <div class="card-body">
+                    {% if cluster_data %}
+                    <div class="row">
+                        {% for item in cluster_data %}
+                        <div class="col-lg-6 col-xl-4 mb-4">
+                            <div class="card h-100 cluster-card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">{{ item.cluster.name }}</h6>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-cog"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{{ url_for('multi_server.cluster_detail', cluster_id=item.cluster.id) }}">
+                                                <i class="fas fa-eye"></i> View Details
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="scaleCluster({{ item.cluster.id }})">
+                                                <i class="fas fa-expand-arrows-alt"></i> Scale Cluster
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="deployToCluster({{ item.cluster.id }})">
+                                                <i class="fas fa-rocket"></i> Deploy Updates
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteCluster({{ item.cluster.id }})">
+                                                <i class="fas fa-trash"></i> Delete Cluster
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="cluster-stats mb-3">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div class="metric-value">{{ item.stats.online_servers }}/{{ item.stats.total_servers }}</div>
+                                                <div class="metric-label">Servers</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="metric-value">{{ item.stats.total_players }}</div>
+                                                <div class="metric-label">Players</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="metric-value">{{ "%.1f"|format(item.stats.avg_cpu) }}%</div>
+                                                <div class="metric-label">Avg CPU</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="cluster-features mb-3">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                {% if item.cluster.load_balancer_enabled %}
+                                                    <span class="badge bg-success mb-1">
+                                                        <i class="fas fa-balance-scale"></i> Load Balancer
+                                                    </span>
+                                                {% endif %}
+                                                {% if item.cluster.auto_failover_enabled %}
+                                                    <span class="badge bg-info mb-1">
+                                                        <i class="fas fa-shield-alt"></i> Auto Failover
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-6 text-end">
+                                                {% if item.cluster.auto_scaling_enabled %}
+                                                    <span class="badge bg-warning mb-1">
+                                                        <i class="fas fa-expand-arrows-alt"></i> Auto Scale
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="cluster-health">
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar bg-success" style="width: {{ (item.stats.online_servers / item.stats.total_servers * 100) if item.stats.total_servers > 0 else 0 }}%"></div>
+                                        </div>
+                                        <small class="text-muted">
+                                            {% if item.cluster.region %}{{ item.cluster.region }} • {% endif %}
+                                            Avg Response: {{ "%.0f"|format(item.stats.avg_response_time) }}ms
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="btn-group w-100">
+                                        <a href="{{ url_for('multi_server.cluster_detail', cluster_id=item.cluster.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-chart-area"></i> Details
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-success" onclick="manageCluster({{ item.cluster.id }})">
+                                            <i class="fas fa-tools"></i> Manage
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-layer-group fa-4x text-muted mb-3"></i>
+                        <h5>No Server Clusters</h5>
+                        <p class="text-muted">Create your first server cluster to get started with multi-server management.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClusterModal">
+                            <i class="fas fa-plus"></i> Create First Cluster
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Deployments -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Recent Deployments</h6>
+                    <button class="btn btn-sm btn-primary" onclick="createDeployment()">
+                        <i class="fas fa-rocket"></i> New Deployment
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if recent_deployments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Progress</th>
+                                    <th>Started</th>
+                                    <th>Duration</th>
+                                    <th>Initiated By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deployment in recent_deployments %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ deployment.deployment_type.title() }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if deployment.status.value == 'completed' %}success{% elif deployment.status.value == 'failed' %}danger{% elif deployment.status.value == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                                            {{ deployment.status.value.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" style="width: {{ (deployment.completed_steps / deployment.total_steps * 100) if deployment.total_steps > 0 else 0 }}%">
+                                                {{ deployment.completed_steps }}/{{ deployment.total_steps }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if deployment.started_at %}
+                                            {{ deployment.started_at.strftime('%m-%d %H:%M') }}
+                                        {% else %}
+                                            Not started
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if deployment.started_at and deployment.completed_at %}
+                                            {{ ((deployment.completed_at - deployment.started_at).total_seconds() / 60)|round(1) }}m
+                                        {% elif deployment.started_at %}
+                                            {{ ((moment().utcnow() - deployment.started_at).total_seconds() / 60)|round(1) }}m
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ deployment.initiated_by or 'System' }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewDeployment({{ deployment.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if deployment.status.value == 'failed' %}
+                                        <button class="btn btn-sm btn-outline-warning" onclick="retryDeployment({{ deployment.id }})">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-rocket fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No recent deployments</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Cluster Modal -->
+<div class="modal fade" id="createClusterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Server Cluster</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createClusterForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="clusterName" class="form-label">Cluster Name</label>
+                            <input type="text" class="form-control" id="clusterName" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="clusterRegion" class="form-label">Region</label>
+                            <select class="form-select" id="clusterRegion">
+                                <option value="">Select Region</option>
+                                <option value="us-east">US East</option>
+                                <option value="us-west">US West</option>
+                                <option value="eu-west">Europe West</option>
+                                <option value="asia-pacific">Asia Pacific</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="clusterDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="clusterDescription" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="minServers" class="form-label">Min Servers</label>
+                            <input type="number" class="form-control" id="minServers" value="1" min="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="maxServers" class="form-label">Max Servers</label>
+                            <input type="number" class="form-control" id="maxServers" value="10" min="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="targetCpu" class="form-label">Target CPU (%)</label>
+                            <input type="number" class="form-control" id="targetCpu" value="70" min="10" max="95">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="loadBalancerEnabled">
+                                <label class="form-check-label" for="loadBalancerEnabled">
+                                    Load Balancer
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="autoFailoverEnabled">
+                                <label class="form-check-label" for="autoFailoverEnabled">
+                                    Auto Failover
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="autoScalingEnabled">
+                                <label class="form-check-label" for="autoScalingEnabled">
+                                    Auto Scaling
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createCluster()">Create Cluster</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cluster-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cluster-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.metric-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #495057;
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.cluster-stats {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.progress {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.badge {
+    font-size: 0.7rem;
+}
+</style>
+
+<script>
+function refreshDashboard() {
+    location.reload();
+}
+
+function createCluster() {
+    const form = document.getElementById('createClusterForm');
+    const formData = new FormData(form);
+    
+    // Implementation for creating cluster
+    alert('Cluster creation functionality will be implemented.');
+}
+
+function scaleCluster(clusterId) {
+    if (confirm('Scale this cluster based on current load?')) {
+        // Implementation for scaling cluster
+        console.log('Scaling cluster:', clusterId);
+    }
+}
+
+function deployToCluster(clusterId) {
+    // Implementation for cluster deployment
+    console.log('Deploy to cluster:', clusterId);
+}
+
+function deleteCluster(clusterId) {
+    if (confirm('Are you sure you want to delete this cluster? This action cannot be undone.')) {
+        // Implementation for deleting cluster
+        console.log('Deleting cluster:', clusterId);
+    }
+}
+
+function manageCluster(clusterId) {
+    window.location.href = `/admin/servers/cluster/${clusterId}`;
+}
+
+function createDeployment() {
+    // Implementation for creating deployment
+    alert('Deployment creation wizard will be implemented.');
+}
+
+function viewDeployment(deploymentId) {
+    // Implementation for viewing deployment details
+    console.log('Viewing deployment:', deploymentId);
+}
+
+function retryDeployment(deploymentId) {
+    if (confirm('Retry this failed deployment?')) {
+        // Implementation for retrying deployment
+        console.log('Retrying deployment:', deploymentId);
+    }
+}
+</script>
+{% endblock %}

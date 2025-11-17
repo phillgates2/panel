@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Validation{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-cog me-2"></i>Configuration Validation</h2>
+                <div>
+                    <a href="{{ url_for('admin_tools') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Admin Tools
+                    </a>
+                    <button onclick="refreshValidation()" class="btn btn-primary">
+                        <i class="fas fa-sync-alt me-1"></i>Re-validate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Overall Status -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    {% if errors %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Configuration Issues Detected</strong> - {{ errors|length }} error(s) found
+                    </div>
+                    {% elif warnings %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Configuration Warnings</strong> - {{ warnings|length }} warning(s) found
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Configuration Valid</strong> - All checks passed
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Errors Section -->
+            {% if errors %}
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Errors ({{ errors|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for error in errors %}
+                        <div class="list-group-item border-0 px-0">
+                            <i class="fas fa-times text-danger me-2"></i>{{ error }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Warnings Section -->
+            {% if warnings %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Warnings ({{ warnings|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for warning in warnings %}
+                        <div class="list-group-item border-0 px-0">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>{{ warning }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Info Section -->
+            {% if info %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Status ({{ info|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for item in info %}
+                        <div class="list-group-item border-0 px-0">
+                            <i class="fas fa-check text-success me-2"></i>{{ item }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Configuration Tips -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Configuration Tips</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-key me-1"></i>Security</h6>
+                            <ul class="list-unstyled small">
+                                <li>• Use strong passwords for database and RCON</li>
+                                <li>• Set unique SECRET_KEY in production</li>
+                                <li>• Enable SSL/TLS in production environments</li>
+                                <li>• Restrict database access to localhost</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-database me-1"></i>Database</h6>
+                            <ul class="list-unstyled small">
+                                <li>• Use MariaDB/PostgreSQL for production</li>
+                                <li>• SQLite is suitable for development only</li>
+                                <li>• Regular database backups recommended</li>
+                                <li>• Monitor connection pool settings</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-server me-1"></i>Performance</h6>
+                            <ul class="list-unstyled small">
+                                <li>• Redis improves performance significantly</li>
+                                <li>• Use production WSGI server (gunicorn)</li>
+                                <li>• Enable caching for static assets</li>
+                                <li>• Monitor memory usage regularly</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-tools me-1"></i>Maintenance</h6>
+                            <ul class="list-unstyled small">
+                                <li>• Keep dependencies updated</li>
+                                <li>• Monitor log files for errors</li>
+                                <li>• Test configuration changes in staging</li>
+                                <li>• Document custom configurations</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshValidation() {
+    // Show loading state
+    const btn = document.querySelector('[onclick="refreshValidation()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Validating...';
+    btn.disabled = true;
+    
+    // Refresh the page
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+</script>
+{% endblock %}

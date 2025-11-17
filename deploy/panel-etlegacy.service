@@ -1,0 +1,15 @@
+[Unit]
+Description=ET:Legacy server (run as panel user)
+After=network.target
+
+[Service]
+User=panel
+Group=panel
+WorkingDirectory=/opt/etlegacy
+ExecStart=/opt/etlegacy/start-server.sh
+Restart=always
+RestartSec=5
+PIDFile=/var/run/etlegacy.pid
+
+[Install]
+WantedBy=multi-user.target

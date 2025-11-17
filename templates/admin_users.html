@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Manage Users</h2>
+<div class="container">
+  <p class="small">Only system admins can change roles.</p>
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.first_name }} {{ u.last_name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.role }}</td>
+        <td>
+          <form method="post" action="/admin/users/role">
+            <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+            <input type="hidden" name="user_id" value="{{ u.id }}" />
+            <select name="role">
+              <option value="user" {% if u.role=='user' %}selected{% endif %}>user</option>
+              <option value="system_admin" {% if u.role=='system_admin' %}selected{% endif %}>system_admin</option>
+              <option value="server_admin" {% if u.role=='server_admin' %}selected{% endif %}>server_admin</option>
+              <option value="server_mod" {% if u.role=='server_mod' %}selected{% endif %}>server_mod</option>
+            </select>
+            <button type="submit">Set Role</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

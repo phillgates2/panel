@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="login-page">
+  <div class="login-header text-center">
+    <h1>🔐 Welcome Back</h1>
+    <p class="text-secondary">Sign in to access your panel</p>
+  </div>
+
+  <form method="post" class="login-form">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    
+    <div class="form-group">
+      <label for="email">📧 Email Address</label>
+      <input id="email" name="email" type="email" required placeholder="Enter your email" />
+    </div>
+    
+    <div class="form-group">
+      <label for="password">🔒 Password</label>
+      <input id="password" name="password" type="password" required placeholder="Enter your password" />
+    </div>
+    
+    {% if not config.TESTING %}
+    <div id="captcha-expired" class="alert alert-warning hidden">
+      ⚠️ Captcha expired — it has been refreshed. Please solve the new captcha.
+    </div>
+    
+    <div class="captcha-container">
+      <div class="captcha-header">
+        <label>🤖 Security Verification</label>
+        <div class="captcha-controls">
+          <button type="button" id="refresh" class="btn secondary">🔄 Refresh</button>
+          <button type="button" id="audio" class="btn secondary">🔊 Audio</button>
+        </div>
+      </div>
+      <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
+      <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
+    </div>
+    
+    <div class="form-group">
+      <label for="captcha">✏️ Enter the code above</label>
+      <input id="captcha" name="captcha" required placeholder="Enter captcha code" style="text-transform: uppercase;" />
+    </div>
+    {% endif %}
+    
+    <button type="submit" class="btn primary">🚀 Sign In</button>
+    
+    <div class="form-footer text-center mt-1">
+      <p class="text-secondary">
+        Don't have an account? 
+        <a href="/register" style="color: var(--accent); text-decoration: none; font-weight: 600;">Create one here</a>
+      </p>
+    </div>
+  </form>
+</div>
+{% if not config.TESTING %}
+<script>
+(function(){
+  const img = document.getElementById('captcha-img');
+  const banner = document.getElementById('captcha-expired');
+  const input = document.querySelector('input[name="captcha"]');
+  const EXP_MS = 180000; // 3 minutes (keep in sync with server)
+  let timer = null;
+  let countdownTimer = null;
+  const countdown = document.getElementById('captcha-countdown');
+
+  function refreshCaptcha(){
+    img.src = '/captcha.png?_' + Date.now();
+  }
+
+  function scheduleExpiry(){
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(()=>{
+      // show banner, refresh, and clear input
+      if (banner) banner.style.display = 'block';
+      refreshCaptcha();
+      if (input) input.value = '';
+      // schedule next expiry after reload completes
+    }, EXP_MS);
+  }
+
+  function fmt(ms){
+    const total = Math.max(0, Math.floor(ms/1000));
+    const m = Math.floor(total/60);
+    const s = total%60;
+    return `${m}:${s.toString().padStart(2,'0')}`;
+  }
+
+  function startCountdown(){
+    if (!countdown) return;
+    let end = Date.now() + EXP_MS;
+    if (countdownTimer) clearInterval(countdownTimer);
+    const tick = ()=>{
+      const left = end - Date.now();
+      countdown.textContent = `Refreshing in ${fmt(left)}`;
+    };
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  img.addEventListener('load', ()=>{
+    // hide banner on new captcha and reset timer
+    if (banner) banner.style.display = 'none';
+    scheduleExpiry();
+    startCountdown();
+  });
+
+  document.getElementById('refresh').addEventListener('click', ()=>{
+    refreshCaptcha();
+  });
+  document.getElementById('audio').addEventListener('click', ()=>{
+    const a = new Audio('/captcha_audio?_' + Date.now());
+    a.play();
+  });
+
+  // Start the timer based on initial image
+  scheduleExpiry();
+  startCountdown();
+})();
+</script>
+{% endif %}
+<p><a href="/forgot">Forgot password?</a></p>
+{% endblock %}

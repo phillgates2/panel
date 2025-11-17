@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Edit Server: {{ server.name }}</h2>
+<form method="post" action="{{ url_for('server_edit', server_id=server.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+  <label>Variables (JSON)</label><br/>
+  <textarea name="variables_json" rows="12" cols="80">{{ server.variables_json or '{}' }}</textarea><br/>
+  <label>Raw Config</label><br/>
+  <textarea name="raw_config" rows="12" cols="80">{{ server.raw_config or '' }}</textarea><br/>
+  <button type="submit">Save</button>
+</form>
+<p><a href="{{ url_for('admin_servers') }}">Back to servers</a></p>
+{% endblock %}

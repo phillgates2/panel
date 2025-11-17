@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Admin Tools</h2>
+<div class="container">
+  <p class="small">Only admin users may access this page.</p>
+
+  <h3>System</h3>
+  <div class="mb-3">
+    <a href="/admin/config/validate" class="btn btn-info me-2">
+      <i class="fas fa-check-circle"></i> Validate Configuration
+    </a>
+    <a href="/health/detailed" class="btn btn-outline-secondary">
+      <i class="fas fa-heartbeat"></i> Health Check
+    </a>
+    <a href="/admin/database" class="btn btn-primary me-2">
+      <i class="fas fa-database"></i> Database Manager
+    </a>
+    <a href="/admin/browser-info" class="btn btn-outline-info">
+      🌐 Browser Info
+    </a>
+  </div>
+
+  <h3>Actions</h3>
+  <form method="post" action="/admin/trigger_autodeploy">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    <button type="submit">Trigger Autodeploy Now</button>
+  </form>
+
+  <form method="post" action="/admin/run_memdump">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    <label>ET PID file: <input name="pid_file" value="/var/run/etlegacy.pid"></label>
+    <button type="submit">Run MemDump Now</button>
+  </form>
+
+  {% if action_output is defined %}
+    <h3>Action Output</h3>
+    <pre class="small">{{ action_output }}</pre>
+  {% endif %}
+
+  <h3>Background Jobs</h3>
+  <p class="small">When you trigger actions they run in the background via RQ/Redis. Use the job status endpoint to query a job id.</p>
+  <p class="small">Example status URL: <code>/admin/job/&lt;job_id&gt;</code></p>
+
+  <h3>Logs</h3>
+  <h4>Memwatch</h4>
+  <pre class="small">{{ memwatch_log }}</pre>
+
+  <h4>Autodeploy</h4>
+  <pre class="small">{{ autodeploy_log }}</pre>
+</div>
+{% endblock %}

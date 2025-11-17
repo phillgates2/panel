@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Server Configuration - {{ server.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Configuration Management</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('server_manage', server_id=server.id) }}">{{ server.name }}</a></li>
+                    <li class="breadcrumb-item active">Configuration</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createConfigModal">
+                <i class="fas fa-plus"></i> New Version
+            </button>
+            <button class="btn btn-outline-secondary" onclick="refreshHistory()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Current Configuration -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Current Configuration</h5>
+                    {% if current_config %}
+                    <span class="badge bg-success">Version {{ current_config.version_number }}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if current_config %}
+                    <div class="row mb-3">
+                        <div class="col-sm-6">
+                            <small class="text-muted">Version:</small><br>
+                            <strong>{{ current_config.version_number }}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted">Deployed:</small><br>
+                            <strong>{{ current_config.deployed_at.strftime('%Y-%m-%d %H:%M') if current_config.deployed_at else 'Not deployed' }}</strong>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <small class="text-muted">Change Summary:</small><br>
+                            <strong>{{ current_config.change_summary or 'No description' }}</strong>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-info" onclick="viewConfigDetails({{ current_config.id }})">
+                            <i class="fas fa-eye"></i> View Details
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="editConfig({{ current_config.id }})">
+                            <i class="fas fa-edit"></i> Create New Version
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-cog fa-3x text-muted mb-3"></i>
+                        <h5>No Configuration Deployed</h5>
+                        <p class="text-muted">Create and deploy your first configuration version.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createConfigModal">
+                            Create Configuration
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Configuration History -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Version History</h5>
+                </div>
+                <div class="card-body">
+                    {% if version_history %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Change Summary</th>
+                                    <th>Created</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for version in version_history %}
+                                <tr {% if version.is_active %}class="table-success"{% endif %}>
+                                    <td>
+                                        <strong>{{ version.version_number }}</strong>
+                                        {% if version.is_active %}
+                                        <span class="badge bg-success ms-2">Active</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ version.change_summary or 'No description' }}</td>
+                                    <td>{{ version.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        {% if version.deployed_at %}
+                                        <span class="badge bg-success">Deployed</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Draft</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" 
+                                                    onclick="viewConfigDetails({{ version.id }})">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            {% if not version.is_active %}
+                                            <button class="btn btn-outline-success" 
+                                                    onclick="deployVersion({{ version.id }})">
+                                                <i class="fas fa-rocket"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" 
+                                                    onclick="rollbackToVersion({{ version.id }})">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                            {% endif %}
+                                            <button class="btn btn-outline-secondary" 
+                                                    onclick="compareVersions({{ version.id }})">
+                                                <i class="fas fa-code-branch"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <p class="text-muted">No configuration versions found.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createConfigModal">
+                            <i class="fas fa-plus"></i> New Configuration
+                        </button>
+                        <button class="btn btn-outline-info" onclick="showTemplates()">
+                            <i class="fas fa-copy"></i> Use Template
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="exportConfig()">
+                            <i class="fas fa-download"></i> Export Config
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {% if templates %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Available Templates</h6>
+                </div>
+                <div class="card-body">
+                    {% for template in templates %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>{{ template.name }}</strong><br>
+                            <small class="text-muted">{{ template.description }}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="useTemplate({{ template.id }})">
+                            Use
+                        </button>
+                    </div>
+                    {% if not loop.last %}<hr>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Configuration Modal -->
+<div class="modal fade" id="createConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Configuration Version</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="configForm">
+                    <div class="mb-3">
+                        <label for="changeSummary" class="form-label">Change Summary</label>
+                        <input type="text" class="form-control" id="changeSummary" 
+                               placeholder="Brief description of changes...">
+                    </div>
+                    
+                    <div class="accordion" id="configAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#serverCfgCollapse">
+                                    Server Configuration (server.cfg) <span class="text-danger">*</span>
+                                </button>
+                            </h2>
+                            <div id="serverCfgCollapse" class="accordion-collapse collapse show">
+                                <div class="accordion-body">
+                                    <textarea class="form-control font-monospace" id="serverCfg" 
+                                              rows="15" required></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#campaignCfgCollapse">
+                                    Campaign Configuration (campaign.cfg)
+                                </button>
+                            </h2>
+                            <div id="campaignCfgCollapse" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <textarea class="form-control font-monospace" id="campaignCfg" rows="10"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#startupScriptCollapse">
+                                    Startup Script (start_server.sh)
+                                </button>
+                            </h2>
+                            <div id="startupScriptCollapse" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <textarea class="form-control font-monospace" id="startupScript" rows="8"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#modConfigCollapse">
+                                    Mod Configuration
+                                </button>
+                            </h2>
+                            <div id="modConfigCollapse" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <textarea class="form-control font-monospace" id="modConfig" rows="8"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="validateAndCreate()">
+                    <i class="fas fa-check"></i> Validate & Create
+                </button>
+                <button type="button" class="btn btn-primary" onclick="createAndDeploy()">
+                    <i class="fas fa-rocket"></i> Create & Deploy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const serverId = {{ server.id }};
+
+function createConfigVersion(deploy = false) {
+    const configData = {
+        server_cfg: document.getElementById('serverCfg').value,
+        campaign_cfg: document.getElementById('campaignCfg').value,
+        startup_script: document.getElementById('startupScript').value,
+        mod_config: document.getElementById('modConfig').value
+    };
+    
+    const requestData = {
+        config_data: configData,
+        change_summary: document.getElementById('changeSummary').value
+    };
+    
+    fetch(`/server/${serverId}/config/create`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.warnings && data.warnings.length > 0) {
+                alert('Configuration created with warnings:\n' + data.warnings.join('\n'));
+            }
+            
+            if (deploy) {
+                deployVersion(data.version_id);
+            } else {
+                location.reload();
+            }
+        } else {
+            let errorMsg = 'Error: ' + data.message;
+            if (data.errors) {
+                errorMsg += '\n\nValidation Errors:\n' + data.errors.join('\n');
+            }
+            if (data.warnings) {
+                errorMsg += '\n\nWarnings:\n' + data.warnings.join('\n');
+            }
+            alert(errorMsg);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while creating the configuration');
+    });
+}
+
+function validateAndCreate() {
+    createConfigVersion(false);
+}
+
+function createAndDeploy() {
+    createConfigVersion(true);
+}
+
+function deployVersion(versionId) {
+    if (confirm('Are you sure you want to deploy this configuration version?')) {
+        fetch(`/server/${serverId}/config/${versionId}/deploy`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deploying the configuration');
+        });
+    }
+}
+
+function rollbackToVersion(versionId) {
+    if (confirm('Are you sure you want to rollback to this configuration version?')) {
+        fetch(`/server/${serverId}/config/${versionId}/rollback`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while rolling back the configuration');
+        });
+    }
+}
+
+function viewConfigDetails(versionId) {
+    fetch(`/server/${serverId}/config/${versionId}/details`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show detailed view in modal
+            showConfigDetailsModal(data.version, data.deployments);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading configuration details');
+    });
+}
+
+function useTemplate(templateId) {
+    fetch(`/api/config/templates/${templateId}/data`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Populate form with template data
+            document.getElementById('serverCfg').value = data.template_data.server_cfg || '';
+            document.getElementById('campaignCfg').value = data.template_data.campaign_cfg || '';
+            document.getElementById('startupScript').value = data.template_data.startup_script || '';
+            document.getElementById('modConfig').value = data.template_data.mod_config || '';
+            
+            // Open the create modal
+            const modal = new bootstrap.Modal(document.getElementById('createConfigModal'));
+            modal.show();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading template data');
+    });
+}
+
+function refreshHistory() {
+    location.reload();
+}
+</script>
+{% endblock %}

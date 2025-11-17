@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Audit Log</h2>
+<p>
+  <a href="{{ url_for('admin_tools') }}">Back to admin tools</a>
+</p>
+
+<form method="get" action="{{ url_for('admin_audit') }}">
+  <label>Actor (email):</label>
+  <input name="actor" value="{{ actor_filter }}" />
+  <label>Action contains:</label>
+  <input name="action" value="{{ action_filter }}" />
+  <button type="submit">Filter</button>
+  <a href="{{ url_for('admin_audit_export') }}?actor={{ actor_filter }}&action={{ action_filter }}">Export CSV</a>
+</form>
+
+<table>
+  <thead><tr><th>ID</th><th>Time (UTC)</th><th>Actor</th><th>Action</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.ts }}</td>
+      <td>{{ e.actor or '(system)' }}</td>
+      <td>{{ e.action }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div>
+  <p>Page {{ page }} — showing {{ per_page }} per page — total {{ total }}</p>
+  {% if page > 1 %}
+    <a href="{{ url_for('admin_audit') }}?page={{ page-1 }}&per_page={{ per_page }}&actor={{ actor_filter }}&action={{ action_filter }}">Prev</a>
+  {% endif %}
+  {% if (page*per_page) < total %}
+    <a href="{{ url_for('admin_audit') }}?page={{ page+1 }}&per_page={{ per_page }}&actor={{ actor_filter }}&action={{ action_filter }}">Next</a>
+  {% endif %}
+</div>
+{% endblock %}

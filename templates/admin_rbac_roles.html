@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Role Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Role & Permission Management</h1>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoleModal">
+                <i class="fas fa-plus"></i> Create Role
+            </button>
+            <form method="post" action="/admin/rbac/initialize" class="d-inline ms-2">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('Initialize RBAC system with default roles and permissions?')">
+                    <i class="fas fa-cog"></i> Initialize RBAC
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Roles Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">System Roles</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Role Name</th>
+                            <th>Description</th>
+                            <th>Permissions</th>
+                            <th>Users</th>
+                            <th>System Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for role in roles %}
+                        <tr>
+                            <td>
+                                <strong>{{ role.name }}</strong>
+                            </td>
+                            <td>{{ role.description or '—' }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ role.role_permissions.count() }} permissions</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ role.user_roles.count() }} users</span>
+                            </td>
+                            <td>
+                                {% if role.is_system_role %}
+                                    <span class="badge bg-warning">System</span>
+                                {% else %}
+                                    <span class="badge bg-success">Custom</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/admin/rbac/roles/{{ role.id }}/edit" class="btn btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if not role.is_system_role %}
+                                    <form method="post" action="/admin/rbac/roles/{{ role.id }}/delete" class="d-inline">
+                                        <button type="submit" class="btn btn-outline-danger" 
+                                                onclick="return confirm('Delete role {{ role.name }}? This cannot be undone.')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions Overview -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Available Permissions</h5>
+        </div>
+        <div class="card-body">
+            {% for category, perms in permission_groups.items() %}
+            <div class="mb-3">
+                <h6 class="text-muted text-uppercase">{{ category|title }} ({{ perms|length }})</h6>
+                <div class="row">
+                    {% for permission in perms %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="border rounded p-2 mb-2">
+                            <strong>{{ permission.name }}</strong><br>
+                            <small class="text-muted">{{ permission.description }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Role Modal -->
+<div class="modal fade" id="createRoleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="/admin/rbac/roles/create">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Role Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Permissions</label>
+                        {% for category, perms in permission_groups.items() %}
+                        <div class="card mb-2">
+                            <div class="card-header py-2">
+                                <div class="form-check">
+                                    <input class="form-check-input category-checkbox" type="checkbox" 
+                                           id="category-{{ category }}">
+                                    <label class="form-check-label fw-bold" for="category-{{ category }}">
+                                        {{ category|title }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body py-2">
+                                {% for permission in perms %}
+                                <div class="form-check">
+                                    <input class="form-check-input permission-checkbox" type="checkbox" 
+                                           name="permissions" value="{{ permission.id }}" 
+                                           id="perm-{{ permission.id }}"
+                                           data-category="{{ category }}">
+                                    <label class="form-check-label" for="perm-{{ permission.id }}">
+                                        {{ permission.name }}
+                                        <small class="text-muted">— {{ permission.description }}</small>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Role</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Category checkbox functionality
+document.querySelectorAll('.category-checkbox').forEach(categoryCheck => {
+    categoryCheck.addEventListener('change', function() {
+        const category = this.id.replace('category-', '');
+        const permissionChecks = document.querySelectorAll(`[data-category="${category}"]`);
+        
+        permissionChecks.forEach(check => {
+            check.checked = this.checked;
+        });
+    });
+});
+
+// Update category checkboxes when individual permissions are changed
+document.querySelectorAll('.permission-checkbox').forEach(permCheck => {
+    permCheck.addEventListener('change', function() {
+        const category = this.dataset.category;
+        const categoryCheck = document.getElementById(`category-${category}`);
+        const categoryPerms = document.querySelectorAll(`[data-category="${category}"]`);
+        const checkedPerms = document.querySelectorAll(`[data-category="${category}"]:checked`);
+        
+        if (checkedPerms.length === 0) {
+            categoryCheck.checked = false;
+            categoryCheck.indeterminate = false;
+        } else if (checkedPerms.length === categoryPerms.length) {
+            categoryCheck.checked = true;
+            categoryCheck.indeterminate = false;
+        } else {
+            categoryCheck.checked = false;
+            categoryCheck.indeterminate = true;
+        }
+    });
+});
+</script>
+{% endblock %}

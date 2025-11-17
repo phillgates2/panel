@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Deployments{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Configuration Deployments</h2>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="refreshData()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Deployments</h5>
+                </div>
+                <div class="card-body">
+                    {% if deployments %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Deployment ID</th>
+                                    <th>Server</th>
+                                    <th>Config Version</th>
+                                    <th>Status</th>
+                                    <th>Started</th>
+                                    <th>Completed</th>
+                                    <th>Deployed By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deployment in deployments %}
+                                <tr>
+                                    <td><code>{{ deployment.id }}</code></td>
+                                    <td>{{ deployment.config_version.server.name }}</td>
+                                    <td>
+                                        <span class="badge bg-info">v{{ deployment.config_version.version_number }}</span>
+                                        {% if deployment.config_version.change_summary %}
+                                        <br><small class="text-muted">{{ deployment.config_version.change_summary }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if deployment.deployment_status == 'success' %}
+                                        <span class="badge bg-success">Success</span>
+                                        {% elif deployment.deployment_status == 'failed' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                        {% elif deployment.deployment_status == 'pending' %}
+                                        <span class="badge bg-warning">Pending</span>
+                                        {% elif deployment.deployment_status == 'rollback' %}
+                                        <span class="badge bg-info">Rollback</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ deployment.deployment_status.title() }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ deployment.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        {% if deployment.completed_at %}
+                                        {{ deployment.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {% else %}
+                                        <span class="text-muted">In progress</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ deployment.deployer.username if deployment.deployer else 'System' }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" 
+                                                    onclick="viewDeploymentLog({{ deployment.id }})"
+                                                    title="View deployment log">
+                                                <i class="fas fa-file-alt"></i>
+                                            </button>
+                                            <a href="{{ url_for('config.server_config', server_id=deployment.config_version.server_id) }}" 
+                                               class="btn btn-outline-primary"
+                                               title="Go to server config">
+                                                <i class="fas fa-cog"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-rocket fa-3x text-muted mb-3"></i>
+                        <h5>No Deployments Found</h5>
+                        <p class="text-muted">Configuration deployments will appear here once servers have configs deployed.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Deployment Statistics</h6>
+                </div>
+                <div class="card-body">
+                    {% if deployments %}
+                    {% set total_deployments = deployments|length %}
+                    {% set successful_deployments = deployments|selectattr('deployment_status', 'equalto', 'success')|list|length %}
+                    {% set failed_deployments = deployments|selectattr('deployment_status', 'equalto', 'failed')|list|length %}
+                    {% set success_rate = (successful_deployments / total_deployments * 100) if total_deployments > 0 else 0 %}
+                    
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h4 class="text-primary">{{ total_deployments }}</h4>
+                            <small>Total</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-success">{{ successful_deployments }}</h4>
+                            <small>Successful</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-danger">{{ failed_deployments }}</h4>
+                            <small>Failed</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <h5 class="mb-0">{{ "%.1f"|format(success_rate) }}%</h5>
+                        <small class="text-muted">Success Rate</small>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No deployment statistics available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    {% if deployments %}
+                    {% for deployment in deployments[:5] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            {% if deployment.deployment_status == 'success' %}
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            {% elif deployment.deployment_status == 'failed' %}
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                            {% else %}
+                            <i class="fas fa-clock text-warning me-2"></i>
+                            {% endif %}
+                            <div>
+                                <small><strong>{{ deployment.config_version.server.name }}</strong></small><br>
+                                <small class="text-muted">v{{ deployment.config_version.version_number }}</small>
+                            </div>
+                        </div>
+                        <small class="text-muted">{{ deployment.started_at.strftime('%H:%M') }}</small>
+                    </div>
+                    {% if not loop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted mb-0">No recent activity.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deployment Log Modal -->
+<div class="modal fade" id="deploymentLogModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Deployment Log</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deploymentLogContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshData() {
+    location.reload();
+}
+
+function viewDeploymentLog(deploymentId) {
+    // Fetch deployment details including log
+    const deployment = {{ deployments|tojson }}.find(d => d.id === deploymentId);
+    
+    if (deployment) {
+        let content = `
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <strong>Deployment ID:</strong> ${deployment.id}<br>
+                    <strong>Server:</strong> ${deployment.config_version.server.name}<br>
+                    <strong>Version:</strong> ${deployment.config_version.version_number}
+                </div>
+                <div class="col-md-6">
+                    <strong>Status:</strong> ${deployment.deployment_status}<br>
+                    <strong>Started:</strong> ${deployment.started_at}<br>
+                    <strong>Completed:</strong> ${deployment.completed_at || 'In progress'}
+                </div>
+            </div>
+            <hr>
+            <h6>Deployment Log:</h6>
+            <pre class="bg-dark text-light p-3 rounded">${deployment.deployment_log || 'No log available'}</pre>
+        `;
+        
+        document.getElementById('deploymentLogContent').innerHTML = content;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deploymentLogModal'));
+        modal.show();
+    }
+}
+
+// Auto-refresh every 30 seconds for pending deployments
+{% if deployments|selectattr('deployment_status', 'equalto', 'pending')|list|length > 0 %}
+setTimeout(function() {
+    location.reload();
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

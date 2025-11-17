@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Log Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-analytics"></i> Log Analytics Dashboard
+        </h2>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- System Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="total-logs">{{ server_stats|sum(attribute='recent_logs') }}</h4>
+                            <p class="mb-0">Logs (24h)</p>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="total-anomalies">{{ server_stats|sum(attribute='anomalies') }}</h4>
+                            <p class="mb-0">Anomalies</p>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="total-alerts">{{ server_stats|sum(attribute='alerts') }}</h4>
+                            <p class="mb-0">Active Alerts</p>
+                        </div>
+                        <i class="fas fa-bell fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 id="processing-status">{% if server_stats %}Active{% else %}Idle{% endif %}</h4>
+                            <p class="mb-0">Log Processing</p>
+                        </div>
+                        <i class="fas fa-cogs fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Log Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Server Log Analytics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for stat in server_stats %}
+                        <div class="col-lg-6 col-xl-4 mb-3">
+                            <div class="card h-100 {% if stat.anomalies > 0 %}border-warning{% elif stat.alerts > 0 %}border-danger{% else %}border-success{% endif %}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="card-title mb-0">{{ stat.server.name }}</h6>
+                                        {% if stat.anomalies > 0 %}
+                                            <span class="badge bg-warning">{{ stat.anomalies }} Anomalies</span>
+                                        {% elif stat.alerts > 0 %}
+                                            <span class="badge bg-danger">{{ stat.alerts }} Alerts</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Normal</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="row text-center mb-3">
+                                        <div class="col-4">
+                                            <div class="metric-value">{{ stat.recent_logs }}</div>
+                                            <div class="metric-label">Logs (24h)</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-value text-warning">{{ stat.anomalies }}</div>
+                                            <div class="metric-label">Anomalies</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="metric-value text-danger">{{ stat.alerts }}</div>
+                                            <div class="metric-label">Alerts</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('log_analytics.server_log_analysis', server_id=stat.server.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-chart-area"></i> Detailed Analysis
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Charts -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Log Volume Trends</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="logVolumeChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Log Level Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="logLevelChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Anomalies & Alerts -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Recent Anomalies</h6>
+                </div>
+                <div class="card-body">
+                    <div id="recent-anomalies">
+                        <div class="text-center py-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading anomalies...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Active Alerts</h6>
+                </div>
+                <div class="card-body">
+                    <div id="active-alerts">
+                        <div class="text-center py-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading alerts...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #495057;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.anomaly-item, .alert-item {
+    border-left: 4px solid;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.375rem;
+    background-color: #f8f9fa;
+}
+
+.anomaly-item {
+    border-left-color: #ffc107;
+}
+
+.alert-item {
+    border-left-color: #dc3545;
+}
+
+.processing-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.processing-active {
+    background-color: #28a745;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize charts
+let logVolumeChart, logLevelChart;
+
+function initializeCharts() {
+    // Log Volume Chart
+    const volumeCtx = document.getElementById('logVolumeChart').getContext('2d');
+    logVolumeChart = new Chart(volumeCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Total Logs',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.4
+            }, {
+                label: 'Anomalies',
+                data: [],
+                borderColor: 'rgb(255, 193, 7)',
+                backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Log Level Distribution
+    const levelCtx = document.getElementById('logLevelChart').getContext('2d');
+    logLevelChart = new Chart(levelCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['INFO', 'WARN', 'ERROR', 'DEBUG'],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(220, 53, 69, 0.8)',
+                    'rgba(108, 117, 125, 0.8)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+function refreshDashboard() {
+    location.reload();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    
+    // Load real-time data
+    loadAnomalies();
+    loadAlerts();
+    
+    // Auto-refresh every 60 seconds
+    setInterval(() => {
+        loadAnomalies();
+        loadAlerts();
+    }, 60000);
+});
+
+function loadAnomalies() {
+    // Implementation for loading recent anomalies
+}
+
+function loadAlerts() {
+    // Implementation for loading active alerts
+}
+</script>
+{% endblock %}

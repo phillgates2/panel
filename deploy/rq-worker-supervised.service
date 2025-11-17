@@ -1,0 +1,17 @@
+[Unit]
+Description=RQ worker for panel (supervised, logs to /var/log/panel/worker.log)
+After=network.target redis.service
+
+[Service]
+User=panel
+Group=panel
+WorkingDirectory=/opt/panel
+Environment="PATH=/opt/panel/.venv/bin"
+ExecStart=/opt/panel/.venv/bin/python /opt/panel/run_worker.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/panel/worker.log
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
