@@ -315,59 +315,165 @@ prompt_confirm() {
 # System Dependencies
 # ============================================================================
 
+check_installed() {
+    local pkg="$1"
+    case "$PKG_MANAGER" in
+        apt-get)
+            dpkg -l "$pkg" 2>/dev/null | grep -q '^ii' && return 0
+            ;;
+        dnf|yum)
+            rpm -q "$pkg" &>/dev/null && return 0
+            ;;
+        apk)
+            apk info -e "$pkg" &>/dev/null && return 0
+            ;;
+        pacman)
+            pacman -Q "$pkg" &>/dev/null && return 0
+            ;;
+        brew)
+            brew list "$pkg" &>/dev/null && return 0
+            ;;
+    esac
+    return 1
+}
+
 install_system_deps() {
     if [[ "$SKIP_DEPS" == "true" ]]; then
         log "Skipping system dependencies (PANEL_SKIP_DEPS=true)"
         return 0
     fi
     
-    log "Installing system dependencies..."
+    log "Checking and installing system dependencies..."
+    
+    local to_install=()
+    local deps_map=()
     
     case "$PKG_MANAGER" in
         apt-get)
-            $SUDO apt-get update -qq
-            $SUDO apt-get install -y -qq \
-                python3 python3-pip python3-venv \
-                git curl wget \
-                redis-server \
-                nginx \
-                build-essential libssl-dev libffi-dev
+            deps_map=("python3" "python3-pip" "python3-venv" "git" "curl" "wget" "redis-server" "nginx" "build-essential" "libssl-dev" "libffi-dev")
+            for dep in "${deps_map[@]}"; do
+                if ! check_installed "$dep"; then
+                    to_install+=("$dep")
+                fi
+            done
+            if [[ ${#to_install[@]} -gt 0 ]]; then
+                log "Installing: ${to_install[*]}"
+                $SUDO apt-get update -qq
+                $SUDO apt-get install -y -qq "${to_install[@]}"
+            else
+                log "All apt dependencies already installed ✓"
+            fi
             ;;
         dnf|yum)
-            $SUDO $PKG_MANAGER install -y -q \
-                python3 python3-pip python3-devel \
-                git curl wget \
-                redis \
-                nginx \
-                gcc openssl-devel libffi-devel
+            deps_map=("python3" "python3-pip" "python3-devel" "git" "curl" "wget" "redis" "nginx" "gcc" "openssl-devel" "libffi-devel")
+            for dep in "${deps_map[@]}"; do
+                if ! check_installed "$dep"; then
+                    to_install+=("$dep")
+                fi
+            done
+            if [[ ${#to_install[@]} -gt 0 ]]; then
+                log "Installing: ${to_install[*]}"
+                $SUDO $PKG_MANAGER install -y -q "${to_install[@]}"
+            else
+                log "All dnf/yum dependencies already installed ✓"
+            fi
             ;;
         apk)
-            $SUDO apk add --no-cache \
-                python3 py3-pip \
-                git curl wget \
-                redis \
-                nginx \
-                gcc musl-dev linux-headers libffi-dev openssl-dev
+            deps_map=("python3" "py3-pip" "git" "curl" "wget" "redis" "nginx" "gcc" "musl-dev" "linux-headers" "libffi-dev" "openssl-dev")
+            for dep in "${deps_map[@]}"; do
+                if ! check_installed "$dep"; then
+                    to_install+=("$dep")
+                fi
+            done
+            if [[ ${#to_install[@]} -gt 0 ]]; then
+                log "Installing: ${to_install[*]}"
+                $SUDO apk add --no-cache "${to_install[@]}"
+            else
+                log "All apk dependencies already installed ✓"
+            fi
             ;;
         pacman)
-            $SUDO pacman -S --noconfirm --needed \
-                python python-pip \
-                git curl wget \
-                redis \
-                nginx \
-                base-devel
+            deps_map=("python" "python-pip" "git" "curl" "wget" "redis" "nginx" "base-devel")
+            for dep in "${deps_map[@]}"; do
+                if ! check_installed "$dep"; then
+                    to_install+=("$dep")
+                fi
+            done
+            if [[ ${#to_install[@]} -gt 0 ]]; then
+                log "Installing: ${to_install[*]}"
+                $SUDO pacman -S --noconfirm --needed "${to_install[@]}"
+            else
+                log "All pacman dependencies already installed ✓"
+            fi
             ;;
         brew)
-            brew install python3 git curl wget redis nginx
+            deps_map=("python3" "git" "curl" "wget" "redis" "nginx")
+            for dep in "${deps_map[@]}"; do
+                if ! check_installed "$dep"; then
+                    to_install+=("$dep")
+                fi
+            done
+            if [[ ${#to_install[@]} -gt 0 ]]; then
+                log "Installing: ${to_install[*]}"
+                brew install "${to_install[@]}"
+            else
+                log "All brew dependencies already installed ✓"
+            fi
             ;;
     esac
     
-    # Enable Redis to start on boot
+    # Configure and start Redis
+    log "Configuring Redis server..."
     if command -v systemctl &>/dev/null; then
+        # Enable Redis to start on boot
         $SUDO systemctl enable redis 2>/dev/null || $SUDO systemctl enable redis-server 2>/dev/null || true
+        # Start Redis now
+        $SUDO systemctl start redis 2>/dev/null || $SUDO systemctl start redis-server 2>/dev/null || true
+        # Check if Redis is running
+        if systemctl is-active --quiet redis 2>/dev/null || systemctl is-active --quiet redis-server 2>/dev/null; then
+            log "Redis server started ✓"
+        else
+            warn "Redis server not started via systemctl, attempting alternative methods..."
+            if command -v redis-server &>/dev/null; then
+                redis-server --daemonize yes 2>/dev/null || true
+            fi
+        fi
+    elif command -v service &>/dev/null; then
+        $SUDO service redis start 2>/dev/null || $SUDO service redis-server start 2>/dev/null || true
+    elif command -v redis-server &>/dev/null; then
+        redis-server --daemonize yes 2>/dev/null || true
     fi
     
-    log "System dependencies installed"
+    # Verify Redis is accessible
+    if command -v redis-cli &>/dev/null; then
+        if redis-cli ping &>/dev/null; then
+            log "Redis server is running and accessible ✓"
+        else
+            warn "Redis installed but not responding. You may need to start it manually."
+        fi
+    fi
+    
+    # Configure Nginx
+    log "Configuring Nginx server..."
+    if command -v nginx &>/dev/null; then
+        # Test nginx configuration
+        if $SUDO nginx -t &>/dev/null; then
+            log "Nginx configuration valid ✓"
+        fi
+        
+        # Enable and start Nginx
+        if command -v systemctl &>/dev/null; then
+            $SUDO systemctl enable nginx 2>/dev/null || true
+            $SUDO systemctl start nginx 2>/dev/null || true
+            if systemctl is-active --quiet nginx; then
+                log "Nginx server started ✓"
+            fi
+        elif command -v service &>/dev/null; then
+            $SUDO service nginx start 2>/dev/null || true
+        fi
+    fi
+    
+    log "System dependencies installed and configured"
 }
 
 # ============================================================================
