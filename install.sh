@@ -185,7 +185,9 @@ check_python_version() {
     local python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
     local required_version="3.8"
     
-    if ! awk -v ver="$python_version" -v req="$required_version" 'BEGIN{exit(ver<req)}'; then
+    # Compare versions using sort -V (version sort)
+    local lowest=$(printf '%s\n%s' "$python_version" "$required_version" | sort -V | head -n1)
+    if [[ "$lowest" != "$required_version" ]]; then
         error "Python $required_version or higher required (found: $python_version)"
     fi
     
