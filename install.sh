@@ -1162,7 +1162,7 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
             # Flask debug mode spawns child processes, so we check for the actual app.py process
             PANEL_RUNNING=false
             RETRY_COUNT=0
-            MAX_RETRIES=3
+            MAX_RETRIES=5
             
             while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
                 if pgrep -f "python3 app.py" > /dev/null 2>&1 || pgrep -f "python.*app.py" > /dev/null 2>&1; then
@@ -1172,7 +1172,7 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
                 RETRY_COUNT=$((RETRY_COUNT + 1))
                 if [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; then
                     echo -e "${YELLOW}Checking process status... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)${NC}"
-                    sleep 2
+                    sleep 3
                 fi
             done
             
@@ -1183,13 +1183,23 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
                 
                 # Health check
                 log "Performing health check..."
-                sleep 2
+                sleep 3
+                HEALTH_OK=false
+                
+                # Try multiple endpoints
                 if command -v curl &>/dev/null; then
-                    if curl -f -s http://localhost:$APP_PORT/health >/dev/null 2>&1 || \
-                       curl -f -s http://localhost:$APP_PORT/ >/dev/null 2>&1; then
+                    # Try health endpoint first
+                    if curl -f -s -m 5 http://localhost:$APP_PORT/health >/dev/null 2>&1; then
+                        HEALTH_OK=true
                         echo -e "${GREEN}✓ Panel health check passed${NC}"
+                    # Try root endpoint as fallback
+                    elif curl -f -s -m 5 http://localhost:$APP_PORT/ >/dev/null 2>&1; then
+                        HEALTH_OK=true
+                        echo -e "${GREEN}✓ Panel responding (health endpoint not available)${NC}"
                     else
                         warn "Panel health check failed (but process is running)"
+                        warn "This is normal for first startup - panel may still be initializing"
+                        warn "Wait 15-30 seconds then check: http://$DOMAIN:$APP_PORT"
                     fi
                 fi
                 
@@ -1213,6 +1223,11 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
                 echo -e "${YELLOW}To stop the Panel:${NC}"
                 echo "  pkill -f 'python.*app.py'"
                 echo "  pkill -f 'python.*run_worker.py'"
+                echo
+                echo -e "${YELLOW}Troubleshooting:${NC}"
+                echo "  Run health check: $INSTALL_DIR/panel-health-check.sh"
+                echo "  Check if port is listening: netstat -tuln | grep $APP_PORT"
+                echo "  Test connection: curl http://localhost:$APP_PORT/"
             else
                 echo
                 echo -e "${YELLOW}⚠ Panel startup taking longer than expected${NC}"
@@ -1222,7 +1237,16 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
                     tail -30 "$INSTALL_DIR/logs/panel.log"
                     echo
                     echo -e "${GREEN}If you see initialization messages above, the Panel is starting.${NC}"
-                    echo -e "${GREEN}Wait a few seconds and check: http://$DOMAIN:$APP_PORT${NC}"
+                    echo -e "${GREEN}Wait 15-30 seconds and try:${NC}"
+                    echo -e "  ${BOLD}curl http://localhost:$APP_PORT/${NC}"
+                    echo -e "  ${BOLD}$INSTALL_DIR/panel-health-check.sh${NC}"
+                    echo
+                    echo -e "${YELLOW}If connection fails after 30 seconds:${NC}"
+                    echo "  1. Check errors: tail -100 $INSTALL_DIR/logs/panel.log | grep ERROR"
+                    echo "  2. Check process: ps aux | grep 'python.*app.py'"
+                    echo "  3. Check port: netstat -tuln | grep $APP_PORT"
+                    echo "  4. Try manual start:"
+                    echo "       cd $INSTALL_DIR && source venv/bin/activate && python3 app.py"
                 else
                     echo "  Log file not created: $INSTALL_DIR/logs/panel.log"
                     echo "  Try starting manually:"
