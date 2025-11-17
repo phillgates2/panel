@@ -1045,27 +1045,70 @@ main() {
         # Install nginx based on package manager  
         case "$PKG_MANAGER" in
             apt-get)
-                $SUDO apt-get update -qq
-                $SUDO apt-get install -y -qq nginx
+                log "Installing nginx via apt-get..."
+                $SUDO apt-get update -qq || warn "apt-get update failed"
+                if ! $SUDO apt-get install -y -qq nginx 2>&1 | tee /tmp/nginx_install.log; then
+                    warn "apt-get install failed. Log:"
+                    cat /tmp/nginx_install.log
+                    rm -f /tmp/nginx_install.log
+                fi
                 ;;
             dnf|yum)
-                $SUDO $PKG_MANAGER install -y -q nginx
+                log "Installing nginx via $PKG_MANAGER..."
+                $SUDO $PKG_MANAGER install -y -q nginx 2>&1 | tee /tmp/nginx_install.log || {
+                    warn "$PKG_MANAGER install failed. Log:"
+                    cat /tmp/nginx_install.log
+                    rm -f /tmp/nginx_install.log
+                }
                 ;;
             apk)
-                $SUDO apk add --no-cache nginx
+                log "Installing nginx via apk..."
+                $SUDO apk add --no-cache nginx 2>&1 | tee /tmp/nginx_install.log || {
+                    warn "apk add failed. Log:"
+                    cat /tmp/nginx_install.log
+                    rm -f /tmp/nginx_install.log
+                }
                 ;;
             pacman)
-                $SUDO pacman -S --noconfirm --needed nginx
+                log "Installing nginx via pacman..."
+                $SUDO pacman -S --noconfirm --needed nginx 2>&1 | tee /tmp/nginx_install.log || {
+                    warn "pacman install failed. Log:"
+                    cat /tmp/nginx_install.log
+                    rm -f /tmp/nginx_install.log
+                }
                 ;;
             brew)
-                brew install nginx
+                log "Installing nginx via brew..."
+                brew install nginx 2>&1 | tee /tmp/nginx_install.log || {
+                    warn "brew install failed. Log:"
+                    cat /tmp/nginx_install.log
+                    rm -f /tmp/nginx_install.log
+                }
                 ;;
         esac
         
+        # Give package manager time to complete
+        sleep 2
+        
         # Verify installation
         if ! command -v nginx &>/dev/null; then
-            error "Failed to install nginx. Please install it manually and rerun the installer."
+            warn "Nginx installation may have failed. Checking package installation..."
+            
+            # Try to find nginx binary
+            if [[ -f /usr/sbin/nginx ]]; then
+                log "Found nginx at /usr/sbin/nginx"
+                export PATH="/usr/sbin:$PATH"
+            elif [[ -f /usr/local/sbin/nginx ]]; then
+                log "Found nginx at /usr/local/sbin/nginx"
+                export PATH="/usr/local/sbin:$PATH"
+            elif [[ -f /usr/local/bin/nginx ]]; then
+                log "Found nginx at /usr/local/bin/nginx"
+                export PATH="/usr/local/bin:$PATH"
+            else
+                error "Failed to install nginx. Package manager: $PKG_MANAGER. Please install it manually: sudo $PKG_MANAGER install nginx"
+            fi
         fi
+        
         log "Nginx installed successfully ✓"
         
         # Configure nginx after fresh install
