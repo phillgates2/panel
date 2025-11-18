@@ -30,8 +30,8 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt || true
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
           pip install pytest
       - name: Run tests
         run: |
@@ -55,7 +55,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - name: Autogenerate check (temp copy, minimal deps first)
+      - name: Autogenerate check (temp copy)
         run: |
           set -euo pipefail
           TMPDIR=$(mktemp -d)
@@ -64,15 +64,13 @@ jobs:
           pushd "$TMPDIR"
           python -m venv .venv
           source .venv/bin/activate
-          pip install --upgrade pip
-          # Install minimal deps expected to be required by alembic autogenerate
+          python -m pip install --upgrade pip
           pip install alembic Flask SQLAlchemy Flask-SQLAlchemy python-dotenv || true
-          # Try autogenerate; if it fails due to import errors, install full requirements and retry
-          alembic revision --autogenerate -m "ci-check" || {
-            echo "First autogenerate attempt failed; installing full requirements and retrying";
-            pip install -r requirements.txt || true;
-            alembic revision --autogenerate -m "ci-check" || true;
-          }
+          if ! alembic revision --autogenerate -m "ci-check"; then
+            echo "Autogenerate failed; installing full requirements and retrying"
+            pip install -r requirements.txt || true
+            alembic revision --autogenerate -m "ci-check" || true
+          fi
           GEN_DIR="$TMPDIR/migrations/versions"
           if [ -d "$GEN_DIR" ] && [ "$(ls -A "$GEN_DIR")" ]; then
             echo "Generated migration files detected; comparing against committed files..."
@@ -94,7 +92,7 @@ jobs:
           rm -rf "$TMPDIR"
 
   lint:
-    name: Lint (black + flake8 matrix)
+    name: Lint (black + flake8)
     runs-on: ubuntu-latest
     needs: test
     strategy:
@@ -117,188 +115,10 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install black flake8
       - name: Run black and flake8 (strict)
         run: |
           source .venv/bin/activate
           black --check . --exclude "migrations|.venv|venv"
           flake8 . --exclude migrations,.venv,venv
-name: CI
-
-on:
-  push:
-    branches: [ main, feat/* ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-             pip install alembic
-             pip install -r requirements.txt
-          pip install -r requirements.txt
-          pip install pytest
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          pytest -q
-
-  alembic-check:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install minimal deps
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install alembic
-          pip install -r requirements.txt
-      - name: Autogenerate check (dry-run)
-        run: |
-          source .venv/bin/activate
-          set -euo pipefail
-          TMPDIR=$(mktemp -d)
-          echo "Using tempdir $TMPDIR"
-          # Copy repo contents to tempdir but avoid .git and venv
-          rsync -a --exclude='.git' --exclude='venv' --exclude='.venv' . "$TMPDIR/"
-          pushd "$TMPDIR"
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install alembic
-          pip install -r requirements.txt || true
-          # Run autogenerate in the temp copy; it may create files in migrations/versions
-          alembic revision --autogenerate -m "ci-check" || true
-          GEN_DIR="$TMPDIR/migrations/versions"
-          if [ -d "$GEN_DIR" ] && [ "$(ls -A "$GEN_DIR")" ]; then
-            echo "Generated migration files detected; comparing against committed files..."
-            for gf in "$GEN_DIR"/*; do
-              fname=$(basename "$gf")
-              if [ ! -f "$PWD/migrations/versions/$fname" ]; then
-                echo "ERROR: Autogenerate created new migration $fname";
-                exit 1
-              fi
-              if ! diff -q "$gf" "$PWD/migrations/versions/$fname" >/dev/null 2>&1; then
-                echo "ERROR: Generated migration $fname differs from committed version";
-                exit 1
-              fi
-            done
-          else
-            echo "No generated migration files detected in temp copy; OK."
-          fi
-          popd
-          rm -rf "$TMPDIR"
-
-    lint:
-      runs-on: ubuntu-latest
-      needs: test
-      steps:
-        - uses: actions/checkout@v4
-        - name: Set up Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: '3.12'
-        - name: Install linters
-          run: |
-            python -m venv .venv
-            source .venv/bin/activate
-            pip install --upgrade pip
-            pip install black==23.1.0 flake8==6.0.0
-        - name: Run black and flake8
-          run: |
-            source .venv/bin/activate
-            black --check .
-            flake8 .
-          finame: Panel CI/CD
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.10', '3.11']
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov black isort flake8 bandit
-
-    - name: Run code formatters check
-      run: |
-        black --check --diff . --extend-exclude="migrations|venv|.venv" || echo "Black check failed - not failing CI"
-        isort --check-only --diff . --skip migrations --skip venv --skip .venv || echo "isort check failed - not failing CI"
-
-    - name: Run linter
-      run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=migrations,venv,.venv || true
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics --exclude=migrations,venv,.venv
-
-    - name: Run security scanner
-      run: |
-        bandit -r . -f json -o bandit-report.json --exclude ./venv,./,venv,./.git || true
-        bandit -r . -ll --exclude ./venv,./.venv,./.git || true
-
-    - name: Run tests with coverage
-      env:
-        PANEL_USE_SQLITE: 1
-        PANEL_SECRET_KEY: test-secret-key-for-ci
-        LOG_DIR: /tmp/panel_logs
-      run: |
-        pytest tests/ -v --cov=. --cov-report=xml --cov-report=html || true
-
-    - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-
-    - name: Archive test results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results-${{ matrix.python-version }}
-        path: |
-          htmlcov/
-          bandit-report.json

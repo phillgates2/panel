@@ -14,7 +14,33 @@ A lightweight, PostgreSQL-powered web application for managing ET: Legacy game s
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
 ```
 
-The installer supports both **PostgreSQL** (production) and **SQLite** (development) with interactive prompts.
+The installer features **interactive mode selection**, automatic service orchestration, and comprehensive health checks. Choose between Development, Production, or Custom installation modes.
+
+### Installation Modes
+
+#### 1. Development Mode (Interactive)
+Perfect for local testing and development:
+- Debug mode enabled
+- Direct port access (8080)
+- No systemd services
+- SQLite or PostgreSQL
+- Auto-start Panel services
+
+#### 2. Production Mode (Interactive)
+Enterprise-ready deployment:
+- Production configuration
+- Systemd service management
+- Nginx reverse proxy
+- SSL certificate support
+- PostgreSQL database
+- Automatic service startup
+
+#### 3. Custom Mode (Interactive)
+Mix and match components to suit your needs:
+- Choose individual features
+- Select systemd/nginx/SSL
+- Configure debug mode
+- Flexible port configuration
 
 ### Installation Options
 
@@ -25,10 +51,7 @@ bash install.sh --help
 # Custom installation directory
 bash install.sh --dir /opt/panel
 
-# Force SQLite (development)
-bash install.sh --sqlite
-
-# Force PostgreSQL (production)
+# Force PostgreSQL (production - recommended)
 bash install.sh --postgresql
 
 # Non-interactive mode
@@ -49,30 +72,59 @@ bash install.sh --update
 
 ### Non-Interactive Installation
 
-**PostgreSQL Production:**
+**Development Quick Start:**
 ```bash
 PANEL_NON_INTERACTIVE=true \
-PANEL_DB_TYPE=postgresql \
-PANEL_DB_HOST=localhost \
-PANEL_DB_PORT=5432 \
-PANEL_DB_NAME=panel \
-PANEL_DB_USER=panel_user \
-PANEL_DB_PASS=secure_password \
-PANEL_ADMIN_EMAIL=admin@example.com \
-PANEL_ADMIN_PASS=admin_password \
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
-```
-
-**SQLite Development:**
-```bash
-PANEL_NON_INTERACTIVE=true \
-PANEL_DB_TYPE=sqlite \
-PANEL_ADMIN_EMAIL=admin@localhost \
+PANEL_DEBUG=true \
+PANEL_DB_PASS=devpass \
 PANEL_ADMIN_PASS=admin123 \
 curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
 ```
 
-> **Note:** After installation completes, you'll be prompted to start the Panel immediately. Choose 'y' to auto-start both the web server and background worker. The Panel will be accessible at http://localhost:8080.
+**Production Deployment:**
+```bash
+PANEL_NON_INTERACTIVE=true \
+PANEL_SETUP_SYSTEMD=true \
+PANEL_SETUP_NGINX=true \
+PANEL_DOMAIN=panel.example.com \
+PANEL_ADMIN_EMAIL=admin@example.com \
+PANEL_DB_PASS=$(openssl rand -base64 24) \
+PANEL_ADMIN_PASS=$(openssl rand -base64 16) \
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
+```
+
+**Available Environment Variables:**
+```bash
+# Database Configuration
+PANEL_DB_HOST=localhost          # PostgreSQL host
+PANEL_DB_PORT=5432              # PostgreSQL port
+PANEL_DB_NAME=panel             # Database name
+PANEL_DB_USER=panel_user        # Database username
+PANEL_DB_PASS=<password>        # Database password (required)
+
+# Application Settings
+PANEL_INSTALL_DIR=~/panel       # Installation directory
+PANEL_DOMAIN=localhost          # Domain or IP address
+PANEL_PORT=8080                 # Application port
+PANEL_DEBUG=false               # Debug mode (true/false)
+PANEL_ADMIN_EMAIL=admin@localhost
+PANEL_ADMIN_PASS=<password>     # Admin password (required)
+
+# Service Options (NEW)
+PANEL_SETUP_SYSTEMD=false       # Setup systemd services
+PANEL_SETUP_NGINX=false         # Setup nginx reverse proxy
+PANEL_SETUP_SSL=false           # Setup SSL certificates
+PANEL_AUTO_START=true           # Auto-start after install
+
+# Installer Behavior
+PANEL_NON_INTERACTIVE=false     # Skip interactive prompts
+PANEL_SKIP_DEPS=false           # Skip system dependencies
+PANEL_SKIP_POSTGRESQL=false     # Skip PostgreSQL setup
+PANEL_SAVE_SECRETS=true         # Save credentials to .install_secrets
+PANEL_FORCE=false               # Auto-yes to all prompts
+```
+
+> **Note:** The installer now features automatic service orchestration. After installation, Panel services will auto-start (unless `PANEL_AUTO_START=false`), and a health check will verify everything is working correctly.
 
 ### Uninstallation
 

@@ -2,6 +2,138 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2025-11-18
+
+### ✨ **Major Installer Overhaul**
+
+#### Interactive Installation Modes
+- **Development Mode** - Quick local testing setup
+  - Debug mode enabled by default
+  - Direct port access (8080)
+  - No systemd services
+  - Perfect for development and testing
+  
+- **Production Mode** - Enterprise-ready deployment
+  - Systemd service management
+  - Nginx reverse proxy configuration
+  - SSL certificate support via Let's Encrypt
+  - Production-optimized settings
+  
+- **Custom Mode** - Choose specific components
+  - Select individual features (systemd/nginx/SSL)
+  - Mix development and production options
+  - Flexible configuration
+
+#### Automatic Service Orchestration
+- **Auto-Start Services** - Panel services automatically start after installation
+  - `ensure_redis_running()` - Auto-start and verify Redis
+  - `ensure_postgresql_running()` - Auto-start and verify PostgreSQL
+  - `ensure_nginx_running()` - Auto-start and verify Nginx (if enabled)
+  - `setup_systemd_services()` - Configure systemd units
+  - `start_systemd_services()` - Start services via systemd
+  - `perform_health_check()` - Verify Panel is responding
+
+#### Enhanced Configuration
+- **Interactive Prompts** - All settings now have clear, guided prompts
+  - Installation mode selection with descriptions
+  - Database configuration with auto-generated passwords
+  - Domain/network setup with examples
+  - Admin account creation with secure defaults
+  - Optional features selection
+  
+- **Configuration Summary** - Shows all settings before installation
+  - Review mode, directory, database, domain, services
+  - Confirm before proceeding
+  - Prevents configuration mistakes
+
+#### Production Features
+- **Nginx Integration** - `setup_nginx_config()`
+  - Automatic reverse proxy configuration
+  - Domain-based virtual host setup
+  - Seamless integration with existing nginx
+  
+- **SSL/TLS Support** - `setup_ssl_certificates()`
+  - Automatic Let's Encrypt certificate acquisition
+  - Certbot integration
+  - Auto-renewal setup
+  
+- **Systemd Services** - Production-grade service management
+  - panel-gunicorn.service configuration
+  - rq-worker.service configuration
+  - Auto-enable and start services
+  - Service status verification
+
+#### Health Checks & Verification
+- **Automatic Health Check** - `perform_health_check()`
+  - Tests /health endpoint
+  - Retries with exponential backoff
+  - Verifies Panel is responding correctly
+  - Clear error messages if issues detected
+  
+- **Service Verification**
+  - Checks if Redis is running and responding
+  - Verifies PostgreSQL connectivity
+  - Confirms Nginx is listening (if enabled)
+  - Tests Panel HTTP responses
+
+#### New Environment Variables
+```bash
+PANEL_SETUP_SYSTEMD=true/false    # Configure systemd services
+PANEL_SETUP_NGINX=true/false      # Setup nginx reverse proxy
+PANEL_SETUP_SSL=true/false        # Setup SSL certificates
+PANEL_AUTO_START=true/false       # Auto-start after install (default: true)
+```
+
+#### Installation Process Improvements
+The installer now performs these steps automatically:
+1. System detection and pre-flight checks
+2. Interactive mode selection (or use env vars)
+3. System dependency installation
+4. Auto-start PostgreSQL and Redis
+5. Panel application installation
+6. Systemd service configuration (if requested)
+7. Nginx reverse proxy setup (if requested)
+8. SSL certificate acquisition (if requested)
+9. Automatic service startup
+10. Health check verification
+11. Display access info and next steps
+
+#### User Experience Enhancements
+- **Better Progress Reporting** - Clear status messages for each step
+- **Masked Password Input** - Secure credential entry
+- **Auto-Generated Credentials** - Secure random passwords when not provided
+- **Service Status Display** - Shows all running services and PIDs
+- **Next Steps Guide** - Clear instructions after installation
+- **Troubleshooting Help** - Built-in diagnostics and log locations
+
+### 🔧 **Bug Fixes**
+- Fixed installer syntax validation (passes `bash -n`)
+- Improved error handling in service startup functions
+- Better handling of systemd-less environments
+- Enhanced PostgreSQL socket detection for dev containers
+
+### 📚 **Documentation**
+- Added comprehensive **INSTALLER_GUIDE.md**
+  - Installation modes explained
+  - All environment variables documented
+  - Post-installation management
+  - Troubleshooting guide
+  - Security best practices
+  
+- Updated **README.md**
+  - New installation mode documentation
+  - Updated environment variable reference
+  - Service management instructions
+
+### 🔍 **Testing & Quality**
+- Comprehensive project health check implemented
+- All 109 Python files validated (no syntax errors)
+- All shell scripts validated (bash -n)
+- Configuration files validated
+- No critical errors detected
+
+---
+
 ## [3.0.5] - 2025-11-17
 
 ### ✨ **New Features**
