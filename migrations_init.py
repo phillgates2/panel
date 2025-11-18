@@ -13,7 +13,7 @@ from app import app, db
 # Initialize Flask-Migrate
 migrate = Migrate(app, db)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Flask-Migrate initialized")
     print("Available commands:")
     print("  flask db init         - Initialize migrations directory")

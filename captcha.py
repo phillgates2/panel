@@ -1,7 +1,8 @@
-import random
 import io
+import random
 import subprocess
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 def _random_text(n=6):
@@ -18,7 +19,7 @@ def generate_captcha_image(length=6):
     # Use white background for maximum contrast and quality
     image = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(image)
-    
+
     # Use 16px font optimized for 50x25 image with high quality
     try:
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 16)
@@ -44,10 +45,10 @@ def generate_captcha_image(length=6):
             h = 16
     x = (width - w) // 2
     y = (height - h) // 2
-    
+
     # Draw text with maximum contrast (black on white)
     draw.text((x, y), text, font=font, fill=(0, 0, 0))
-    
+
     # Skip noise lines for maximum text clarity in tiny image
 
     # Apply quality enhancement: smooth first, then sharpen for crisp text
@@ -75,6 +76,7 @@ def generate_captcha_audio(text=None):
     # synthesize wav to stdout
     # espeak -w - "text" will write to filename; we'll use a temp file approach
     import tempfile
+
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmpname = tmp.name
     try:
@@ -84,10 +86,12 @@ def generate_captcha_audio(text=None):
     finally:
         try:
             import os
+
             os.unlink(tmpname)
         except Exception:
             pass
     return data
+
 
 # Provide helper to retrieve last image bytes (used by app)
 def last_image_bytes():
