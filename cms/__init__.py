@@ -11,6 +11,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 from app import db, User, verify_csrf
+from tools.auth import admin_required as auth_admin_required
 from datetime import datetime
 
 cms_bp = Blueprint('cms', __name__, url_prefix='/cms')
@@ -54,18 +55,25 @@ def view(slug):
     page = db.session.query(Page).filter_by(slug=slug).first()
     if not page:
         abort(404)
-    # optional markdown rendering
+    # optional markdown rendering with sanitization
     html_content = None
     try:
         from markdown import markdown as md
-        html_content = md(page.content or '')
+        raw_html = md(page.content or '')
+        try:
+            import bleach
+            html_content = bleach.clean(raw_html, tags=bleach.sanitizer.ALLOWED_TAGS + ["p", "pre", "code"], strip=True)
+        except Exception:
+            # fallback: escape HTML
+            from markupsafe import escape
+            html_content = escape(raw_html)
     except Exception:
         html_content = page.content
     return render_template('cms/view.html', page=page, html_content=html_content)
 
 
 @cms_bp.route('/create', methods=['GET', 'POST'])
-@admin_required
+@auth_admin_required
 def create():
     if request.method == 'POST':
         # CSRF protection
@@ -132,5 +140,7 @@ def admin_login():
 @cms_bp.route('/admin/logout')
 def admin_logout():
     session.pop('admin_authenticated', None)
+    session.pop('admin_user_id', None)
+    session.pop('user_id', None)
     flash('Logged out', 'success')
     return redirect(url_for('cms.index'))

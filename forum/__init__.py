@@ -10,6 +10,7 @@ from flask import (
     session,
 )
 from app import db, verify_csrf
+from tools.auth import admin_required as auth_admin_required
 from datetime import datetime
 
 forum_bp = Blueprint('forum', __name__, url_prefix='/forum')
@@ -69,11 +70,21 @@ def view_thread(thread_id):
     q = db.session.query(Post).filter_by(thread_id=thread_id).order_by(Post.created_at.asc())
     total = q.count()
     posts = q.offset((page-1)*per_page).limit(per_page).all()
-    # optional markdown for posts
+    # optional markdown for posts with sanitization
     try:
         from markdown import markdown as md
+        try:
+            import bleach
+            sanitizer = True
+        except Exception:
+            sanitizer = False
         for p in posts:
-            p._html = md(p.content or '')
+            raw = md(p.content or '')
+            if sanitizer:
+                p._html = bleach.clean(raw, tags=bleach.sanitizer.ALLOWED_TAGS + ["p", "pre", "code"], strip=True)
+            else:
+                from markupsafe import escape
+                p._html = escape(raw)
     except Exception:
         for p in posts:
             p._html = p.content
@@ -105,7 +116,7 @@ def reply_thread(thread_id):
 
 
 @forum_bp.route('/thread/create', methods=['GET', 'POST'])
-@admin_required
+@auth_admin_required
 def create_thread():
     if request.method == 'POST':
         # CSRF protection
@@ -133,7 +144,7 @@ def create_thread():
 
 
 @forum_bp.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
-@admin_required
+@auth_admin_required
 def edit_post(post_id):
     p = db.session.get(Post, post_id)
     if not p:
@@ -152,7 +163,7 @@ def edit_post(post_id):
 
 
 @forum_bp.route('/post/<int:post_id>/delete', methods=['POST'])
-@admin_required
+@auth_admin_required
 def delete_post(post_id):
     p = db.session.get(Post, post_id)
     if not p:
@@ -189,7 +200,7 @@ def edit_thread(thread_id):
 
 
 @forum_bp.route('/thread/<int:thread_id>/delete', methods=['POST'])
-@admin_required
+@auth_admin_required
 def delete_thread(thread_id):
     t = db.session.get(Thread, thread_id)
     if not t:

@@ -68,6 +68,11 @@ logger = setup_logging(app)
 # Configure security headers
 from security_headers import configure_security_headers  # noqa: E402
 configure_security_headers(app)
+try:
+    from tools.mail import mail  # noqa: E402
+    mail.init_app(app)
+except Exception:
+    mail = None
 
 
 def create_app(config_obj=None):
@@ -92,6 +97,13 @@ def create_app(config_obj=None):
     # Configure security headers
     from security_headers import configure_security_headers  # noqa: E402
     configure_security_headers(_app)
+
+    # Initialize lightweight mail client if present
+    try:
+        from tools.mail import mail  # noqa: E402
+        mail.init_app(_app)
+    except Exception:
+        pass
 
     # Bind SQLAlchemy
     db.init_app(_app)
@@ -123,21 +135,56 @@ def create_app(config_obj=None):
         # already registered on this app
         pass
 
+    # Register optional feature blueprints (import here to avoid circular imports)
+    try:
+        import cms as _cms
+        if hasattr(_cms, 'cms_bp'):
+            try:
+                _app.register_blueprint(_cms.cms_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+    try:
+        import forum as _forum
+        if hasattr(_forum, 'forum_bp'):
+            try:
+                _app.register_blueprint(_forum.forum_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+
     # Backwards-compat: create un-prefixed endpoint aliases on the
     # factory app so existing `url_for('login')` calls continue to work.
     try:
+        # Build list of blueprint names to create unprefixed aliases for
+        bp_names = [main_bp.name]
+        try:
+            if cms_bp is not None:
+                bp_names.append(cms_bp.name)
+        except NameError:
+            pass
+        try:
+            if forum_bp is not None:
+                bp_names.append(forum_bp.name)
+        except NameError:
+            pass
+
         for rule in list(_app.url_map.iter_rules()):
             ep = rule.endpoint
-            if ep.startswith(f"{main_bp.name}."):
-                short = ep.split('.', 1)[1]
-                if short not in _app.view_functions:
-                    view = _app.view_functions.get(ep)
-                    if view:
-                        try:
-                            methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
-                            _app.add_url_rule(rule.rule, endpoint=short, view_func=view, methods=methods)
-                        except Exception:
-                            pass
+            for bpname in bp_names:
+                if ep.startswith(f"{bpname}."):
+                    short = ep.split('.', 1)[1]
+                    if short not in _app.view_functions:
+                        view = _app.view_functions.get(ep)
+                        if view:
+                            try:
+                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                                _app.add_url_rule(rule.rule, endpoint=short, view_func=view, methods=methods)
+                            except Exception:
+                                pass
+                    break
     except Exception:
         pass
 
@@ -295,6 +342,39 @@ db_admin = DatabaseAdmin(app, db)
 # Blueprint for main application routes. We will register this on both the
 # module-level `app` and any apps created via `create_app()`.
 main_bp = Blueprint('main', __name__)
+
+# Optional CMS and Forum blueprints (kept optional so imports won't fail in test environments)
+try:
+    from cms import cms_bp  # type: ignore
+except Exception:
+    cms_bp = None
+try:
+    from forum import forum_bp  # type: ignore
+except Exception:
+    forum_bp = None
+
+def _register_optional_blueprints(module_app):
+    try:
+        import cms as _cms
+        if hasattr(_cms, 'cms_bp'):
+            try:
+                module_app.register_blueprint(_cms.cms_bp)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        import forum as _forum
+        if hasattr(_forum, 'forum_bp'):
+            try:
+                module_app.register_blueprint(_forum.forum_bp)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+# Register optional blueprints on the module-level app if available
+_register_optional_blueprints(app)
 
 
 class User(db.Model):

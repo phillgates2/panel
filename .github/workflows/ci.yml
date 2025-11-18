@@ -1,4 +1,105 @@
-name: Panel CI/CD
+name: CI
+
+on:
+  push:
+    branches: [ main, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+             pip install alembic
+             pip install -r requirements.txt
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          pytest -q
+
+  alembic-check:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install minimal deps
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install alembic
+          pip install -r requirements.txt
+      - name: Autogenerate check (dry-run)
+        run: |
+          source .venv/bin/activate
+          set -euo pipefail
+          TMPDIR=$(mktemp -d)
+          echo "Using tempdir $TMPDIR"
+          # Copy repo contents to tempdir but avoid .git and venv
+          rsync -a --exclude='.git' --exclude='venv' --exclude='.venv' . "$TMPDIR/"
+          pushd "$TMPDIR"
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install alembic
+          pip install -r requirements.txt || true
+          # Run autogenerate in the temp copy; it may create files in migrations/versions
+          alembic revision --autogenerate -m "ci-check" || true
+          GEN_DIR="$TMPDIR/migrations/versions"
+          if [ -d "$GEN_DIR" ] && [ "$(ls -A "$GEN_DIR")" ]; then
+            echo "Generated migration files detected; comparing against committed files..."
+            for gf in "$GEN_DIR"/*; do
+              fname=$(basename "$gf")
+              if [ ! -f "$PWD/migrations/versions/$fname" ]; then
+                echo "ERROR: Autogenerate created new migration $fname";
+                exit 1
+              fi
+              if ! diff -q "$gf" "$PWD/migrations/versions/$fname" >/dev/null 2>&1; then
+                echo "ERROR: Generated migration $fname differs from committed version";
+                exit 1
+              fi
+            done
+          else
+            echo "No generated migration files detected in temp copy; OK."
+          fi
+          popd
+          rm -rf "$TMPDIR"
+
+    lint:
+      runs-on: ubuntu-latest
+      needs: test
+      steps:
+        - uses: actions/checkout@v4
+        - name: Set up Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: '3.12'
+        - name: Install linters
+          run: |
+            python -m venv .venv
+            source .venv/bin/activate
+            pip install --upgrade pip
+            pip install black==23.1.0 flake8==6.0.0
+        - name: Run black and flake8
+          run: |
+            source .venv/bin/activate
+            black --check .
+            flake8 .
+          finame: Panel CI/CD
 
 on:
   push:
