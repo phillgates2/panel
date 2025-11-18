@@ -38,8 +38,6 @@ class DatabaseSecurity:
     def check_dangerous_query(query):
         """Check if query contains dangerous patterns"""
         warnings = []
-        query_upper = query.upper()
-        
         for pattern, description in DatabaseSecurity.DANGEROUS_PATTERNS:
             if re.search(pattern, query, re.IGNORECASE):
                 warnings.append(description)

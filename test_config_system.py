@@ -16,6 +16,9 @@ def test_config_manager_import():
         
         # Mock the app module to avoid database connection issues
         import types
+        # save originals to restore later
+        _orig_app = sys.modules.get('app')
+        _orig_app_db = sys.modules.get('app.db')
         mock_app = types.ModuleType('app')
         mock_db = types.ModuleType('db')
         mock_db.Model = object
@@ -38,11 +41,22 @@ def test_config_manager_import():
         sys.modules['app.db'] = mock_db
         
         # Now test imports
-        from config_manager import ConfigManager
-        print("  ✅ ConfigTemplate model imported")
-        print("  ✅ ConfigVersion model imported") 
-        print("  ✅ ConfigDeployment model imported")
-        print("  ✅ ConfigManager class imported")
+        try:
+            from config_manager import ConfigManager
+            print("  ✅ ConfigTemplate model imported")
+            print("  ✅ ConfigVersion model imported") 
+            print("  ✅ ConfigDeployment model imported")
+            print("  ✅ ConfigManager class imported")
+        finally:
+            # restore originals
+            if _orig_app is not None:
+                sys.modules['app'] = _orig_app
+            else:
+                sys.modules.pop('app', None)
+            if _orig_app_db is not None:
+                sys.modules['app.db'] = _orig_app_db
+            else:
+                sys.modules.pop('app.db', None)
         
         # Test template data structure
         template_data = {
@@ -64,11 +78,11 @@ cd /opt/etlegacy
         
         # Test JSON serialization
         json_data = json.dumps(template_data)
-        parsed_data = json.loads(json_data)
+        _parsed_data = json.loads(json_data)
         print("  ✅ Template data JSON serialization works")
         
         # Test ConfigManager instantiation
-        manager = ConfigManager(server_id=1)
+        _manager = ConfigManager(server_id=1)
         print("  ✅ ConfigManager instantiation works")
         
         # Test validation method (mock)
@@ -101,6 +115,8 @@ def test_routes_import():
     try:
         # Mock Flask
         import types
+        _orig_flask = sys.modules.get('flask')
+        _orig_flask_login = sys.modules.get('flask_login')
         mock_flask = types.ModuleType('flask')
         mock_flask.Blueprint = lambda *args, **kwargs: types.ModuleType('blueprint')
         mock_flask.render_template = lambda *args, **kwargs: "template"
@@ -123,10 +139,20 @@ def test_routes_import():
         sys.modules['flask_login'] = mock_flask_login
         
         # Import routes
-        print("  ✅ Configuration routes imported successfully")
-        print("  ✅ Blueprint created for configuration management")
-        
-        return True
+        try:
+            print("  ✅ Configuration routes imported successfully")
+            print("  ✅ Blueprint created for configuration management")
+            return True
+        finally:
+            # restore flask mocks
+            if _orig_flask is not None:
+                sys.modules['flask'] = _orig_flask
+            else:
+                sys.modules.pop('flask', None)
+            if _orig_flask_login is not None:
+                sys.modules['flask_login'] = _orig_flask_login
+            else:
+                sys.modules.pop('flask_login', None)
         
     except Exception as e:
         print(f"  ❌ Route import error: {e}")

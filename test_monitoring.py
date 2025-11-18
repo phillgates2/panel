@@ -5,7 +5,7 @@ import os
 os.environ['PANEL_USE_SQLITE'] = '1'
 
 print("1. Testing basic app import...")
-from app import app, db
+from app import app, db  # noqa: E402
 print("✓ App imported")
 
 print("2. Testing app context...")

@@ -371,10 +371,10 @@ class MultiServerManager:
         target_per_server = total_players // len(online_servers)
         
         # Find servers that need rebalancing
-        overloaded = [s for s in online_servers 
-                     if (s['metrics'].player_count or 0) > target_per_server + 3]
-        underloaded = [s for s in online_servers 
-                      if (s['metrics'].player_count or 0) < target_per_server - 3]
+        _overloaded = [s for s in online_servers 
+                 if (s['metrics'].player_count or 0) > target_per_server + 3]
+        _underloaded = [s for s in online_servers 
+                  if (s['metrics'].player_count or 0) < target_per_server - 3]
         
         # Implement player redirection logic here
         # This would involve RCON commands to redirect players

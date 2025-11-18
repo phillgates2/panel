@@ -430,7 +430,7 @@ class LogProcessor:
                 recent_entries = db.session.query(LogEntry).filter(
                     LogEntry.server_id == server.id,
                     LogEntry.timestamp > cutoff_time,
-                    LogEntry.processed == False
+                    LogEntry.processed.is_(False)
                 ).all()
                 
                 if not recent_entries:
@@ -496,7 +496,7 @@ def log_analytics_dashboard():
         # Anomaly count
         anomaly_count = db.session.query(func.count(LogAnomaly.id)).filter(
             LogAnomaly.server_id == server.id,
-            LogAnomaly.is_resolved == False
+            LogAnomaly.is_resolved.is_(False)
         ).scalar()
         
         # Alert count

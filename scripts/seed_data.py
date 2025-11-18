@@ -232,7 +232,7 @@ def main():
             return
         
         if '--users' in args or '--all' in args:
-            admin = create_admin_user()
+            create_admin_user()
             create_sample_users()
         
         if '--groups' in args or '--all' in args:

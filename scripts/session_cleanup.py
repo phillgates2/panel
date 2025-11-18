@@ -23,7 +23,7 @@ def cleanup_expired_sessions():
         # Find expired sessions
         expired_sessions = UserSession.query.filter(
             UserSession.expires_at < now,
-            UserSession.is_active == True
+            UserSession.is_active
         ).all()
         
         if expired_sessions:
@@ -52,7 +52,7 @@ def cleanup_old_sessions(days_old=30):
         
         old_sessions = UserSession.query.filter(
             UserSession.created_at < cutoff_date,
-            UserSession.is_active == False
+            UserSession.is_active.is_(False)
         ).all()
         
         if old_sessions:

@@ -2,7 +2,7 @@
 Security Headers Configuration
 Implements CSP, HSTS, and other security best practices
 """
-
+from flask import request
 
 
 def configure_security_headers(app):
@@ -80,6 +80,7 @@ def configure_security_headers(app):
         PERMANENT_SESSION_LIFETIME=2592000,  # 30 days
     )
     
+
     return app
 
 
@@ -102,5 +103,3 @@ def configure_cors(app, allowed_origins=None):
     return app
 
 
-# Import fix for the function
-from flask import request

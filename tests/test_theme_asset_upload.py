@@ -7,6 +7,8 @@ os.environ['PANEL_USE_SQLITE'] = '1'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import pytest
+import tempfile
+import os
 from datetime import date
 from app import app, db, User, SiteAsset
 
@@ -16,17 +18,32 @@ PNG_1x1 = base64.b64decode(
 )
 
 @pytest.fixture()
-def client():
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['TESTING'] = True
-    # enable DB storage for this test
-    app.config['THEME_STORE_IN_DB'] = True
-    app.config['THEME_UPLOAD_MAX_BYTES'] = 200000
-    with app.app_context():
-        db.create_all()
-        yield app.test_client()
-        db.session.remove()
-        db.drop_all()
+def client(request):
+    fd, path = tempfile.mkstemp(prefix='panel_test_', suffix='.db')
+    os.close(fd)
+    try:
+        from app import create_app
+        local_app = create_app()
+        local_app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{path}'
+        local_app.config['TESTING'] = True
+        # enable DB storage for this test
+        local_app.config['THEME_STORE_IN_DB'] = True
+        local_app.config['THEME_UPLOAD_MAX_BYTES'] = 200000
+        # expose `app` in the test module for compatibility
+        request.module.app = local_app
+        try:
+            with local_app.app_context():
+                db.create_all()
+                yield local_app.test_client()
+        finally:
+            with local_app.app_context():
+                db.session.remove()
+                db.drop_all()
+    finally:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
 
 def make_admin(client):
@@ -41,7 +58,7 @@ def make_admin(client):
 
 
 def test_upload_and_serve_db_asset(client):
-    admin = make_admin(client)
+    make_admin(client)
     # fetch csrf token then upload file
     client.get('/admin/theme')
     token = session_csrf(client)

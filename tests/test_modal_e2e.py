@@ -4,7 +4,10 @@ import pytest
 import asyncio
 from datetime import date
 from app import app, db, User, Server
-from playwright.async_api import async_playwright
+try:
+    from playwright.async_api import async_playwright
+except Exception:
+    pytest.skip("playwright not available in this environment", allow_module_level=True)
 
 
 @pytest.fixture(scope="session")
@@ -18,13 +21,27 @@ def event_loop():
 @pytest.fixture()
 def test_app():
     """Setup test app with SQLite."""
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    import tempfile
+    fd, path = tempfile.mkstemp(prefix='panel_test_', suffix='.db')
+    os.close(fd)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{path}'
     app.config['TESTING'] = True
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
+    try:
+        with app.app_context():
+            try:
+                db.engine.dispose()
+            except Exception:
+                pass
+            db.create_all()
+            yield app
+    finally:
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
 
 def make_admin_and_server(app):

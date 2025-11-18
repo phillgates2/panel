@@ -20,6 +20,8 @@ test-fast: ## Run tests without coverage
 	PANEL_USE_SQLITE=1 pytest tests/ -v
 
 lint: ## Run linters
+	# Run ruff first (auto-fix simple issues)
+	ruff check --fix . || true
 	black --check .
 	isort --check-only .
 	flake8 . --exclude=venv,.venv,migrations --max-line-length=100
