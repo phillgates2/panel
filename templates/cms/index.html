@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Pages</h1>
+<ul>
+  {% for p in pages %}
+    <li><a href="{{ url_for('cms.view', slug=p.slug) }}">{{ p.title }}</a></li>
+  {% else %}
+    <li>No pages yet.</li>
+  {% endfor %}
+</ul>
+<a href="{{ url_for('cms.create') }}">Create page</a>
+{% endblock %}

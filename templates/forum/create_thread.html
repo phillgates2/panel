@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Create Thread</h1>
+<form method="post">
+  <label>Title: <input name="title"></label><br>
+  <label>Author: <input name="author"></label><br>
+  <label>Content:<br>
+    <textarea name="content" rows="8" cols="60"></textarea>
+  </label><br>
+  <button type="submit">Create</button>
+</form>
+{% endblock %}
