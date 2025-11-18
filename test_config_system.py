@@ -6,21 +6,23 @@ Simple test script for configuration management functionality
 import json
 import sys
 
+
 def test_config_manager_import():
     """Test that we can import the configuration manager modules."""
     print("🧪 Testing Configuration Management System...")
-    
+
     try:
         # Test basic imports
         print("📦 Testing imports...")
-        
+
         # Mock the app module to avoid database connection issues
         import types
+
         # save originals to restore later
-        _orig_app = sys.modules.get('app')
-        _orig_app_db = sys.modules.get('app.db')
-        mock_app = types.ModuleType('app')
-        mock_db = types.ModuleType('db')
+        _orig_app = sys.modules.get("app")
+        _orig_app_db = sys.modules.get("app.db")
+        mock_app = types.ModuleType("app")
+        mock_db = types.ModuleType("db")
         mock_db.Model = object
         mock_db.Column = lambda *args, **kwargs: None
         mock_db.Integer = str
@@ -31,113 +33,114 @@ def test_config_manager_import():
         mock_db.ForeignKey = str
         mock_db.relationship = lambda *args, **kwargs: None
         mock_db.backref = lambda *args, **kwargs: None
-        mock_db.session = types.ModuleType('session')
+        mock_db.session = types.ModuleType("session")
         mock_db.session.add = lambda x: None
         mock_db.session.commit = lambda: None
         mock_db.session.query = lambda x: None
         mock_app.db = mock_db
-        
-        sys.modules['app'] = mock_app
-        sys.modules['app.db'] = mock_db
-        
+
+        sys.modules["app"] = mock_app
+        sys.modules["app.db"] = mock_db
+
         # Now test imports
         try:
             from config_manager import ConfigManager
+
             print("  ✅ ConfigTemplate model imported")
-            print("  ✅ ConfigVersion model imported") 
+            print("  ✅ ConfigVersion model imported")
             print("  ✅ ConfigDeployment model imported")
             print("  ✅ ConfigManager class imported")
         finally:
             # restore originals
             if _orig_app is not None:
-                sys.modules['app'] = _orig_app
+                sys.modules["app"] = _orig_app
             else:
-                sys.modules.pop('app', None)
+                sys.modules.pop("app", None)
             if _orig_app_db is not None:
-                sys.modules['app.db'] = _orig_app_db
+                sys.modules["app.db"] = _orig_app_db
             else:
-                sys.modules.pop('app.db', None)
-        
+                sys.modules.pop("app.db", None)
+
         # Test template data structure
         template_data = {
-            'server_cfg': '''// ET:Legacy Server Configuration
+            "server_cfg": """// ET:Legacy Server Configuration
 set sv_hostname "Test Server"
 set rconpassword "test123"
 set sv_maxclients 32
-''',
-            'campaign_cfg': '''// Campaign Configuration  
+""",
+            "campaign_cfg": """// Campaign Configuration  
 set g_gametype 6
 clearscriptlist
 scriptlist maps/goldrush.script
-''',
-            'startup_script': '''#!/bin/bash
+""",
+            "startup_script": """#!/bin/bash
 cd /opt/etlegacy
 ./etlded +set dedicated 2 +set net_port 27960 +exec server.cfg
-'''
+""",
         }
-        
+
         # Test JSON serialization
         json_data = json.dumps(template_data)
         _parsed_data = json.loads(json_data)
         print("  ✅ Template data JSON serialization works")
-        
+
         # Test ConfigManager instantiation
         _manager = ConfigManager(server_id=1)
         print("  ✅ ConfigManager instantiation works")
-        
+
         # Test validation method (mock)
-        validation = {
-            'errors': [],
-            'warnings': ['Test warning']
-        }
+        validation = {"errors": [], "warnings": ["Test warning"]}
         print(f"  ✅ Validation structure: {validation}")
-        
+
         print("\n🎉 Configuration Management System Tests PASSED!")
         print("\n📋 System Features:")
         print("  • Configuration Templates with version control")
-        print("  • Server configuration deployment & rollback") 
+        print("  • Server configuration deployment & rollback")
         print("  • Configuration validation and diff comparison")
         print("  • Deployment history and audit logging")
         print("  • Web interface for configuration management")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"  ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_routes_import():
     """Test configuration route imports."""
     print("\n🌐 Testing Configuration Routes...")
-    
+
     try:
         # Mock Flask
         import types
-        _orig_flask = sys.modules.get('flask')
-        _orig_flask_login = sys.modules.get('flask_login')
-        mock_flask = types.ModuleType('flask')
-        mock_flask.Blueprint = lambda *args, **kwargs: types.ModuleType('blueprint')
+
+        _orig_flask = sys.modules.get("flask")
+        _orig_flask_login = sys.modules.get("flask_login")
+        mock_flask = types.ModuleType("flask")
+        mock_flask.Blueprint = lambda *args, **kwargs: types.ModuleType("blueprint")
         mock_flask.render_template = lambda *args, **kwargs: "template"
-        mock_flask.request = types.ModuleType('request')
-        mock_flask.request.method = 'GET'
+        mock_flask.request = types.ModuleType("request")
+        mock_flask.request.method = "GET"
         mock_flask.request.get_json = lambda: {}
         mock_flask.request.form = {}
         mock_flask.jsonify = lambda x: x
         mock_flask.flash = lambda *args, **kwargs: None
         mock_flask.redirect = lambda x: x
         mock_flask.url_for = lambda x, **kwargs: f"/{x}"
-        
-        mock_flask_login = types.ModuleType('flask_login')
+
+        mock_flask_login = types.ModuleType("flask_login")
         mock_flask_login.login_required = lambda f: f
-        mock_flask_login.current_user = types.ModuleType('user')
+        mock_flask_login.current_user = types.ModuleType("user")
         mock_flask_login.current_user.is_system_admin = True
         mock_flask_login.current_user.id = 1
-        
-        sys.modules['flask'] = mock_flask
-        sys.modules['flask_login'] = mock_flask_login
-        
+
+        sys.modules["flask"] = mock_flask
+        sys.modules["flask_login"] = mock_flask_login
+
         # Import routes
         try:
             print("  ✅ Configuration routes imported successfully")
@@ -146,23 +149,24 @@ def test_routes_import():
         finally:
             # restore flask mocks
             if _orig_flask is not None:
-                sys.modules['flask'] = _orig_flask
+                sys.modules["flask"] = _orig_flask
             else:
-                sys.modules.pop('flask', None)
+                sys.modules.pop("flask", None)
             if _orig_flask_login is not None:
-                sys.modules['flask_login'] = _orig_flask_login
+                sys.modules["flask_login"] = _orig_flask_login
             else:
-                sys.modules.pop('flask_login', None)
-        
+                sys.modules.pop("flask_login", None)
+
     except Exception as e:
         print(f"  ❌ Route import error: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = True
     success &= test_config_manager_import()
     success &= test_routes_import()
-    
+
     if success:
         print("\n🚀 Configuration Management System is ready for deployment!")
         print("\n🔧 Next Steps:")

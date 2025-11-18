@@ -11,7 +11,9 @@ Configuration (read from `app.config`):
 - MAIL_USERNAME / MAIL_PASSWORD: optional for auth
 - MAIL_DEFAULT_SENDER: default from address
 """
+
 from __future__ import annotations
+
 import smtplib
 from email.message import EmailMessage
 from typing import Optional
@@ -28,13 +30,13 @@ class Mail:
 
     def _get_connection(self):
         if self.app is None:
-            raise RuntimeError('Mail not initialized')
-        host = self.app.config.get('MAIL_SERVER', 'localhost')
-        port = int(self.app.config.get('MAIL_PORT', 25))
-        use_tls = bool(self.app.config.get('MAIL_USE_TLS', False))
-        use_ssl = bool(self.app.config.get('MAIL_USE_SSL', False))
-        username = self.app.config.get('MAIL_USERNAME')
-        password = self.app.config.get('MAIL_PASSWORD')
+            raise RuntimeError("Mail not initialized")
+        host = self.app.config.get("MAIL_SERVER", "localhost")
+        port = int(self.app.config.get("MAIL_PORT", 25))
+        use_tls = bool(self.app.config.get("MAIL_USE_TLS", False))
+        use_ssl = bool(self.app.config.get("MAIL_USE_SSL", False))
+        username = self.app.config.get("MAIL_USERNAME")
+        password = self.app.config.get("MAIL_PASSWORD")
 
         if use_ssl:
             conn = smtplib.SMTP_SSL(host, port, timeout=30)
@@ -48,21 +50,28 @@ class Mail:
             conn.login(username, password)
         return conn
 
-    def send_message(self, subject: str, body: str, recipients, sender: Optional[str] = None, html: Optional[str] = None):
+    def send_message(
+        self,
+        subject: str,
+        body: str,
+        recipients,
+        sender: Optional[str] = None,
+        html: Optional[str] = None,
+    ):
         """Send an email. `recipients` can be a string or a list/tuple."""
         if self.app is None:
-            raise RuntimeError('Mail not initialized')
+            raise RuntimeError("Mail not initialized")
         if isinstance(recipients, str):
             recipients = [recipients]
-        sender = sender or self.app.config.get('MAIL_DEFAULT_SENDER')
+        sender = sender or self.app.config.get("MAIL_DEFAULT_SENDER")
         msg = EmailMessage()
-        msg['Subject'] = subject
+        msg["Subject"] = subject
         if sender:
-            msg['From'] = sender
-        msg['To'] = ', '.join(recipients)
+            msg["From"] = sender
+        msg["To"] = ", ".join(recipients)
         msg.set_content(body)
         if html:
-            msg.add_alternative(html, subtype='html')
+            msg.add_alternative(html, subtype="html")
 
         conn = None
         try:

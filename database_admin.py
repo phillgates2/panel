@@ -10,6 +10,7 @@ import sqlite3
 try:
     import psycopg2
     import psycopg2.extras
+
     POSTGRES_AVAILABLE = True
 except ImportError:
     POSTGRES_AVAILABLE = False
@@ -17,32 +18,32 @@ except ImportError:
 
 class DatabaseAdmin:
     """Embedded database admin functionality for Panel (SQLite & PostgreSQL)"""
-    
+
     def __init__(self, app, db):
         self.app = app
         self.db = db
-        
+
     def is_postgres(self):
         """Check if using PostgreSQL"""
-        return POSTGRES_AVAILABLE and os.environ.get('PANEL_USE_SQLITE', '1') != '1'
-        
+        return POSTGRES_AVAILABLE and os.environ.get("PANEL_USE_SQLITE", "1") != "1"
+
     def get_db_connection(self):
         """Get database connection based on configuration"""
         if self.is_postgres():
             return psycopg2.connect(
-                host=os.environ.get('PANEL_DB_HOST', 'localhost'),
-                port=int(os.environ.get('PANEL_DB_PORT', '5432')),
-                user=os.environ.get('PANEL_DB_USER', 'paneluser'),
-                password=os.environ.get('PANEL_DB_PASS', ''),
-                database=os.environ.get('PANEL_DB_NAME', 'paneldb'),
-                cursor_factory=psycopg2.extras.RealDictCursor
+                host=os.environ.get("PANEL_DB_HOST", "localhost"),
+                port=int(os.environ.get("PANEL_DB_PORT", "5432")),
+                user=os.environ.get("PANEL_DB_USER", "paneluser"),
+                password=os.environ.get("PANEL_DB_PASS", ""),
+                database=os.environ.get("PANEL_DB_NAME", "paneldb"),
+                cursor_factory=psycopg2.extras.RealDictCursor,
             )
         else:
-            db_path = os.path.join(self.app.instance_path, 'panel.db')
+            db_path = os.path.join(self.app.instance_path, "panel.db")
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row  # Dict-like access
             return conn
-    
+
     def execute_query(self, query, params=None):
         """Execute a database query safely"""
         try:
@@ -50,40 +51,54 @@ class DatabaseAdmin:
             if self.is_postgres():
                 with conn.cursor() as cursor:
                     cursor.execute(query, params or ())
-                    if query.strip().upper().startswith('SELECT') or query.strip().upper().startswith('SHOW'):
+                    if query.strip().upper().startswith(
+                        "SELECT"
+                    ) or query.strip().upper().startswith("SHOW"):
                         results = cursor.fetchall()
                         conn.close()
-                        return {'success': True, 'data': results}
+                        return {"success": True, "data": results}
                     else:
                         conn.commit()
                         conn.close()
-                        return {'success': True, 'message': f'Query executed successfully. {cursor.rowcount} rows affected.'}
+                        return {
+                            "success": True,
+                            "message": f"Query executed successfully. {cursor.rowcount} rows affected.",
+                        }
             else:
                 cursor = conn.cursor()
                 cursor.execute(query, params or ())
-                if query.strip().upper().startswith('SELECT') or query.strip().upper().startswith('PRAGMA'):
+                if query.strip().upper().startswith(
+                    "SELECT"
+                ) or query.strip().upper().startswith("PRAGMA"):
                     results = [dict(row) for row in cursor.fetchall()]
                     conn.close()
-                    return {'success': True, 'data': results}
+                    return {"success": True, "data": results}
                 else:
                     conn.commit()
                     conn.close()
-                    return {'success': True, 'message': f'Query executed successfully. {cursor.rowcount} rows affected.'}
+                    return {
+                        "success": True,
+                        "message": f"Query executed successfully. {cursor.rowcount} rows affected.",
+                    }
         except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
+            return {"success": False, "error": str(e)}
+
     def get_tables(self):
         """Get list of tables in the database"""
         if self.is_postgres():
-            result = self.execute_query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
-            if result['success']:
-                return [row['tablename'] for row in result['data']]
+            result = self.execute_query(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+            )
+            if result["success"]:
+                return [row["tablename"] for row in result["data"]]
         else:
-            result = self.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
-            if result['success']:
-                return [row['name'] for row in result['data']]
+            result = self.execute_query(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+            if result["success"]:
+                return [row["name"] for row in result["data"]]
         return []
-    
+
     def get_table_structure(self, table_name):
         """Get table structure"""
         if self.is_postgres():
@@ -93,34 +108,34 @@ class DatabaseAdmin:
             return self.execute_query(query, (table_name,))
         else:
             return self.execute_query(f"PRAGMA table_info(`{table_name}`)")
-    
+
     def get_table_data(self, table_name, limit=100, offset=0):
         """Get table data with pagination"""
         query = f"SELECT * FROM `{table_name}` LIMIT {limit} OFFSET {offset}"
         return self.execute_query(query)
-    
+
     def get_database_info(self):
         """Get database information"""
         info = {
-            'type': 'PostgreSQL' if self.is_postgres() else 'SQLite',
-            'tables': self.get_tables()
+            "type": "PostgreSQL" if self.is_postgres() else "SQLite",
+            "tables": self.get_tables(),
         }
-        
+
         if self.is_postgres():
             result = self.execute_query("SELECT version()")
-            if result['success'] and result['data']:
-                info['version'] = result['data'][0]['version']
-        
+            if result["success"] and result["data"]:
+                info["version"] = result["data"][0]["version"]
+
         result = self.execute_query("SELECT sqlite_version() as version")
-        if result['success'] and result['data']:
-            info['version'] = result['data'][0]['version']
-        info['database'] = 'panel.db'
-        
+        if result["success"] and result["data"]:
+            info["version"] = result["data"][0]["version"]
+        info["database"] = "panel.db"
+
         return info
 
 
 # HTML Templates for phpMyAdmin interface
-DATABASE_ADMIN_BASE_TEMPLATE = '''
+DATABASE_ADMIN_BASE_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -181,9 +196,9 @@ DATABASE_ADMIN_BASE_TEMPLATE = '''
     </div>
 </body>
 </html>
-'''
+"""
 
-DATABASE_ADMIN_HOME_TEMPLATE = '''
+DATABASE_ADMIN_HOME_TEMPLATE = """
 {% extends "database_admin_base.html" %}
 {% block content %}
 <div class="sidebar">
@@ -218,9 +233,9 @@ DATABASE_ADMIN_HOME_TEMPLATE = '''
     <a href="{{ url_for('admin_db_export') }}" class="btn btn-success">Export Database</a>
 </div>
 {% endblock %}
-'''
+"""
 
-DATABASE_ADMIN_TABLE_TEMPLATE = '''
+DATABASE_ADMIN_TABLE_TEMPLATE = """
 {% extends "database_admin_base.html" %}
 {% block content %}
 <div class="sidebar">
@@ -273,9 +288,9 @@ DATABASE_ADMIN_TABLE_TEMPLATE = '''
     {% endif %}
 </div>
 {% endblock %}
-'''
+"""
 
-DATABASE_ADMIN_QUERY_TEMPLATE = '''
+DATABASE_ADMIN_QUERY_TEMPLATE = """
 {% extends "database_admin_base.html" %}
 {% block content %}
 <div class="main-content">
@@ -326,4 +341,4 @@ DATABASE_ADMIN_QUERY_TEMPLATE = '''
     </div>
 </div>
 {% endblock %}
-'''
+"""

@@ -1,6 +1,7 @@
 import socket
-import config
 import time
+
+import config
 
 
 class ETLegacyRcon:
