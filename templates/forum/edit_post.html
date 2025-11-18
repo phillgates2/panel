@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Edit Post</h1>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+  <textarea name="content" rows="8" cols="80">{{ post.content }}</textarea><br>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

@@ -10,7 +10,7 @@ from flask import (
     session,
 )
 from werkzeug.utils import secure_filename
-from ..app import db
+from app import db, User, verify_csrf
 from datetime import datetime
 
 cms_bp = Blueprint('cms', __name__, url_prefix='/cms')
@@ -68,6 +68,13 @@ def view(slug):
 @admin_required
 def create():
     if request.method == 'POST':
+        # CSRF protection
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('cms.create'))
+
         title = request.form.get('title', '').strip()
         slug = request.form.get('slug', '').strip()
         content = request.form.get('content', '')
@@ -86,13 +93,37 @@ def create():
 def admin_login():
     next_url = request.args.get('next') or url_for('cms.index')
     if request.method == 'POST':
+        # CSRF protection
+        try:
+            verify_csrf()
+        except Exception:
+            flash('Invalid CSRF token', 'error')
+            return redirect(url_for('cms.admin_login'))
+
         username = request.form.get('username')
         password = request.form.get('password')
+
+        # Prefer authenticating against the User model (hashed passwords).
+        user = None
+        try:
+            user = db.session.query(User).filter_by(email=(username or '').lower()).first()
+        except Exception:
+            user = None
+        if user:
+            if user.check_password(password):
+                session['admin_authenticated'] = True
+                session['admin_user_id'] = user.id
+                flash('Logged in as admin', 'success')
+                return redirect(next_url)
+            flash('Invalid credentials', 'error')
+            return redirect(url_for('cms.admin_login'))
+
+        # Fallback to config-based credentials (legacy)
         cfg_user = current_app.config.get('ADMIN_USER', 'admin')
         cfg_pass = current_app.config.get('ADMIN_PASSWORD', 'admin')
         if username == cfg_user and password == cfg_pass:
             session['admin_authenticated'] = True
-            flash('Logged in as admin', 'success')
+            flash('Logged in as admin (legacy config)', 'success')
             return redirect(next_url)
         flash('Invalid credentials', 'error')
     return render_template('cms/admin_login.html', next=next_url)

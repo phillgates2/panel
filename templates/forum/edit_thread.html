@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Edit Thread</h1>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+  <label>Title: <input name="title" value="{{ thread.title }}"></label><br>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

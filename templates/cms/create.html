@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Create Page</h1>
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
   <label>Title: <input name="title"></label><br>
   <label>Slug: <input name="slug"></label><br>
   <label>Content:<br>
