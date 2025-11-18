@@ -7,6 +7,7 @@ from datetime import datetime, date, timezone, timedelta
 from flask import (
     Flask,
     render_template,
+    render_template_string,
     request,
     redirect,
     url_for,
