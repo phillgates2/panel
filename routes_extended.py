@@ -12,12 +12,10 @@ This module contains routes for:
 """
 
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from app import app, db, session as flask_session
 from models_extended import (
-    UserSession, ApiKey, UserActivity, TwoFactorAuth, IpAccessControl,
-    Notification, ServerTemplate, ScheduledTask, RconCommandHistory,
-    PerformanceMetric, UserGroup, UserGroupMembership
+    UserSession, ApiKey, UserActivity, TwoFactorAuth, Notification, ServerTemplate
 )
 from app import User, AuditLog, Server
 import pyotp
@@ -26,7 +24,6 @@ import io
 import base64
 import json
 # import psutil  # Temporarily commented for testing
-import os
 
 
 def require_system_admin(f):
@@ -72,13 +69,15 @@ def admin_audit_viewer():
         try:
             df = datetime.fromisoformat(date_from)
             query = query.filter(AuditLog.created_at >= df)
-        except:
+        except Exception:
+            # ignore parse errors and continue
             pass
     if date_to:
         try:
             dt = datetime.fromisoformat(date_to)
             query = query.filter(AuditLog.created_at <= dt)
-        except:
+        except Exception:
+            # ignore parse errors and continue
             pass
     
     # Paginate
@@ -126,13 +125,13 @@ def admin_audit_export():
         try:
             df = datetime.fromisoformat(date_from)
             query = query.filter(AuditLog.created_at >= df)
-        except:
+        except Exception:
             pass
     if date_to:
         try:
             dt = datetime.fromisoformat(date_to)
             query = query.filter(AuditLog.created_at <= dt)
-        except:
+        except Exception:
             pass
     
     # Get all logs (be careful with large datasets)
@@ -343,7 +342,7 @@ def admin_system_dashboard():
             ['systemctl', 'is-active', 'rq-worker-supervised'],
             capture_output=True, text=True, timeout=5
         ).stdout.strip()
-    except:
+    except Exception:
         gunicorn_status = 'unknown'
         worker_status = 'unknown'
     
@@ -373,9 +372,9 @@ def api_system_metrics():
     """JSON endpoint for real-time metrics."""
     # Get network I/O stats (mock data)
     network = type('Network', (), {'bytes_sent': 1024*1024, 'bytes_recv': 2048*1024, 'packets_sent': 1000, 'packets_recv': 1500})()
-    
-        # Get process count (mock data)
-        process_count = 156    # Check service status
+
+    # Get process count (mock data)
+    process_count = 156    # Check service status
     try:
         import subprocess
         gunicorn_status = subprocess.run(
@@ -387,7 +386,7 @@ def api_system_metrics():
             ['systemctl', 'is-active', 'rq-worker-supervised'],
             capture_output=True, text=True, timeout=5
         ).stdout.strip()
-    except:
+    except Exception:
         gunicorn_status = 'unknown'
         worker_status = 'unknown'
     

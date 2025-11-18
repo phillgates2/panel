@@ -5,8 +5,7 @@ os.environ['PANEL_USE_SQLITE'] = '1'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import pytest
-from datetime import date
-from app import app, db, User, SiteSetting
+from app import app, db, SiteSetting
 
 @pytest.fixture()
 def client():

@@ -10,8 +10,7 @@ from flask_login import login_required, current_user
 from app import db
 from datetime import datetime, timezone, timedelta
 import json
-import hashlib
-from sqlalchemy import func, desc, and_, or_
+from sqlalchemy import func, desc, or_
 
 
 player_bp = Blueprint('players', __name__)

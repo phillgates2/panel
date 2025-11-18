@@ -5,10 +5,7 @@ Run: flask db init (one time setup)
      flask db upgrade (apply migration)
 """
 
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-import config
 
 # Import the app and db from your main application
 from app import app, db

@@ -1,0 +1,29 @@
+ #cloud-config
+ # Cloud-init for Ubuntu 22.04 - installs Postgres and runs Panel installer non-interactively
+ # Edit PANEL_* variables before launching the VM or override via cloud provider UI
+
+ package_update: true
+ package_upgrade: true
+ packages:
+   - git
+   - curl
+   - python3-venv
+   - python3-pip
+   - postgresql
+   - postgresql-contrib
+
+ runcmd:
+   - [ bash, -lc, "set -euo pipefail" ]
+   - [ bash, -lc, "export PANEL_NON_INTERACTIVE=true" ]
+   - [ bash, -lc, "export PANEL_DB_TYPE=postgresql" ]
+   - [ bash, -lc, "export PANEL_DB_PASS='ChangeMePostgres!'" ]
+   - [ bash, -lc, "export PANEL_ADMIN_EMAIL=admin@example.com" ]
+   - [ bash, -lc, "export PANEL_ADMIN_PASS='ChangeMeNow!'" ]
+   - [ bash, -lc, "export PANEL_INSTALL_DIR=/opt/panel" ]
+   - [ bash, -lc, "mkdir -p /opt && chown -R ubuntu:ubuntu /opt || true" ]
+   - [ bash, -lc, "# Ensure Postgres service running before installer attempts to use it" ]
+   - [ bash, -lc, "sudo systemctl enable postgresql || true; sudo systemctl start postgresql || true" ]
+   - [ bash, -lc, "cd /tmp && git clone https://github.com/phillgates2/panel.git panel-src || (cd panel-src && git pull)" ]
+   - [ bash, -lc, "cd /tmp/panel-src && bash install.sh --non-interactive --postgresql --dir /opt/panel || (echo 'Installer failed - check /opt/panel/logs and cloud-init logs' >&2)" ]
+
+ final_message: "Panel (Postgres) install attempt complete. Check cloud-init output and /opt/panel/logs for details."

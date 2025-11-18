@@ -1,5 +1,4 @@
 import random
-import string
 import io
 import subprocess
 from PIL import Image, ImageDraw, ImageFont, ImageFilter

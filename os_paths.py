@@ -3,7 +3,6 @@ OS-aware path configuration for cross-platform support.
 Automatically detects the operating system and provides appropriate paths.
 """
 import os
-import sys
 import platform
 from pathlib import Path
 
@@ -32,7 +31,8 @@ class OSPaths:
                     for line in f:
                         if line.startswith('ID='):
                             return line.split('=')[1].strip().strip('"')
-        except:
+        except Exception:
+            # Non-fatal; fall back to 'unknown'
             pass
         return 'unknown'
     

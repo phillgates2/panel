@@ -8,16 +8,15 @@ for ET:Legacy game servers with real-time streaming and alerting.
 import re
 import json
 import gzip
-import os
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, request, jsonify, Response
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from app import db
-from sqlalchemy import func, desc, text, and_
+from sqlalchemy import func, desc
 import threading
 import queue
 import time
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 
 logs_bp = Blueprint('logs', __name__)

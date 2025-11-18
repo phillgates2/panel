@@ -5,13 +5,12 @@ Provides comprehensive server monitoring, performance metrics, and analytics das
 for ET:Legacy game servers with live data streaming and alerting capabilities.
 """
 
-import json
 import time
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from app import db
-from sqlalchemy import func, desc, text
+from sqlalchemy import desc
 import subprocess
 import psutil
 import threading
@@ -440,7 +439,7 @@ class ServerMonitor:
         alert_messages = {
             'cpu_high': f"High CPU usage: {metric_value:.1f}% (threshold: {alert.threshold_value}%)",
             'memory_high': f"High memory usage: {metric_value:.1f}% (threshold: {alert.threshold_value}%)",
-            'server_offline': f"Server is offline or unresponsive",
+            'server_offline': "Server is offline or unresponsive",
             'player_count_low': f"Low player count: {metric_value} players (threshold: {alert.threshold_value})"
         }
         

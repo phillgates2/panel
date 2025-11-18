@@ -7,7 +7,6 @@ for enterprise-grade access control.
 
 from datetime import datetime, timezone
 from app import db
-import json
 
 
 class Permission(db.Model):

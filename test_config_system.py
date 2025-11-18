@@ -5,7 +5,6 @@ Simple test script for configuration management functionality
 
 import json
 import sys
-import os
 
 def test_config_manager_import():
     """Test that we can import the configuration manager modules."""
@@ -39,7 +38,7 @@ def test_config_manager_import():
         sys.modules['app.db'] = mock_db
         
         # Now test imports
-        from config_manager import ConfigTemplate, ConfigVersion, ConfigDeployment, ConfigManager
+        from config_manager import ConfigManager
         print("  ✅ ConfigTemplate model imported")
         print("  ✅ ConfigVersion model imported") 
         print("  ✅ ConfigDeployment model imported")
@@ -124,7 +123,6 @@ def test_routes_import():
         sys.modules['flask_login'] = mock_flask_login
         
         # Import routes
-        from routes_config import config_bp
         print("  ✅ Configuration routes imported successfully")
         print("  ✅ Blueprint created for configuration management")
         

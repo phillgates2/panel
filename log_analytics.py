@@ -6,19 +6,18 @@ and intelligent alerting for ET:Legacy game servers with machine learning capabi
 """
 
 import re
-import json
 import time
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict, deque
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for
 from flask_login import login_required, current_user
 from app import db
-from sqlalchemy import func, desc, text, Index
+from sqlalchemy import func, desc, Index
 import threading
 import queue
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 import statistics
 
 

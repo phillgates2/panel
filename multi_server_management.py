@@ -5,24 +5,18 @@ Provides centralized management, deployment, and orchestration capabilities
 for multiple ET:Legacy game servers with load balancing and failover support.
 """
 
-import json
 import time
-import asyncio
-import subprocess
-from datetime import datetime, timezone, timedelta
-from collections import defaultdict
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from datetime import datetime, timezone
+from flask import Blueprint, render_template, redirect, url_for
 from flask_login import login_required, current_user
-from app import db, Server
-from sqlalchemy import func, desc, text
+from app import db
+from sqlalchemy import desc
 import threading
-import queue
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Tuple
 from enum import Enum
 import socket
 import paramiko
-import yaml
 
 
 multi_server_bp = Blueprint('multi_server', __name__)
@@ -232,6 +226,7 @@ class ServerManager:
                 
                 self.ssh_connections[key] = ssh
             except Exception as e:
+                # Connection failed; return None so caller can handle it
                 print(f"Failed to connect to {node.hostname}: {e}")
                 return None
         
@@ -264,7 +259,7 @@ class ServerManager:
             sock.close()
             response_time = (time.time() - start_time) * 1000
             status = ServerStatus.ONLINE
-        except:
+        except Exception:
             response_time = 999999
             status = ServerStatus.OFFLINE
         
@@ -300,6 +295,7 @@ class ServerManager:
                     uptime = int(float(uptime_out.strip()))
                     
             except Exception as e:
+                # Log and continue; metrics are best-effort
                 print(f"Error getting metrics for {node.hostname}: {e}")
         
         # Get player count (would be implemented based on game server query)

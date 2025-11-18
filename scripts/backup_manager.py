@@ -11,7 +11,6 @@ import sys
 import json
 import gzip
 import shutil
-import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from cryptography.fernet import Fernet

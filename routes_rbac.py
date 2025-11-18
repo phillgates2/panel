@@ -7,8 +7,7 @@ Provides web interface for managing roles, permissions, and user assignments.
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from app import app, db
 from rbac import (
-    Permission, Role, RolePermission, UserRole, UserPermissionOverride,
-    has_permission, get_user_permissions, assign_role_to_user, revoke_role_from_user,
+    Permission, Role, RolePermission, UserRole, has_permission, get_user_permissions, assign_role_to_user, revoke_role_from_user,
     initialize_rbac_system
 )
 from models_extended import UserActivity

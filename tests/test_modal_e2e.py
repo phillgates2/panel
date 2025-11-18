@@ -3,7 +3,7 @@ os.environ['PANEL_USE_SQLITE'] = '1'
 import pytest
 import asyncio
 from datetime import date
-from app import app, db, User, Server, ServerUser
+from app import app, db, User, Server
 from playwright.async_api import async_playwright
 
 

@@ -5,7 +5,6 @@ Implements rate limiting for API endpoints to prevent abuse
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask import request
 import logging
 
 logger = logging.getLogger(__name__)

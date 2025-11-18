@@ -5,12 +5,10 @@ Tests for Database Admin Integration
 import pytest
 import os
 import sys
-from datetime import datetime
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database_admin import DatabaseAdmin
 from db_security import DatabaseSecurity
 from db_audit import QueryAuditLog
 

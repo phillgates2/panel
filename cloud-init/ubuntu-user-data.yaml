@@ -1,0 +1,26 @@
+ #cloud-config
+ # Cloud-init for Ubuntu 22.04 - runs Panel installer non-interactively
+ # Edit the PANEL_* variables below as needed before launching the VM.
+
+ package_update: true
+ package_upgrade: true
+ packages:
+   - git
+   - curl
+   - python3-venv
+   - python3-pip
+
+ runcmd:
+   # Ensure a safe, non-interactive environment and clone repo
+   - [ bash, -lc, "set -euo pipefail" ]
+   - [ bash, -lc, "export PANEL_NON_INTERACTIVE=true" ]
+   # Use sqlite by default to keep cloud-init quick; change to postgresql if desired
+   - [ bash, -lc, "export PANEL_DB_TYPE=sqlite" ]
+   - [ bash, -lc, "export PANEL_ADMIN_EMAIL=admin@example.com" ]
+   - [ bash, -lc, "export PANEL_ADMIN_PASS=ChangeMeNow!" ]
+   - [ bash, -lc, "export PANEL_INSTALL_DIR=/opt/panel" ]
+   - [ bash, -lc, "mkdir -p /opt && chown -R ubuntu:ubuntu /opt || true" ]
+   - [ bash, -lc, "cd /tmp && git clone https://github.com/phillgates2/panel.git panel-src || (cd panel-src && git pull)" ]
+   - [ bash, -lc, "cd /tmp/panel-src && bash install.sh --non-interactive --sqlite --dir /opt/panel || (echo 'Installer failed - check /opt/panel/logs and cloud-init logs' >&2)" ]
+
+ final_message: "Panel install attempt complete. Check cloud-init and /opt/panel/logs for details."

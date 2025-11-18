@@ -36,7 +36,6 @@ def setup_rq_dashboard(app):
 # Middleware to protect RQ Dashboard with authentication
 def require_admin_for_rq_dashboard(app):
     """Add authentication requirement for RQ Dashboard"""
-    from functools import wraps
     from flask import session, redirect, url_for, request
     
     @app.before_request

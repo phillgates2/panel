@@ -5,11 +5,6 @@ Replaces legacy phpMyAdmin with modern Python-based admin UI
 """
 
 import os
-import subprocess
-import tempfile
-import shutil
-from flask import render_template_string, request, redirect, url_for, flash, session
-from werkzeug.security import check_password_hash
 import sqlite3
 
 try:

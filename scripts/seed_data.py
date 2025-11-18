@@ -11,7 +11,6 @@ Usage:
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path
@@ -53,7 +52,7 @@ def create_sample_users(count=10):
         email = f'user{i+1}@panel.local'
         if not User.query.filter_by(email=email).first():
             user = User(
-                first_name=f'User',
+                first_name='User',
                 last_name=f'{i+1}',
                 email=email,
                 dob=datetime(1990 + i, 1, 1).date(),
@@ -120,7 +119,7 @@ def create_sample_servers(count=5):
             tmpl = random.choice(templates) if templates else None
             server = Server(
                 name=name,
-                description=f'Sample server for testing purposes',
+                description='Sample server for testing purposes',
                 variables_json=tmpl.variables_json if tmpl else '{}',
                 raw_config=tmpl.raw_config if tmpl else ''
             )

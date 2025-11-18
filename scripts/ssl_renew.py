@@ -12,8 +12,7 @@ import json
 import subprocess
 import logging
 import smtplib
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 

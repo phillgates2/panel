@@ -1,7 +1,5 @@
 import os
 import subprocess
-import json
-import time
 from datetime import datetime
 import config
 import tempfile

@@ -3,7 +3,6 @@ Security Headers Configuration
 Implements CSP, HSTS, and other security best practices
 """
 
-from flask import Flask
 
 
 def configure_security_headers(app):

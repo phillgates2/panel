@@ -5,10 +5,9 @@ Provides real-time metrics and alert data for the monitoring system.
 
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta
-import json
-from monitoring_system import ServerMonitor, ServerMetrics, ServerAlert, PlayerSession
+from monitoring_system import ServerMetrics, ServerAlert
 from sqlalchemy import desc, func
-from app import db, Server
+from app import db
 
 # Create API blueprint
 api_bp = Blueprint('api_monitoring', __name__, url_prefix='/api/monitoring')

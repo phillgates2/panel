@@ -2,7 +2,6 @@ import os
 import time
 import io
 import secrets
-import logging
 from datetime import datetime, date, timezone, timedelta
 from flask import (
     Flask,
@@ -28,29 +27,30 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 load_dotenv()
 
-import config
-import subprocess
-import os
-import redis
-from rq import Queue
-import tasks
-from captcha import generate_captcha_image, generate_captcha_audio
-import json
-import io
-from PIL import Image, ImageOps
-from validate_config import ConfigValidator
-from database_admin import DatabaseAdmin, DATABASE_ADMIN_BASE_TEMPLATE, DATABASE_ADMIN_HOME_TEMPLATE, DATABASE_ADMIN_TABLE_TEMPLATE, DATABASE_ADMIN_QUERY_TEMPLATE
+# The following imports are intentionally placed after loading environment
+# variables. Ruff/flake8 may flag E402 (imports not at module top); silence
+# that rule here because we need env vars loaded before `config`.
+import config  # noqa: E402
+import subprocess  # noqa: E402
+import redis  # noqa: E402
+from rq import Queue  # noqa: E402
+import tasks  # noqa: E402
+from captcha import generate_captcha_image, generate_captcha_audio  # noqa: E402
+import json  # noqa: E402
+from PIL import Image, ImageOps  # noqa: E402
+from validate_config import ConfigValidator  # noqa: E402
+from database_admin import DatabaseAdmin, DATABASE_ADMIN_BASE_TEMPLATE, DATABASE_ADMIN_HOME_TEMPLATE, DATABASE_ADMIN_TABLE_TEMPLATE, DATABASE_ADMIN_QUERY_TEMPLATE  # noqa: E402
 
 app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
 
 # Configure logging
-from logging_config import setup_logging, log_security_event
+from logging_config import setup_logging, log_security_event  # noqa: E402
 logger = setup_logging(app)
 
 # Configure security headers
-from security_headers import configure_security_headers
+from security_headers import configure_security_headers  # noqa: E402
 configure_security_headers(app)
 
 # Configure rate limiting (optional - uncomment when needed)
@@ -959,7 +959,6 @@ def admin_theme():
                     return redirect(url_for('admin_theme'))
 
                 # validation: mime/type detection using Pillow (or SVG quick-check)
-                mimetype = f.mimetype or ''
                 allowed_mimes = app.config.get('THEME_ALLOWED_MIMES', getattr(config, 'THEME_ALLOWED_MIMES', 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml')).split(',')
                 is_svg = False
                 try:
