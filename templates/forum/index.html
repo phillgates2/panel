@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Forum</h1>
+<a href="{{ url_for('forum.create_thread') }}">Create thread</a>
+<ul>
+  {% for t in threads %}
+    <li><a href="{{ url_for('forum.view_thread', thread_id=t.id) }}">{{ t.title }}</a> — {{ t.created_at }}</li>
+  {% else %}
+    <li>No threads yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

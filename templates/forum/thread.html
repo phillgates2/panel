@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ thread.title }}</h1>
+<ul>
+  {% for p in thread.posts %}
+    <li><strong>{{ p.author }}</strong>: {{ p.content }} <em>({{ p.created_at }})</em></li>
+  {% else %}
+    <li>No posts in this thread.</li>
+  {% endfor %}
+</ul>
+<p><a href="{{ url_for('forum.index') }}">Back to forum</a></p>
+{% endblock %}
