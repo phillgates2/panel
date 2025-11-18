@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
@@ -23,7 +23,7 @@ class Thread(db.Model):
     __tablename__ = "forum_thread"
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.utcnow())
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Post(db.Model):
@@ -32,7 +32,7 @@ class Post(db.Model):
     thread_id = db.Column(db.Integer, db.ForeignKey("forum_thread.id"), nullable=False)
     author = db.Column(db.String(120), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.utcnow())
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     thread = db.relationship("Thread", backref="posts")
 

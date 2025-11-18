@@ -16,9 +16,10 @@ def test_csrf_enforced_when_testing_disabled(client, app):
     # ensure CSRF checking is active
     app.config["TESTING"] = False
 
-    # Post without csrf_token should fail with 400
+    # Post without csrf_token should redirect back to the thread (CSRF failure)
     rv = client.post(f"/forum/thread/{tid}/reply", data={"author": "X", "content": "No token"})
-    assert rv.status_code == 400
+    assert rv.status_code == 302
+    assert f"/forum/thread/{tid}" in rv.headers.get("Location", "")
 
 
 class DummySMTP:
