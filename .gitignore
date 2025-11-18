@@ -99,3 +99,6 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Local repository backup bundle (kept outside the repo in /tmp)
+panel-repo-backup.bundle
