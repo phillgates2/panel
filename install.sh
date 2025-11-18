@@ -586,6 +586,8 @@ setup_postgresql() {
     log "PostgreSQL setup complete"
 }
 
+    
+
 # ============================================================================
 # Panel Installation
 # ============================================================================
@@ -688,6 +690,8 @@ LOG_LEVEL=INFO
 LOG_DIR=instance/logs
 AUDIT_LOG_ENABLED=True
 AUDIT_LOG_DIR=instance/audit_logs
+ 
+ 
 EOF
     
     # Initialize database
@@ -901,6 +905,7 @@ interactive_setup() {
     ADMIN_EMAIL=$(prompt_input "Admin email address" "$ADMIN_EMAIL")
     ADMIN_PASSWORD=$(prompt_input "Admin password" "" "true")
     
+    echo
     log "Interactive configuration complete"
 }
 
@@ -1162,7 +1167,7 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
             # Flask debug mode spawns child processes, so we check for the actual app.py process
             PANEL_RUNNING=false
             RETRY_COUNT=0
-            MAX_RETRIES=5
+            MAX_RETRIES=10
             
             while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
                 if pgrep -f "python3 app.py" > /dev/null 2>&1 || pgrep -f "python.*app.py" > /dev/null 2>&1; then
@@ -1172,7 +1177,7 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
                 RETRY_COUNT=$((RETRY_COUNT + 1))
                 if [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; then
                     echo -e "${YELLOW}Checking process status... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)${NC}"
-                    sleep 3
+                    sleep 5
                 fi
             done
             
