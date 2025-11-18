@@ -419,7 +419,7 @@ class PlayerManager:
             # Check if player has other active bans
             other_bans = PlayerBan.query.filter(
                 PlayerBan.player_id == ban.player_id,
-                PlayerBan.is_active == True,
+                PlayerBan.is_active,
                 PlayerBan.id != ban_id
             ).first()
             
@@ -479,7 +479,7 @@ class PlayerManager:
         # Active bans
         active_bans = PlayerBan.query.filter(
             PlayerBan.player_id == player_id,
-            PlayerBan.is_active == True
+            PlayerBan.is_active
         ).all()
         
         # Server distribution

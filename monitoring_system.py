@@ -12,7 +12,10 @@ from flask_login import login_required, current_user
 from app import db
 from sqlalchemy import desc
 import subprocess
-import psutil
+try:
+    import psutil
+except Exception:
+    psutil = None
 import threading
 from collections import defaultdict, deque
 
@@ -328,8 +331,8 @@ class ServerMonitor:
                 db.or_(
                     ServerAlert.server_id == server.id,
                     ServerAlert.server_id.is_(None)
-                ),
-                ServerAlert.is_active == True
+                    ),
+                    ServerAlert.is_active
             ).all()
             
             for alert in alerts:

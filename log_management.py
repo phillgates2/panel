@@ -500,7 +500,7 @@ class LogProcessor:
         
         return {
             'event_distribution': [(e.event_type, e.count) for e in event_stats],
-            'level_distribution': [(l.log_level, l.count) for l in level_stats],
+            'level_distribution': [(lvl.log_level, lvl.count) for lvl in level_stats],
             'timeline': [(t.hour.isoformat(), t.count) for t in timeline_stats],
             'total_entries': query.count()
         }

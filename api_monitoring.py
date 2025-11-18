@@ -62,7 +62,7 @@ def get_dashboard_metrics():
             latest_metrics,
             (ServerMetrics.server_id == latest_metrics.c.server_id) &
             (ServerMetrics.timestamp == latest_metrics.c.latest)
-        ).filter(ServerMetrics.is_online == True).count()
+        ).filter(ServerMetrics.is_online).count()
         
         offline_count = total_servers - online_count
         
