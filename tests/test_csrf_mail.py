@@ -17,34 +17,7 @@ def test_csrf_enforced_when_testing_disabled(client, app):
     app.config["TESTING"] = False
 
     # Post without csrf_token should fail with 400
-    rv = client.post(
-        f"/forum/thread/{tid}/reply", data={"author": "X", "content": "No token"}
-    )
-    assert rv.status_code == 400
-
-
-import smtplib
-
-from app import db
-
-
-def test_csrf_enforced_when_testing_disabled(client, app):
-    # Create a thread to reply to
-    with app.app_context():
-        from forum import Thread
-
-        t = Thread(title="CSRF Test Thread")
-        db.session.add(t)
-        db.session.commit()
-        tid = t.id
-
-    # ensure CSRF checking is active
-    app.config["TESTING"] = False
-
-    # Post without csrf_token should fail with 400
-    rv = client.post(
-        f"/forum/thread/{tid}/reply", data={"author": "X", "content": "No token"}
-    )
+    rv = client.post(f"/forum/thread/{tid}/reply", data={"author": "X", "content": "No token"})
     assert rv.status_code == 400
 
 
