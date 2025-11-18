@@ -22,7 +22,7 @@ NC='\033[0m'
 BOLD='\033[1m'
 
 # Installation options
-DB_TYPE="${PANEL_DB_TYPE:-sqlite}"  # sqlite or postgresql
+DB_TYPE="${PANEL_DB_TYPE:-postgresql}"  # postgres only
 DB_HOST="${PANEL_DB_HOST:-localhost}"
 DB_PORT="${PANEL_DB_PORT:-5432}"
 DB_NAME="${PANEL_DB_NAME:-panel}"
@@ -40,7 +40,20 @@ ADMIN_PASSWORD="${PANEL_ADMIN_PASS:-}"
 NON_INTERACTIVE="${PANEL_NON_INTERACTIVE:-false}"
 SKIP_DEPS="${PANEL_SKIP_DEPS:-false}"
 SKIP_POSTGRESQL="${PANEL_SKIP_POSTGRESQL:-false}"
+SAVE_SECRETS="${PANEL_SAVE_SECRETS:-false}"
+REDACT_SECRETS="${PANEL_REDACT_SECRETS:-false}"
+INSTALLER_CONFIG_ONLY="${INSTALLER_CONFIG_ONLY:-false}"
+NO_PIP_INSTALL="${PANEL_NO_PIP_INSTALL:-false}"
+FORCE="${PANEL_FORCE:-false}"
 
+# Service setup options
+SETUP_SYSTEMD="${PANEL_SETUP_SYSTEMD:-false}"
+SETUP_NGINX="${PANEL_SETUP_NGINX:-false}"
+SETUP_SSL="${PANEL_SETUP_SSL:-false}"
+AUTO_START="${PANEL_AUTO_START:-true}"
+
+# Note: installer remains interactive by default. Use --non-interactive or
+# set PANEL_NON_INTERACTIVE=true for unattended installs.
 # System detection
 PKG_MANAGER=""
 SUDO=""
@@ -71,8 +84,12 @@ INSTALLATION OPTIONS:
     --non-interactive       Run without prompts (requires env vars)
     --skip-deps             Skip system dependency installation
     --skip-postgresql       Skip PostgreSQL setup (use existing)
+    --save-secrets          Write generated credentials to $INSTALL_DIR/.install_secrets (chmod 600)
     --verify-only           Verify existing installation without reinstalling
     --update                Update existing installation (git pull + pip upgrade)
+    -y, --yes, --force      Assume yes for all prompts (shorthand for --non-interactive)
+    --no-pip-install        Do not attempt to install PyYAML automatically (fail if missing)
+    --config FILE           Load installer variables from FILE (.env, .json, .yml/.yaml)
 
 ENVIRONMENT VARIABLES:
     # Installation
@@ -89,9 +106,10 @@ ENVIRONMENT VARIABLES:
     PANEL_NON_INTERACTIVE   Skip prompts (true/false)
     PANEL_SKIP_DEPS         Skip system dependencies (true/false)
     PANEL_SKIP_POSTGRESQL   Skip PostgreSQL setup (true/false)
+    PANEL_SAVE_SECRETS      If true, write generated secrets to $INSTALL_DIR/.install_secrets
 
 INSTALLATION EXAMPLES:
-    # Interactive installation (SQLite)
+    # Interactive installation (PostgreSQL)
     curl -fsSL .../install.sh | bash
 
     # Non-interactive PostgreSQL installation
@@ -106,7 +124,12 @@ INSTALLATION EXAMPLES:
     bash install.sh --dir /opt/panel
 
     # Development with SQLite
-    bash install.sh --sqlite --dir ~/panel-dev
+    bash install.sh --dir ~/panel-dev
+
+QUICK PERSIST/VERIFY (safe one-liner)
+    # If you've previously generated a DB password into /tmp/panel_db_vars,
+    # persist it into the install directory and show masked verification:
+    bash -lc 'INSTALL_DIR=/workspaces/panel/.panel_full_install; ENV="$INSTALL_DIR/.env"; SECRETS="$INSTALL_DIR/.install_secrets"; TMP_VARS=/tmp/panel_db_vars; if [[ -f "$TMP_VARS" ]]; then DB_PASS=$(sed -n "s/^DB_PASS=\(.*\)$/\1/p" "$TMP_VARS"); else DB_PASS=""; fi; DB_USER=$(grep -E "^PANEL_DB_USER=" "$ENV" 2>/dev/null || true); DB_USER="${DB_USER#PANEL_DB_USER=}"; DB_USER="${DB_USER:-panel_user}"; if [[ -z "$DB_PASS" ]]; then echo "ERROR: DB_PASS empty — check /tmp/panel_db_vars"; exit 2; fi; mkdir -p "$(dirname "$SECRETS")"; umask 077; tmp=$(mktemp -p "$(dirname "$SECRETS")" ".install_secrets.XXXXXX") || tmp="$SECRETS.tmp"; printf "# Panel generated secrets\nPANEL_DB_USER=%s\nPANEL_DB_PASS=%s\n" "$DB_USER" "$DB_PASS" > "$tmp"; chmod 600 "$tmp"; mv -f "$tmp" "$SECRETS"; sed -i.bak "/^PANEL_DB_PASS=/d" "$ENV" 2>/dev/null || true; printf "PANEL_DB_PASS=%s\n" "$DB_PASS" >> "$ENV"; echo "Wrote $SECRETS (mode $(stat -c '%a' \"$SECRETS\" 2>/dev/null || echo 600))"; echo "Masked PANEL_DB_PASS: ${DB_PASS:0:4}...${DB_PASS: -4}"; ls -l "$SECRETS" "$ENV"; echo '--- .install_secrets ---'; sed -n '1,200p' "$SECRETS"; echo '--- .env tail ---'; tail -n 50 "$ENV" || true'
 
 AVAILABLE INSTALLER FUNCTIONS:
     Core Functions:
@@ -202,8 +225,12 @@ check_disk_space() {
     
     if [[ -n "$available_mb" ]] && [[ "$available_mb" -lt "$required_mb" ]]; then
         warn "Low disk space: ${available_mb}MB available, ${required_mb}MB recommended"
-        if ! prompt_confirm "Continue anyway?" "n"; then
-            error "Installation cancelled due to insufficient disk space"
+        if [[ "$NON_INTERACTIVE" == "true" ]]; then
+            warn "Non-interactive mode: proceeding despite low disk space"
+        else
+            if ! prompt_confirm "Continue anyway?" "n"; then
+                error "Installation cancelled due to insufficient disk space"
+            fi
         fi
     else
         log "Disk space: ${available_mb}MB available ✓"
@@ -215,8 +242,12 @@ check_network() {
     if command -v curl &>/dev/null; then
         if ! curl -s --connect-timeout 5 https://github.com >/dev/null 2>&1; then
             warn "Cannot reach GitHub. Check your internet connection."
-            if ! prompt_confirm "Continue anyway?" "n"; then
-                error "Installation cancelled due to network issues"
+            if [[ "$NON_INTERACTIVE" == "true" ]]; then
+                error "Network unreachable in non-interactive mode. Aborting."
+            else
+                if ! prompt_confirm "Continue anyway?" "n"; then
+                    error "Installation cancelled due to network issues"
+                fi
             fi
         else
             log "Network connectivity ✓"
@@ -311,6 +342,51 @@ prompt_confirm() {
     response="${response:-$default}"
     
     [[ "$response" =~ ^[Yy] ]]
+}
+
+# Persist secrets atomically and securely
+persist_db_secrets() {
+    # Arguments: [install_dir] [secrets_file] [db_user] [db_pass] [admin_email] [admin_pass]
+    local dir="${1:-$INSTALL_DIR}"
+    local secrets_file="${2:-$dir/.install_secrets}"
+    local db_user="${3:-$DB_USER}"
+    local db_pass="${4:-$DB_PASS}"
+    local admin_email="${5:-$ADMIN_EMAIL}"
+    local admin_pass="${6:-$ADMIN_PASSWORD}"
+
+    mkdir -p "$dir" || true
+    # Generate a panel secret key if not present
+    local panel_secret_key_val
+    if [[ -n "${PANEL_SECRET_KEY_VAL:-}" ]]; then
+        panel_secret_key_val="$PANEL_SECRET_KEY_VAL"
+    else
+        panel_secret_key_val=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+    fi
+
+    # Use restrictive umask and write to a temp file then move into place
+    umask 077
+    local tmp
+    tmp=$(mktemp -p "$dir" ".install_secrets.XXXXXX") || tmp="$dir/.install_secrets.tmp"
+    {
+        printf "# Panel generated secrets - keep this file secure\n"
+        printf "PANEL_SECRET_KEY=%s\n" "$panel_secret_key_val"
+        printf "PANEL_DB_USER=%s\n" "$db_user"
+        printf "PANEL_DB_PASS=%s\n" "$db_pass"
+        printf "PANEL_ADMIN_EMAIL=%s\n" "$admin_email"
+        printf "PANEL_ADMIN_PASS=%s\n" "$admin_pass"
+    } > "$tmp"
+    chmod 600 "$tmp" || true
+    mv -f "$tmp" "$secrets_file"
+
+    # Update .env if present under install dir
+    local envf="$dir/.env"
+    if [[ -f "$envf" ]]; then
+        # remove previous PANEL_DB_PASS lines safely
+        sed -i.bak '/^PANEL_DB_PASS=/d' "$envf" 2>/dev/null || true
+        printf "PANEL_DB_PASS=%s\n" "$db_pass" >> "$envf"
+    fi
+
+    log "Wrote secrets to: $secrets_file (mode $(stat -c '%a' "$secrets_file" 2>/dev/null || echo '600'))"
 }
 
 # ============================================================================
@@ -575,8 +651,12 @@ setup_postgresql() {
     log "Creating PostgreSQL database..."
     
     if [[ -z "$DB_PASS" ]]; then
-        DB_PASS=$(openssl rand -base64 16)
-        log "Generated database password: $DB_PASS"
+        DB_PASS=$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(16))
+PY
+)
+        log "Generated database password: [redacted]"
     fi
     
     $SUDO -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" 2>/dev/null || true
@@ -586,11 +666,501 @@ setup_postgresql() {
     log "PostgreSQL setup complete"
 }
 
+# ============================================================================
+# Service Management Functions
+# ============================================================================
+
+ensure_redis_running() {
+    log "Checking Redis server..."
     
+    if pgrep -x redis-server > /dev/null 2>&1; then
+        log "Redis is already running ✓"
+        return 0
+    fi
+    
+    log "Starting Redis server..."
+    if command -v systemctl &>/dev/null; then
+        $SUDO systemctl start redis 2>/dev/null || $SUDO systemctl start redis-server 2>/dev/null || true
+    elif command -v service &>/dev/null; then
+        $SUDO service redis start 2>/dev/null || $SUDO service redis-server start 2>/dev/null || true
+    elif command -v redis-server &>/dev/null; then
+        redis-server --daemonize yes 2>/dev/null || true
+    fi
+    
+    sleep 2
+    
+    if pgrep -x redis-server > /dev/null 2>&1; then
+        log "Redis server started ✓"
+        # Test connectivity
+        if command -v redis-cli &>/dev/null && redis-cli ping &>/dev/null; then
+            log "Redis responding to ping ✓"
+        fi
+    else
+        warn "Failed to start Redis. Panel background jobs may not work."
+        return 1
+    fi
+}
+
+ensure_postgresql_running() {
+    log "Checking PostgreSQL server..."
+    
+    if pgrep -x postgres > /dev/null 2>&1 || pgrep -x postmaster > /dev/null 2>&1; then
+        log "PostgreSQL is already running ✓"
+        return 0
+    fi
+    
+    log "Starting PostgreSQL server..."
+    if command -v systemctl &>/dev/null; then
+        $SUDO systemctl start postgresql 2>/dev/null || true
+    elif command -v service &>/dev/null; then
+        $SUDO service postgresql start 2>/dev/null || true
+    elif command -v pg_ctl &>/dev/null; then
+        # Try to start with pg_ctl (for user installations)
+        $SUDO -u postgres pg_ctl start -D /var/lib/postgres/data 2>/dev/null || true
+    fi
+    
+    sleep 3
+    
+    if pgrep -x postgres > /dev/null 2>&1 || pgrep -x postmaster > /dev/null 2>&1; then
+        log "PostgreSQL server started ✓"
+    else
+        warn "Failed to start PostgreSQL automatically."
+        return 1
+    fi
+}
+
+ensure_nginx_running() {
+    if [[ "$SETUP_NGINX" != "true" ]]; then
+        return 0
+    fi
+    
+    log "Checking Nginx server..."
+    
+    if systemctl is-active --quiet nginx 2>/dev/null || pgrep nginx > /dev/null 2>&1; then
+        log "Nginx is already running ✓"
+        return 0
+    fi
+    
+    log "Starting Nginx server..."
+    if command -v systemctl &>/dev/null; then
+        # Test config first
+        if $SUDO nginx -t 2>&1 | grep -q "successful"; then
+            $SUDO systemctl start nginx 2>/dev/null || true
+        else
+            warn "Nginx configuration test failed"
+            return 1
+        fi
+    elif command -v service &>/dev/null; then
+        $SUDO service nginx start 2>/dev/null || true
+    fi
+    
+    sleep 2
+    
+    if systemctl is-active --quiet nginx 2>/dev/null || pgrep nginx > /dev/null 2>&1; then
+        log "Nginx server started ✓"
+    else
+        warn "Failed to start Nginx"
+        return 1
+    fi
+}
+
+setup_systemd_services() {
+    if [[ "$SETUP_SYSTEMD" != "true" ]]; then
+        log "Skipping systemd service setup (development mode)"
+        return 0
+    fi
+    
+    if ! command -v systemctl &>/dev/null; then
+        warn "systemd not available on this system"
+        return 1
+    fi
+    
+    log "Setting up systemd services..."
+    
+    # Setup Gunicorn service
+    if [[ -f "$INSTALL_DIR/deploy/panel-gunicorn.service" ]]; then
+        log "Configuring panel-gunicorn service..."
+        sed -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            "$INSTALL_DIR/deploy/panel-gunicorn.service" | \
+        $SUDO tee /etc/systemd/system/panel-gunicorn.service > /dev/null
+        
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl enable panel-gunicorn 2>/dev/null || true
+        log "Gunicorn service configured ✓"
+    fi
+    
+    # Setup RQ Worker service
+    if [[ -f "$INSTALL_DIR/deploy/rq-worker.service" ]]; then
+        log "Configuring rq-worker service..."
+        sed -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            "$INSTALL_DIR/deploy/rq-worker.service" | \
+        $SUDO tee /etc/systemd/system/rq-worker.service > /dev/null
+        
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl enable rq-worker 2>/dev/null || true
+        log "RQ worker service configured ✓"
+    fi
+    
+    log "Systemd services configured successfully"
+}
+
+start_systemd_services() {
+    if [[ "$SETUP_SYSTEMD" != "true" ]]; then
+        return 0
+    fi
+    
+    log "Starting systemd services..."
+    
+    if [[ -f /etc/systemd/system/panel-gunicorn.service ]]; then
+        $SUDO systemctl start panel-gunicorn 2>/dev/null || warn "Failed to start panel-gunicorn"
+        sleep 2
+        if systemctl is-active --quiet panel-gunicorn; then
+            log "Gunicorn service started ✓"
+        fi
+    fi
+    
+    if [[ -f /etc/systemd/system/rq-worker.service ]]; then
+        $SUDO systemctl start rq-worker 2>/dev/null || warn "Failed to start rq-worker"
+        sleep 2
+        if systemctl is-active --quiet rq-worker; then
+            log "RQ worker service started ✓"
+        fi
+    fi
+}
+
+setup_nginx_config() {
+    if [[ "$SETUP_NGINX" != "true" ]]; then
+        return 0
+    fi
+    
+    log "Configuring Nginx reverse proxy..."
+    
+    if [[ ! -f "$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf" ]]; then
+        warn "Nginx template not found"
+        return 1
+    fi
+    
+    # Create nginx config
+    local nginx_conf="$INSTALL_DIR/deploy/nginx_panel.conf"
+    sed "s/YOUR_DOMAIN_HERE/$DOMAIN/g" "$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf" > "$nginx_conf"
+    sed -i "s/proxy_pass http:\/\/127.0.0.1:8000/proxy_pass http:\/\/127.0.0.1:$APP_PORT/g" "$nginx_conf" 2>/dev/null || true
+    
+    log "Nginx configuration created: $nginx_conf"
+    
+    # Install config
+    case "$PKG_MANAGER" in
+        apt-get)
+            if [[ -d "/etc/nginx/sites-available" ]]; then
+                $SUDO cp "$nginx_conf" /etc/nginx/sites-available/panel
+                $SUDO ln -sf /etc/nginx/sites-available/panel /etc/nginx/sites-enabled/panel 2>/dev/null || true
+                log "Nginx config installed to sites-available"
+            fi
+            ;;
+        *)
+            if [[ -d "/etc/nginx/conf.d" ]]; then
+                $SUDO cp "$nginx_conf" /etc/nginx/conf.d/panel.conf
+                log "Nginx config installed to conf.d"
+            fi
+            ;;
+    esac
+    
+    # Test nginx config
+    if $SUDO nginx -t 2>&1 | grep -q "successful"; then
+        log "Nginx configuration valid ✓"
+        $SUDO systemctl reload nginx 2>/dev/null || $SUDO service nginx reload 2>/dev/null || true
+    else
+        warn "Nginx configuration test failed"
+        return 1
+    fi
+}
+
+setup_ssl_certificates() {
+    if [[ "$SETUP_SSL" != "true" ]]; then
+        return 0
+    fi
+    
+    if [[ "$DOMAIN" == "localhost" ]] || [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        warn "SSL setup requires a valid domain name (not localhost or IP)"
+        return 1
+    fi
+    
+    log "Setting up SSL with Let's Encrypt..."
+    
+    # Install certbot
+    if ! command -v certbot &>/dev/null; then
+        log "Installing certbot..."
+        case "$PKG_MANAGER" in
+            apt-get)
+                $SUDO apt-get install -y -qq certbot python3-certbot-nginx
+                ;;
+            dnf|yum)
+                $SUDO $PKG_MANAGER install -y -q certbot python3-certbot-nginx
+                ;;
+            apk)
+                $SUDO apk add --no-cache certbot certbot-nginx
+                ;;
+            pacman)
+                $SUDO pacman -S --noconfirm --needed certbot certbot-nginx
+                ;;
+            brew)
+                brew install certbot
+                ;;
+        esac
+    fi
+    
+    # Run certbot
+    if command -v certbot &>/dev/null; then
+        log "Obtaining SSL certificate for $DOMAIN..."
+        if $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$ADMIN_EMAIL" 2>&1 | tee /tmp/certbot.log; then
+            log "SSL certificate obtained successfully ✓"
+        else
+            warn "SSL certificate setup failed. See /tmp/certbot.log"
+            return 1
+        fi
+    fi
+}
+
+perform_health_check() {
+    log "Performing health check..."
+    local health_ok=false
+    local retries=0
+    local max_retries=10
+    local check_url="http://localhost:$APP_PORT"
+    
+    # Determine which URL to check
+    if [[ "$SETUP_NGINX" == "true" ]]; then
+        check_url="http://localhost"
+    fi
+    
+    while [[ $retries -lt $max_retries ]]; do
+        if command -v curl &>/dev/null; then
+            # Try /health endpoint
+            if curl -f -s -m 5 "$check_url/health" >/dev/null 2>&1; then
+                health_ok=true
+                log "Health check passed ✓ ($check_url/health)"
+                break
+            fi
+            
+            # Try root endpoint
+            if curl -f -s -m 5 "$check_url/" >/dev/null 2>&1; then
+                health_ok=true
+                log "Health check passed ✓ ($check_url/)"
+                break
+            fi
+        fi
+        
+        retries=$((retries + 1))
+        if [[ $retries -lt $max_retries ]]; then
+            log "Waiting for Panel to respond... ($retries/$max_retries)"
+            sleep 3
+        fi
+    done
+    
+    if [[ "$health_ok" == "true" ]]; then
+        log "Panel is responding correctly ✓"
+        return 0
+    else
+        warn "Panel health check failed - service may not be running correctly"
+        warn "Check logs: $INSTALL_DIR/logs/"
+        return 1
+    fi
+}
+
+
 
 # ============================================================================
 # Panel Installation
 # ============================================================================
+
+# Enforce required environment variables in non-interactive mode
+require_non_interactive_vars() {
+    if [[ "$NON_INTERACTIVE" != "true" ]]; then
+        return 0
+    fi
+    log "Running in non-interactive mode: ensuring required variables (auto-generating missing ones)"
+
+    # Enforce PostgreSQL-only behavior
+    DB_TYPE="postgresql"
+
+    # DB user
+    if [[ -z "$DB_USER" ]]; then
+        DB_USER="panel_user"
+        log "Auto-set DB user: $DB_USER"
+    fi
+
+    # DB password
+    if [[ -z "$DB_PASS" ]]; then
+        DB_PASS=$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(16))
+PY
+)
+        if [[ "$REDACT_SECRETS" == "true" ]]; then
+            log "Auto-generated DB password (redacted)"
+        else
+            log "Auto-generated DB password (save this): $DB_PASS"
+        fi
+    fi
+
+    # Admin email
+    if [[ -z "$ADMIN_EMAIL" ]]; then
+        ADMIN_EMAIL="admin@localhost"
+        log "Auto-set admin email: $ADMIN_EMAIL"
+    fi
+
+    # Admin password
+    if [[ -z "$ADMIN_PASSWORD" ]]; then
+        ADMIN_PASSWORD=$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(12))
+PY
+)
+        if [[ "$REDACT_SECRETS" == "true" ]]; then
+            log "Auto-generated admin password (redacted)"
+        else
+            log "Auto-generated admin password (save this): $ADMIN_PASSWORD"
+        fi
+    fi
+
+    # Install dir must be set (has default), ensure parent exists or can be created
+    local parent_dir
+    parent_dir=$(dirname "$INSTALL_DIR")
+    if [[ ! -d "$parent_dir" ]]; then
+        if ! mkdir -p "$parent_dir" 2>/dev/null; then
+            error "Cannot create installation parent directory: $parent_dir"
+        fi
+    fi
+}
+
+# Load a configuration file (key=value lines or JSON). For .env or shell-style files,
+# this will `source` the file in a controlled manner; for JSON it will parse via Python.
+load_config_file() {
+    local cfg="$1"
+    if [[ -z "$cfg" ]]; then
+        return 0
+    fi
+    if [[ ! -f "$cfg" ]]; then
+        error "Config file not found: $cfg"
+    fi
+    log "Loading configuration from: $cfg"
+
+    case "$cfg" in
+        *.json)
+            # Parse JSON into KEY=VALUE lines and export them
+            while IFS= read -r line; do
+                [[ -z "$line" ]] && continue
+                export "$line"
+            done < <(python3 - "$cfg" <<'PY'
+import json,sys
+data=json.load(open(sys.argv[1]))
+for k,v in data.items():
+    if isinstance(v,(list,dict)):
+        continue
+    print(f"{k}={v}")
+PY
+)
+            ;;
+        *.yml|*.yaml)
+            # YAML support: try to import yaml; if missing, optionally install PyYAML
+            if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+                if [[ "$NO_PIP_INSTALL" == "true" ]]; then
+                    error "PyYAML is required to parse YAML config files. You passed --no-pip-install; please install PyYAML manually: python3 -m pip install pyyaml"
+                fi
+
+                # Verify TLS/OpenSSL availability before pip operations
+                if ! python3 - <<'PY' 2>/dev/null
+import ssl
+ver = getattr(ssl, 'OPENSSL_VERSION', None)
+if not ver:
+    raise SystemExit(2)
+print(ver)
+PY
+                then
+                    error "TLS/OpenSSL not available for secure pip installs. Install PyYAML manually or enable TLS support."
+                fi
+
+                log "PyYAML not found; attempting to install via pip..."
+                if python3 -m pip install --user pyyaml --quiet --disable-pip-version-check; then
+                    log "PyYAML installed successfully (user)"
+                else
+                    warn "Automatic PyYAML install failed; trying system-wide install"
+                    if python3 -m pip install pyyaml --quiet --disable-pip-version-check; then
+                        log "PyYAML installed successfully (system-wide)"
+                    else
+                        error "PyYAML is required to parse YAML config files and could not be installed automatically. Install it manually: python3 -m pip install pyyaml"
+                    fi
+                fi
+            fi
+            # Read parsed key=val lines from python and export
+            while IFS= read -r line; do
+                [[ -z "$line" ]] && continue
+                export "$line"
+            done < <(python3 - "$cfg" <<'PY'
+import yaml,sys
+data=yaml.safe_load(open(sys.argv[1]))
+for k,v in (data or {}).items():
+    if isinstance(v,(list,dict)):
+        continue
+    print(f"{k}={v}")
+PY
+)
+            ;;
+        *)
+            # shell-style key=val file; export variables
+            # Use a subshell to avoid executing unexpected commands
+            set -o allexport
+            # shellcheck disable=SC1090
+            source "$cfg"
+            set +o allexport
+            ;;
+    esac
+}
+
+# Start panel services (worker + web) and perform basic health checks
+start_panel_services() {
+    log "Starting Panel services (background)..."
+    cd "$INSTALL_DIR" || { warn "Cannot cd to $INSTALL_DIR"; return 1; }
+
+    # Activate venv if present
+    if [[ -f "$INSTALL_DIR/venv/bin/activate" ]]; then
+        # shellcheck disable=SC1091
+        source "$INSTALL_DIR/venv/bin/activate"
+    fi
+
+    mkdir -p "$INSTALL_DIR/logs" "$INSTALL_DIR/instance/logs" "$INSTALL_DIR/instance/audit_logs" "$INSTALL_DIR/instance/backups"
+
+    # Start worker
+    if [[ -f "$INSTALL_DIR/run_worker.py" ]]; then
+        nohup python3 run_worker.py > "$INSTALL_DIR/logs/worker.log" 2>&1 &
+        WORKER_PID=$!
+        log "Worker started (PID: $WORKER_PID)"
+    else
+        warn "run_worker.py not found; skipping worker start"
+    fi
+
+    # Start web server
+    if [[ -f "$INSTALL_DIR/app.py" ]]; then
+        nohup python3 app.py > "$INSTALL_DIR/logs/panel.log" 2>&1 &
+        SERVER_PID=$!
+        log "Web server started (PID: $SERVER_PID)"
+    else
+        warn "app.py not found; cannot start web server"
+    fi
+
+    # Basic health check
+    sleep 3
+    if command -v curl &>/dev/null; then
+        if curl -f -s -m 5 "http://localhost:$APP_PORT/health" >/dev/null 2>&1 || curl -f -s -m 5 "http://localhost:$APP_PORT/" >/dev/null 2>&1; then
+            log "Panel responded on http://localhost:$APP_PORT"
+        else
+            warn "Panel did not respond immediately on port $APP_PORT. Check logs: $INSTALL_DIR/logs/panel.log"
+        fi
+    else
+        warn "curl not available; cannot perform HTTP health check"
+    fi
+}
 
 install_panel() {
     log "Installing Panel to $INSTALL_DIR..."
@@ -612,14 +1182,22 @@ install_panel() {
     # Clone repository
     if [[ -d "$INSTALL_DIR" ]]; then
         warn "Directory exists: $INSTALL_DIR"
-        if ! prompt_confirm "Remove existing installation?" "n"; then
-            error "Installation cancelled"
+        if [[ "$NON_INTERACTIVE" == "true" ]]; then
+            # In non-interactive mode, automatically backup existing installation
+            BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
+            log "Non-interactive mode: backing up existing installation to: $BACKUP_DIR"
+            mv "$INSTALL_DIR" "$BACKUP_DIR"
+            log "Backup created. To restore: mv $BACKUP_DIR $INSTALL_DIR"
+        else
+            if ! prompt_confirm "Remove existing installation?" "n"; then
+                error "Installation cancelled"
+            fi
+            # Backup existing installation
+            BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
+            log "Creating backup: $BACKUP_DIR"
+            mv "$INSTALL_DIR" "$BACKUP_DIR"
+            log "Backup created. To restore: mv $BACKUP_DIR $INSTALL_DIR"
         fi
-        # Backup existing installation
-        BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
-        log "Creating backup: $BACKUP_DIR"
-        mv "$INSTALL_DIR" "$BACKUP_DIR"
-        log "Backup created. To restore: mv $BACKUP_DIR $INSTALL_DIR"
     fi
     
     git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
@@ -653,25 +1231,26 @@ install_panel() {
     # Create .env file
     log "Creating configuration..."
     
+# Generate PANEL_SECRET_KEY (use Python if openssl not available)
+PANEL_SECRET_KEY_VAL=$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+)
     cat > .env << EOF
 # Panel Configuration - Generated $(date)
-PANEL_SECRET_KEY=$(openssl rand -hex 32)
+PANEL_SECRET_KEY=${PANEL_SECRET_KEY_VAL}
 FLASK_APP=app.py
 FLASK_ENV=production
 FLASK_DEBUG=$DEBUG_MODE
 
-# Database
-$(if [[ "$DB_TYPE" == "postgresql" ]]; then
-    echo "PANEL_USE_SQLITE=0"
-    echo "PANEL_DB_HOST=$DB_HOST"
-    echo "PANEL_DB_PORT=$DB_PORT"
-    echo "PANEL_DB_NAME=$DB_NAME"
-    echo "PANEL_DB_USER=$DB_USER"
-    echo "PANEL_DB_PASS=$DB_PASS"
-else
-    echo "PANEL_USE_SQLITE=1"
-    echo "PANEL_SQLITE_URI=sqlite:///instance/panel.db"
-fi)
+# Database (PostgreSQL only)
+PANEL_USE_SQLITE=0
+PANEL_DB_HOST=$DB_HOST
+PANEL_DB_PORT=$DB_PORT
+PANEL_DB_NAME=$DB_NAME
+PANEL_DB_USER=$DB_USER
+PANEL_DB_PASS=$DB_PASS
 
 # Server
 FLASK_HOST=$APP_HOST
@@ -800,6 +1379,28 @@ CREDEOF
         chmod 600 "$INSTALL_DIR/.db_credentials"
         log "Database credentials saved to: $INSTALL_DIR/.db_credentials (chmod 600)"
     fi
+
+    # Optionally write generated secrets to an installer artifact
+    if [[ "$SAVE_SECRETS" == "true" ]]; then
+        SECRETS_FILE="$INSTALL_DIR/.install_secrets"
+        # Extract PANEL_SECRET_KEY from .env if present
+        if grep -q '^PANEL_SECRET_KEY=' .env 2>/dev/null; then
+            PANEL_SECRET_KEY_VAL=$(grep '^PANEL_SECRET_KEY=' .env | cut -d'=' -f2-)
+        else
+            PANEL_SECRET_KEY_VAL=""
+        fi
+
+        cat > "$SECRETS_FILE" << SEOF
+# Panel generated secrets - keep this file secure
+PANEL_SECRET_KEY=${PANEL_SECRET_KEY_VAL}
+PANEL_DB_USER=${DB_USER}
+PANEL_DB_PASS=${DB_PASS}
+PANEL_ADMIN_EMAIL=${ADMIN_EMAIL}
+PANEL_ADMIN_PASS=${ADMIN_PASSWORD}
+SEOF
+        chmod 600 "$SECRETS_FILE"
+        log "Installer secrets written to: $SECRETS_FILE (chmod 600)"
+    fi
     
     log "Panel installation complete"
 }
@@ -869,43 +1470,126 @@ PYEOF
 
 interactive_setup() {
     echo
-    echo -e "${BOLD}${MAGENTA}Configuration${NC}"
+    echo -e "${BOLD}${MAGENTA}╔═══════════════════════════════════════════╗${NC}"
+    echo -e "${BOLD}${MAGENTA}║       Interactive Configuration           ║${NC}"
+    echo -e "${BOLD}${MAGENTA}╚═══════════════════════════════════════════╝${NC}"
     echo
     
     log "Starting interactive configuration..."
     
-    # Database type
-    if prompt_confirm "Use PostgreSQL (production)? [n=SQLite]" "n"; then
-        DB_TYPE="postgresql"
-        log "PostgreSQL selected"
-        DB_HOST=$(prompt_input "PostgreSQL host" "$DB_HOST")
-        DB_PORT=$(prompt_input "PostgreSQL port" "$DB_PORT")
-        DB_NAME=$(prompt_input "Database name" "$DB_NAME")
-        DB_USER=$(prompt_input "Database user" "$DB_USER")
-        DB_PASS=$(prompt_input "Database password" "" "true")
-    else
-        DB_TYPE="sqlite"
-        log "SQLite selected"
+    # Installation Mode Selection
+    echo
+    echo -e "${BOLD}${YELLOW}Installation Mode${NC}"
+    echo -e "  ${GREEN}1)${NC} Development (local testing, debug mode enabled)"
+    echo -e "  ${GREEN}2)${NC} Production (systemd services, nginx, ssl-ready)"
+    echo -e "  ${GREEN}3)${NC} Custom (choose specific components)"
+    echo
+    INSTALL_MODE=$(prompt_input "Select installation mode [1-3]" "1")
+    
+    case "$INSTALL_MODE" in
+        1)
+            log "Development mode selected"
+            DEBUG_MODE="true"
+            SETUP_SYSTEMD="false"
+            SETUP_NGINX="false"
+            SETUP_SSL="false"
+            APP_PORT="8080"
+            ;;
+        2)
+            log "Production mode selected"
+            DEBUG_MODE="false"
+            SETUP_SYSTEMD="true"
+            SETUP_NGINX="true"
+            SETUP_SSL="prompt"
+            APP_PORT="8000"
+            ;;
+        3)
+            log "Custom mode selected"
+            SETUP_SYSTEMD=$(prompt_confirm "Setup systemd services?" "y") && SETUP_SYSTEMD="true" || SETUP_SYSTEMD="false"
+            SETUP_NGINX=$(prompt_confirm "Setup nginx reverse proxy?" "y") && SETUP_NGINX="true" || SETUP_NGINX="false"
+            SETUP_SSL=$(prompt_confirm "Setup SSL/Let's Encrypt?" "n") && SETUP_SSL="true" || SETUP_SSL="false"
+            DEBUG_MODE=$(prompt_confirm "Enable debug mode?" "n") && DEBUG_MODE="true" || DEBUG_MODE="false"
+            ;;
+        *)
+            warn "Invalid selection, using development mode"
+            DEBUG_MODE="true"
+            SETUP_SYSTEMD="false"
+            SETUP_NGINX="false"
+            SETUP_SSL="false"
+            ;;
+    esac
+    
+    # Database Configuration
+    echo
+    echo -e "${BOLD}${YELLOW}Database Configuration (PostgreSQL)${NC}"
+    echo -e "${YELLOW}Configure PostgreSQL connection settings${NC}"
+    DB_TYPE="postgresql"
+    DB_HOST=$(prompt_input "PostgreSQL host" "$DB_HOST")
+    DB_PORT=$(prompt_input "PostgreSQL port" "$DB_PORT")
+    DB_NAME=$(prompt_input "Database name" "$DB_NAME")
+    DB_USER=$(prompt_input "Database user" "$DB_USER")
+    DB_PASS=$(prompt_input "Database password (leave empty to generate)" "" "true")
+    
+    if [[ -z "$DB_PASS" ]]; then
+        DB_PASS=$(python3 -c 'import secrets; print(secrets.token_urlsafe(16))')
+        log "Generated secure database password"
     fi
     
+    # Installation Directory
     echo
+    echo -e "${BOLD}${YELLOW}Installation Settings${NC}"
     INSTALL_DIR=$(prompt_input "Installation directory" "$INSTALL_DIR")
     log "Installation directory: $INSTALL_DIR"
     
+    # Network Configuration
     echo
-    echo -e "${YELLOW}Domain/Hostname Configuration${NC}" >&2
-    echo -e "${YELLOW}Enter the domain or IP address where Panel will be accessible${NC}" >&2
-    echo -e "${YELLOW}Examples: panel.example.com, 192.168.1.100, localhost${NC}" >&2
+    echo -e "${BOLD}${YELLOW}Network Configuration${NC}"
+    echo -e "${YELLOW}Enter the domain or IP where Panel will be accessible${NC}"
+    echo -e "${YELLOW}Examples: panel.example.com, 192.168.1.100, localhost${NC}"
     DOMAIN=$(prompt_input "Domain/IP address" "localhost")
-    log "Domain/hostname: $DOMAIN"
     
+    if [[ "$SETUP_NGINX" == "false" ]]; then
+        APP_PORT=$(prompt_input "Application port" "$APP_PORT")
+    else
+        log "Using port 8000 (nginx will proxy from 80/443)"
+        APP_PORT="8000"
+    fi
+    
+    # Admin Account
     echo
-    echo -e "${YELLOW}Admin Account Setup${NC}" >&2
-    echo -e "${YELLOW}This will create a system administrator account${NC}" >&2
+    echo -e "${BOLD}${YELLOW}Admin Account Setup${NC}"
+    echo -e "${YELLOW}Create a system administrator account${NC}"
     ADMIN_EMAIL=$(prompt_input "Admin email address" "$ADMIN_EMAIL")
-    ADMIN_PASSWORD=$(prompt_input "Admin password" "" "true")
+    ADMIN_PASSWORD=$(prompt_input "Admin password (leave empty to generate)" "" "true")
     
+    if [[ -z "$ADMIN_PASSWORD" ]]; then
+        ADMIN_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')
+        log "Generated secure admin password"
+    fi
+    
+    # Optional Features
     echo
+    echo -e "${BOLD}${YELLOW}Optional Features${NC}"
+    SAVE_SECRETS=$(prompt_confirm "Save generated credentials to .install_secrets?" "y") && SAVE_SECRETS="true" || SAVE_SECRETS="false"
+    
+    # Summary
+    echo
+    echo -e "${BOLD}${MAGENTA}Configuration Summary${NC}"
+    echo -e "  Mode: ${GREEN}$([[ "$DEBUG_MODE" == "true" ]] && echo "Development" || echo "Production")${NC}"
+    echo -e "  Install to: ${GREEN}$INSTALL_DIR${NC}"
+    echo -e "  Database: ${GREEN}PostgreSQL ($DB_HOST:$DB_PORT/$DB_NAME)${NC}"
+    echo -e "  Domain: ${GREEN}$DOMAIN${NC}"
+    echo -e "  Port: ${GREEN}$APP_PORT${NC}"
+    echo -e "  Admin: ${GREEN}$ADMIN_EMAIL${NC}"
+    echo -e "  Systemd: ${GREEN}$SETUP_SYSTEMD${NC}"
+    echo -e "  Nginx: ${GREEN}$SETUP_NGINX${NC}"
+    echo -e "  SSL: ${GREEN}$SETUP_SSL${NC}"
+    echo
+    
+    if ! prompt_confirm "Proceed with installation?" "y"; then
+        error "Installation cancelled by user"
+    fi
+    
     log "Interactive configuration complete"
 }
 
@@ -928,7 +1612,8 @@ parse_args() {
                 shift 2
                 ;;
             --sqlite)
-                DB_TYPE="sqlite"
+                warn "SQLite is not supported by this installer; forcing PostgreSQL"
+                DB_TYPE="postgresql"
                 shift
                 ;;
             --postgresql)
@@ -939,6 +1624,23 @@ parse_args() {
                 NON_INTERACTIVE="true"
                 shift
                 ;;
+            -y|--yes|--force)
+                FORCE="true"
+                NON_INTERACTIVE="true"
+                shift
+                ;;
+            --no-pip-install)
+                NO_PIP_INSTALL="true"
+                shift
+                ;;
+            --redact-secrets)
+                REDACT_SECRETS="true"
+                shift
+                ;;
+            --config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
             --skip-deps)
                 SKIP_DEPS="true"
                 shift
@@ -947,6 +1649,10 @@ parse_args() {
                 SKIP_POSTGRESQL="true"
                 shift
                 ;;
+                    --save-secrets)
+                        SAVE_SECRETS="true"
+                        shift
+                        ;;
             --verify-only)
                 # Just verify existing installation
                 if [[ -d "$INSTALL_DIR" ]]; then
@@ -997,6 +1703,34 @@ parse_args() {
 
 main() {
     parse_args "$@"
+    # If a config file was provided, load it now and map PANEL_* variables
+    if [[ -n "$CONFIG_FILE" ]]; then
+        load_config_file "$CONFIG_FILE"
+        # Map common PANEL_ vars to local vars used by the installer
+        DB_TYPE="${PANEL_DB_TYPE:-$DB_TYPE}"
+        DB_HOST="${PANEL_DB_HOST:-$DB_HOST}"
+        DB_PORT="${PANEL_DB_PORT:-$DB_PORT}"
+        DB_NAME="${PANEL_DB_NAME:-$DB_NAME}"
+        DB_USER="${PANEL_DB_USER:-$DB_USER}"
+        DB_PASS="${PANEL_DB_PASS:-$DB_PASS}"
+        ADMIN_EMAIL="${PANEL_ADMIN_EMAIL:-$ADMIN_EMAIL}"
+        ADMIN_PASSWORD="${PANEL_ADMIN_PASS:-$ADMIN_PASSWORD}"
+        INSTALL_DIR="${PANEL_INSTALL_DIR:-$INSTALL_DIR}"
+        BRANCH="${PANEL_BRANCH:-$BRANCH}"
+        NON_INTERACTIVE="${PANEL_NON_INTERACTIVE:-$NON_INTERACTIVE}"
+    fi
+
+    # After loading config and validating, support config-only test mode:
+    require_non_interactive_vars
+    if [[ "$INSTALLER_CONFIG_ONLY" == "true" ]]; then
+        log "INSTALLER_CONFIG_ONLY=true - exiting after config validation"
+        # Ensure install dir exists for writing secrets if requested
+        if [[ "$SAVE_SECRETS" == "true" ]]; then
+            # Use helper to persist secrets atomically and securely
+            persist_db_secrets "$INSTALL_DIR" "$INSTALL_DIR/.install_secrets" "$DB_USER" "$DB_PASS" "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+        fi
+        exit 0
+    fi
     
     echo
     echo -e "${BOLD}${MAGENTA}╔═══════════════════════════════════════════╗${NC}"
@@ -1015,6 +1749,9 @@ main() {
     else
         log "Skipping interactive setup (non-interactive mode)"
     fi
+
+    # Validate required settings when running non-interactively
+    require_non_interactive_vars
     
     # Pre-installation checks
     echo
@@ -1086,8 +1823,41 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
     echo
     
     setup_postgresql
+    ensure_postgresql_running
+    ensure_redis_running
+    
     install_panel
+    
+    # Setup production services if requested
+    if [[ "$SETUP_SYSTEMD" == "true" ]]; then
+        setup_systemd_services
+    fi
+    
+    if [[ "$SETUP_NGINX" == "true" ]]; then
+        setup_nginx_config
+    fi
+    
+    if [[ "$SETUP_SSL" == "true" ]]; then
+        setup_ssl_certificates
+    fi
+    
     verify_installation
+    
+    # Auto-start services
+    if [[ "$AUTO_START" == "true" ]]; then
+        log "Auto-starting Panel services..."
+        
+        if [[ "$SETUP_SYSTEMD" == "true" ]]; then
+            start_systemd_services
+        else
+            # Start in development mode
+            start_panel_services
+        fi
+        
+        # Health check
+        sleep 5
+        perform_health_check
+    fi
     
     echo
     echo -e "${BOLD}${GREEN}╔═══════════════════════════════════════════╗${NC}"
@@ -1275,13 +2045,11 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
         fi
     else
         # Non-interactive mode - show manual start instructions
-        echo -e "${YELLOW}To start the Panel:${NC}"
-        echo "  cd $INSTALL_DIR"
-        echo "  source venv/bin/activate"
-        echo "  nohup python3 run_worker.py > logs/worker.log 2>&1 &"
-        echo "  nohup python3 app.py > logs/panel.log 2>&1 &"
+        # In non-interactive mode, attempt to start services automatically
+        log "Non-interactive mode: attempting to start Panel services automatically"
+        start_panel_services || warn "Automatic service start failed; see logs in $INSTALL_DIR/logs"
         echo
-        echo -e "${GREEN}Access Panel (once started):${NC}"
+        echo -e "${GREEN}Access Panel (if started):${NC}"
         echo -e "  URL: ${BOLD}http://$DOMAIN:$APP_PORT${NC}"
         echo -e "  Email: ${BOLD}$ADMIN_EMAIL${NC}"
         echo
