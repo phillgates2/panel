@@ -8,5 +8,22 @@
     <li>No pages yet.</li>
   {% endfor %}
 </ul>
-<a href="{{ url_for('cms.create') }}">Create page</a>
+
+{% if session.admin_authenticated %}
+  <a href="{{ url_for('cms.create') }}">Create page</a>
+{% else %}
+  <a href="{{ url_for('cms.admin_login') }}">Admin login</a>
+{% endif %}
+
+{# pagination links #}
+{% if total > per_page %}
+  <div class="pagination">
+    {% if page > 1 %}
+      <a href="?page={{ page-1 }}">Previous</a>
+    {% endif %}
+    Page {{ page }}
+    {% if (page*per_page) < total %}
+      <a href="?page={{ page+1 }}">Next</a>
+    {% endif %}
+  </div>
 {% endblock %}

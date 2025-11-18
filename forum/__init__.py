@@ -1,8 +1,27 @@
-from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, abort
+from flask import (
+    Blueprint,
+    current_app,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    abort,
+    session,
+)
 from ..app import db
 from datetime import datetime
 
 forum_bp = Blueprint('forum', __name__, url_prefix='/forum')
+
+
+def admin_required(fn):
+    def wrapped(*args, **kwargs):
+        if not session.get('admin_authenticated'):
+            return redirect(url_for('cms.admin_login', next=request.path))
+        return fn(*args, **kwargs)
+    wrapped.__name__ = getattr(fn, '__name__', 'wrapped')
+    return wrapped
 
 
 class Thread(db.Model):
@@ -25,19 +44,44 @@ class Post(db.Model):
 
 @forum_bp.route('/')
 def index():
-    threads = db.session.query(Thread).order_by(Thread.created_at.desc()).all()
-    return render_template('forum/index.html', threads=threads)
+    try:
+        page = int(request.args.get('page', 1))
+    except Exception:
+        page = 1
+    per_page = int(current_app.config.get('FORUM_PER_PAGE', 10))
+    q = db.session.query(Thread).order_by(Thread.created_at.desc())
+    total = q.count()
+    threads = q.offset((page-1)*per_page).limit(per_page).all()
+    return render_template('forum/index.html', threads=threads, page=page, per_page=per_page, total=total)
 
 
 @forum_bp.route('/thread/<int:thread_id>')
 def view_thread(thread_id):
-    thread = db.session.query(Thread).get(thread_id)
+    thread = db.session.get(Thread, thread_id)
     if not thread:
         abort(404)
     return render_template('forum/thread.html', thread=thread)
 
 
+@forum_bp.route('/thread/<int:thread_id>/reply', methods=['POST'])
+def reply_thread(thread_id):
+    thread = db.session.get(Thread, thread_id)
+    if not thread:
+        abort(404)
+    author = request.form.get('author', 'anonymous').strip()
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('Content required', 'error')
+        return redirect(url_for('forum.view_thread', thread_id=thread_id))
+    p = Post(thread_id=thread_id, author=author, content=content)
+    db.session.add(p)
+    db.session.commit()
+    flash('Reply posted', 'success')
+    return redirect(url_for('forum.view_thread', thread_id=thread_id))
+
+
 @forum_bp.route('/thread/create', methods=['GET', 'POST'])
+@admin_required
 def create_thread():
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
