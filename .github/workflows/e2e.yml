@@ -1,0 +1,43 @@
+name: E2E (Playwright)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: 'Set to true to run Playwright E2E tests'
+        required: true
+        default: 'false'
+
+jobs:
+  e2e:
+    name: Playwright E2E (manual)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.run_e2e == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt || true
+          pip install pytest pytest-playwright
+
+      - name: Install Playwright browsers
+        run: |
+          source .venv/bin/activate
+          python -m playwright install --with-deps
+
+      - name: Run Playwright E2E tests
+        env:
+          PANEL_USE_SQLITE: 1
+          PANEL_SECRET_KEY: ci-e2e-secret
+        run: |
+          source .venv/bin/activate
+          pytest -q tests/test_modal_e2e.py
