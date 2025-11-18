@@ -1,10 +1,28 @@
-from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, abort
-from flask import g
+from flask import (
+    Blueprint,
+    current_app,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    abort,
+    session,
+)
 from werkzeug.utils import secure_filename
 from ..app import db
 from datetime import datetime
 
 cms_bp = Blueprint('cms', __name__, url_prefix='/cms')
+
+
+def admin_required(fn):
+    def wrapped(*args, **kwargs):
+        if not session.get('admin_authenticated'):
+            return redirect(url_for('cms.admin_login', next=request.path))
+        return fn(*args, **kwargs)
+    wrapped.__name__ = getattr(fn, '__name__', 'wrapped')
+    return wrapped
 
 
 class Page(db.Model):
@@ -19,8 +37,16 @@ class Page(db.Model):
 
 @cms_bp.route('/')
 def index():
-    pages = db.session.query(Page).order_by(Page.title).all()
-    return render_template('cms/index.html', pages=pages)
+    # pagination
+    try:
+        page = int(request.args.get('page', 1))
+    except Exception:
+        page = 1
+    per_page = int(current_app.config.get('CMS_PER_PAGE', 10))
+    q = db.session.query(Page).order_by(Page.title)
+    total = q.count()
+    pages = q.offset((page-1)*per_page).limit(per_page).all()
+    return render_template('cms/index.html', pages=pages, page=page, per_page=per_page, total=total)
 
 
 @cms_bp.route('/<slug>')
@@ -28,12 +54,19 @@ def view(slug):
     page = db.session.query(Page).filter_by(slug=slug).first()
     if not page:
         abort(404)
-    return render_template('cms/view.html', page=page)
+    # optional markdown rendering
+    html_content = None
+    try:
+        from markdown import markdown as md
+        html_content = md(page.content or '')
+    except Exception:
+        html_content = page.content
+    return render_template('cms/view.html', page=page, html_content=html_content)
 
 
 @cms_bp.route('/create', methods=['GET', 'POST'])
+@admin_required
 def create():
-    # Placeholder admin check
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         slug = request.form.get('slug', '').strip()
@@ -47,3 +80,26 @@ def create():
         flash('Page created', 'success')
         return redirect(url_for('cms.view', slug=slug))
     return render_template('cms/create.html')
+
+
+@cms_bp.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    next_url = request.args.get('next') or url_for('cms.index')
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        cfg_user = current_app.config.get('ADMIN_USER', 'admin')
+        cfg_pass = current_app.config.get('ADMIN_PASSWORD', 'admin')
+        if username == cfg_user and password == cfg_pass:
+            session['admin_authenticated'] = True
+            flash('Logged in as admin', 'success')
+            return redirect(next_url)
+        flash('Invalid credentials', 'error')
+    return render_template('cms/admin_login.html', next=next_url)
+
+
+@cms_bp.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_authenticated', None)
+    flash('Logged out', 'success')
+    return redirect(url_for('cms.index'))

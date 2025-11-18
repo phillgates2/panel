@@ -9,4 +9,13 @@
   {% endfor %}
 </ul>
 <p><a href="{{ url_for('forum.index') }}">Back to forum</a></p>
+
+<h2>Reply</h2>
+<form method="post" action="{{ url_for('forum.reply_thread', thread_id=thread.id) }}">
+  <label>Author: <input name="author"></label><br>
+  <label>Content:<br>
+    <textarea name="content" rows="5" cols="60"></textarea>
+  </label><br>
+  <button type="submit">Reply</button>
+</form>
 {% endblock %}
