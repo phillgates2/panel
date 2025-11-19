@@ -8,6 +8,12 @@ from app import db, verify_csrf, User
 forum_bp = Blueprint("forum", __name__, url_prefix="/forum")
 
 
+@forum_bp.context_processor
+def inject_csrf_token():
+    """Inject csrf_token function into forum templates"""
+    return {'csrf_token': lambda: session.get('csrf_token', '')}
+
+
 def get_current_user():
     """Get the currently logged-in user"""
     user_id = session.get("user_id")

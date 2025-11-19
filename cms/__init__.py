@@ -9,6 +9,12 @@ from tools.auth import admin_required as auth_admin_required
 cms_bp = Blueprint("cms", __name__, url_prefix="/cms")
 
 
+@cms_bp.context_processor
+def inject_csrf_token():
+    """Inject csrf_token function into CMS templates"""
+    return {'csrf_token': lambda: session.get('csrf_token', '')}
+
+
 def admin_required(fn):
     def wrapped(*args, **kwargs):
         if not session.get("admin_authenticated"):
