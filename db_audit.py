@@ -4,9 +4,12 @@ Tracks all database operations for security and compliance
 """
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class QueryAuditLog:
@@ -44,7 +47,7 @@ class QueryAuditLog:
             with open(self.log_file, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
         except Exception as e:
-            print(f"Failed to write audit log: {e}")
+            logger.error(f"Failed to write audit log: {e}")
 
     def _get_query_type(self, query):
         """Determine query type"""
@@ -93,7 +96,7 @@ class QueryAuditLog:
             # Return most recent first
             return queries[-limit:][::-1]
         except Exception as e:
-            print(f"Failed to read audit log: {e}")
+            logger.error(f"Failed to read audit log: {e}")
             return []
 
     def get_user_statistics(self, user_id):

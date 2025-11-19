@@ -6,6 +6,7 @@ and intelligent alerting for ET:Legacy game servers with machine learning capabi
 """
 
 import hashlib
+import logging
 import queue
 import re
 import statistics
@@ -21,6 +22,8 @@ from flask_login import current_user, login_required
 from sqlalchemy import Index, desc, func
 
 from app import db
+
+logger = logging.getLogger(__name__)
 
 log_analytics_bp = Blueprint("log_analytics", __name__)
 
@@ -363,12 +366,12 @@ class LogProcessor:
         
         # Only start thread if app context is available
         if app is None:
-            print("Warning: LogProcessor.start_processing() called without app context")
+            logger.warning("LogProcessor.start_processing() called without app context")
             return
             
         self.worker_thread = threading.Thread(target=self._process_loop, daemon=True)
         self.worker_thread.start()
-        print("✓ Advanced log analytics system started")
+        logger.info("Advanced log analytics system started")
 
     def stop_processing(self):
         """Stop the background processing."""
@@ -402,7 +405,7 @@ class LogProcessor:
                 time.sleep(30)  # Process every 30 seconds
 
             except Exception as e:
-                print(f"Log processing error: {e}")
+                logger.error(f"Log processing error: {e}")
                 time.sleep(5)
 
     def _process_log_line(self, server_id: int, line: str):
@@ -451,7 +454,7 @@ class LogProcessor:
             db.session.commit()
 
         except Exception as e:
-            print(f"Error processing log line: {e}")
+            logger.error(f"Error processing log line: {e}")
             db.session.rollback()
 
     def _update_baselines(self):
@@ -477,7 +480,7 @@ class LogProcessor:
                 self.anomaly_detector.update_baseline(server.id, recent_entries)
 
         except Exception as e:
-            print(f"Error updating baselines: {e}")
+            logger.error(f"Error updating baselines: {e}")
 
     def _detect_anomalies(self):
         """Detect and record new anomalies."""
@@ -532,7 +535,7 @@ class LogProcessor:
                 db.session.commit()
 
         except Exception as e:
-            print(f"Error detecting anomalies: {e}")
+            logger.error(f"Error detecting anomalies: {e}")
             db.session.rollback()
 
 
@@ -677,4 +680,4 @@ def create_log_indexes():
                 pass  # Index might already exist
 
     except Exception as e:
-        print(f"Error creating log indexes: {e}")
+        logger.error(f"Error creating log indexes: {e}")

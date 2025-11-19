@@ -6,11 +6,14 @@ Manages game server configurations with version control, templates, and deployme
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 import config
 from app import db
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigTemplate(db.Model):
@@ -257,7 +260,7 @@ class ConfigManager:
             return True
 
         except Exception as e:
-            print(f"Config deployment error: {e}")
+            logger.error(f"Config deployment error: {e}")
             return False
 
     def get_version_history(self, limit=50):
@@ -449,9 +452,9 @@ scriptlist maps/erdenberg_t2.script
                 db.session.add(template)
 
         db.session.commit()
-        print("Default configuration templates created")
+        logger.info("Default configuration templates created")
     except Exception as e:
-        print(f"Warning: Failed to create default templates: {e}")
+        logger.warning(f"Failed to create default templates: {e}")
         try:
             db.session.rollback()
         except Exception:

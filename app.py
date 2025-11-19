@@ -1317,8 +1317,8 @@ def admin_theme():
                                 "Theme image processing error: %s\n%s", e, tb
                             )
                         except Exception:
-                            print("Theme image processing error:", e)
-                            print(tb)
+                            logger.error(f"Theme image processing error: {e}")
+                            logger.debug(tb)
                         flash(f"Could not process uploaded image: {e}", "error")
                         return redirect(url_for("admin_theme"))
 
