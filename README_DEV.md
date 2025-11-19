@@ -3,8 +3,8 @@ Local dev run instructions
 - create a virtualenv and install deps
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
