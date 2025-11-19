@@ -45,6 +45,17 @@ ENVIRONMENT VARIABLES:
     PANEL_INSTALL_DIR       Installation directory
     PANEL_FORCE_UNINSTALL   Skip prompts (true/false)
 
+WHAT GETS REMOVED:
+    - All systemd services and timers
+    - Nginx configuration files
+    - Logrotate configuration
+    - Sudoers configuration
+    - Application files and virtual environment
+    - SQLite database (if present)
+    - User data directories (optional)
+    - SSL certificates (optional)
+    - PostgreSQL database (optional)
+
 EXAMPLES:
     # Interactive uninstall
     curl -fsSL .../uninstall.sh | bash
@@ -54,6 +65,9 @@ EXAMPLES:
 
     # Uninstall custom directory
     bash uninstall.sh --dir /opt/panel
+
+    # Keep database during uninstall
+    bash uninstall.sh --keep-db
 
 EOF
     exit 0
@@ -113,15 +127,46 @@ detect_system() {
 # ============================================================================
 
 stop_services() {
-    log "Stopping Panel services..."
+    log "Stopping Panel services and timers..."
     
     local services=(
         "panel-gunicorn"
+        "gunicorn"
         "rq-worker"
         "rq-worker-supervised"
         "panel-etlegacy"
+        "etlegacy"
+        "check-worker"
+        "memwatch"
+        "backup"
+        "autodeploy"
+        "session-cleanup"
+        "ssl-renew"
+        "ssl-renewal"
+        "panel-logrotate"
     )
     
+    local timers=(
+        "check-worker.timer"
+        "memwatch.timer"
+        "backup.timer"
+        "autodeploy.timer"
+        "session-cleanup.timer"
+        "ssl-renew.timer"
+        "ssl-renewal.timer"
+        "panel-logrotate.timer"
+    )
+    
+    # Stop and disable timers first
+    for timer in "${timers[@]}"; do
+        if systemctl is-active --quiet "$timer" 2>/dev/null; then
+            log "Stopping $timer..."
+            $SUDO systemctl stop "$timer" 2>/dev/null || true
+            $SUDO systemctl disable "$timer" 2>/dev/null || true
+        fi
+    done
+    
+    # Stop and disable services
     for service in "${services[@]}"; do
         if systemctl is-active --quiet "$service" 2>/dev/null; then
             log "Stopping $service..."
@@ -130,15 +175,33 @@ stop_services() {
         fi
     done
     
-    # Remove systemd service files
-    local service_files=(
+    # Remove systemd service and timer files
+    local systemd_files=(
         "/etc/systemd/system/panel-gunicorn.service"
+        "/etc/systemd/system/gunicorn.service"
         "/etc/systemd/system/rq-worker.service"
         "/etc/systemd/system/rq-worker-supervised.service"
         "/etc/systemd/system/panel-etlegacy.service"
+        "/etc/systemd/system/etlegacy.service"
+        "/etc/systemd/system/check-worker.service"
+        "/etc/systemd/system/check-worker.timer"
+        "/etc/systemd/system/memwatch.service"
+        "/etc/systemd/system/memwatch.timer"
+        "/etc/systemd/system/backup.service"
+        "/etc/systemd/system/backup.timer"
+        "/etc/systemd/system/autodeploy.service"
+        "/etc/systemd/system/autodeploy.timer"
+        "/etc/systemd/system/session-cleanup.service"
+        "/etc/systemd/system/session-cleanup.timer"
+        "/etc/systemd/system/ssl-renew.service"
+        "/etc/systemd/system/ssl-renew.timer"
+        "/etc/systemd/system/ssl-renewal.service"
+        "/etc/systemd/system/ssl-renewal.timer"
+        "/etc/systemd/system/panel-logrotate.service"
+        "/etc/systemd/system/panel-logrotate.timer"
     )
     
-    for file in "${service_files[@]}"; do
+    for file in "${systemd_files[@]}"; do
         if [[ -f "$file" ]]; then
             log "Removing $file..."
             $SUDO rm -f "$file"
@@ -155,10 +218,12 @@ remove_nginx_config() {
         "/etc/nginx/sites-enabled/panel"
         "/etc/nginx/sites-available/panel"
         "/etc/nginx/conf.d/panel.conf"
+        "/etc/nginx/conf.d/nginx_game_chrisvanek.conf"
     )
     
     for config in "${nginx_configs[@]}"; do
         if [[ -f "$config" ]]; then
+            log "Removing $config..."
             $SUDO rm -f "$config"
         fi
     done
@@ -166,6 +231,71 @@ remove_nginx_config() {
     # Test and reload nginx if it's running
     if command -v nginx &>/dev/null && systemctl is-active --quiet nginx 2>/dev/null; then
         $SUDO nginx -t && $SUDO systemctl reload nginx || warn "Nginx reload failed"
+    fi
+}
+
+remove_logrotate_config() {
+    log "Removing logrotate configuration..."
+    
+    local logrotate_configs=(
+        "/etc/logrotate.d/panel"
+        "/etc/logrotate.d/panel-logrotate"
+    )
+    
+    for config in "${logrotate_configs[@]}"; do
+        if [[ -f "$config" ]]; then
+            log "Removing $config..."
+            $SUDO rm -f "$config"
+        fi
+    done
+}
+
+remove_sudoers_config() {
+    log "Removing sudoers configuration..."
+    
+    local sudoers_files=(
+        "/etc/sudoers.d/panel"
+        "/etc/sudoers.d/panel-sudoers"
+    )
+    
+    for sudoers in "${sudoers_files[@]}"; do
+        if [[ -f "$sudoers" ]]; then
+            log "Removing $sudoers..."
+            $SUDO rm -f "$sudoers"
+        fi
+    done
+}
+
+remove_ssl_certificates() {
+    log "Checking for SSL certificates..."
+    
+    local cert_dirs=(
+        "/etc/letsencrypt/live/panel"
+        "/etc/letsencrypt/archive/panel"
+        "/etc/letsencrypt/renewal/panel.conf"
+    )
+    
+    local has_certs=false
+    for cert_path in "${cert_dirs[@]}"; do
+        if [[ -e "$cert_path" ]]; then
+            has_certs=true
+            break
+        fi
+    done
+    
+    if [[ "$has_certs" == "true" ]]; then
+        echo
+        if confirm "Remove SSL certificates?" "n"; then
+            for cert_path in "${cert_dirs[@]}"; do
+                if [[ -e "$cert_path" ]]; then
+                    log "Removing $cert_path..."
+                    $SUDO rm -rf "$cert_path"
+                fi
+            done
+            log "SSL certificates removed"
+        else
+            log "Keeping SSL certificates"
+        fi
     fi
 }
 
@@ -188,6 +318,8 @@ remove_installation() {
     echo "  - Audit logs: $INSTALL_DIR/instance/audit_logs/"
     echo "  - Database backups: $INSTALL_DIR/instance/backups/"
     echo "  - SQLite database (if present): $INSTALL_DIR/instance/panel.db"
+    echo "  - Configuration files"
+    echo "  - Forum and CMS data"
     echo
     
     log "Prompting user for installation directory removal confirmation..."
@@ -198,6 +330,46 @@ remove_installation() {
     
     rm -rf "$INSTALL_DIR"
     log "Installation directory removed"
+}
+
+remove_user_data() {
+    log "Checking for user data directories..."
+    
+    local data_dirs=(
+        "$HOME/.local/share/panel"
+        "$HOME/.config/panel"
+    )
+    
+    local has_data=false
+    for data_dir in "${data_dirs[@]}"; do
+        if [[ -d "$data_dir" ]]; then
+            has_data=true
+            break
+        fi
+    done
+    
+    if [[ "$has_data" == "true" ]]; then
+        echo
+        echo -e "${YELLOW}User data directories found:${NC}"
+        for data_dir in "${data_dirs[@]}"; do
+            if [[ -d "$data_dir" ]]; then
+                echo "  - $data_dir"
+            fi
+        done
+        echo
+        
+        if confirm "Remove user data directories?" "n"; then
+            for data_dir in "${data_dirs[@]}"; do
+                if [[ -d "$data_dir" ]]; then
+                    log "Removing $data_dir..."
+                    rm -rf "$data_dir"
+                fi
+            done
+            log "User data directories removed"
+        else
+            log "Keeping user data directories"
+        fi
+    fi
 }
 
 drop_postgresql_db() {
@@ -288,7 +460,11 @@ main() {
     echo
     stop_services
     remove_nginx_config
+    remove_logrotate_config
+    remove_sudoers_config
+    remove_ssl_certificates
     remove_installation
+    remove_user_data
     
     if [[ "$KEEP_DB" != "true" ]]; then
         drop_postgresql_db
@@ -305,6 +481,7 @@ main() {
     fi
     
     log "Panel has been removed from your system"
+    log "Thank you for using Panel!"
     echo
 }
 

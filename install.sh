@@ -66,6 +66,16 @@ show_help() {
     cat << 'EOF'
 Panel Installer - PostgreSQL Edition
 
+FEATURES:
+    • Game Server Management - Control ET:Legacy and other game servers
+    • User Management - Role-based access control (5 permission levels)
+    • Forum System - Community discussions with moderation tools
+    • Blog/CMS - Publish news and updates with markdown support
+    • Database Admin UI - Manage your data through web interface
+    • Audit Logging - Track all administrative actions
+    • API Keys - Secure programmatic access
+    • Two-Factor Authentication - Enhanced account security
+
 USAGE:
     # Installation
     curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
@@ -166,6 +176,16 @@ AVAILABLE INSTALLER FUNCTIONS:
       • generate_secret()      - Generate secure random key
       • prompt_user()          - Interactive user prompts
       • backup_installation()  - Backup existing installation
+
+USER ROLES:
+    The panel supports 5 permission levels (lowest to highest):
+      • user            - Basic forum posting and thread creation
+      • moderator       - Forum moderation, pin/lock threads, edit/delete posts
+      • server_mod      - Monitor server status, view logs
+      • server_admin    - Start/stop servers, modify configurations
+      • system_admin    - Full system access, user management, all features
+
+    The installer creates a system_admin user by default.
 
 UNINSTALLATION:
     For complete uninstallation including system dependencies, use:
@@ -1282,6 +1302,14 @@ with app.app_context():
     print("Database tables created successfully")
 PYEOF
     
+    # Run CMS/Forum migration
+    log "Running CMS and Forum migrations..."
+    if [[ -f "migrate_cms_forum.py" ]]; then
+        python3 migrate_cms_forum.py || warn "CMS/Forum migration had warnings (may be already applied)"
+    else
+        warn "migrate_cms_forum.py not found, skipping CMS/Forum migrations"
+    fi
+    
     # Create admin user
     log "Creating admin user..."
     python3 << PYEOF || warn "Admin user creation failed"
@@ -1686,6 +1714,12 @@ parse_args() {
                         flask db upgrade 2>/dev/null || true
                     fi
                     
+                    # Run CMS/Forum migration
+                    log "Running CMS and Forum migrations..."
+                    if [[ -f "migrate_cms_forum.py" ]]; then
+                        python3 migrate_cms_forum.py || warn "CMS/Forum migration had warnings (may be already applied)"
+                    fi
+                    
                     log "Update complete"
                     exit 0
                 else
@@ -2057,6 +2091,11 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
     
     echo -e "${GREEN}Database Admin UI:${NC}"
     echo "  http://$DOMAIN:$APP_PORT/admin/database"
+    echo
+    echo -e "${GREEN}Community Features:${NC}"
+    echo "  Forum: http://$DOMAIN:$APP_PORT/forum"
+    echo "  Blog: http://$DOMAIN:$APP_PORT/cms/blog"
+    echo "  Blog Admin: http://$DOMAIN:$APP_PORT/cms/admin/blog"
     echo
     echo -e "${BOLD}${YELLOW}📋 Next Steps:${NC}"
     echo
