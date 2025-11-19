@@ -1,23 +1,43 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Reset Password</h2>
-<div class="container">
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-  <label>New password: <input name="password" type="password" required></label><br>
-  {% if not config.TESTING %}
-  <div id="captcha-expired" class="alert alert-warning hidden">
-    Captcha expired — it has been refreshed. Please solve the new captcha.
+<div class="login-page">
+  <div class="login-header text-center">
+    <h1>🔓 Reset Password</h1>
+    <p class="text-secondary">Create a new secure password</p>
   </div>
-  <div>
-    <img id="captcha-img" src="/captcha.png" alt="captcha" />
-    <button type="button" id="refresh">Refresh</button>
-    <button type="button" id="audio">Play audio</button>
-    <span id="captcha-countdown" class="small" style="margin-left:8px;"></span>
-  </div>
-  <label>Captcha: <input name="captcha" required></label><br>
-  {% endif %}
-  <button type="submit">Set Password</button>
+
+  <form method="post" class="login-form">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    
+    <div class="form-group">
+      <label for="password">🔒 New Password</label>
+      <input id="password" name="password" type="password" required placeholder="Enter your new password" />
+    </div>
+    
+    {% if not config.TESTING %}
+    <div id="captcha-expired" class="alert alert-warning hidden">
+      ⚠️ Captcha expired — it has been refreshed. Please solve the new captcha.
+    </div>
+    
+    <div class="captcha-container">
+      <div class="captcha-header">
+        <label>🤖 Security Verification</label>
+        <div class="captcha-controls">
+          <button type="button" id="refresh" class="btn secondary">🔄 Refresh</button>
+          <button type="button" id="audio" class="btn secondary">🔊 Audio</button>
+        </div>
+      </div>
+      <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
+      <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
+    </div>
+    
+    <div class="form-group">
+      <label for="captcha">✏️ Enter the code above</label>
+      <input id="captcha" name="captcha" required placeholder="Enter captcha code" style="text-transform: uppercase;" />
+    </div>
+    {% endif %}
+    
+    <button type="submit" class="btn primary">✅ Set Password</button>
 </form>
 </div>
 {% if not config.TESTING %}

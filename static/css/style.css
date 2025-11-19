@@ -207,22 +207,24 @@ input[type="date"],
 textarea,
 select {
     width: 100%;
-    padding: 12px 16px;
-    border: 2px solid var(--border);
+    padding: 14px 18px;
+    border: 3px solid var(--border);
     border-radius: 12px;
-    background: var(--panel);
+    background: var(--panel-hover);
     color: var(--text);
     font-size: 1rem;
     transition: all 0.3s ease;
     outline: none;
+    box-shadow: 0 4px 15px var(--shadow);
 }
 
 input:focus,
 textarea:focus,
 select:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.1);
+    box-shadow: 0 8px 25px var(--shadow), 0 0 0 4px rgba(31, 111, 235, 0.15);
     transform: translateY(-2px);
+    background: var(--panel);
 }
 
 /* ===== BUTTONS ===== */
@@ -351,6 +353,32 @@ button.danger {
     max-width: 100%;
     height: auto;
     background: white;
+}
+
+/* Captcha input boxes - match email/password styling exactly */
+input[name="captcha"],
+input#captcha {
+    width: 100%;
+    padding: 14px 18px;
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel-hover);
+    color: var(--text);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 0 4px 15px var(--shadow);
+    text-align: center;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+input[name="captcha"]:focus,
+input#captcha:focus {
+    border-color: var(--accent);
+    box-shadow: 0 8px 25px var(--shadow), 0 0 0 4px rgba(31, 111, 235, 0.15);
+    transform: translateY(-2px);
+    background: var(--panel);
 }
 
 /* ===== ALERTS & MESSAGES ===== */
