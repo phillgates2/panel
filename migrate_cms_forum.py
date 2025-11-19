@@ -8,6 +8,7 @@ This script adds:
 """
 
 import sys
+import os
 from datetime import datetime, timezone
 
 from flask import Flask
@@ -125,10 +126,26 @@ if __name__ == '__main__':
     print("="*50)
     print()
     
-    response = input("This will modify your database. Continue? (yes/no): ")
-    if response.lower() not in ['yes', 'y']:
-        print("Migration cancelled.")
-        sys.exit(0)
+    # Check for non-interactive mode
+    non_interactive = (
+        '--non-interactive' in sys.argv or 
+        '-y' in sys.argv or 
+        '--yes' in sys.argv or
+        os.environ.get('PANEL_NON_INTERACTIVE', '').lower() in ('true', '1', 'yes') or
+        not sys.stdin.isatty()  # Not running in a terminal
+    )
+    
+    if not non_interactive:
+        try:
+            response = input("This will modify your database. Continue? (yes/no): ")
+            if response.lower() not in ['yes', 'y']:
+                print("Migration cancelled.")
+                sys.exit(0)
+        except (EOFError, KeyboardInterrupt):
+            print("\nMigration cancelled.")
+            sys.exit(0)
+    else:
+        print("Running in non-interactive mode, proceeding with migration...")
     
     try:
         run_migration()

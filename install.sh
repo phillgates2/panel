@@ -1305,7 +1305,7 @@ PYEOF
     # Run CMS/Forum migration
     log "Running CMS and Forum migrations..."
     if [[ -f "migrate_cms_forum.py" ]]; then
-        python3 migrate_cms_forum.py || warn "CMS/Forum migration had warnings (may be already applied)"
+        python3 migrate_cms_forum.py --non-interactive || warn "CMS/Forum migration had warnings (may be already applied)"
     else
         warn "migrate_cms_forum.py not found, skipping CMS/Forum migrations"
     fi
@@ -1717,7 +1717,7 @@ parse_args() {
                     # Run CMS/Forum migration
                     log "Running CMS and Forum migrations..."
                     if [[ -f "migrate_cms_forum.py" ]]; then
-                        python3 migrate_cms_forum.py || warn "CMS/Forum migration had warnings (may be already applied)"
+                        python3 migrate_cms_forum.py --non-interactive || warn "CMS/Forum migration had warnings (may be already applied)"
                     fi
                     
                     log "Update complete"
