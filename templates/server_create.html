@@ -23,11 +23,16 @@
                         <i class="fas fa-gamepad"></i> Game Type
                     </label>
                     <select name="game_type" id="game_type" required>
-                        {% for game in game_types %}
-                        <option value="{{ game }}" {% if game == 'etlegacy' %}selected{% endif %}>
-                            {{ game.upper() }}
-                        </option>
-                        {% endfor %}
+                        <option value="">-- Select Game Type --</option>
+                        <option value="etlegacy">🎮 ET:Legacy</option>
+                        <option value="css">🔫 Counter-Strike: Source</option>
+                        <option value="csgo">💣 Counter-Strike: Global Offensive</option>
+                        <option value="tf2">🎩 Team Fortress 2</option>
+                        <option value="minecraft">⛏️ Minecraft</option>
+                        <option value="rust">🦀 Rust</option>
+                        <option value="valheim">⚔️ Valheim</option>
+                        <option value="ark">🦖 ARK: Survival Evolved</option>
+                        <option value="custom">⚙️ Custom/Other</option>
                     </select>
                     <small class="text-muted">Select the game type - default configuration will be loaded automatically</small>
                 </div>

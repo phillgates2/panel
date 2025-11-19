@@ -1,6 +1,7 @@
 import io
 import os
 import secrets
+import shutil
 import time
 from datetime import date, datetime, timedelta, timezone
 
@@ -1071,22 +1072,28 @@ def admin_tools():
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
 
-    # Attempt to read logs from configured log dir, fallback to journalctl
+    # Attempt to read logs from configured log dir, fallback to journalctl if available
     memwatch_log = ""
     autodeploy_log = ""
     log_dir = config.LOG_DIR  # Already OS-aware from config.py
     mem_file = os.path.join(log_dir, "memwatch.log")
     auto_file = os.path.join(log_dir, "autodeploy.log")
+    
+    # Check if journalctl is available
+    has_journalctl = shutil.which("journalctl") is not None
+    
     try:
         if os.path.exists(mem_file):
             with open(mem_file, "r") as f:
                 memwatch_log = "".join(f.readlines()[-400:])
-        else:
+        elif has_journalctl:
             memwatch_log = subprocess.run(
                 ["journalctl", "-u", "memwatch.service", "-n", "200", "--no-pager"],
                 capture_output=True,
                 text=True,
             ).stdout
+        else:
+            memwatch_log = "Memwatch log not available. Log file not found and journalctl not available (development environment)."
     except Exception as e:
         memwatch_log = f"Could not read memwatch log: {e}"
 
@@ -1094,12 +1101,14 @@ def admin_tools():
         if os.path.exists(auto_file):
             with open(auto_file, "r") as f:
                 autodeploy_log = "".join(f.readlines()[-400:])
-        else:
+        elif has_journalctl:
             autodeploy_log = subprocess.run(
                 ["journalctl", "-u", "autodeploy.service", "-n", "200", "--no-pager"],
                 capture_output=True,
                 text=True,
             ).stdout
+        else:
+            autodeploy_log = "Autodeploy log not available. Log file not found and journalctl not available (development environment)."
     except Exception as e:
         autodeploy_log = f"Could not read autodeploy log: {e}"
 
