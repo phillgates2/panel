@@ -33,6 +33,25 @@ class Page(db.Model):
     )
 
 
+class BlogPost(db.Model):
+    __tablename__ = "cms_blog_post"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(255), unique=True, nullable=False)
+    content = db.Column(db.Text, nullable=True)
+    excerpt = db.Column(db.String(500), nullable=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    is_published = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    
+    author = db.relationship("User", backref="blog_posts", foreign_keys=[author_id])
+
+
 @cms_bp.route("/")
 def index():
     # pagination
@@ -152,3 +171,133 @@ def admin_logout():
     session.pop("user_id", None)
     flash("Logged out", "success")
     return redirect(url_for("cms.index"))
+
+
+# ==================== Blog Post Management (Admin) ====================
+
+
+@cms_bp.route("/admin/blog")
+@admin_required
+def admin_blog_list():
+    posts = BlogPost.query.order_by(BlogPost.created_at.desc()).all()
+    return render_template("cms/admin_blog_list.html", posts=posts)
+
+
+@cms_bp.route("/admin/blog/new", methods=["GET", "POST"])
+@admin_required
+def admin_blog_create():
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("cms.admin_blog_create"))
+        
+        title = request.form.get("title", "").strip()
+        slug = request.form.get("slug", "").strip()
+        content = request.form.get("content", "")
+        excerpt = request.form.get("excerpt", "").strip()
+        is_published = request.form.get("is_published") == "on"
+        
+        if not title or not slug:
+            flash("Title and slug are required", "error")
+            return redirect(url_for("cms.admin_blog_create"))
+        
+        # Check if slug already exists
+        existing = BlogPost.query.filter_by(slug=slug).first()
+        if existing:
+            flash(f"Slug '{slug}' already exists", "error")
+            return redirect(url_for("cms.admin_blog_create"))
+        
+        author_id = session.get("admin_user_id") or session.get("user_id")
+        if not author_id:
+            flash("Author not found", "error")
+            return redirect(url_for("cms.admin_blog_create"))
+        
+        post = BlogPost(
+            title=title,
+            slug=slug,
+            content=content,
+            excerpt=excerpt,
+            author_id=author_id,
+            is_published=is_published
+        )
+        db.session.add(post)
+        db.session.commit()
+        flash(f"Blog post '{title}' created", "success")
+        return redirect(url_for("cms.admin_blog_list"))
+    
+    return render_template("cms/admin_blog_edit.html", post=None)
+
+
+@cms_bp.route("/admin/blog/<int:post_id>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_blog_edit(post_id):
+    post = BlogPost.query.get_or_404(post_id)
+    
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
+        
+        title = request.form.get("title", "").strip()
+        slug = request.form.get("slug", "").strip()
+        content = request.form.get("content", "")
+        excerpt = request.form.get("excerpt", "").strip()
+        is_published = request.form.get("is_published") == "on"
+        
+        if not title or not slug:
+            flash("Title and slug are required", "error")
+            return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
+        
+        # Check if slug conflicts with another post
+        existing = BlogPost.query.filter(BlogPost.slug == slug, BlogPost.id != post_id).first()
+        if existing:
+            flash(f"Slug '{slug}' is already used by another post", "error")
+            return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
+        
+        post.title = title
+        post.slug = slug
+        post.content = content
+        post.excerpt = excerpt
+        post.is_published = is_published
+        post.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        flash(f"Blog post '{title}' updated", "success")
+        return redirect(url_for("cms.admin_blog_list"))
+    
+    return render_template("cms/admin_blog_edit.html", post=post)
+
+
+@cms_bp.route("/admin/blog/<int:post_id>/delete", methods=["POST"])
+@admin_required
+def admin_blog_delete(post_id):
+    try:
+        verify_csrf()
+    except Exception:
+        flash("Invalid CSRF token", "error")
+        return redirect(url_for("cms.admin_blog_list"))
+    
+    post = BlogPost.query.get_or_404(post_id)
+    title = post.title
+    db.session.delete(post)
+    db.session.commit()
+    flash(f"Blog post '{title}' deleted", "success")
+    return redirect(url_for("cms.admin_blog_list"))
+
+
+# ==================== Public Blog Routes ====================
+
+
+@cms_bp.route("/blog")
+def blog_index():
+    posts = BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+    return render_template("cms/blog_index.html", posts=posts)
+
+
+@cms_bp.route("/blog/<slug>")
+def blog_post(slug):
+    post = BlogPost.query.filter_by(slug=slug, is_published=True).first_or_404()
+    return render_template("cms/blog_post.html", post=post)

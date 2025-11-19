@@ -1,4 +1,328 @@
 {% extends 'base.html' %}
 {% block content %}
-<p>Welcome to the game panel. Use the navigation to register or login.</p>
+<div class="homepage-container">
+    <div class="hero-section">
+        <h1>🎮 Welcome to OZ Panel</h1>
+        <p class="hero-subtitle">Manage your game server with ease</p>
+    </div>
+
+    {% if recent_posts %}
+    <div class="blog-section">
+        <div class="section-header">
+            <h2>📰 Recent Updates</h2>
+            <a href="{{ url_for('cms.blog_index') }}" class="view-all-link">View All →</a>
+        </div>
+        
+        <div class="blog-grid">
+            {% for post in recent_posts %}
+            <article class="blog-card">
+                <div class="blog-card-header">
+                    <h3><a href="{{ url_for('cms.blog_post', slug=post.slug) }}">{{ post.title }}</a></h3>
+                    <span class="blog-meta">
+                        <span class="blog-author">👤 {{ post.author.first_name }} {{ post.author.last_name }}</span>
+                        <span class="blog-date">📅 {{ post.created_at.strftime('%b %d, %Y') }}</span>
+                    </span>
+                </div>
+                {% if post.excerpt %}
+                <p class="blog-excerpt">{{ post.excerpt }}</p>
+                {% else %}
+                <p class="blog-excerpt">{{ (post.content[:150] + '...') if post.content|length > 150 else post.content }}</p>
+                {% endif %}
+                <a href="{{ url_for('cms.blog_post', slug=post.slug) }}" class="read-more">Read More →</a>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="features-section">
+        <h2>✨ Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Server Management</h3>
+                <p>Control your game servers with an intuitive interface</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Community Forum</h3>
+                <p>Connect with other players and share experiences</p>
+                <a href="{{ url_for('forum.index') }}" class="feature-link">Visit Forum →</a>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Real-time Stats</h3>
+                <p>Monitor server performance and player activity</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Secure & Reliable</h3>
+                <p>Built with security and stability in mind</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="cta-section">
+        {% if session.get('user_id') %}
+        <p>Welcome back! Use the navigation to manage your servers.</p>
+        {% else %}
+        <p>New to OZ Panel?</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Create Account</a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">Login</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.homepage-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.hero-section {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 3px solid var(--border);
+    box-shadow: 0 4px 15px var(--shadow);
+    margin-bottom: 3rem;
+}
+
+.hero-section h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--accent);
+    text-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
+}
+
+.hero-subtitle {
+    font-size: 1.3rem;
+    color: #ccc;
+    margin: 0;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 2rem;
+    color: var(--accent);
+}
+
+.view-all-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.view-all-link:hover {
+    transform: translateX(5px);
+}
+
+.blog-section {
+    margin-bottom: 3rem;
+}
+
+.blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.blog-card {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.blog-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px var(--shadow);
+    border-color: var(--accent);
+}
+
+.blog-card-header h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.4rem;
+}
+
+.blog-card-header h3 a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.blog-card-header h3 a:hover {
+    color: #4da3ff;
+}
+
+.blog-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #999;
+    margin-bottom: 1rem;
+}
+
+.blog-excerpt {
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.read-more {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.read-more:hover {
+    transform: translateX(5px);
+}
+
+.features-section {
+    margin-bottom: 3rem;
+}
+
+.features-section h2 {
+    text-align: center;
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 2rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.feature-card {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 15px var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px var(--shadow);
+    border-color: var(--accent);
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.feature-card p {
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.feature-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.feature-link:hover {
+    transform: translateX(5px);
+}
+
+.cta-section {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: var(--panel);
+    border-radius: 12px;
+    border: 3px solid var(--border);
+    box-shadow: 0 4px 15px var(--shadow);
+}
+
+.cta-section p {
+    font-size: 1.3rem;
+    color: #ccc;
+    margin-bottom: 1.5rem;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 12px 30px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 3px solid var(--border);
+    display: inline-block;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
+}
+
+.btn-secondary {
+    background: var(--panel-hover);
+    color: var(--accent);
+}
+
+.btn-secondary:hover {
+    background: var(--panel);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--shadow);
+}
+
+@media (max-width: 768px) {
+    .hero-section h1 {
+        font-size: 2rem;
+    }
+    
+    .blog-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 {% endblock %}
+

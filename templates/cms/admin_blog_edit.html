@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
-<div class="edit-thread-container">
+<div class="admin-container">
     <div class="page-header">
-        <h1>✏️ Edit Thread</h1>
-        <a href="{{ url_for('forum.view_thread', thread_id=thread.id) }}" class="btn btn-secondary">← Back to Thread</a>
+        <h1>{% if post %}✏️ Edit Post{% else %}✨ New Post{% endif %}</h1>
+        <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-secondary">← Back to List</a>
     </div>
 
     <div class="form-container">
@@ -11,34 +11,46 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
-                <label for="title">📝 Thread Title</label>
-                <input type="text" id="title" name="title" value="{{ thread.title }}" required>
+                <label for="title">📝 Post Title</label>
+                <input type="text" id="title" name="title" value="{{ post.title if post else '' }}" required placeholder="Enter post title...">
+            </div>
+
+            <div class="form-group">
+                <label for="slug">🔗 Slug (URL)</label>
+                <input type="text" id="slug" name="slug" value="{{ post.slug if post else '' }}" required placeholder="post-url-slug">
+                <small>Use lowercase letters, numbers, and hyphens only</small>
+            </div>
+
+            <div class="form-group">
+                <label for="excerpt">📄 Excerpt (optional)</label>
+                <textarea id="excerpt" name="excerpt" rows="3" placeholder="Short summary for preview...">{{ post.excerpt if post else '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="content">✍️ Content</label>
+                <textarea id="content" name="content" rows="15" placeholder="Write your post content... (Markdown supported)">{{ post.content if post else '' }}</textarea>
+                <small>Supports Markdown formatting</small>
             </div>
 
             <div class="form-group checkbox-group">
                 <label class="checkbox-label">
-                    <input type="checkbox" name="is_pinned" {% if thread.is_pinned %}checked{% endif %}>
-                    <span>📌 Pin this thread (appears at top of forum)</span>
-                </label>
-            </div>
-
-            <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="is_locked" {% if thread.is_locked %}checked{% endif %}>
-                    <span>🔒 Lock this thread (prevent new replies)</span>
+                    <input type="checkbox" name="is_published" {% if post and post.is_published %}checked{% endif %}>
+                    <span>✓ Publish this post (make visible to public)</span>
                 </label>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">💾 Save Changes</button>
-                <a href="{{ url_for('forum.view_thread', thread_id=thread.id) }}" class="btn btn-cancel">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    {% if post %}💾 Update Post{% else %}✨ Create Post{% endif %}
+                </button>
+                <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
 </div>
 
 <style>
-.edit-thread-container {
+.admin-container {
     max-width: 900px;
     margin: 0 auto;
     padding: 2rem 1rem;
@@ -69,6 +81,18 @@
     display: inline-block;
     cursor: pointer;
     font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
 }
 
 .btn-secondary {
@@ -102,7 +126,8 @@
     font-size: 1.1rem;
 }
 
-.form-group input[type="text"] {
+.form-group input[type="text"],
+.form-group textarea {
     width: 100%;
     padding: 14px 18px;
     border: 3px solid var(--border);
@@ -115,12 +140,26 @@
     transition: all 0.3s ease;
 }
 
-.form-group input[type="text"]:focus {
+.form-group input[type="text"]:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: var(--accent);
     background: var(--panel);
     box-shadow: 0 8px 25px rgba(0, 123, 255, 0.2);
     transform: translateY(-2px);
+}
+
+.form-group textarea {
+    resize: vertical;
+    font-family: 'Courier New', monospace;
+    line-height: 1.6;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: #999;
+    font-size: 0.9rem;
 }
 
 .checkbox-group {
@@ -146,7 +185,7 @@
 }
 
 .checkbox-label span {
-    font-size: 1.05rem;
+    font-size: 1.1rem;
 }
 
 .form-actions {
@@ -155,30 +194,6 @@
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 2px solid var(--border);
-}
-
-.btn-primary {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-}
-
-.btn-primary:hover {
-    background: #0056b3;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
-}
-
-.btn-cancel {
-    background: rgba(220, 53, 69, 0.2);
-    color: #dc3545;
-    border-color: #dc3545;
-}
-
-.btn-cancel:hover {
-    background: #dc3545;
-    color: white;
-    transform: translateY(-2px);
 }
 
 @media (max-width: 768px) {
@@ -198,5 +213,19 @@
     }
 }
 </style>
-{% endblock %}
 
+<script>
+// Auto-generate slug from title
+document.getElementById('title').addEventListener('input', function(e) {
+    const slugInput = document.getElementById('slug');
+    // Only auto-generate if slug is empty
+    if (!slugInput.value) {
+        const slug = e.target.value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+        slugInput.value = slug;
+    }
+});
+</script>
+{% endblock %}
