@@ -328,14 +328,21 @@ class ConfigManager:
 
 def create_default_templates():
     """Create default configuration templates."""
-    from app import User
+    try:
+        from app import User
+        from flask import current_app
+        
+        # Ensure we're in an app context
+        if not current_app:
+            print("Warning: create_default_templates called without Flask app context")
+            return
 
-    # Get the first admin user or create a system user
-    admin_user = User.query.filter_by(is_system_admin=True).first()
-    if not admin_user:
-        return
+        # Get the first admin user or create a system user
+        admin_user = User.query.filter_by(role='system_admin').first()
+        if not admin_user:
+            return
 
-    templates = [
+        templates = [
         {
             "name": "ET:Legacy Standard Server",
             "description": "Standard ET:Legacy server configuration",
