@@ -311,6 +311,16 @@ button.danger {
     border-top: 1px solid var(--border);
 }
 
+.form-footer a[href="/forgot"] {
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.form-footer a[href="/forgot"]:hover {
+    color: var(--accent) !important;
+    transform: translateY(-1px);
+}
+
 /* ===== CAPTCHA STYLING ===== */
 .captcha-container {
     display: flex;
