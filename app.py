@@ -1745,7 +1745,8 @@ def admin_users():
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     users = User.query.order_by(User.email).all()
-    return render_template("admin_users.html", users=users)
+    # csrf_token is available via context processor, but explicitly pass it for the template
+    return render_template("admin_users.html", users=users, csrf_token=lambda: session.get('csrf_token', ''))
 
 
 @main_bp.route("/server/<int:server_id>", methods=["GET", "POST"])

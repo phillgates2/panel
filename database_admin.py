@@ -199,8 +199,6 @@ DATABASE_ADMIN_BASE_TEMPLATE = """
 """
 
 DATABASE_ADMIN_HOME_TEMPLATE = """
-{% extends "database_admin_base.html" %}
-{% block content %}
 <div class="sidebar">
     <h2>Database Information</h2>
     <div class="db-info">
@@ -232,12 +230,9 @@ DATABASE_ADMIN_HOME_TEMPLATE = """
     <a href="{{ url_for('admin_db_query') }}" class="btn">Execute SQL Query</a>
     <a href="{{ url_for('admin_db_export') }}" class="btn btn-success">Export Database</a>
 </div>
-{% endblock %}
 """
 
 DATABASE_ADMIN_TABLE_TEMPLATE = """
-{% extends "database_admin_base.html" %}
-{% block content %}
 <div class="sidebar">
     <h2>Table: {{ table_name }}</h2>
     <a href="{{ url_for('admin_db_table_structure', table_name=table_name) }}" class="btn">View Structure</a>
@@ -287,12 +282,9 @@ DATABASE_ADMIN_TABLE_TEMPLATE = """
         <div class="alert alert-danger">Error: {{ result.error }}</div>
     {% endif %}
 </div>
-{% endblock %}
 """
 
 DATABASE_ADMIN_QUERY_TEMPLATE = """
-{% extends "database_admin_base.html" %}
-{% block content %}
 <div class="main-content">
     <h2>SQL Query</h2>
     
@@ -335,10 +327,9 @@ DATABASE_ADMIN_QUERY_TEMPLATE = """
     
     <h3>Quick Queries</h3>
     <div>
-        <a href="{{ url_for('admin_db_query') }}?query=SELECT name FROM sqlite_master WHERE type='table'" class="btn">Show Tables</a>
+        <a href="{{ url_for('admin_db_query') }}?query=SELECT name FROM sqlite_master WHERE type='table'\" class="btn">Show Tables</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT * FROM user LIMIT 10" class="btn">View Users</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT COUNT(*) as total_users FROM user" class="btn">Count Users</a>
     </div>
 </div>
-{% endblock %}
 """
