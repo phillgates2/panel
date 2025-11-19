@@ -2014,6 +2014,24 @@ if __name__ == "__main__":
     # app.register_blueprint(multi_server_bp)
     logger.info("Enterprise systems disabled for clean operation")
 
+    # Initialize configuration templates after database is ready
+    from config_manager import create_default_templates
+
+    try:
+        create_default_templates()
+    except Exception as e:
+        # Silently ignore template creation errors during startup
+        logger.debug(f"Template creation skipped: {e}")
+
+    logger.info("Panel application ready for use")
+
+    # Read host and port from environment or config
+    host = os.environ.get("FLASK_HOST", "0.0.0.0")
+    port = int(os.environ.get("FLASK_PORT", 8080))
+    debug = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
+
+    app.run(host=host, port=port, debug=debug)
+
 
 # ===== Database Admin Integration Routes =====
 
@@ -2254,33 +2272,6 @@ def admin_db_import():
         """,
         breadcrumb="Database Management &gt; Import",
     )
-
-    # Initialize database and start basic systems
-    with app.app_context():
-        # Initialize database tables first
-        db.create_all()
-        logger.info("Database initialized successfully")
-
-        # Initialize configuration templates after database is ready
-        from config_manager import create_default_templates
-
-        try:
-            create_default_templates()
-        except Exception as e:
-            # Silently ignore template creation errors during startup
-            logger.debug(f"Template creation skipped: {e}")
-
-        # Temporarily disable enterprise systems to avoid SQLAlchemy context issues
-        # These can be re-enabled once the monitoring systems are properly configured
-        logger.info("Enterprise systems disabled for clean operation")
-        logger.info("Panel application ready for use")
-
-    # Read host and port from environment or config
-    host = os.environ.get("FLASK_HOST", "0.0.0.0")
-    port = int(os.environ.get("FLASK_PORT", 8080))
-    debug = os.environ.get("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
-
-    app.run(host=host, port=port, debug=debug)
 
 
 # Register the `main` blueprint on the module-level app after all

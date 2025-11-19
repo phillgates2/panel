@@ -343,11 +343,11 @@ def create_default_templates():
             return
 
         templates = [
-        {
-            "name": "ET:Legacy Standard Server",
-            "description": "Standard ET:Legacy server configuration",
-            "game_type": "etlegacy",
-            "template_data": {
+            {
+                "name": "ET:Legacy Standard Server",
+                "description": "Standard ET:Legacy server configuration",
+                "game_type": "etlegacy",
+                "template_data": {
                 "server_cfg": """// ET:Legacy Server Configuration
 set sv_hostname "ET:Legacy Server"
 set rconpassword "changeme"
@@ -395,13 +395,13 @@ set nitmod_version "2.3.1"
 set g_shrubbot "shrubbot.cfg"
 set g_shrubbot_logs 1
 """,
+                },
             },
-        },
-        {
-            "name": "ET:Legacy Competition Server",
-            "description": "Competition-ready server with strict settings",
-            "game_type": "etlegacy",
-            "template_data": {
+            {
+                "name": "ET:Legacy Competition Server",
+                "description": "Competition-ready server with strict settings",
+                "game_type": "etlegacy",
+                "template_data": {
                 "server_cfg": """// ET:Legacy Competition Server
 set sv_hostname "ET:Legacy Competition Server"
 set rconpassword "changeme"
@@ -432,21 +432,27 @@ scriptlist maps/braundorf_b4.script
 scriptlist maps/frostbite.script
 scriptlist maps/erdenberg_t2.script
 """,
+                },
             },
-        },
-    ]
+        ]
 
-    for template_data in templates:
-        existing = ConfigTemplate.query.filter_by(name=template_data["name"]).first()
-        if not existing:
-            template = ConfigTemplate(
-                name=template_data["name"],
-                description=template_data["description"],
-                game_type=template_data["game_type"],
-                template_data=json.dumps(template_data["template_data"]),
-                created_by=admin_user.id,
-            )
-            db.session.add(template)
+        for template_data in templates:
+            existing = ConfigTemplate.query.filter_by(name=template_data["name"]).first()
+            if not existing:
+                template = ConfigTemplate(
+                    name=template_data["name"],
+                    description=template_data["description"],
+                    game_type=template_data["game_type"],
+                    template_data=json.dumps(template_data["template_data"]),
+                    created_by=admin_user.id,
+                )
+                db.session.add(template)
 
-    db.session.commit()
-    print("Default configuration templates created")
+        db.session.commit()
+        print("Default configuration templates created")
+    except Exception as e:
+        print(f"Warning: Failed to create default templates: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
