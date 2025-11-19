@@ -336,6 +336,114 @@ cd /opt/servers/rust
 """,
             },
         },
+        {
+            "game_type": "palworld",
+            "name": "Palworld Standard Server",
+            "description": "Palworld multiplayer survival and crafting game server (based on Ptero-Eggs)",
+            "config": {
+                "server_cfg": """# Palworld Server Configuration
+# Based on Ptero-Eggs game-eggs configuration
+# https://github.com/Ptero-Eggs/game-eggs/tree/main/palworld
+
+# Server Settings
+server_name=A Palworld Server
+server_password=
+admin_password=changeme
+max_players=32
+public_lobby=true
+server_port=8211
+
+# RCON Settings
+rcon_enabled=true
+rcon_port=25575
+
+# World Settings
+difficulty=normal
+day_time_speed_rate=1.0
+night_time_speed_rate=1.0
+exp_rate=1.0
+pal_capture_rate=1.0
+pal_spawn_num_rate=1.0
+
+# Gameplay Settings
+pal_damage_rate_attack=1.0
+pal_damage_rate_defense=1.0
+player_damage_rate_attack=1.0
+player_damage_rate_defense=1.0
+player_stomach_decrease_rate=1.0
+player_stamina_decrease_rate=1.0
+player_auto_hp_regen_rate=1.0
+player_auto_hp_regen_rate_in_sleep=1.0
+
+# Death Settings
+drop_item_max_num=3000
+drop_item_max_num_unko=100
+base_camp_max_num=128
+base_camp_worker_max_num=15
+
+# Community Settings
+enable_invader_enemy=true
+active_unko=false
+enable_aim_assist_pad=true
+enable_aim_assist_keyboard=false
+""",
+                "startup_script": """#!/bin/bash
+cd /opt/servers/palworld
+./Pal/Binaries/Linux/PalServer-Linux-Shipping Pal \\
+    -publiclobby \\
+    -useperfthreads \\
+    -NoAsyncLoadingThread \\
+    -UseMultithreadForDS \\
+    -port=${SERVER_PORT} \\
+    -publicport=${SERVER_PORT} \\
+    -servername="${SERVER_NAME}" \\
+    -players=${MAX_PLAYERS} \\
+    -adminpassword="${ADMIN_PASSWORD}" \\
+    -rcon
+""",
+            },
+        },
+        {
+            "game_type": "openra",
+            "name": "OpenRA Red Alert Server",
+            "description": "OpenRA Red Alert RTS game server (based on Ptero-Eggs)",
+            "config": {
+                "server_cfg": """# OpenRA Red Alert Server Configuration
+# Based on Ptero-Eggs game-eggs configuration
+# https://github.com/Ptero-Eggs/game-eggs/tree/main/openra
+
+# Server Settings
+server_name=OpenRA Red Alert Server
+server_port=1234
+server_password=
+
+# Server Options
+advertise_online=false
+enable_singleplayer=false
+enable_geoip=false
+share_anonymized_ips=true
+
+# Map Settings
+map_rotation=
+dedicated_server=true
+
+# Game Settings
+allow_cheats=false
+allow_version_mismatch=false
+""",
+                "startup_script": """#!/bin/bash
+cd /opt/servers/openra
+./squashfs-root/AppRun --server \\
+    Server.Name="${SERVER_NAME}" \\
+    Server.ListenPort=${SERVER_PORT} \\
+    Server.AdvertiseOnline=${ADVERTISE_ONLINE} \\
+    Server.EnableSingleplayer=${ENABLE_SINGLEPLAYER} \\
+    Server.Password="${SERVER_PASSWORD}" \\
+    Server.EnableGeoIP=${ENABLE_GEOIP} \\
+    Server.ShareAnonymizedIPs=${SHARE_ANONYMIZED_IPS}
+""",
+            },
+        },
     ]
     
     print("\nAdding common game templates...\n")
