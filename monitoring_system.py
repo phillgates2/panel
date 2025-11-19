@@ -141,6 +141,7 @@ class ServerMonitor:
         self.live_data = defaultdict(
             lambda: deque(maxlen=60)
         )  # 60 seconds of live data
+        self.app = None  # Store app reference
 
     def start_monitoring(self, app=None):
         """Start the background monitoring thread."""
@@ -149,8 +150,15 @@ class ServerMonitor:
 
         self.monitoring_active = True
         self.app = app
+        
+        # Only start thread if app context is available
+        if app is None:
+            print("Warning: ServerMonitor.start_monitoring() called without app context")
+            return
+            
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
+        print("✓ Real-time monitoring system started")
 
     def stop_monitoring(self):
         """Stop the monitoring thread."""

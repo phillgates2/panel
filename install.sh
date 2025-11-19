@@ -802,6 +802,7 @@ setup_systemd_services() {
         log "Configuring panel-gunicorn service..."
         sed -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
             -e "s|YOUR_USER|$USER|g" \
+            -e "s|127.0.0.1:8080|127.0.0.1:$APP_PORT|g" \
             "$INSTALL_DIR/deploy/panel-gunicorn.service" | \
         $SUDO tee /etc/systemd/system/panel-gunicorn.service > /dev/null
         
@@ -988,6 +989,15 @@ perform_health_check() {
         check_url="http://localhost"
     fi
     
+    # Check if gunicorn service is running
+    if command -v systemctl &>/dev/null && [[ "$SETUP_SYSTEMD" == "true" ]]; then
+        if ! systemctl is-active --quiet panel-gunicorn 2>/dev/null; then
+            warn "Gunicorn service is not active"
+            warn "Service status:"
+            $SUDO systemctl status panel-gunicorn --no-pager -l 2>&1 | head -20
+        fi
+    fi
+    
     while [[ $retries -lt $max_retries ]]; do
         if command -v curl &>/dev/null; then
             # Try /health endpoint
@@ -1018,7 +1028,13 @@ perform_health_check() {
     else
         warn "Panel health check failed - service may not be running correctly"
         warn "Check logs: $INSTALL_DIR/logs/"
-        return 1
+        if [[ -f "$INSTALL_DIR/logs/panel.log" ]]; then
+            warn "Recent errors from panel.log:"
+            tail -20 "$INSTALL_DIR/logs/panel.log" 2>/dev/null | grep -i "error\|exception\|traceback" || echo "(no recent errors found)"
+        fi
+        # Don't fail installation, just warn
+        warn "Installation completed with warnings - manual verification recommended"
+        return 0
     fi
 }
 

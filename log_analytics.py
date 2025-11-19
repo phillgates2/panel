@@ -351,6 +351,7 @@ class LogProcessor:
         self.processing_queue = queue.Queue()
         self.is_running = False
         self.worker_thread = None
+        self.app = None  # Store app reference
 
     def start_processing(self, app=None):
         """Start the background log processing thread."""
@@ -359,8 +360,15 @@ class LogProcessor:
 
         self.is_running = True
         self.app = app
+        
+        # Only start thread if app context is available
+        if app is None:
+            print("Warning: LogProcessor.start_processing() called without app context")
+            return
+            
         self.worker_thread = threading.Thread(target=self._process_loop, daemon=True)
         self.worker_thread.start()
+        print("✓ Advanced log analytics system started")
 
     def stop_processing(self):
         """Stop the background processing."""

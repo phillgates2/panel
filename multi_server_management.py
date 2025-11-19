@@ -644,24 +644,23 @@ def cluster_detail(cluster_id):
 
 def start_multi_server_system(app=None):
     """Start the multi-server management system."""
+    
+    if app is None:
+        print("Warning: Multi-server system requires Flask app context")
+        return
 
     # Start background monitoring and auto-scaling
     def monitoring_loop():
-        if app:
-            with app.app_context():
-                while True:
-                    try:
-                        clusters = db.session.query(ServerCluster).all()
-                        for cluster in clusters:
-                            cluster_manager.auto_scale_cluster(cluster.id)
-                        time.sleep(60)  # Check every minute
-                    except Exception as e:
-                        print(f"Multi-server monitoring error: {e}")
-                        time.sleep(30)
-        else:
-            # Skip without app context
-            print("Multi-server system started in limited mode (no app context)")
-            return
+        with app.app_context():
+            while True:
+                try:
+                    clusters = db.session.query(ServerCluster).all()
+                    for cluster in clusters:
+                        cluster_manager.auto_scale_cluster(cluster.id)
+                    time.sleep(60)  # Check every minute
+                except Exception as e:
+                    print(f"Multi-server monitoring error: {e}")
+                    time.sleep(30)
 
     thread = threading.Thread(target=monitoring_loop, daemon=True)
     thread.start()
