@@ -339,7 +339,10 @@ cd /opt/servers/rust
         {
             "game_type": "palworld",
             "name": "Palworld Standard Server",
-            "description": "Palworld multiplayer survival and crafting game server (based on Ptero-Eggs)",
+            "description": (
+                "Palworld multiplayer survival and crafting game server "
+                "(based on Ptero-Eggs)"
+            ),
             "config": {
                 "server_cfg": """# Palworld Server Configuration
 # Based on Ptero-Eggs game-eggs configuration
