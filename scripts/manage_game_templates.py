@@ -465,7 +465,13 @@ cd /opt/servers/openra
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description="Manage game server templates")
+    parser = argparse.ArgumentParser(
+        description="Manage game server templates",
+        epilog="""
+For importing 240+ game templates from Ptero-Eggs, see:
+  scripts/import_ptero_eggs.py
+"""
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
     # List templates
