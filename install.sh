@@ -857,15 +857,37 @@ setup_nginx_config() {
     
     log "Configuring Nginx reverse proxy..."
     
-    if [[ ! -f "$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf" ]]; then
+    # Check for non-SSL template first
+    local template_file=""
+    if [[ -f "$INSTALL_DIR/deploy/nginx_panel_nossl.conf" ]]; then
+        template_file="$INSTALL_DIR/deploy/nginx_panel_nossl.conf"
+    elif [[ -f "$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf" ]]; then
+        template_file="$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf"
+    else
         warn "Nginx template not found"
         return 1
     fi
     
     # Create nginx config
     local nginx_conf="$INSTALL_DIR/deploy/nginx_panel.conf"
-    sed "s/YOUR_DOMAIN_HERE/$DOMAIN/g" "$INSTALL_DIR/deploy/nginx_game_chrisvanek.conf" > "$nginx_conf"
-    sed -i "s/proxy_pass http:\/\/127.0.0.1:8000/proxy_pass http:\/\/127.0.0.1:$APP_PORT/g" "$nginx_conf" 2>/dev/null || true
+    
+    # Use non-SSL config or strip SSL from existing config
+    if [[ "$template_file" == *"nossl"* ]]; then
+        sed -e "s/YOUR_DOMAIN_HERE/$DOMAIN/g" \
+            -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            -e "s|127.0.0.1:8080|127.0.0.1:$APP_PORT|g" \
+            "$template_file" > "$nginx_conf"
+    else
+        # Strip SSL config from template
+        sed -e "s/YOUR_DOMAIN_HERE/$DOMAIN/g" \
+            -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            -e "s|127.0.0.1:8080|127.0.0.1:$APP_PORT|g" \
+            "$template_file" | \
+            sed '/listen 443/,/^}/d' | \
+            sed '/return 301 https/d' > "$nginx_conf"
+    fi
     
     log "Nginx configuration created: $nginx_conf"
     
@@ -887,12 +909,24 @@ setup_nginx_config() {
     esac
     
     # Test nginx config
+    log "Testing nginx configuration..."
     if $SUDO nginx -t 2>&1 | grep -q "successful"; then
         log "Nginx configuration valid ✓"
-        $SUDO systemctl reload nginx 2>/dev/null || $SUDO service nginx reload 2>/dev/null || true
+        if systemctl is-active --quiet nginx 2>/dev/null || pgrep nginx > /dev/null 2>&1; then
+            $SUDO systemctl reload nginx 2>/dev/null || $SUDO service nginx reload 2>/dev/null || true
+            log "Nginx reloaded with new configuration"
+        else
+            log "Nginx not running - start it manually with: sudo systemctl start nginx"
+        fi
     else
-        warn "Nginx configuration test failed"
-        return 1
+        warn "Nginx configuration test failed - config may have issues"
+        echo
+        echo "  To debug:"
+        echo "    sudo nginx -t"
+        echo "    cat $nginx_conf"
+        echo
+        echo "  The Panel will still work on port $APP_PORT without nginx"
+        return 0  # Don't fail installation
     fi
 }
 
@@ -1346,9 +1380,22 @@ PYEOF
     
     # Configure nginx
     log "Configuring nginx..."
-    if [[ -f "deploy/nginx_game_chrisvanek.conf" ]]; then
-        sed "s/YOUR_DOMAIN_HERE/$DOMAIN/g" deploy/nginx_game_chrisvanek.conf > deploy/nginx_panel.conf
-        log "Nginx configuration created: deploy/nginx_panel.conf"
+    # Use non-SSL config by default (SSL can be added later with certbot)
+    if [[ -f "deploy/nginx_panel_nossl.conf" ]]; then
+        sed -e "s/YOUR_DOMAIN_HERE/$DOMAIN/g" \
+            -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            deploy/nginx_panel_nossl.conf > deploy/nginx_panel.conf
+        log "Nginx configuration created: deploy/nginx_panel.conf (HTTP only)"
+    elif [[ -f "deploy/nginx_game_chrisvanek.conf" ]]; then
+        # Fallback to old config but create HTTP-only version
+        sed -e "s/YOUR_DOMAIN_HERE/$DOMAIN/g" \
+            -e "s|/home/YOUR_USER/panel|$INSTALL_DIR|g" \
+            -e "s|YOUR_USER|$USER|g" \
+            deploy/nginx_game_chrisvanek.conf | \
+            sed '/listen 443/,/^}/d' | \
+            sed '/return 301 https/d' > deploy/nginx_panel.conf
+        log "Nginx configuration created: deploy/nginx_panel.conf (HTTP only)"
     fi
     
     # Configure systemd service files
