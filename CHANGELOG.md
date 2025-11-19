@@ -2,6 +2,185 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2025-11-19
+
+### 🚀 **Major Features**
+
+#### CMS Blog System (Public)
+- **BlogPost Model** - Full-featured blog system with:
+  - Title, slug, content, excerpt fields
+  - Author attribution (linked to User model)
+  - Publication status (draft/published)
+  - Created/updated timestamps
+  - Markdown support for rich content
+
+- **Public Blog Pages**
+  - `/cms/blog` - Public blog index showing all published posts
+  - `/cms/blog/<slug>` - Individual blog post pages
+  - Homepage integration - 5 most recent posts displayed on homepage
+  - Panel-styled templates with cards, shadows, and hover effects
+
+- **Admin Blog Management**
+  - `/cms/admin/blog` - Blog post dashboard
+  - Create, edit, delete blog posts
+  - Draft/publish workflow
+  - Auto-slug generation from title
+  - Markdown editor with preview support
+
+#### Forum System Overhaul
+- **Public Access** - Anyone can view forum and read threads (no login required)
+- **Login-Required Actions** - Must be logged in to create threads or post replies
+- **User-Based System** - Posts linked to User accounts instead of anonymous strings
+- **Thread Management**
+  - Pin threads (appear at top of forum)
+  - Lock threads (prevent new replies)
+  - Thread badges showing pinned/locked status
+
+#### Role-Based Permissions
+- **User Roles**
+  - 👤 **User** - Can create forum threads and post replies
+  - 🛡️ **Moderator** - Can manage forum (edit/delete posts, pin/lock threads)
+  - 🔧 **Server Mod** - Can moderate game servers
+  - 🖥️ **Server Admin** - Full server administration
+  - ⚙️ **System Admin** - Full system access
+
+- **Forum Permissions**
+  - Basic users can create threads and replies
+  - Moderators can edit/delete any post
+  - Moderators can pin and lock threads
+  - Authors can edit their own posts
+  - Locked threads prevent new replies
+
+#### User Management UI
+- **Modernized /admin/users Page**
+  - Role information cards explaining each permission level
+  - Color-coded role badges for visual identification
+  - User avatars with initials
+  - Inline role editing with dropdown
+  - Confirmation dialog for system admin grants
+  - Responsive design for mobile devices
+
+### 📊 **Database Changes**
+- **New Table: cms_blog_post**
+  - Full blog post storage with author, publication status
+  
+- **Updated Table: forum_thread**
+  - Added `author_id` (FK to User)
+  - Added `is_pinned` (Boolean)
+  - Added `is_locked` (Boolean)
+
+- **Updated Table: forum_post**
+  - Changed `author` (String) → `author_id` (FK to User)
+  - Added User relationship
+
+- **Migration Script**
+  - `migrate_cms_forum.py` - Automated migration for schema changes
+
+### 🎨 **UI/UX Improvements**
+
+#### Homepage Redesign
+- Hero section with emoji and subtitle
+- Recent blog posts section (5 most recent)
+- Features grid showcasing panel capabilities
+- Call-to-action section for new users
+- Fully responsive design
+
+#### Forum Templates (All Redesigned)
+- `templates/forum/index.html`
+  - Modern card-based thread listing
+  - Thread badges (pinned, locked)
+  - Post count and metadata display
+  - Moderator action buttons
+  
+- `templates/forum/thread.html`
+  - User avatars with initials
+  - Author information display
+  - Reply form with Markdown support
+  - Edit/delete buttons for authors/moderators
+  - Login prompt for non-authenticated users
+  
+- `templates/forum/create_thread.html`
+  - Panel-styled form
+  - Markdown support notice
+  
+- `templates/forum/edit_post.html`
+  - Clean editor interface
+  
+- `templates/forum/edit_thread.html`
+  - Pin/lock checkboxes for moderators
+
+#### CMS Templates (All New)
+- `templates/cms/admin_blog_list.html` - Blog management dashboard
+- `templates/cms/admin_blog_edit.html` - Blog post editor
+- `templates/cms/blog_index.html` - Public blog listing
+- `templates/cms/blog_post.html` - Individual post view
+
+#### Navigation Updates
+- Added **Forum** link to main navigation (accessible to all)
+- Added **Blog** link to main navigation (accessible to all)
+- Added **Blog Management** to admin dashboard
+- Forum and Blog prominently featured in site-wide navigation
+
+### 🔧 **Backend Updates**
+
+#### app.py
+- Updated homepage route to fetch recent blog posts
+- User management already supports role changes
+- Audit logging for role changes
+
+#### cms/__init__.py
+- Added `BlogPost` model with full relationships
+- Added blog management routes (create, edit, delete)
+- Added public blog routes (index, individual posts)
+- Markdown rendering with bleach sanitization
+
+#### forum/__init__.py (Complete Rewrite)
+- Added helper functions:
+  - `get_current_user()` - Retrieve current user from session
+  - `is_moderator_or_admin()` - Check moderator permissions
+  
+- Added decorators:
+  - `login_required` - Protect routes requiring authentication
+  - `moderator_required` - Protect moderator-only routes
+  
+- Updated all routes:
+  - `index()` - Public access, shows pinned threads first
+  - `view_thread()` - Public access, enhanced Markdown rendering
+  - `reply_thread()` - Login required, checks if thread is locked
+  - `create_thread()` - Login required (was admin-only)
+  - `edit_post()` - Author or moderator can edit
+  - `delete_post()` - Moderator-only
+  - `edit_thread()` - Moderator-only, added pin/lock handling
+  - `delete_thread()` - Moderator-only
+  
+- Added new routes:
+  - `pin_thread()` - Toggle pinned status (moderator-only)
+  - `lock_thread()` - Toggle locked status (moderator-only)
+
+### 🔒 **Security & Permissions**
+- CSRF protection on all form submissions
+- Role-based access control for forum actions
+- Audit logging for user role changes
+- Input validation and sanitization
+- Markdown content sanitized with bleach
+
+### 📱 **Responsive Design**
+- All new templates fully responsive
+- Mobile-friendly forum layouts
+- Flexible grid layouts
+- Touch-friendly action buttons
+
+### ✅ **Completed Requirements**
+- ✓ CMS posts visible to all on homepage
+- ✓ CMS styled as the panel
+- ✓ Forum visible to all but posting requires login
+- ✓ Basic user role can post and create threads
+- ✓ Forum styled same as panel
+- ✓ Superadmins can change permissions for all users
+- ✓ Moderator group to manage forum
+
+---
+
 ## [3.2.0] - 2025-11-19
 
 ### 🎨 **UI/UX Enhancements**
