@@ -69,38 +69,23 @@
                         <a href="/admin/users" class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-users"></i> User Management
                         </a>
-                        <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-blog"></i> Blog Management
-                        </a>
-                        <a href="/admin/audit-viewer" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-history"></i> Audit Log
-                        </a>
-                        <a href="/admin/sessions" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-desktop"></i> All Sessions
-                        </a>
-                        <a href="/admin/rbac/roles" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-users-cog"></i> Role Management
-                        </a>
-                        <a href="/admin/rbac/users" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-user-shield"></i> User Permissions
-                        </a>
                         <a href="/admin/servers" class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-server"></i> Server Management
                         </a>
-                        <a href="/admin/config/templates" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-cogs"></i> Config Templates
+                        <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-blog"></i> Blog Management
                         </a>
-                        <a href="/admin/config/deployments" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-rocket"></i> Deployments
+                        <a href="/admin/audit" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-history"></i> Audit Log
                         </a>
-                        <a href="/admin/monitoring/dashboard" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-chart-line"></i> Monitoring Dashboard
+                        <a href="/admin/jobs" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-tasks"></i> Background Jobs
                         </a>
-                        <a href="/admin/logs/analytics" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-analytics"></i> Log Analytics
+                        <a href="/admin/theme" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-palette"></i> Theme Customization
                         </a>
-                        <a href="/admin/servers/clusters" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-network-wired"></i> Multi-Server
+                        <a href="/admin/database" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-database"></i> Database Admin
                         </a>
                         <a href="/admin/tools" class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-tools"></i> System Tools
