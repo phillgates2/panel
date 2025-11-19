@@ -2292,6 +2292,27 @@ except AssertionError:
     # Already registered elsewhere; ignore
     pass
 
+# Register optional feature blueprints on the module-level app
+try:
+    import cms as _cms
+    if hasattr(_cms, "cms_bp"):
+        try:
+            app.register_blueprint(_cms.cms_bp)
+        except AssertionError:
+            pass
+except Exception:
+    pass
+
+try:
+    import forum as _forum
+    if hasattr(_forum, "forum_bp"):
+        try:
+            app.register_blueprint(_forum.forum_bp)
+        except AssertionError:
+            pass
+except Exception:
+    pass
+
 # Backwards-compat: create un-prefixed endpoint aliases so existing
 # `url_for('login')` and template calls still work when routes are
 # defined in the `main` blueprint. This mirrors previous behavior
