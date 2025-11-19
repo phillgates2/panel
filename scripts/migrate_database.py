@@ -24,6 +24,7 @@ from models_extended import (
     ServerTemplate,
     PerformanceMetric,
 )
+from config_manager import ConfigTemplate, ConfigDeployment
 
 def migrate_database():
     """Create all database tables."""

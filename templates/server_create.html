@@ -1,13 +1,78 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Create Server</h2>
-<form method="post" action="{{ url_for('admin_create_server') }}" data-confirm-message="Create this server?"><!-- will show confirmation modal -->
-  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-  <label>Name</label><br/>
-  <input name="name" /><br/>
-  <label>Description</label><br/>
-  <input name="description" /><br/>
-  <button type="submit" class="confirm-btn">Create</button>
-</form>
-<p><a href="{{ url_for('admin_servers') }}">Back to servers</a></p>
+<div class="dashboard-page">
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>🎮 Create New Server</h1>
+            <p class="text-secondary">Configure a new game server instance</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('admin_servers') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Servers
+            </a>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body">
+            <form method="post" action="{{ url_for('admin_create_server') }}" class="form-stylish">
+                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+                
+                <div class="form-group">
+                    <label for="game_type">
+                        <i class="fas fa-gamepad"></i> Game Type
+                    </label>
+                    <select name="game_type" id="game_type" required>
+                        {% for game in game_types %}
+                        <option value="{{ game }}" {% if game == 'etlegacy' %}selected{% endif %}>
+                            {{ game.upper() }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Select the game type - default configuration will be loaded automatically</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="name">
+                        <i class="fas fa-server"></i> Server Name *
+                    </label>
+                    <input type="text" name="name" id="name" required placeholder="e.g., My ET:Legacy Server" />
+                    <small class="text-muted">Unique identifier for this server</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">
+                        <i class="fas fa-align-left"></i> Description
+                    </label>
+                    <textarea name="description" id="description" placeholder="Enter server description (optional)" rows="3"></textarea>
+                    <small class="text-muted">Optional description to help identify this server</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">
+                        <i class="fas fa-plus"></i> Create Server
+                    </button>
+                    <a href="{{ url_for('admin_servers') }}" class="btn secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5><i class="fas fa-info-circle"></i> Configuration Info</h5>
+        </div>
+        <div class="card-body">
+            <p>When you create a server:</p>
+            <ul>
+                <li>Default configuration files for the selected game type will be automatically loaded</li>
+                <li>You'll be assigned as the server administrator</li>
+                <li>You can customize all settings after creation</li>
+                <li>Server files and variables can be edited from the server management page</li>
+            </ul>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1544,30 +1544,57 @@ def admin_create_server():
             return redirect(url_for("admin_create_server"))
         name = request.form.get("name", "").strip()
         desc = request.form.get("description", "").strip()
+        game_type = request.form.get("game_type", "etlegacy").strip()
+        
         if not name:
             flash("Name is required", "error")
             return redirect(url_for("admin_create_server"))
         if Server.query.filter_by(name=name).first():
             flash("Server name already exists", "error")
             return redirect(url_for("admin_create_server"))
-        # create server with default config and assign creator as server_admin
-        default_vars = {"max_players": 16, "map": "default", "motd": "Welcome"}
+        
+        # Load default config template for selected game type
+        from config_manager import ConfigTemplate
+        template = ConfigTemplate.query.filter_by(
+            game_type=game_type, is_default=True
+        ).first()
+        
+        if template:
+            # Load config from template
+            template_data = json.loads(template.template_data)
+            default_vars = template_data.get("variables", {})
+            raw_config = template_data.get("config_content", "# default config\n")
+        else:
+            # Fallback to basic config if no template
+            default_vars = {"max_players": 16, "map": "default", "motd": "Welcome"}
+            raw_config = "# default config\n"
+        
+        # Create server with loaded config
         s = Server(
             name=name,
             description=desc,
+            game_type=game_type,
             variables_json=json.dumps(default_vars, indent=2),
-            raw_config="# default config\n",
+            raw_config=raw_config,
         )
         db.session.add(s)
         db.session.commit()
-        # after commit, create mapping for actor as server_admin
+        
+        # Assign creator as server_admin
         su = ServerUser(server_id=s.id, user_id=actor.id, role="server_admin")
         db.session.add(su)
-        db.session.add(AuditLog(actor_id=actor.id, action=f"create_server:{name}"))
+        db.session.add(AuditLog(actor_id=actor.id, action=f"create_server:{name}:{game_type}"))
         db.session.commit()
-        flash("Server created", "success")
+        
+        flash(f"Server '{name}' created successfully with {game_type} configuration", "success")
         return redirect(url_for("admin_servers"))
-    return render_template("server_create.html")
+    
+    # GET request - get available game types from templates
+    from config_manager import ConfigTemplate
+    game_types = db.session.query(ConfigTemplate.game_type).distinct().all()
+    game_types = [gt[0] for gt in game_types] if game_types else ["etlegacy"]
+    
+    return render_template("server_create.html", game_types=game_types)
 
 
 @main_bp.route("/admin/servers/<int:server_id>/delete", methods=["POST"])
