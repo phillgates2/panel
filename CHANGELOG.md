@@ -2,6 +2,89 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2025-11-19
+
+### 🎨 **UI/UX Enhancements**
+
+#### Modern Input Styling
+- **Enhanced Input Boxes** - All text inputs now have beautiful, consistent styling
+  - 3px borders with elevation shadows
+  - Dark background (`--panel-hover`) for better contrast
+  - 12px rounded corners for modern look
+  - Smooth focus animations with accent glow
+  - Applied to: email, password, text, date, textarea, select, and captcha inputs
+
+#### Authentication Pages Redesign
+- **Login Page** - Already featured modern design
+  - Clean form-group structure with icon labels
+  - Stylish captcha container with controls
+  - Professional button styling with emojis
+  
+- **Register Page** - Complete redesign to match login
+  - Icon labels (👤 Name, 📧 Email, 🎂 DOB, 🔒 Password)
+  - Proper form-group divs for consistent spacing
+  - Password strength meter integration
+  - Enhanced captcha section
+  - "Already have an account?" footer link
+  
+- **Forgot Password Page** - Modernized layout
+  - 🔑 Icon header with descriptive subtitle
+  - Clean single-field form
+  - Stylish captcha integration
+  - "Remember your password?" footer link
+  
+- **Reset Password Page** - Updated to match auth flow
+  - 🔓 Icon header with helpful subtitle
+  - Consistent form styling
+  - Enhanced security verification section
+  - ✅ Clear action button
+
+#### Input Focus Effects
+- **Enhanced Interactions** - Better visual feedback
+  - Smooth translateY animation on focus
+  - Accent-colored glow effect (rgba(31, 111, 235, 0.15))
+  - Increased shadow depth (0 8px 25px)
+  - Background color transitions
+  - Transform effects for premium feel
+
+#### Captcha Styling
+- **Security Inputs** - Special treatment for captcha fields
+  - Centered text for better code display
+  - Optimized font size (1.1rem) for readability
+  - Letter spacing (0.2em) for character distinction
+  - Uppercase transformation built-in
+  - Inherits all standard input enhancements
+
+### 📝 **Documentation Improvements**
+
+#### README Rewrite
+- **Simplified Structure** - Completely reorganized for clarity
+  - "What is This?" section explains the project upfront
+  - Installation modes clearly explained with use cases
+  - "Using Panel" section with practical examples
+  - "Managing Panel" with common day-to-day tasks
+  - Troubleshooting section with actual solutions
+  
+- **Better Organization** - Logical flow for all skill levels
+  - Quick start for beginners
+  - Detailed sections for power users
+  - Separate "For Developers" section
+  - Clear separation of basic and advanced topics
+  
+- **Plain Language** - Technical jargon removed or explained
+  - "Development Mode" instead of "debug mode with SQLite config"
+  - "Best for:" sections for each installation mode
+  - Simple command examples with explanations
+  - Friendly, conversational tone
+
+#### Enhanced Troubleshooting
+- **Common Issues** - Real problems with real solutions
+  - "Can't Connect to Panel" with step-by-step debugging
+  - Redis connection errors with multiple fix attempts
+  - Database connection issues for PostgreSQL
+  - Port conflicts with process identification
+  - Each issue has copy-paste ready commands
+
 ## [3.1.0] - 2025-11-18
 
 ### ✨ **Major Installer Overhaul**
