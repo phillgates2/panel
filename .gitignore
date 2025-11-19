@@ -51,6 +51,8 @@ test_captcha*.png
 .db_credentials
 *.configured
 deploy/nginx_panel.conf
+.install_secrets
+tests_tmp_*/
 
 # IDE
 .vscode/
