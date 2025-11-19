@@ -14,19 +14,19 @@ def _random_text(n=6):
 def generate_captcha_image(length=6):
     text = _random_text(length)
     # create image with enhanced quality for 900% zoom
-    width = 50
-    height = 25
+    width = 250
+    height = 40
     # Use white background for maximum contrast and quality
     image = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(image)
 
     # Use 16px font optimized for 50x25 image with high quality
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 16)
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
     except Exception:
         # Try to load a default font or use built-in with size parameter
         try:
-            font = ImageFont.load_default(size=16)
+            font = ImageFont.load_default(size=20)
         except Exception:
             font = ImageFont.load_default()
 
@@ -42,9 +42,9 @@ def generate_captcha_image(length=6):
         except Exception:
             # fallback to approximate sizes for 16px font in 50x25 image
             w = len(text) * 7
-            h = 16
+            h = 20
     x = (width - w) // 2
-    y = (height - h) // 2
+    y = (height - h) // 3
 
     # Draw text with maximum contrast (black on white)
     draw.text((x, y), text, font=font, fill=(0, 0, 0))
