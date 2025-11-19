@@ -1,33 +1,75 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Servers</h2>
-<p>
-  <a href="{{ url_for('dashboard') }}">Back to dashboard</a>
-  &nbsp;|&nbsp;
-  <a href="{{ url_for('admin_create_server') }}">Create Server</a>
-  &nbsp;|&nbsp;
-  <a href="{{ url_for('admin_audit') }}">View Audit Log</a>
-</p>
-<table>
-  <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Action</th></tr></thead>
-  <tbody>
-  {% for s in servers %}
-    <tr>
-      <td>{{ s.id }}</td>
-      <td>{{ s.name }}</td>
-      <td>{{ s.description or '' }}</td>
-      <td>
-        <a href="{{ url_for('server_edit', server_id=s.id) }}">Edit</a>
-        &nbsp;|&nbsp;
-        <a href="{{ url_for('admin_server_manage_users', server_id=s.id) }}">Manage Users</a>
-        &nbsp;|&nbsp;
-        <form method="post" action="{{ url_for('admin_delete_server', server_id=s.id) }}" style="display:inline" data-confirm-message="Delete server {{ s.name }}?">
-          <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-          <button type="submit" class="confirm-btn">Delete</button>
-        </form>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="dashboard-page">
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>🎮 Server Management</h1>
+            <p class="text-secondary">Manage all game servers</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <a href="{{ url_for('admin_create_server') }}" class="btn primary">
+                <i class="fas fa-plus"></i> Create Server
+            </a>
+            <a href="{{ url_for('admin_audit') }}" class="btn btn-outline-primary">
+                <i class="fas fa-history"></i> Audit Log
+            </a>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body">
+            {% if servers %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for s in servers %}
+                        <tr>
+                            <td>{{ s.id }}</td>
+                            <td><strong>{{ s.name }}</strong></td>
+                            <td>{{ s.description or 'No description' }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('server_edit', server_id=s.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <a href="{{ url_for('admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-info">
+                                        <i class="fas fa-users"></i> Users
+                                    </a>
+                                    <form method="post" action="{{ url_for('admin_delete_server', server_id=s.id) }}" style="display:inline" data-confirm-message="Delete server {{ s.name }}?" onsubmit="return confirm('Are you sure you want to delete {{ s.name }}?');">
+                                        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                <h4>No Servers Yet</h4>
+                <p class="text-muted">Get started by creating your first game server.</p>
+                <a href="{{ url_for('admin_create_server') }}" class="btn primary mt-3">
+                    <i class="fas fa-plus"></i> Create Your First Server
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
