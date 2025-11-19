@@ -1,8 +1,462 @@
 # Panel
 
-**Modern Flask-based game server management platform**
+**Modern web platform for managing ET: Legacy game servers**
 
-A lightweight, PostgreSQL-powered web application for managing ET: Legacy game servers with built-in database administration, security features, and real-time monitoring.
+A clean, secure Flask application with PostgreSQL database, user authentication, and a beautiful interface. Perfect for managing game servers with real-time monitoring and administrative tools.
+
+---
+
+## 🎯 What is This?
+
+Panel is a web-based control system for ET: Legacy game servers. It provides:
+- User-friendly web interface with modern design
+- Secure login system with CAPTCHA protection
+- Database management tools
+- Real-time server monitoring
+- Background job processing
+- Security features (rate limiting, audit logging)
+
+---
+
+## 🚀 Installation
+
+### Quick Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
+```
+
+The installer will guide you through:
+1. **Mode Selection**: Choose Development, Production, or Custom
+2. **Database Setup**: PostgreSQL (recommended) or SQLite
+3. **Network Config**: Set your domain/IP and port
+4. **Admin Account**: Create your login credentials
+5. **Services**: Optionally setup systemd, Nginx, and SSL
+
+That's it! The installer handles everything automatically.
+
+---
+
+## 📖 Installation Modes Explained
+
+### 🔧 Development Mode
+**Best for**: Testing on your local machine
+
+What you get:
+- Debug mode ON (detailed error messages)
+- Runs on port 8080
+- Fast SQLite database
+- No extra services needed
+- Auto-starts when installation completes
+
+Perfect for trying out Panel or developing features.
+
+### 🏢 Production Mode
+**Best for**: Running on a real server
+
+What you get:
+- Production-optimized settings
+- PostgreSQL database (faster, more reliable)
+- Systemd services (auto-restart if crashes)
+- Nginx web server (better performance)
+- SSL certificate support (HTTPS)
+- Auto-starts on server reboot
+
+Recommended for actual game server hosting.
+
+### ⚙️ Custom Mode
+**Best for**: Advanced users with specific needs
+
+Pick and choose:
+- Enable/disable individual features
+- Mix development and production settings
+- Control which services to install
+- Fine-tune your setup
+
+---
+
+## 🎮 Using Panel
+
+### First Time Access
+
+After installation completes, open your browser:
+```
+http://localhost:8080
+```
+
+**If accessing from another computer:**
+```
+http://YOUR_SERVER_IP:8080
+```
+
+Login with the credentials you created during installation.
+
+### Main Features
+
+**Dashboard**
+- Overview of your servers
+- Quick actions and controls
+- System status at a glance
+
+**Server Management**
+- Start/stop game servers
+- Configure server settings
+- Monitor player activity
+- View server logs
+
+**Database Admin**
+- Browse database tables
+- Run custom queries
+- Export data
+- Built-in web interface at `/admin/database`
+
+**User Management**
+- Create admin accounts
+- Set permissions
+- Track user activity
+- Audit logs for security
+
+---
+
+## 🛠️ Managing Panel
+
+### Starting Panel
+
+**If auto-start is enabled**: Panel runs automatically!
+
+**To start manually**:
+```bash
+cd ~/panel
+source venv/bin/activate
+
+# Start the services
+python3 run_worker.py &  # Background jobs
+python3 app.py           # Web interface
+```
+
+Access Panel at: `http://localhost:8080`
+
+### Stopping Panel
+
+```bash
+# Stop all Panel processes
+pkill -f "python.*app.py"
+pkill -f "python.*run_worker.py"
+```
+
+**If using systemd**:
+```bash
+sudo systemctl stop panel-gunicorn
+sudo systemctl stop rq-worker
+```
+
+### Viewing Logs
+
+```bash
+cd ~/panel
+
+# See what's happening
+tail -f logs/panel.log     # Main application
+tail -f logs/worker.log    # Background jobs
+
+# Check for errors
+grep ERROR logs/panel.log
+```
+
+### Common Commands
+
+```bash
+cd ~/panel
+
+# Check if Panel is running
+ps aux | grep python3
+
+# View status (if using systemd)
+systemctl status panel-gunicorn
+
+# Update Panel to latest version
+git pull
+pip install -r requirements.txt
+
+# Database backup
+python3 scripts/backup_manager.py
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Can't Connect to Panel
+
+**Problem**: Browser shows "Connection refused" or timeout
+
+**Solution**:
+```bash
+# 1. Is Panel running?
+ps aux | grep "python3 app.py"
+
+# 2. Is it listening on port 8080?
+netstat -tlnp | grep 8080
+
+# 3. Try connecting locally first
+curl http://localhost:8080/
+
+# 4. Check firewall (if accessing remotely)
+sudo ufw allow 8080/tcp
+
+# 5. Get your server's IP address
+hostname -I
+
+# 6. Try accessing via IP instead of localhost
+```
+
+### Redis Connection Error
+
+**Problem**: Panel logs show "Connection refused" for Redis
+
+**Solution**:
+```bash
+# Start Redis service
+sudo systemctl start redis
+
+# Enable Redis to start on boot
+sudo systemctl enable redis
+
+# If no systemd (Alpine/minimal systems)
+redis-server --daemonize yes
+```
+
+### Database Connection Error
+
+**Problem**: Can't connect to PostgreSQL
+
+**Solution**:
+```bash
+# Check if PostgreSQL is running
+sudo systemctl status postgresql
+
+# Start PostgreSQL
+sudo systemctl start postgresql
+
+# Check database exists
+sudo -u postgres psql -l | grep panel
+```
+
+### Port Already in Use
+
+**Problem**: Port 8080 is taken by another program
+
+**Solution**:
+```bash
+# Find what's using port 8080
+sudo lsof -i :8080
+
+# Kill that process
+sudo kill [PID]
+
+# Or change Panel's port in config.py
+```
+
+---
+
+## 🏗️ What's Under the Hood
+
+### Technology Stack
+- **Flask** - Python web framework
+- **PostgreSQL** - Database (production)
+- **SQLite** - Database (development)
+- **Redis** - Background jobs and caching
+- **Nginx** - Web server (production)
+- **Gunicorn** - Application server (production)
+
+### Security Features
+- Password hashing (Argon2)
+- CAPTCHA on login/registration
+- Rate limiting (30 requests/minute)
+- SQL injection protection
+- Security headers (CSP, HSTS)
+- Audit logging
+- CSRF protection
+
+### Key Files
+```
+panel/
+├── app.py                  # Main application
+├── install.sh              # Installer script
+├── config.py               # Settings
+├── templates/              # Web pages
+├── static/                 # CSS, JavaScript
+├── logs/                   # Application logs
+└── instance/               # Runtime data
+```
+
+---
+
+## 📚 Advanced Topics
+
+### Environment Variables
+
+Control Panel behavior without editing code:
+
+```bash
+# Development mode
+export PANEL_USE_SQLITE=1
+export PANEL_DEBUG=true
+
+# Production database
+export PANEL_DB_HOST=localhost
+export PANEL_DB_NAME=panel
+export PANEL_DB_USER=panel_user
+export PANEL_DB_PASS=your_password
+
+# Application settings
+export PANEL_PORT=8080
+export PANEL_DOMAIN=panel.example.com
+```
+
+### Non-Interactive Installation
+
+For automated deployments:
+
+```bash
+# Development setup
+PANEL_NON_INTERACTIVE=true \
+PANEL_DEBUG=true \
+PANEL_DB_PASS=devpass \
+PANEL_ADMIN_PASS=admin123 \
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
+
+# Production setup
+PANEL_NON_INTERACTIVE=true \
+PANEL_SETUP_SYSTEMD=true \
+PANEL_SETUP_NGINX=true \
+PANEL_DOMAIN=panel.example.com \
+PANEL_DB_PASS=$(openssl rand -base64 24) \
+PANEL_ADMIN_PASS=$(openssl rand -base64 16) \
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
+```
+
+### Uninstalling Panel
+
+```bash
+# Remove everything
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/uninstall.sh | bash
+
+# Keep database
+bash uninstall.sh --keep-db
+
+# Keep system packages
+bash uninstall.sh --no-remove-deps
+```
+
+---
+
+## 👨‍💻 For Developers
+
+### Setting Up Development Environment
+
+```bash
+# Clone repository
+git clone https://github.com/phillgates2/panel.git
+cd panel
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements-dev.txt
+
+# Run development server
+python3 app.py
+```
+
+### Making Changes
+
+```bash
+# Format code
+black .
+isort .
+
+# Run tests
+pytest
+
+# Check for issues
+flake8 .
+
+# Database migrations
+flask db migrate -m "Description"
+flask db upgrade
+```
+
+### Project Structure
+
+```
+Key components:
+- app.py           → Flask application setup, routes
+- models.py        → Database models (User, Server, etc.)
+- templates/       → HTML pages (login, dashboard, etc.)
+- static/css/      → Stylesheets
+- config.py        → Configuration settings
+- tasks.py         → Background jobs
+```
+
+---
+
+## 📄 More Documentation
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute code
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history
+- **[README_DEV.md](README_DEV.md)** - Detailed developer docs
+- **[INSTALLER_GUIDE.md](INSTALLER_GUIDE.md)** - Complete installer reference
+
+---
+
+## 💬 Get Help
+
+- **Bug reports**: [GitHub Issues](https://github.com/phillgates2/panel/issues)
+- **Questions**: [GitHub Discussions](https://github.com/phillgates2/panel/discussions)
+- **Documentation**: Check the `docs/` folder
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how:
+
+1. Fork the repository
+2. Create a branch: `git checkout -b feature/your-idea`
+3. Make your changes
+4. Test your changes: `pytest`
+5. Format code: `black . && isort .`
+6. Commit: `git commit -m "Add cool feature"`
+7. Push: `git push origin feature/your-idea`
+8. Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+---
+
+## 📊 Project Status
+
+![CI Status](https://github.com/phillgates2/panel/workflows/Panel%20CI%2FCD/badge.svg)
+
+- ✅ Automated testing (Python 3.10, 3.11, 3.12)
+- ✅ Code quality checks
+- ✅ Security scanning
+- ✅ Continuous integration
+
+---
+
+## 🔗 Links
+
+- **Repository**: https://github.com/phillgates2/panel
+- **Issues**: https://github.com/phillgates2/panel/issues
+- **Discussions**: https://github.com/phillgates2/panel/discussions
+
+---
+
+**Panel** — Simple, secure, and modern game server management. 🎮
 
 ---
 
