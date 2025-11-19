@@ -1,20 +1,71 @@
 # Panel
 
-**Modern web platform for managing ET: Legacy game servers**
+**Modern web platform for managing ET: Legacy game servers with integrated CMS and community features**
 
-A clean, secure Flask application with PostgreSQL database, user authentication, and a beautiful interface. Perfect for managing game servers with real-time monitoring and administrative tools.
+A clean, secure Flask application with PostgreSQL database, user authentication, community forum, blog system, and a beautiful interface. Perfect for managing game servers with real-time monitoring, administrative tools, and community engagement.
 
 ---
 
 ## 🎯 What is This?
 
-Panel is a web-based control system for ET: Legacy game servers. It provides:
+Panel is a comprehensive web-based control system for ET: Legacy game servers. It provides:
 - User-friendly web interface with modern design
+- **Community Forum** - Public discussions with role-based moderation
+- **Blog System** - Share news and updates with your community
 - Secure login system with CAPTCHA protection
 - Database management tools
 - Real-time server monitoring
 - Background job processing
 - Security features (rate limiting, audit logging)
+- User management with granular permissions
+
+---
+
+## ✨ Key Features
+
+### 🎮 Server Management
+- Start/stop/restart game servers
+- Real-time server monitoring
+- Configure server settings via web UI
+- Monitor player activity and statistics
+- View and analyze server logs
+- Multiple server support
+
+### 💬 Community Forum
+- **Public Access** - Anyone can view forum and threads
+- **User Participation** - Registered users can create threads and post replies
+- **Moderator Tools** - Pin important threads, lock discussions
+- **Rich Content** - Markdown support for formatted posts
+- **User Profiles** - Author attribution with avatars
+- **Thread Management** - Edit, delete, organize discussions
+
+### 📰 Blog System
+- **Public Blog** - Share news, updates, and announcements
+- **Homepage Integration** - Recent posts displayed on homepage
+- **Admin Dashboard** - Create, edit, and manage blog posts
+- **Draft/Publish Workflow** - Prepare content before going live
+- **Markdown Support** - Rich text formatting
+- **Author Attribution** - Posts linked to user accounts
+
+### 👥 User Management
+- **Role-Based Permissions**:
+  - 👤 **User** - Basic forum access, can post and create threads
+  - 🛡️ **Moderator** - Forum management (edit/delete posts, pin/lock threads)
+  - 🔧 **Server Mod** - Game server moderation
+  - 🖥️ **Server Admin** - Full server administration
+  - ⚙️ **System Admin** - Complete system access
+- Visual role management interface
+- Audit logging for permission changes
+- User activity tracking
+
+### 🔒 Security
+- Session-based authentication
+- CSRF protection on all forms
+- Password hashing (bcrypt)
+- CAPTCHA verification
+- Rate limiting to prevent abuse
+- Comprehensive audit logging
+- Role-based access control
 
 ---
 
@@ -94,27 +145,143 @@ Login with the credentials you created during installation.
 ### Main Features
 
 **Dashboard**
-- Overview of your servers
+- Overview of your servers and system status
 - Quick actions and controls
-- System status at a glance
+- Recent activity feed
+- Access to admin tools
+
+**Community Forum** (`/forum`)
+- Browse and read threads (no login required)
+- Create threads and post replies (login required)
+- Moderator tools for managing discussions
+- Pin important threads to the top
+- Lock threads to prevent further replies
+- Markdown formatting for rich content
+
+**Blog** (`/cms/blog`)
+- Read latest news and updates
+- Recent posts featured on homepage
+- Markdown-formatted articles
+- Author information displayed
 
 **Server Management**
 - Start/stop game servers
 - Configure server settings
 - Monitor player activity
-- View server logs
+- View server logs in real-time
+- Manage multiple servers
 
-**Database Admin**
+**Database Admin** (`/admin/database`)
 - Browse database tables
-- Run custom queries
-- Export data
-- Built-in web interface at `/admin/database`
+- Run custom SQL queries
+- Export data to CSV/JSON
+- Built-in web interface
+- System admin access only
 
-**User Management**
-- Create admin accounts
-- Set permissions
-- Track user activity
-- Audit logs for security
+**User Management** (`/admin/users`)
+- View all registered users
+- Change user roles and permissions
+- Visual role hierarchy display
+- Audit trail for role changes
+- System admin access only
+
+**Blog Management** (`/cms/admin/blog`)
+- Create and edit blog posts
+- Draft/publish workflow
+- Manage post slugs and excerpts
+- Delete outdated posts
+- System admin access only
+
+---
+
+## 📚 Community Features Guide
+
+### Using the Forum
+
+**For Visitors (No Login Required)**
+- Browse all forum threads
+- Read discussions and posts
+- View user profiles and post counts
+- See pinned and locked threads
+
+**For Registered Users**
+1. **Create a Thread**:
+   - Navigate to Forum
+   - Click "✨ New Thread"
+   - Enter title and content (Markdown supported)
+   - Click "🚀 Create Thread"
+
+2. **Post a Reply**:
+   - Open any thread
+   - Scroll to the reply form
+   - Write your message (Markdown supported)
+   - Click "📤 Post Reply"
+
+3. **Edit Your Posts**:
+   - Find your post in a thread
+   - Click "✏️ Edit" button
+   - Update content and save
+
+**For Moderators**
+- **Pin Threads**: Click 📌 to pin important discussions to the top
+- **Lock Threads**: Click 🔒 to prevent new replies
+- **Edit Any Post**: Use ✏️ button on any post
+- **Delete Posts**: Use 🗑️ button to remove inappropriate content
+- **Manage Threads**: Edit thread titles, toggle pin/lock status
+
+### Using the Blog
+
+**Reading Blog Posts**
+- Visit `/cms/blog` to see all published posts
+- Recent posts appear on the homepage
+- Click post title to read full article
+- Posts show author and publication date
+
+**Creating Blog Posts (Admin Only)**
+1. Login as system admin
+2. Go to Dashboard → "📝 Blog Management"
+3. Click "✨ New Post"
+4. Fill in:
+   - **Title**: Post headline
+   - **Slug**: URL-friendly identifier (auto-generated)
+   - **Excerpt**: Short preview (optional)
+   - **Content**: Full article (Markdown supported)
+   - **Publish**: Check to make public immediately
+5. Click "✨ Create Post"
+
+**Markdown Formatting**
+Both forum and blog support Markdown:
+```markdown
+# Heading 1
+## Heading 2
+**bold text**
+*italic text*
+- Bullet list
+1. Numbered list
+[link text](https://example.com)
+```
+
+### Managing User Roles
+
+**System Admin Access Required**
+
+1. Navigate to Dashboard → "👥 User Management"
+2. Find the user in the table
+3. Select new role from dropdown:
+   - 👤 **User** - Basic access
+   - 🛡️ **Moderator** - Forum management
+   - 🔧 **Server Mod** - Server moderation
+   - 🖥️ **Server Admin** - Server administration
+   - ⚙️ **System Admin** - Full system access
+4. Click "Update Role"
+5. Confirm if granting system admin
+
+**Role Permissions**:
+- **User**: Create forum threads, post replies, manage own content
+- **Moderator**: All User permissions + edit/delete any post, pin/lock threads
+- **Server Mod**: Server moderation capabilities
+- **Server Admin**: Full server management
+- **System Admin**: Complete system control, user management, blog management
 
 ---
 
@@ -178,9 +345,31 @@ systemctl status panel-gunicorn
 git pull
 pip install -r requirements.txt
 
+# Run database migrations (if updating from older version)
+python3 migrate_cms_forum.py
+
 # Database backup
 python3 scripts/backup_manager.py
 ```
+
+### Database Migrations
+
+When updating Panel, you may need to run migrations for new features:
+
+**Forum and CMS Features** (v3.3.0+):
+```bash
+cd ~/panel
+source venv/bin/activate
+python3 migrate_cms_forum.py
+```
+
+This migration adds:
+- BlogPost table for blog system
+- Forum thread author tracking
+- Thread pinning and locking
+- User-based post authorship
+
+The migration script is safe to run multiple times - it checks what's already migrated.
 
 ---
 
@@ -257,37 +446,112 @@ sudo kill [PID]
 # Or change Panel's port in config.py
 ```
 
+### Forum/Blog Pages Show Errors
+
+**Problem**: Forum or blog pages return 500 errors after update
+
+**Solution**:
+```bash
+# Run database migrations
+cd ~/panel
+source venv/bin/activate
+python3 migrate_cms_forum.py
+
+# Restart Panel
+pkill -f "python3 app.py"
+python3 app.py
+```
+
+### Can't Create Forum Posts
+
+**Problem**: "Login required" message when trying to post
+
+**Solution**:
+- Forum viewing is public, but posting requires login
+- Click "Login" in navigation
+- Register an account if you don't have one
+- After login, you'll be able to create threads and post replies
+
+### Can't Pin or Lock Threads
+
+**Problem**: Don't see moderator buttons in forum
+
+**Solution**:
+- Only moderators and system admins can pin/lock threads
+- Login as system admin
+- Go to Dashboard → User Management
+- Change your role to "Moderator" or "System Admin"
+
+### Blog Posts Not Showing on Homepage
+
+**Problem**: Created blog posts but they don't appear
+
+**Solution**:
+- Check that posts are marked as "Published" (not Draft)
+- In Blog Management, edit post and check the "Publish" checkbox
+- Only published posts appear on homepage and public blog
+
 ---
 
 ## 🏗️ What's Under the Hood
 
 ### Technology Stack
 - **Flask** - Python web framework
+- **SQLAlchemy** - Database ORM
 - **PostgreSQL** - Database (production)
 - **SQLite** - Database (development)
 - **Redis** - Background jobs and caching
 - **Nginx** - Web server (production)
 - **Gunicorn** - Application server (production)
+- **Markdown** - Rich text formatting (forum & blog)
+- **Bleach** - HTML sanitization
 
 ### Security Features
-- Password hashing (Argon2)
+- Password hashing (bcrypt)
 - CAPTCHA on login/registration
 - Rate limiting (30 requests/minute)
-- SQL injection protection
+- SQL injection protection (SQLAlchemy ORM)
 - Security headers (CSP, HSTS)
-- Audit logging
-- CSRF protection
+- Audit logging for all admin actions
+- CSRF protection on all forms
+- Session-based authentication
+- Role-based access control
+
+### Database Schema
+**Core Tables**:
+- `user` - User accounts and authentication
+- `server` - Game server configurations
+- `audit_log` - Security and activity tracking
+
+**Forum Tables**:
+- `forum_thread` - Discussion threads with pin/lock status
+- `forum_post` - User posts with author tracking
+
+**CMS Tables**:
+- `cms_page` - Static pages
+- `cms_blog_post` - Blog articles with publication status
 
 ### Key Files
 ```
 panel/
-├── app.py                  # Main application
-├── install.sh              # Installer script
-├── config.py               # Settings
-├── templates/              # Web pages
-├── static/                 # CSS, JavaScript
-├── logs/                   # Application logs
-└── instance/               # Runtime data
+├── app.py                      # Main application & routes
+├── install.sh                  # Automated installer
+├── config.py                   # Configuration settings
+├── migrate_cms_forum.py        # Database migrations
+├── forum/
+│   └── __init__.py             # Forum routes & models
+├── cms/
+│   └── __init__.py             # Blog routes & models
+├── templates/
+│   ├── base.html               # Base template
+│   ├── index.html              # Homepage with blog posts
+│   ├── forum/                  # Forum templates
+│   └── cms/                    # Blog templates
+├── static/
+│   ├── css/style.css           # Main stylesheet
+│   └── js/                     # JavaScript files
+├── logs/                       # Application logs
+└── instance/                   # Runtime data & SQLite DB
 ```
 
 ---
