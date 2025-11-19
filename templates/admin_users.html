@@ -1,33 +1,396 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Manage Users</h2>
-<div class="container">
-  <p class="small">Only system admins can change roles.</p>
-  <table>
-    <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead>
-    <tbody>
-    {% for u in users %}
-      <tr>
-        <td>{{ u.id }}</td>
-        <td>{{ u.first_name }} {{ u.last_name }}</td>
-        <td>{{ u.email }}</td>
-        <td>{{ u.role }}</td>
-        <td>
-          <form method="post" action="/admin/users/role">
-            <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-            <input type="hidden" name="user_id" value="{{ u.id }}" />
-            <select name="role">
-              <option value="user" {% if u.role=='user' %}selected{% endif %}>user</option>
-              <option value="system_admin" {% if u.role=='system_admin' %}selected{% endif %}>system_admin</option>
-              <option value="server_admin" {% if u.role=='server_admin' %}selected{% endif %}>server_admin</option>
-              <option value="server_mod" {% if u.role=='server_mod' %}selected{% endif %}>server_mod</option>
-            </select>
-            <button type="submit">Set Role</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="admin-users-container">
+    <div class="page-header">
+        <div>
+            <h1>👥 User Management</h1>
+            <p>Manage user roles and permissions</p>
+        </div>
+    </div>
+
+    <div class="info-cards">
+        <div class="info-card">
+            <div class="info-icon">👤</div>
+            <div class="info-content">
+                <h3>Basic User</h3>
+                <p>Can create forum threads, post replies, and manage own content</p>
+            </div>
+        </div>
+        <div class="info-card">
+            <div class="info-icon">🛡️</div>
+            <div class="info-content">
+                <h3>Moderator</h3>
+                <p>Can manage forum (edit/delete posts, pin/lock threads)</p>
+            </div>
+        </div>
+        <div class="info-card">
+            <div class="info-icon">⚙️</div>
+            <div class="info-content">
+                <h3>System Admin</h3>
+                <p>Full system access, can manage all users and settings</p>
+            </div>
+        </div>
+        <div class="info-card">
+            <div class="info-icon">🖥️</div>
+            <div class="info-content">
+                <h3>Server Admin</h3>
+                <p>Can manage game servers and configurations</p>
+            </div>
+        </div>
+    </div>
+
+    {% if users %}
+    <div class="users-table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Current Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div class="user-info">
+                            <div class="user-avatar">{{ u.first_name[0] if u.first_name else '?' }}{{ u.last_name[0] if u.last_name else '?' }}</div>
+                            <div class="user-details">
+                                <strong>{{ u.first_name }} {{ u.last_name }}</strong>
+                                <span class="user-id">ID: {{ u.id }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="user-email">{{ u.email }}</span>
+                    </td>
+                    <td>
+                        <span class="role-badge role-{{ u.role }}">
+                            {% if u.role == 'system_admin' %}
+                                ⚙️ System Admin
+                            {% elif u.role == 'moderator' %}
+                                🛡️ Moderator
+                            {% elif u.role == 'server_admin' %}
+                                🖥️ Server Admin
+                            {% elif u.role == 'server_mod' %}
+                                🔧 Server Moderator
+                            {% else %}
+                                👤 User
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('admin_set_role') }}" class="role-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <select name="role" class="role-select">
+                                <option value="user" {% if u.role=='user' %}selected{% endif %}>👤 User</option>
+                                <option value="moderator" {% if u.role=='moderator' %}selected{% endif %}>🛡️ Moderator</option>
+                                <option value="server_mod" {% if u.role=='server_mod' %}selected{% endif %}>🔧 Server Mod</option>
+                                <option value="server_admin" {% if u.role=='server_admin' %}selected{% endif %}>🖥️ Server Admin</option>
+                                <option value="system_admin" {% if u.role=='system_admin' %}selected{% endif %}>⚙️ System Admin</option>
+                            </select>
+                            <button type="submit" class="btn-update">Update Role</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>📭 No users found in the system.</p>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+.admin-users-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid var(--border);
+}
+
+.page-header h1 {
+    margin: 0 0 0.5rem 0;
+    color: var(--accent);
+    font-size: 2.5rem;
+}
+
+.page-header p {
+    margin: 0;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+.info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.info-card {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    box-shadow: 0 4px 15px var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px var(--shadow);
+    border-color: var(--accent);
+}
+
+.info-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.info-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--accent);
+    font-size: 1.1rem;
+}
+
+.info-content p {
+    margin: 0;
+    color: #999;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.users-table-container {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px var(--shadow);
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table thead {
+    background: var(--panel-hover);
+}
+
+.users-table th {
+    padding: 1rem;
+    text-align: left;
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+}
+
+.users-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.users-table tbody tr {
+    transition: background 0.2s ease;
+}
+
+.users-table tbody tr:hover {
+    background: var(--panel-hover);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-details strong {
+    color: #fff;
+    font-size: 1rem;
+}
+
+.user-id {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+.user-email {
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+}
+
+.role-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.role-user {
+    background: rgba(108, 117, 125, 0.2);
+    color: #6c757d;
+    border: 2px solid #6c757d;
+}
+
+.role-moderator {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border: 2px solid #ffc107;
+}
+
+.role-server_mod {
+    background: rgba(23, 162, 184, 0.2);
+    color: #17a2b8;
+    border: 2px solid #17a2b8;
+}
+
+.role-server_admin {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    border: 2px solid #28a745;
+}
+
+.role-system_admin {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border: 2px solid #dc3545;
+}
+
+.role-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.role-select {
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-hover);
+    color: white;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.role-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.btn-update {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    border: 2px solid var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.btn-update:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--shadow);
+}
+
+.empty-state p {
+    font-size: 1.3rem;
+    color: #999;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .info-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .users-table-container {
+        overflow-x: auto;
+    }
+    
+    .users-table {
+        min-width: 800px;
+    }
+    
+    .role-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn-update {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+// Confirm role changes for system_admin
+document.querySelectorAll('.role-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const select = this.querySelector('.role-select');
+        const currentRole = select.options[select.selectedIndex].getAttribute('selected');
+        const newRole = select.value;
+        
+        if (newRole === 'system_admin' && !currentRole) {
+            if (!confirm('⚠️ Are you sure you want to grant System Admin privileges to this user? This gives them full access to the system.')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
 {% endblock %}
+
