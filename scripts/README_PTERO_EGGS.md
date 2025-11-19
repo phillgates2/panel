@@ -140,7 +140,52 @@ with app.app_context():
 
 ## Updating Existing Servers
 
-To update existing servers with egg configurations:
+The panel includes a utility script to help update existing game servers with Ptero-Eggs configurations.
+
+### List Servers
+
+```bash
+python3 scripts/update_servers_with_eggs.py list
+```
+
+This shows all servers in the database with their IDs, names, and game types.
+
+### Find Matching Templates
+
+```bash
+python3 scripts/update_servers_with_eggs.py match
+```
+
+This automatically searches for Ptero-Eggs templates that match your existing servers based on game type.
+
+### Update a Server (Dry Run)
+
+```bash
+# Preview what would be updated (no changes made)
+python3 scripts/update_servers_with_eggs.py update <server_id> <template_id>
+```
+
+Example:
+```bash
+python3 scripts/update_servers_with_eggs.py update 5 177
+```
+
+### Apply Updates
+
+```bash
+# Actually update the server configuration
+python3 scripts/update_servers_with_eggs.py update <server_id> <template_id> --apply
+```
+
+This will:
+- Update the server's game_type
+- Apply startup and stop commands
+- Configure server variables from the template
+- Store a reference to the Ptero-Eggs template used
+
+### Programmatic Update
+
+You can also update servers programmatically:
 
 ```python
 from app import app, db, Server
@@ -159,7 +204,18 @@ with app.app_context():
         
         # Update server configuration
         server.game_type = template.game_type
-        # Apply other configuration as needed
+        
+        # Apply egg configuration
+        if hasattr(server, 'config'):
+            server_config = json.loads(server.config) if server.config else {}
+            server_config['ptero_egg_template_id'] = template.id
+            
+            # Merge startup command, variables, etc.
+            for key in ['startup_command', 'stop_command', 'variables']:
+                if key in config:
+                    server_config[key] = config[key]
+            
+            server.config = json.dumps(server_config)
         
         db.session.commit()
 ```
