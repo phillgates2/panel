@@ -1,13 +1,182 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Create Thread</h1>
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
-  <label>Title: <input name="title"></label><br>
-  <label>Author: <input name="author"></label><br>
-  <label>Content:<br>
-    <textarea name="content" rows="8" cols="60"></textarea>
-  </label><br>
-  <button type="submit">Create</button>
-</form>
+<div class="create-thread-container">
+    <div class="page-header">
+        <h1>✨ Create New Thread</h1>
+        <a href="{{ url_for('forum.index') }}" class="btn btn-secondary">← Back to Forum</a>
+    </div>
+
+    <div class="form-container">
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-group">
+                <label for="title">📝 Thread Title</label>
+                <input type="text" id="title" name="title" placeholder="Enter thread title..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="content">✍️ First Post</label>
+                <textarea id="content" name="content" rows="12" placeholder="Start the discussion... (Markdown supported)" required></textarea>
+                <small>Supports Markdown formatting</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">🚀 Create Thread</button>
+                <a href="{{ url_for('forum.index') }}" class="btn btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.create-thread-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid var(--border);
+}
+
+.page-header h1 {
+    margin: 0;
+    color: var(--accent);
+    font-size: 2.5rem;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 3px solid var(--border);
+    display: inline-block;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-secondary {
+    background: var(--panel-hover);
+    color: var(--accent);
+}
+
+.btn-secondary:hover {
+    background: var(--panel);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--shadow);
+}
+
+.form-container {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px var(--shadow);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.form-group input[type="text"],
+.form-group textarea {
+    width: 100%;
+    padding: 14px 18px;
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel-hover);
+    color: white;
+    font-size: 1rem;
+    font-family: inherit;
+    box-shadow: 0 4px 15px var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--panel);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.form-group textarea {
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.5rem;
+    color: #999;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--border);
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
+}
+
+.btn-cancel {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-cancel:hover {
+    background: #dc3545;
+    color: white;
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
 {% endblock %}
+

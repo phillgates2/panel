@@ -582,7 +582,15 @@ def ensure_csrf_for_templates():
 
 @main_bp.route("/")
 def index():
-    return render_template("index.html")
+    # Import BlogPost here to avoid circular imports
+    from cms import BlogPost
+    
+    # Get recent published blog posts
+    recent_posts = BlogPost.query.filter_by(is_published=True).order_by(
+        BlogPost.created_at.desc()
+    ).limit(5).all()
+    
+    return render_template("index.html", recent_posts=recent_posts)
 
 
 @main_bp.route("/register", methods=["GET", "POST"])
