@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Templates{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-code-compare"></i> Template Comparison</h2>
+        <a href="{{ url_for('config.ptero_eggs_browser') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Browser
+        </a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{{ template1.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Game Type:</strong> <span class="badge bg-primary">{{ template1.game_type }}</span></p>
+                    <p><strong>Updated:</strong> {{ template1.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p class="text-muted">{{ template1.description[:200] }}...</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">{{ template2.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Game Type:</strong> <span class="badge bg-info">{{ template2.game_type }}</span></p>
+                    <p><strong>Updated:</strong> {{ template2.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p class="text-muted">{{ template2.description[:200] }}...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Diff View -->
+    {% if diff %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Unified Diff</h5>
+        </div>
+        <div class="card-body">
+            <pre class="bg-dark text-light p-3 rounded" style="overflow-x: auto;">{% for line in diff %}<span class="diff-line {% if line.startswith('+') %}text-success{% elif line.startswith('-') %}text-danger{% elif line.startswith('@@') %}text-info{% endif %}">{{ line }}</span>
+{% endfor %}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Side-by-Side Comparison -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Side-by-Side Comparison</h5>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="comparisonTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="startup-tab" data-bs-toggle="tab" 
+                            data-bs-target="#startup" type="button">
+                        Startup Command
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="variables-tab" data-bs-toggle="tab" 
+                            data-bs-target="#variables" type="button">
+                        Variables
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="docker-tab" data-bs-toggle="tab" 
+                            data-bs-target="#docker" type="button">
+                        Docker Images
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="full-tab" data-bs-toggle="tab" 
+                            data-bs-target="#full" type="button">
+                        Full JSON
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="comparisonTabsContent">
+                <!-- Startup Command Tab -->
+                <div class="tab-pane fade show active" id="startup" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Template 1</h6>
+                            <pre class="bg-light p-3 rounded">{{ template1_data.get('startup_command', 'N/A') }}</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">Template 2</h6>
+                            <pre class="bg-light p-3 rounded">{{ template2_data.get('startup_command', 'N/A') }}</pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Variables Tab -->
+                <div class="tab-pane fade" id="variables" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Template 1 Variables</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Default</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if template1_data.get('variables') %}
+                                        {% for key, value in template1_data.variables.items() %}
+                                        <tr>
+                                            <td><code>{{ key }}</code></td>
+                                            <td>{{ value.get('default', '-') }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="2" class="text-muted text-center">No variables</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">Template 2 Variables</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Default</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if template2_data.get('variables') %}
+                                        {% for key, value in template2_data.variables.items() %}
+                                        <tr>
+                                            <td><code>{{ key }}</code></td>
+                                            <td>{{ value.get('default', '-') }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="2" class="text-muted text-center">No variables</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Docker Images Tab -->
+                <div class="tab-pane fade" id="docker" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Template 1 Docker Images</h6>
+                            <pre class="bg-light p-3 rounded">{{ template1_data.get('docker_images', {}) | tojson(indent=2) }}</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">Template 2 Docker Images</h6>
+                            <pre class="bg-light p-3 rounded">{{ template2_data.get('docker_images', {}) | tojson(indent=2) }}</pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Full JSON Tab -->
+                <div class="tab-pane fade" id="full" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Template 1 Full JSON</h6>
+                            <pre class="bg-light p-3 rounded" style="max-height: 600px; overflow-y: auto;">{{ template1_data | tojson(indent=2) }}</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">Template 2 Full JSON</h6>
+                            <pre class="bg-light p-3 rounded" style="max-height: 600px; overflow-y: auto;">{{ template2_data | tojson(indent=2) }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Differences Summary -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Key Differences</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Unique to Template 1</h6>
+                    <ul id="unique1"></ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Unique to Template 2</h6>
+                    <ul id="unique2"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Find unique variables
+const template1Data = {{ template1_data | tojson | safe }};
+const template2Data = {{ template2_data | tojson | safe }};
+
+const vars1 = Object.keys(template1Data.variables || {});
+const vars2 = Object.keys(template2Data.variables || {});
+
+const unique1 = vars1.filter(v => !vars2.includes(v));
+const unique2 = vars2.filter(v => !vars1.includes(v));
+
+if (unique1.length > 0) {
+    document.getElementById('unique1').innerHTML = unique1.map(v => `<li><code>${v}</code></li>`).join('');
+} else {
+    document.getElementById('unique1').innerHTML = '<li class="text-muted">No unique variables</li>';
+}
+
+if (unique2.length > 0) {
+    document.getElementById('unique2').innerHTML = unique2.map(v => `<li><code>${v}</code></li>`).join('');
+} else {
+    document.getElementById('unique2').innerHTML = '<li class="text-muted">No unique variables</li>';
+}
+</script>
+
+<style>
+.diff-line {
+    display: block;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+</style>
+{% endblock %}

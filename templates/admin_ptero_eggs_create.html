@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Create Custom Template{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-plus-circle"></i> Create Custom Ptero-Eggs Template</h2>
+            <p class="text-muted">Build a custom server template in Ptero-Eggs format</p>
+        </div>
+        <a href="{{ url_for('config.ptero_eggs_browser') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Browser
+        </a>
+    </div>
+
+    <form id="customTemplateForm">
+        <!-- Basic Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Basic Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="templateName" class="form-label">Template Name *</label>
+                            <input type="text" class="form-control" id="templateName" required>
+                            <small class="form-text text-muted">A descriptive name for your template</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="gameType" class="form-label">Game Type *</label>
+                            <input type="text" class="form-control" id="gameType" required>
+                            <small class="form-text text-muted">Identifier for the game (e.g., minecraft, valheim)</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" rows="3"></textarea>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="isDefault">
+                    <label class="form-check-label" for="isDefault">
+                        Set as default template for this game type
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Startup Configuration -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Startup Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="startupCommand" class="form-label">Startup Command *</label>
+                    <textarea class="form-control font-monospace" id="startupCommand" rows="3" required></textarea>
+                    <small class="form-text text-muted">
+                        Command to start the server. Use variables like {{SERVER_PORT}}, {{SERVER_NAME}}
+                    </small>
+                </div>
+                <div class="mb-3">
+                    <label for="stopCommand" class="form-label">Stop Command</label>
+                    <input type="text" class="form-control font-monospace" id="stopCommand" 
+                           placeholder="e.g., stop, quit, shutdown">
+                    <small class="form-text text-muted">Command to gracefully stop the server</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variables -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Environment Variables</h5>
+                <button type="button" class="btn btn-sm btn-primary" onclick="addVariable()">
+                    <i class="fas fa-plus"></i> Add Variable
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="variablesList">
+                    <!-- Variables will be added here -->
+                </div>
+                <div id="noVariables" class="text-muted text-center py-3">
+                    No variables defined. Click "Add Variable" to create one.
+                </div>
+            </div>
+        </div>
+
+        <!-- Docker Configuration -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Docker Images</h5>
+                <button type="button" class="btn btn-sm btn-primary" onclick="addDockerImage()">
+                    <i class="fas fa-plus"></i> Add Image
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="dockerImagesList">
+                    <!-- Docker images will be added here -->
+                </div>
+                <div id="noDockerImages" class="text-muted text-center py-3">
+                    No Docker images defined. Click "Add Image" to specify one.
+                </div>
+            </div>
+        </div>
+
+        <!-- Installation Script -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Installation Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="installContainer" class="form-label">Installation Container</label>
+                    <input type="text" class="form-control font-monospace" id="installContainer" 
+                           placeholder="e.g., ghcr.io/pterodactyl/installers:debian">
+                </div>
+                <div class="mb-3">
+                    <label for="installEntrypoint" class="form-label">Installation Entrypoint</label>
+                    <input type="text" class="form-control font-monospace" id="installEntrypoint" 
+                           placeholder="e.g., bash" value="bash">
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Features</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="features" class="form-label">Feature Tags</label>
+                    <input type="text" class="form-control" id="features" 
+                           placeholder="e.g., steam_disk_space, eula, java_version">
+                    <small class="form-text text-muted">
+                        Comma-separated list of feature tags
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5>Create Template</h5>
+                        <p class="text-muted mb-0">Review your configuration and create the template</p>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary me-2" onclick="previewTemplate()">
+                            <i class="fas fa-eye"></i> Preview JSON
+                        </button>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save"></i> Create Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Variable Modal -->
+<div class="modal fade" id="variableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Environment Variable</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="varName" class="form-label">Variable Name *</label>
+                    <input type="text" class="form-control" id="varName" 
+                           placeholder="e.g., SERVER_PORT">
+                </div>
+                <div class="mb-3">
+                    <label for="varDisplayName" class="form-label">Display Name *</label>
+                    <input type="text" class="form-control" id="varDisplayName" 
+                           placeholder="e.g., Server Port">
+                </div>
+                <div class="mb-3">
+                    <label for="varDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="varDescription" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="varDefault" class="form-label">Default Value</label>
+                    <input type="text" class="form-control" id="varDefault">
+                </div>
+                <div class="mb-3">
+                    <label for="varRules" class="form-label">Validation Rules</label>
+                    <input type="text" class="form-control" id="varRules" 
+                           placeholder="e.g., required|integer|between:1,65535">
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="varUserViewable" checked>
+                    <label class="form-check-label" for="varUserViewable">
+                        User can view this variable
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="varUserEditable" checked>
+                    <label class="form-check-label" for="varUserEditable">
+                        User can edit this variable
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveVariable()">Add Variable</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template JSON Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="previewContent" class="bg-dark text-light p-3 rounded" style="max-height: 600px; overflow-y: auto;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let variables = {};
+let dockerImages = {};
+
+function addVariable() {
+    // Clear modal fields
+    document.getElementById('varName').value = '';
+    document.getElementById('varDisplayName').value = '';
+    document.getElementById('varDescription').value = '';
+    document.getElementById('varDefault').value = '';
+    document.getElementById('varRules').value = '';
+    document.getElementById('varUserViewable').checked = true;
+    document.getElementById('varUserEditable').checked = true;
+    
+    new bootstrap.Modal(document.getElementById('variableModal')).show();
+}
+
+function saveVariable() {
+    const name = document.getElementById('varName').value.trim();
+    const displayName = document.getElementById('varDisplayName').value.trim();
+    
+    if (!name || !displayName) {
+        alert('Variable name and display name are required');
+        return;
+    }
+    
+    variables[name] = {
+        name: displayName,
+        description: document.getElementById('varDescription').value.trim(),
+        default: document.getElementById('varDefault').value.trim(),
+        user_viewable: document.getElementById('varUserViewable').checked,
+        user_editable: document.getElementById('varUserEditable').checked,
+        rules: document.getElementById('varRules').value.trim(),
+    };
+    
+    renderVariables();
+    bootstrap.Modal.getInstance(document.getElementById('variableModal')).hide();
+}
+
+function renderVariables() {
+    const list = document.getElementById('variablesList');
+    const noVars = document.getElementById('noVariables');
+    
+    if (Object.keys(variables).length === 0) {
+        noVars.style.display = 'block';
+        list.innerHTML = '';
+        return;
+    }
+    
+    noVars.style.display = 'none';
+    list.innerHTML = '';
+    
+    for (const [key, value] of Object.entries(variables)) {
+        const div = document.createElement('div');
+        div.className = 'card mb-2';
+        div.innerHTML = `
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6><code>${key}</code> - ${value.name}</h6>
+                        <p class="text-muted small mb-1">${value.description || 'No description'}</p>
+                        <small class="text-muted">
+                            Default: <code>${value.default || 'none'}</code>
+                            ${value.user_viewable ? '<span class="badge bg-success ms-2">Viewable</span>' : ''}
+                            ${value.user_editable ? '<span class="badge bg-info ms-2">Editable</span>' : ''}
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteVariable('${key}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        list.appendChild(div);
+    }
+}
+
+function deleteVariable(key) {
+    if (confirm(`Delete variable "${key}"?`)) {
+        delete variables[key];
+        renderVariables();
+    }
+}
+
+function addDockerImage() {
+    const name = prompt('Enter Docker image name (e.g., "SteamCMD_Debian"):');
+    if (!name) return;
+    
+    const image = prompt('Enter Docker image URL (e.g., "ghcr.io/pterodactyl/steamcmd:debian"):');
+    if (!image) return;
+    
+    dockerImages[name] = image;
+    renderDockerImages();
+}
+
+function renderDockerImages() {
+    const list = document.getElementById('dockerImagesList');
+    const noImages = document.getElementById('noDockerImages');
+    
+    if (Object.keys(dockerImages).length === 0) {
+        noImages.style.display = 'block';
+        list.innerHTML = '';
+        return;
+    }
+    
+    noImages.style.display = 'none';
+    list.innerHTML = '';
+    
+    for (const [key, value] of Object.entries(dockerImages)) {
+        const div = document.createElement('div');
+        div.className = 'card mb-2';
+        div.innerHTML = `
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${key}</strong>
+                        <br>
+                        <code class="small">${value}</code>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDockerImage('${key}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        list.appendChild(div);
+    }
+}
+
+function deleteDockerImage(key) {
+    if (confirm(`Delete Docker image "${key}"?`)) {
+        delete dockerImages[key];
+        renderDockerImages();
+    }
+}
+
+function buildTemplateData() {
+    const features = document.getElementById('features').value
+        .split(',')
+        .map(f => f.trim())
+        .filter(f => f.length > 0);
+    
+    const installation = {};
+    const container = document.getElementById('installContainer').value.trim();
+    const entrypoint = document.getElementById('installEntrypoint').value.trim();
+    
+    if (container) {
+        installation.script_summary = `Container: ${container}`;
+        installation.entrypoint = entrypoint || 'bash';
+    }
+    
+    return {
+        startup_command: document.getElementById('startupCommand').value.trim(),
+        stop_command: document.getElementById('stopCommand').value.trim(),
+        variables: variables,
+        docker_images: dockerImages,
+        installation: installation,
+        features: features,
+    };
+}
+
+function previewTemplate() {
+    const data = buildTemplateData();
+    document.getElementById('previewContent').textContent = JSON.stringify(data, null, 2);
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+// Form submission
+document.getElementById('customTemplateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('templateName').value.trim();
+    const gameType = document.getElementById('gameType').value.trim();
+    const description = document.getElementById('description').value.trim();
+    const isDefault = document.getElementById('isDefault').checked;
+    
+    if (!name || !gameType) {
+        alert('Template name and game type are required');
+        return;
+    }
+    
+    const templateData = buildTemplateData();
+    
+    if (!templateData.startup_command) {
+        alert('Startup command is required');
+        return;
+    }
+    
+    const payload = {
+        name: name,
+        game_type: gameType,
+        description: description,
+        is_default: isDefault,
+        ...templateData
+    };
+    
+    // Submit
+    fetch('{{ url_for("config.create_custom_ptero_template") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Template created successfully!');
+            window.location.href = '{{ url_for("config.ptero_eggs_browser") }}';
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while creating the template');
+    });
+});
+</script>
+{% endblock %}

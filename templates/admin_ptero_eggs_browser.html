@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+
+{% block title %}Ptero-Eggs Template Browser{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-egg"></i> Ptero-Eggs Template Browser</h2>
+            <p class="text-muted">Browse and manage 240+ game server templates from Ptero-Eggs</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="syncTemplates()">
+                <i class="fas fa-sync-alt"></i> Sync Templates
+            </button>
+            <a href="{{ url_for('config.create_custom_ptero_template') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Create Custom
+            </a>
+            <a href="{{ url_for('config.migrate_servers_to_ptero') }}" class="btn btn-info">
+                <i class="fas fa-exchange-alt"></i> Bulk Migrate
+            </a>
+        </div>
+    </div>
+
+    <!-- Sync Status Card -->
+    {% if sync_status %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="fas fa-clock fa-2x text-primary"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Last Sync</small>
+                                    <div class="fw-bold">
+                                        {% if sync_status.last_sync_at %}
+                                        {{ sync_status.last_sync_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                        Never
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="fas fa-database fa-2x text-success"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Total Templates</small>
+                                    <div class="fw-bold">{{ sync_status.total_templates_imported or 0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="fas fa-arrow-up fa-2x text-info"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Recently Updated</small>
+                                    <div class="fw-bold">{{ sync_status.templates_updated or 0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    {% if sync_status.last_sync_status == 'success' %}
+                                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                                    {% elif sync_status.last_sync_status == 'failed' %}
+                                    <i class="fas fa-exclamation-circle fa-2x text-danger"></i>
+                                    {% else %}
+                                    <i class="fas fa-question-circle fa-2x text-muted"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <small class="text-muted">Status</small>
+                                    <div class="fw-bold text-capitalize">{{ sync_status.last_sync_status }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if sync_status.last_commit_hash %}
+                    <div class="mt-3 pt-3 border-top">
+                        <small class="text-muted">
+                            <i class="fas fa-code-branch"></i> Commit: 
+                            <code>{{ sync_status.last_commit_hash[:8] }}</code>
+                            - {{ sync_status.last_commit_message }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Search and Filter -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="searchInput" 
+                       placeholder="Search templates..." value="{{ search_query }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-control" id="gameTypeFilter">
+                <option value="">All Game Types</option>
+                {% for game_type in game_types %}
+                <option value="{{ game_type }}" {% if game_type == game_filter %}selected{% endif %}>
+                    {{ game_type }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-control" id="sortSelect">
+                <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Sort by Name</option>
+                <option value="game_type" {% if sort_by == 'game_type' %}selected{% endif %}>Sort by Game Type</option>
+                <option value="updated_at" {% if sort_by == 'updated_at' %}selected{% endif %}>Sort by Updated</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-secondary w-100" onclick="applyFilters()">
+                <i class="fas fa-filter"></i> Apply Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="row">
+        {% if templates %}
+        {% for template in templates %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 template-card" data-template-id="{{ template.id }}">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h6 class="mb-0">
+                            {{ template.name.replace(' (Ptero-Eggs)', '') }}
+                        </h6>
+                        <span class="badge bg-primary">{{ template.game_type }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted small">
+                        {{ template.description[:150] }}{% if template.description|length > 150 %}...{% endif %}
+                    </p>
+                    <div class="mt-auto">
+                        <small class="text-muted">
+                            <i class="fas fa-clock"></i> Updated: {{ template.updated_at.strftime('%Y-%m-%d') }}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group btn-group-sm w-100">
+                        <button class="btn btn-outline-info" onclick="previewTemplate({{ template.id }})">
+                            <i class="fas fa-eye"></i> Preview
+                        </button>
+                        <button class="btn btn-outline-success" onclick="applyToServer({{ template.id }})">
+                            <i class="fas fa-check"></i> Apply
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="compareTemplate({{ template.id }})">
+                            <i class="fas fa-code-compare"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-egg fa-3x text-muted mb-3"></i>
+                    <h5>No Templates Found</h5>
+                    <p class="text-muted">Click "Sync Templates" to import templates from Ptero-Eggs</p>
+                    <button class="btn btn-primary" onclick="syncTemplates()">
+                        <i class="fas fa-sync-alt"></i> Sync Now
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Template pagination">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search_query }}&game_type={{ game_filter }}&sort={{ sort_by }}">
+                    Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ page_num }}&search={{ search_query }}&game_type={{ game_filter }}&sort={{ sort_by }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search_query }}&game_type={{ game_filter }}&sort={{ sort_by }}">
+                    Next
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Apply to Server Modal -->
+<div class="modal fade" id="applyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Apply Template to Server</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="serverSelect" class="form-label">Select Server</label>
+                    <select class="form-control" id="serverSelect">
+                        <option value="">-- Select a Server --</option>
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    This will create a new configuration version for the selected server using this template.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmApply()">Apply Template</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTemplateId = null;
+let selectedTemplatesForCompare = [];
+
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const gameType = document.getElementById('gameTypeFilter').value;
+    const sort = document.getElementById('sortSelect').value;
+    
+    window.location.href = `{{ url_for('config.ptero_eggs_browser') }}?search=${encodeURIComponent(search)}&game_type=${encodeURIComponent(gameType)}&sort=${sort}`;
+}
+
+// Allow Enter key to trigger search
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        applyFilters();
+    }
+});
+
+function syncTemplates() {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    
+    fetch('{{ url_for("config.ptero_eggs_sync") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Sync completed!\n\nAdded: ${data.added}\nUpdated: ${data.updated}\nUnchanged: ${data.unchanged}\nErrors: ${data.errors}`);
+            location.reload();
+        } else {
+            alert('Sync failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred during sync');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+
+function previewTemplate(templateId) {
+    fetch(`{{ url_for('config.ptero_eggs_template_preview', template_id=0) }}`.replace('0', templateId))
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let content = `
+                <div class="mb-4">
+                    <h6>Template Information</h6>
+                    <table class="table table-sm">
+                        <tr><th>Name:</th><td>${data.template.name}</td></tr>
+                        <tr><th>Game Type:</th><td><span class="badge bg-primary">${data.template.game_type}</span></td></tr>
+                        <tr><th>Created:</th><td>${new Date(data.template.created_at).toLocaleString()}</td></tr>
+                        <tr><th>Updated:</th><td>${new Date(data.template.updated_at).toLocaleString()}</td></tr>
+                    </table>
+                    <p class="text-muted">${data.template.description}</p>
+                </div>
+            `;
+            
+            // Add startup command
+            if (data.template_data.startup_command) {
+                content += `
+                    <div class="mb-3">
+                        <h6>Startup Command</h6>
+                        <pre class="bg-light p-3 rounded"><code>${data.template_data.startup_command}</code></pre>
+                    </div>
+                `;
+            }
+            
+            // Add variables
+            if (data.template_data.variables && Object.keys(data.template_data.variables).length > 0) {
+                content += `
+                    <div class="mb-3">
+                        <h6>Variables (${Object.keys(data.template_data.variables).length})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Description</th>
+                                        <th>Default</th>
+                                        <th>Editable</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                for (const [key, value] of Object.entries(data.template_data.variables)) {
+                    content += `
+                        <tr>
+                            <td><code>${key}</code></td>
+                            <td>${value.description || '-'}</td>
+                            <td><code>${value.default || '-'}</code></td>
+                            <td>${value.user_editable ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-danger"></i>'}</td>
+                        </tr>
+                    `;
+                }
+                
+                content += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add version history
+            if (data.version_history && data.version_history.length > 0) {
+                content += `
+                    <div class="mb-3">
+                        <h6>Version History (${data.version_history.length})</h6>
+                        <div class="list-group">
+                `;
+                
+                data.version_history.slice(0, 5).forEach(v => {
+                    content += `
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Version ${v.version_number} ${v.is_current ? '<span class="badge bg-success">Current</span>' : ''}</h6>
+                                <small>${new Date(v.imported_at).toLocaleDateString()}</small>
+                            </div>
+                            ${v.commit_hash ? `<small class="text-muted"><code>${v.commit_hash.substring(0, 8)}</code></small>` : ''}
+                        </div>
+                    `;
+                });
+                
+                content += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('previewContent').innerHTML = content;
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        } else {
+            alert('Error loading preview: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while loading preview');
+    });
+}
+
+function applyToServer(templateId) {
+    currentTemplateId = templateId;
+    
+    // Load servers (this would need to be implemented in the backend)
+    fetch('/api/servers/list')
+    .then(response => response.json())
+    .then(data => {
+        const select = document.getElementById('serverSelect');
+        select.innerHTML = '<option value="">-- Select a Server --</option>';
+        
+        if (data.servers) {
+            data.servers.forEach(server => {
+                select.innerHTML += `<option value="${server.id}">${server.name} (${server.game_type})</option>`;
+            });
+        }
+        
+        new bootstrap.Modal(document.getElementById('applyModal')).show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to load servers');
+    });
+}
+
+function confirmApply() {
+    const serverId = document.getElementById('serverSelect').value;
+    
+    if (!serverId) {
+        alert('Please select a server');
+        return;
+    }
+    
+    fetch(`{{ url_for('config.apply_ptero_eggs_template', template_id=0, server_id=0) }}`.replace('/0/0', `/${currentTemplateId}/${serverId}`), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Template applied successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('applyModal')).hide();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while applying template');
+    });
+}
+
+function compareTemplate(templateId) {
+    if (selectedTemplatesForCompare.length === 0) {
+        selectedTemplatesForCompare.push(templateId);
+        alert('Template selected. Select another template to compare.');
+        // Highlight the selected card
+        document.querySelector(`[data-template-id="${templateId}"]`).classList.add('border-primary');
+    } else if (selectedTemplatesForCompare.length === 1) {
+        if (selectedTemplatesForCompare[0] === templateId) {
+            alert('Please select a different template to compare');
+            return;
+        }
+        window.location.href = `{{ url_for('config.compare_ptero_eggs_templates') }}?t1=${selectedTemplatesForCompare[0]}&t2=${templateId}`;
+    }
+}
+</script>
+
+<style>
+.template-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.template-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.template-card.border-primary {
+    border-width: 3px;
+}
+</style>
+{% endblock %}

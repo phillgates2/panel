@@ -120,3 +120,75 @@ def run_memwatch(pid_file=None):
         _log("memwatch", f"Exception: {e}")
         _discord_post({"content": f"memwatch exception: {e}"})
         return {"ok": False, "err": str(e)}
+
+
+def run_ptero_eggs_sync():
+    """
+    Background task for automatic Ptero-Eggs template synchronization.
+    
+    This task can be scheduled to run periodically using RQ or systemd timer.
+    """
+    _log("ptero_eggs_sync", "Starting Ptero-Eggs template sync")
+    
+    try:
+        # Import here to avoid circular dependencies
+        from app import app, db, User
+        from ptero_eggs_updater import PteroEggsUpdater
+        
+        with app.app_context():
+            # Get an admin user to attribute the update to
+            admin = User.query.filter_by(role="system_admin").first()
+            if not admin:
+                _log("ptero_eggs_sync", "ERROR: No admin user found")
+                return {"ok": False, "err": "No admin user found"}
+            
+            # Run the sync
+            updater = PteroEggsUpdater()
+            stats = updater.sync_templates(admin.id)
+            
+            if stats["success"]:
+                _log("ptero_eggs_sync", f"Sync completed: {stats['message']}")
+                
+                # Send Discord notification if configured
+                payload = {
+                    "content": None,
+                    "embeds": [
+                        {
+                            "title": "Ptero-Eggs Templates Synced",
+                            "description": stats["message"],
+                            "fields": [
+                                {"name": "Added", "value": str(stats["added"]), "inline": True},
+                                {"name": "Updated", "value": str(stats["updated"]), "inline": True},
+                                {"name": "Errors", "value": str(stats["errors"]), "inline": True},
+                            ],
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 3066993,  # Green
+                        }
+                    ],
+                }
+                _discord_post(payload)
+                
+                return {"ok": True, "stats": stats}
+            else:
+                _log("ptero_eggs_sync", f"Sync failed: {stats['message']}")
+                
+                # Send error notification
+                payload = {
+                    "content": None,
+                    "embeds": [
+                        {
+                            "title": "Ptero-Eggs Sync Failed",
+                            "description": stats["message"],
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 15158332,  # Red
+                        }
+                    ],
+                }
+                _discord_post(payload)
+                
+                return {"ok": False, "err": stats["message"]}
+                
+    except Exception as e:
+        _log("ptero_eggs_sync", f"Exception: {e}")
+        _discord_post({"content": f"ptero_eggs_sync exception: {e}"})
+        return {"ok": False, "err": str(e)}

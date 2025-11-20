@@ -2037,19 +2037,20 @@ if __name__ == "__main__":
     # import routes_extended
     # import routes_rbac
     # Enterprise systems temporarily disabled to avoid SQLAlchemy context issues
-    # from routes_config import config_bp
+    from routes_config import config_bp
     # from monitoring_system import monitoring_bp, start_monitoring
     # from api_monitoring import api_bp
     # from log_analytics import log_analytics_bp, start_log_analytics
     # from multi_server_management import multi_server_bp, start_multi_server_system
 
-    # Register blueprints - Temporarily disabled
-    # app.register_blueprint(config_bp)
+    # Register config blueprint for Ptero-Eggs management
+    app.register_blueprint(config_bp)
+    # Register other blueprints - Temporarily disabled
     # app.register_blueprint(monitoring_bp)
     # app.register_blueprint(api_bp)
     # app.register_blueprint(log_analytics_bp)
     # app.register_blueprint(multi_server_bp)
-    logger.info("Enterprise systems disabled for clean operation")
+    logger.info("Configuration management enabled, other enterprise systems disabled for clean operation")
 
     # Initialize configuration templates after database is ready
     from config_manager import create_default_templates
