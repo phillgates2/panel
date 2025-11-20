@@ -475,6 +475,9 @@ class Server(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     description = db.Column(db.String(512), nullable=True)
+    host = db.Column(db.String(128), nullable=True)  # server host/IP
+    port = db.Column(db.Integer, nullable=True)  # server port
+    rcon_password = db.Column(db.String(128), nullable=True)  # RCON password
     variables_json = db.Column(db.Text, nullable=True)  # structured variables (JSON)
     raw_config = db.Column(db.Text, nullable=True)  # raw server config
     game_type = db.Column(
@@ -970,23 +973,47 @@ def rcon_console():
     uid = session.get("user_id")
     if not uid:
         return redirect(url_for("login"))
+    user = db.session.get(User, uid)
+
+    # Get all servers the user can access
+    servers = Server.query.filter(
+        (Server.owner_id == uid) | (Server.users.any(user_id=uid))
+    ).all()
+
+    # If no server specified, redirect to first available server
+    server_id = request.args.get('server_id', type=int)
+    if not server_id and servers:
+        return redirect(url_for('rcon_console', server_id=servers[0].id))
+
+    server = None
+    if server_id:
+        server = db.session.get(Server, server_id)
+        if not server or not user_can_edit_server(user, server):
+            flash("Server not found or access denied", "error")
+            return redirect(url_for("dashboard"))
+
     output = None
-    if request.method == "POST":
+    if request.method == "POST" and server:
         try:
             verify_csrf()
         except Exception:
             flash("Invalid CSRF token", "error")
-            return redirect(url_for("rcon_console"))
+            return redirect(url_for("rcon_console", server_id=server_id))
         cmd = request.form.get("command", "").strip()
         if cmd:
             from rcon_client import ETLegacyRcon
 
-            rc = ETLegacyRcon()
-            try:
-                output = rc.send(cmd)
-            except Exception as e:
-                output = f"Error: {e}"
-    return render_template("rcon.html", output=output)
+            # Check if server has connection details
+            if not server.host or not server.port or not server.rcon_password:
+                output = "Error: Server connection details not configured (host, port, RCON password)"
+            else:
+                rc = ETLegacyRcon.from_server(server)
+                try:
+                    output = rc.send(cmd)
+                except Exception as e:
+                    output = f"Error: {e}"
+
+    return render_template("rcon.html", output=output, servers=servers, current_server=server)
 
 
 def is_system_admin_user(user):
@@ -1575,6 +1602,9 @@ def admin_create_server():
         name = request.form.get("name", "").strip()
         desc = request.form.get("description", "").strip()
         game_type = request.form.get("game_type", "etlegacy").strip()
+        host = request.form.get("host", "").strip()
+        port_str = request.form.get("port", "").strip()
+        rcon_password = request.form.get("rcon_password", "").strip()
         
         if not name:
             flash("Name is required", "error")
@@ -1582,6 +1612,18 @@ def admin_create_server():
         if Server.query.filter_by(name=name).first():
             flash("Server name already exists", "error")
             return redirect(url_for("admin_create_server"))
+        
+        # Validate port if provided
+        port = None
+        if port_str:
+            try:
+                port = int(port_str)
+                if not (1 <= port <= 65535):
+                    flash("Port must be between 1 and 65535", "error")
+                    return redirect(url_for("admin_create_server"))
+            except ValueError:
+                flash("Invalid port number", "error")
+                return redirect(url_for("admin_create_server"))
         
         # Load default config template for selected game type
         from config_manager import ConfigTemplate
@@ -1604,6 +1646,9 @@ def admin_create_server():
             name=name,
             description=desc,
             game_type=game_type,
+            host=host if host else None,
+            port=port,
+            rcon_password=rcon_password if rcon_password else None,
             variables_json=json.dumps(default_vars, indent=2),
             raw_config=raw_config,
         )
@@ -1801,6 +1846,28 @@ def server_edit(server_id):
         # accept either structured JSON variables or raw config
         vars_text = request.form.get("variables_json", "").strip()
         raw_cfg = request.form.get("raw_config", "")
+        host = request.form.get("host", "").strip()
+        port_str = request.form.get("port", "").strip()
+        rcon_password = request.form.get("rcon_password", "").strip()
+
+        # Update connection details
+        server.host = host if host else None
+        server.rcon_password = rcon_password if rcon_password else None
+
+        if port_str:
+            try:
+                port = int(port_str)
+                if 1 <= port <= 65535:
+                    server.port = port
+                else:
+                    flash("Port must be between 1 and 65535", "error")
+                    return redirect(url_for("server_edit", server_id=server_id))
+            except ValueError:
+                flash("Invalid port number", "error")
+                return redirect(url_for("server_edit", server_id=server_id))
+        else:
+            server.port = None
+
         if vars_text:
             try:
                 parsed = json.loads(vars_text)

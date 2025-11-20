@@ -41,6 +41,15 @@ class ETLegacyRcon:
         # If we reach here, there was no response
         return "" if last_err is None else f"(no response) {last_err}"
 
+    @classmethod
+    def from_server(cls, server):
+        """Create RCON client from Server model instance."""
+        return cls(
+            host=server.host,
+            port=server.port,
+            password=server.rcon_password
+        )
+
 
 if __name__ == "__main__":
     r = ETLegacyRcon()

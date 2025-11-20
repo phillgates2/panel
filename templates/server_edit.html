@@ -3,13 +3,51 @@
 <h2>Edit Server: {{ server.name }}</h2>
 <form method="post" action="{{ url_for('server_edit', server_id=server.id) }}">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-  <label>Variables (JSON)</label><br/>
-  <textarea name="variables_json" rows="12" cols="80">{{ server.variables_json or '{}' }}</textarea><br/>
-  <label>Raw Config</label><br/>
-  <textarea name="raw_config" rows="12" cols="80">{{ server.raw_config or '' }}</textarea><br/>
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">Save</button>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Connection Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">
+          <label for="host" class="form-label">Host/IP Address</label>
+          <input type="text" class="form-control" id="host" name="host" value="{{ server.host or '' }}" placeholder="127.0.0.1">
+        </div>
+        <div class="col-md-4">
+          <label for="port" class="form-label">Port</label>
+          <input type="number" class="form-control" id="port" name="port" value="{{ server.port or '' }}" placeholder="27960" min="1" max="65535">
+        </div>
+        <div class="col-md-4">
+          <label for="rcon_password" class="form-label">RCON Password</label>
+          <input type="password" class="form-control" id="rcon_password" name="rcon_password" value="{{ server.rcon_password or '' }}" placeholder="your_rcon_password">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Server Configuration</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="variables_json" class="form-label">Variables (JSON)</label>
+        <textarea class="form-control" id="variables_json" name="variables_json" rows="8">{{ server.variables_json or '{}' }}</textarea>
+        <div class="form-text">Server configuration variables in JSON format</div>
+      </div>
+      <div class="mb-3">
+        <label for="raw_config" class="form-label">Raw Config</label>
+        <textarea class="form-control" id="raw_config" name="raw_config" rows="8">{{ server.raw_config or '' }}</textarea>
+        <div class="form-text">Raw server configuration text</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('rcon_console', server_id=server.id) }}" class="btn btn-success">Open RCON Console</a>
+    <a href="{{ url_for('admin_servers') }}" class="btn btn-secondary">Back to Servers</a>
   </div>
 </form>
-<p><a href="{{ url_for('admin_servers') }}" class="btn btn-secondary">Back to servers</a></p>
 {% endblock %}

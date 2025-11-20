@@ -43,6 +43,9 @@
                                     <a href="{{ url_for('server_edit', server_id=s.id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
+                                    <a href="{{ url_for('rcon_console', server_id=s.id) }}" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-terminal"></i> RCON
+                                    </a>
                                     <a href="{{ url_for('admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-info">
                                         <i class="fas fa-users"></i> Users
                                     </a>

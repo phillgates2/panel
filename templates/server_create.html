@@ -52,8 +52,44 @@
                     <textarea name="description" id="description" placeholder="Enter server description (optional)" rows="3"></textarea>
                     <small class="text-muted">Optional description to help identify this server</small>
                 </div>
-                
-                <div class="form-actions">
+
+                <div class="card mt-3 mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-network-wired"></i> Connection Settings (Optional)</h5>
+                        <small class="text-muted">Configure these later if the server isn't running yet</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="host">
+                                        <i class="fas fa-globe"></i> Host/IP Address
+                                    </label>
+                                    <input type="text" name="host" id="host" placeholder="127.0.0.1" />
+                                    <small class="text-muted">Server IP address or hostname</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="port">
+                                        <i class="fas fa-plug"></i> Port
+                                    </label>
+                                    <input type="number" name="port" id="port" placeholder="27960" min="1" max="65535" />
+                                    <small class="text-muted">Server port number</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="rcon_password">
+                                        <i class="fas fa-key"></i> RCON Password
+                                    </label>
+                                    <input type="password" name="rcon_password" id="rcon_password" placeholder="your_rcon_password" />
+                                    <small class="text-muted">Remote console password</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Create Server
                     </button>

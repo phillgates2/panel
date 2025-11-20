@@ -2,14 +2,102 @@
 {% block content %}
 <h2>RCON Console</h2>
 <div class="container">
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-  <label>Command: <input name="command" required style="width:70%"></label>
-  <button type="submit" class="btn btn-primary">Send</button>
-</form>
-{% if output is defined %}
-  <h3>Output</h3>
-  <pre class="small">{{ output }}</pre>
+{% if servers %}
+<div class="mb-4">
+  <label for="server-select" class="form-label">Select Server:</label>
+  <select id="server-select" class="form-select" onchange="changeServer(this.value)">
+    {% for server in servers %}
+    <option value="{{ server.id }}" {% if current_server and current_server.id == server.id %}selected{% endif %}>
+      {{ server.name }}{% if server.description %} - {{ server.description }}{% endif %}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+
+{% if current_server %}
+<div class="card mb-4">
+  <div class="card-header">
+    <h5 class="mb-0">Console: {{ current_server.name }}</h5>
+    {% if current_server.host and current_server.port %}
+    <small class="text-muted">{{ current_server.host }}:{{ current_server.port }}</small>
+    {% else %}
+    <small class="text-warning">⚠️ Connection details not configured</small>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+      <div class="input-group mb-3">
+        <input type="text" name="command" class="form-control" placeholder="Enter RCON command..." required>
+        <button type="submit" class="btn btn-primary">Send Command</button>
+      </div>
+    </form>
+
+    {% if output is defined and output %}
+    <div class="mt-3">
+      <h6>Output:</h6>
+      <div class="bg-dark text-light p-3 rounded" style="font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
+        {{ output }}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Common Commands</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('status')">status</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('players')">players</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('map_restart')">map_restart</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('kick all')">kick all</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Quick Actions</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendCommand('g_gametype 2')">Set Campaign Mode</button>
+          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendCommand('timelimit 20')">Set Time Limit 20min</button>
+          <button type="button" class="btn btn-outline-warning btn-sm" onclick="sendCommand('map oasis')">Change Map to Oasis</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="sendCommand('quit')">Shutdown Server</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+  <h5>No Server Selected</h5>
+  <p>Please select a server from the dropdown above to access its RCON console.</p>
+</div>
+{% endif %}
+{% else %}
+<div class="alert alert-info">
+  <h5>No Servers Available</h5>
+  <p>You don't have access to any servers. Contact an administrator to get server access.</p>
+</div>
 {% endif %}
 </div>
+
+<script>
+function changeServer(serverId) {
+  window.location.href = '/rcon?server_id=' + serverId;
+}
+
+function sendCommand(command) {
+  document.querySelector('input[name="command"]').value = command;
+  document.querySelector('form').submit();
+}
+</script>
 {% endblock %}
