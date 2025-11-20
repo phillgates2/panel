@@ -49,6 +49,7 @@
                         <span>💻 Active Sessions</span>
                         <span class="arrow">→</span>
                     </a>
+                    <div class="button-group">
                         <a href="/account/api-keys" class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-key"></i> API Keys
                         </a>
@@ -57,14 +58,10 @@
                         </a>
                     </div>
                 </div>
-            </div>
-            
-            {% if user.is_system_admin() %}
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h5>Admin Tools</h5>
-                </div>
-                <div class="card-body">
+                
+                {% if user.is_system_admin() %}
+                <div class="admin-section mt-3">
+                    <h4>Admin Tools</h4>
                     <div class="d-grid gap-2">
                         <a href="/admin/users" class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-users"></i> User Management
@@ -92,8 +89,8 @@
                         </a>
                     </div>
                 </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
 </div>
