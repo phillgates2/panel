@@ -38,12 +38,17 @@ def require_admin():
 
 
 @config_bp.route("/api/servers/list")
-@login_required
 def api_list_servers():
     """API endpoint to list all servers for template application."""
     from app import Server
     
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
     
     servers = Server.query.order_by(Server.name).all()
@@ -64,10 +69,25 @@ def api_list_servers():
 
 
 @config_bp.route("/admin/config/templates")
-@login_required
 def config_templates():
     """Manage configuration templates."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -76,10 +96,16 @@ def config_templates():
 
 
 @config_bp.route("/admin/config/templates/create", methods=["GET", "POST"])
-@login_required
 def create_template():
     """Create a new configuration template."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -119,10 +145,18 @@ def create_template():
 
 
 @config_bp.route("/admin/config/templates/<int:template_id>")
-@login_required
 def edit_template(template_id):
     """Edit a configuration template."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -137,10 +171,9 @@ def edit_template(template_id):
 
 
 @config_bp.route("/admin/config/templates/<int:template_id>/update", methods=["POST"])
-@login_required
 def update_template(template_id):
     """Update a configuration template."""
-    if not current_user.is_system_admin:
+    if not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -168,15 +201,23 @@ def update_template(template_id):
 
 
 @config_bp.route("/server/<int:server_id>/config")
-@login_required
 def server_config(server_id):
     """Manage server configuration."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
     from app import Server
 
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         flash("Access denied.", "error")
         return redirect(url_for("dashboard"))
 
@@ -195,7 +236,6 @@ def server_config(server_id):
 
 
 @config_bp.route("/server/<int:server_id>/config/create", methods=["POST"])
-@login_required
 def create_config_version(server_id):
     """Create a new configuration version."""
     from app import Server
@@ -203,7 +243,7 @@ def create_config_version(server_id):
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -259,15 +299,23 @@ def create_config_version(server_id):
 @config_bp.route(
     "/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"]
 )
-@login_required
 def deploy_config_version(server_id, version_id):
     """Deploy a configuration version."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
     from app import Server
 
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -298,7 +346,6 @@ def deploy_config_version(server_id, version_id):
 @config_bp.route(
     "/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"]
 )
-@login_required
 def rollback_config_version(server_id, version_id):
     """Rollback to a previous configuration version."""
     from app import Server
@@ -306,7 +353,7 @@ def rollback_config_version(server_id, version_id):
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -334,15 +381,23 @@ def rollback_config_version(server_id, version_id):
 
 
 @config_bp.route("/server/<int:server_id>/config/compare")
-@login_required
 def compare_config_versions(server_id):
     """Compare two configuration versions."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
     from app import Server
 
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     version1_id = request.args.get("v1", type=int)
@@ -370,7 +425,6 @@ def compare_config_versions(server_id):
 
 
 @config_bp.route("/server/<int:server_id>/config/<int:version_id>/details")
-@login_required
 def config_version_details(server_id, version_id):
     """Get detailed information about a configuration version."""
     from app import Server
@@ -378,7 +432,7 @@ def config_version_details(server_id, version_id):
     server = Server.query.get_or_404(server_id)
 
     # Check permissions
-    if not (current_user.is_system_admin or server.owner_id == current_user.id):
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     version = ConfigVersion.query.filter_by(
@@ -422,9 +476,17 @@ def config_version_details(server_id, version_id):
 
 
 @config_bp.route("/api/config/templates/<int:template_id>/data")
-@login_required
 def get_template_data(template_id):
     """Get template data for creating new configuration."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
     template = ConfigTemplate.query.get_or_404(template_id)
 
     return jsonify(
@@ -433,10 +495,9 @@ def get_template_data(template_id):
 
 
 @config_bp.route("/admin/config/deployments")
-@login_required
 def deployment_history():
     """View deployment history across all servers."""
-    if not current_user.is_system_admin:
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -457,10 +518,20 @@ def deployment_history():
 
 
 @config_bp.route("/admin/ptero-eggs/browser")
-@login_required
 def ptero_eggs_browser():
     """Browse Ptero-Eggs templates with search and filtering."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        flash("User not found", "error")
+        return redirect(url_for("login"))
+    
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -527,10 +598,9 @@ def ptero_eggs_browser():
 
 
 @config_bp.route("/admin/ptero-eggs/sync", methods=["POST"])
-@login_required
 def ptero_eggs_sync():
     """Trigger a manual sync of Ptero-Eggs templates."""
-    if not current_user.is_system_admin:
+    if not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -549,10 +619,18 @@ def ptero_eggs_sync():
 
 
 @config_bp.route("/admin/ptero-eggs/template/<int:template_id>/preview")
-@login_required
 def ptero_eggs_template_preview(template_id):
     """Preview a Ptero-Eggs template with full details."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
+    if not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     template = ConfigTemplate.query.get_or_404(template_id)
@@ -598,12 +676,11 @@ def ptero_eggs_template_preview(template_id):
 
 
 @config_bp.route("/admin/ptero-eggs/apply/<int:template_id>/<int:server_id>", methods=["POST"])
-@login_required
 def apply_ptero_eggs_template(template_id, server_id):
     """Apply a Ptero-Eggs template to a server."""
     from app import Server
 
-    if not current_user.is_system_admin:
+    if not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
 
     try:
@@ -650,10 +727,18 @@ def apply_ptero_eggs_template(template_id, server_id):
 
 
 @config_bp.route("/admin/ptero-eggs/compare")
-@login_required
 def compare_ptero_eggs_templates():
     """Compare two Ptero-Eggs templates side by side."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -695,10 +780,9 @@ def compare_ptero_eggs_templates():
 
 
 @config_bp.route("/admin/ptero-eggs/create-custom", methods=["GET", "POST"])
-@login_required
 def create_custom_ptero_template():
     """Create a custom template based on Ptero-Eggs format."""
-    if not current_user.is_system_admin:
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 
@@ -754,10 +838,18 @@ def create_custom_ptero_template():
 
 
 @config_bp.route("/admin/ptero-eggs/migrate", methods=["GET", "POST"])
-@login_required
 def migrate_servers_to_ptero():
     """Bulk migration tool for migrating servers to Ptero-Eggs templates."""
-    if not current_user.is_system_admin:
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+    
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+    
+    if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
 

@@ -107,15 +107,15 @@ class DatabaseAdmin:
                        WHERE table_name = %s AND table_schema = 'public'"""
             return self.execute_query(query, (table_name,))
         else:
-                return self.execute_query(f"PRAGMA table_info('{table_name}')")
+            return self.execute_query(f"PRAGMA table_info('{table_name}')")
 
     def get_table_data(self, table_name, limit=100, offset=0):
         """Get table data with pagination"""
-            if self.is_postgres():
-                query = f'SELECT * FROM "{table_name}" LIMIT {limit} OFFSET {offset}'
-            else:
-                query = f"SELECT * FROM '{table_name}' LIMIT {limit} OFFSET {offset}"
-            return self.execute_query(query)
+        if self.is_postgres():
+            query = f'SELECT * FROM "{table_name}" LIMIT {limit} OFFSET {offset}'
+        else:
+            query = f"SELECT * FROM '{table_name}' LIMIT {limit} OFFSET {offset}"
+        return self.execute_query(query)
 
     def get_database_info(self):
         """Get database information"""
