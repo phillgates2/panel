@@ -4,6 +4,7 @@ Configuration Management Routes
 Web interface for managing server configurations, templates, and deployments.
 """
 
+import difflib
 import json
 from datetime import datetime, timezone
 
@@ -16,6 +17,32 @@ from config_manager import (ConfigDeployment, ConfigManager, ConfigTemplate,
                             ConfigVersion)
 
 config_bp = Blueprint("config", __name__)
+
+
+@config_bp.route("/api/servers/list")
+@login_required
+def api_list_servers():
+    """API endpoint to list all servers for template application."""
+    from app import Server
+    
+    if not current_user.is_system_admin:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    
+    servers = Server.query.order_by(Server.name).all()
+    
+    return jsonify({
+        "success": True,
+        "servers": [
+            {
+                "id": s.id,
+                "name": s.name,
+                "game_type": s.game_type,
+                "status": getattr(s, "status", "unknown"),
+            }
+            for s in servers
+        ]
+    })
+
 
 
 @config_bp.route("/admin/config/templates")
@@ -404,3 +431,401 @@ def deployment_history():
     )
 
     return render_template("admin_config_deployments.html", deployments=deployments)
+
+
+# ============================================================================
+# Ptero-Eggs Template Management Routes
+# ============================================================================
+
+
+@config_bp.route("/admin/ptero-eggs/browser")
+@login_required
+def ptero_eggs_browser():
+    """Browse Ptero-Eggs templates with search and filtering."""
+    if not current_user.is_system_admin:
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    # Get search and filter parameters
+    search_query = request.args.get("search", "").strip()
+    game_filter = request.args.get("game_type", "").strip()
+    sort_by = request.args.get("sort", "name")  # name, game_type, updated_at
+    page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    # Build query for Ptero-Eggs templates
+    query = ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+
+    # Apply search filter
+    if search_query:
+        query = query.filter(
+            db.or_(
+                ConfigTemplate.name.ilike(f"%{search_query}%"),
+                ConfigTemplate.description.ilike(f"%{search_query}%"),
+                ConfigTemplate.game_type.ilike(f"%{search_query}%"),
+            )
+        )
+
+    # Apply game type filter
+    if game_filter:
+        query = query.filter(ConfigTemplate.game_type == game_filter)
+
+    # Apply sorting
+    if sort_by == "game_type":
+        query = query.order_by(ConfigTemplate.game_type, ConfigTemplate.name)
+    elif sort_by == "updated_at":
+        query = query.order_by(ConfigTemplate.updated_at.desc())
+    else:  # default to name
+        query = query.order_by(ConfigTemplate.name)
+
+    # Paginate results
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Get available game types for filter dropdown
+    game_types = (
+        db.session.query(ConfigTemplate.game_type)
+        .filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+        .distinct()
+        .order_by(ConfigTemplate.game_type)
+        .all()
+    )
+    game_types = [gt[0] for gt in game_types]
+
+    # Get sync status
+    from ptero_eggs_updater import PteroEggsUpdater
+    updater = PteroEggsUpdater()
+    sync_status = updater.get_sync_status()
+
+    return render_template(
+        "admin_ptero_eggs_browser.html",
+        templates=pagination.items,
+        pagination=pagination,
+        game_types=game_types,
+        search_query=search_query,
+        game_filter=game_filter,
+        sort_by=sort_by,
+        sync_status=sync_status,
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/sync", methods=["POST"])
+@login_required
+def ptero_eggs_sync():
+    """Trigger a manual sync of Ptero-Eggs templates."""
+    if not current_user.is_system_admin:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        from ptero_eggs_updater import PteroEggsUpdater
+
+        updater = PteroEggsUpdater()
+        stats = updater.sync_templates(current_user.id)
+
+        return jsonify(stats)
+
+    except Exception as e:
+        return (
+            jsonify({"success": False, "message": f"Sync failed: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/admin/ptero-eggs/template/<int:template_id>/preview")
+@login_required
+def ptero_eggs_template_preview(template_id):
+    """Preview a Ptero-Eggs template with full details."""
+    if not current_user.is_system_admin:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    template = ConfigTemplate.query.get_or_404(template_id)
+
+    # Parse template data
+    template_data = json.loads(template.template_data)
+
+    # Get version history if available
+    from ptero_eggs_updater import PteroEggsTemplateVersion
+    versions = (
+        PteroEggsTemplateVersion.query.filter_by(template_id=template_id)
+        .order_by(PteroEggsTemplateVersion.version_number.desc())
+        .all()
+    )
+
+    version_history = [
+        {
+            "version_number": v.version_number,
+            "commit_hash": v.commit_hash,
+            "imported_at": v.imported_at.isoformat(),
+            "is_current": v.is_current,
+            "changes_summary": v.changes_summary,
+        }
+        for v in versions
+    ]
+
+    return jsonify(
+        {
+            "success": True,
+            "template": {
+                "id": template.id,
+                "name": template.name,
+                "description": template.description,
+                "game_type": template.game_type,
+                "created_at": template.created_at.isoformat(),
+                "updated_at": template.updated_at.isoformat(),
+                "is_default": template.is_default,
+            },
+            "template_data": template_data,
+            "version_history": version_history,
+        }
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/apply/<int:template_id>/<int:server_id>", methods=["POST"])
+@login_required
+def apply_ptero_eggs_template(template_id, server_id):
+    """Apply a Ptero-Eggs template to a server."""
+    from app import Server
+
+    if not current_user.is_system_admin:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        template = ConfigTemplate.query.get_or_404(template_id)
+        server = Server.query.get_or_404(server_id)
+
+        # Parse template data
+        template_data = json.loads(template.template_data)
+
+        # Update server game type
+        server.game_type = template.game_type
+
+        # Create a config version with the template
+        config_manager = ConfigManager(server_id)
+        version = config_manager.create_version(
+            config_data=template_data,
+            user_id=current_user.id,
+            change_summary=f"Applied Ptero-Eggs template: {template.name}",
+        )
+
+        # Store reference to the template
+        if hasattr(server, "config"):
+            server_config = json.loads(server.config) if server.config else {}
+            server_config["ptero_egg_template_id"] = template.id
+            server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
+            server.config = json.dumps(server_config)
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Template applied successfully",
+                "version_id": version.id,
+            }
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        return (
+            jsonify({"success": False, "message": f"Error applying template: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/admin/ptero-eggs/compare")
+@login_required
+def compare_ptero_eggs_templates():
+    """Compare two Ptero-Eggs templates side by side."""
+    if not current_user.is_system_admin:
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    template1_id = request.args.get("t1", type=int)
+    template2_id = request.args.get("t2", type=int)
+
+    if not template1_id or not template2_id:
+        flash("Two template IDs are required for comparison", "error")
+        return redirect(url_for("config.ptero_eggs_browser"))
+
+    template1 = ConfigTemplate.query.get_or_404(template1_id)
+    template2 = ConfigTemplate.query.get_or_404(template2_id)
+
+    template1_data = json.loads(template1.template_data)
+    template2_data = json.loads(template2.template_data)
+
+    # Calculate differences
+    import difflib
+    
+    def dict_to_lines(d):
+        return json.dumps(d, indent=2).splitlines()
+
+    diff = difflib.unified_diff(
+        dict_to_lines(template1_data),
+        dict_to_lines(template2_data),
+        fromfile=template1.name,
+        tofile=template2.name,
+        lineterm="",
+    )
+
+    return render_template(
+        "admin_ptero_eggs_compare.html",
+        template1=template1,
+        template2=template2,
+        template1_data=template1_data,
+        template2_data=template2_data,
+        diff=list(diff),
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/create-custom", methods=["GET", "POST"])
+@login_required
+def create_custom_ptero_template():
+    """Create a custom template based on Ptero-Eggs format."""
+    if not current_user.is_system_admin:
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+
+            # Build template data in Ptero-Eggs format
+            template_data = {
+                "startup_command": data.get("startup_command", ""),
+                "stop_command": data.get("stop_command", ""),
+                "variables": data.get("variables", {}),
+                "docker_images": data.get("docker_images", {}),
+                "installation": data.get("installation", {}),
+                "features": data.get("features", []),
+                "egg_metadata": {
+                    "source": "Custom",
+                    "author": current_user.email,
+                    "original_name": data["name"],
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            }
+
+            template = ConfigTemplate(
+                name=data["name"],
+                description=data.get("description", ""),
+                game_type=data["game_type"],
+                template_data=json.dumps(template_data, indent=2),
+                is_default=data.get("is_default", False),
+                created_by=current_user.id,
+            )
+
+            db.session.add(template)
+            db.session.commit()
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Custom template created successfully",
+                    "template_id": template.id,
+                }
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return (
+                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
+                500,
+            )
+
+    # GET request - show form
+    return render_template("admin_ptero_eggs_create.html")
+
+
+@config_bp.route("/admin/ptero-eggs/migrate", methods=["GET", "POST"])
+@login_required
+def migrate_servers_to_ptero():
+    """Bulk migration tool for migrating servers to Ptero-Eggs templates."""
+    if not current_user.is_system_admin:
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    from app import Server
+
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+            server_ids = data.get("server_ids", [])
+            template_id = data.get("template_id")
+
+            if not server_ids or not template_id:
+                return (
+                    jsonify({"success": False, "message": "Server IDs and template ID are required"}),
+                    400,
+                )
+
+            template = ConfigTemplate.query.get_or_404(template_id)
+            template_data = json.loads(template.template_data)
+
+            results = []
+            for server_id in server_ids:
+                try:
+                    server = Server.query.get(server_id)
+                    if not server:
+                        results.append({"server_id": server_id, "success": False, "message": "Server not found"})
+                        continue
+
+                    # Update server
+                    server.game_type = template.game_type
+
+                    # Create config version
+                    config_manager = ConfigManager(server_id)
+                    version = config_manager.create_version(
+                        config_data=template_data,
+                        user_id=current_user.id,
+                        change_summary=f"Migrated to Ptero-Eggs template: {template.name}",
+                    )
+
+                    # Store reference
+                    if hasattr(server, "config"):
+                        server_config = json.loads(server.config) if server.config else {}
+                        server_config["ptero_egg_template_id"] = template.id
+                        server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
+                        server.config = json.dumps(server_config)
+
+                    results.append({
+                        "server_id": server_id,
+                        "success": True,
+                        "message": "Migration successful",
+                        "version_id": version.id,
+                    })
+
+                except Exception as e:
+                    results.append({
+                        "server_id": server_id,
+                        "success": False,
+                        "message": str(e),
+                    })
+
+            db.session.commit()
+
+            success_count = sum(1 for r in results if r["success"])
+            return jsonify({
+                "success": True,
+                "message": f"Migrated {success_count}/{len(server_ids)} servers successfully",
+                "results": results,
+            })
+
+        except Exception as e:
+            db.session.rollback()
+            return (
+                jsonify({"success": False, "message": f"Migration failed: {str(e)}"}),
+                500,
+            )
+
+    # GET request - show migration interface
+    servers = Server.query.order_by(Server.name).all()
+    templates = (
+        ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+        .order_by(ConfigTemplate.game_type, ConfigTemplate.name)
+        .all()
+    )
+
+    return render_template(
+        "admin_ptero_eggs_migrate.html",
+        servers=servers,
+        templates=templates,
+    )

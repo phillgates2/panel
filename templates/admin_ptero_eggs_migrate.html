@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Server Migration{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-exchange-alt"></i> Bulk Server Migration</h2>
+            <p class="text-muted">Migrate multiple servers to Ptero-Eggs templates at once</p>
+        </div>
+        <a href="{{ url_for('config.ptero_eggs_browser') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Browser
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Server Selection -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">1. Select Servers to Migrate</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="serverSearch" 
+                               placeholder="Search servers...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                            Select All
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="selectNone()">
+                            Select None
+                        </button>
+                    </div>
+                    
+                    <div style="max-height: 400px; overflow-y: auto;" id="serverList">
+                        {% if servers %}
+                        {% for server in servers %}
+                        <div class="form-check server-item" data-name="{{ server.name|lower }}" 
+                             data-game-type="{{ server.game_type|lower }}">
+                            <input class="form-check-input server-checkbox" type="checkbox" 
+                                   value="{{ server.id }}" id="server{{ server.id }}">
+                            <label class="form-check-label" for="server{{ server.id }}">
+                                <strong>{{ server.name }}</strong>
+                                <span class="badge bg-secondary">{{ server.game_type }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted">No servers available for migration</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <span id="selectedCount">0</span> server(s) selected
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Selection -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">2. Select Target Template</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="gameTypeFilter" class="form-label">Filter by Game Type</label>
+                        <select class="form-control" id="gameTypeFilter" onchange="filterTemplates()">
+                            <option value="">All Game Types</option>
+                            {% for template in templates %}
+                            <option value="{{ template.game_type }}">{{ template.game_type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div style="max-height: 400px; overflow-y: auto;" id="templateList">
+                        {% if templates %}
+                        {% for template in templates %}
+                        <div class="form-check template-item" data-game-type="{{ template.game_type }}">
+                            <input class="form-check-input" type="radio" name="templateRadio" 
+                                   value="{{ template.id }}" id="template{{ template.id }}">
+                            <label class="form-check-label" for="template{{ template.id }}">
+                                <strong>{{ template.name.replace(' (Ptero-Eggs)', '') }}</strong>
+                                <span class="badge bg-primary">{{ template.game_type }}</span>
+                                <br>
+                                <small class="text-muted">
+                                    {{ template.description[:100] }}{% if template.description|length > 100 %}...{% endif %}
+                                </small>
+                            </label>
+                        </div>
+                        <hr>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted">No templates available. Please sync templates first.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Migration Actions -->
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5>3. Execute Migration</h5>
+                    <p class="text-muted mb-0">
+                        This will create new configuration versions for selected servers using the chosen template.
+                    </p>
+                </div>
+                <button class="btn btn-primary btn-lg" onclick="executeMigration()">
+                    <i class="fas fa-play"></i> Start Migration
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Section (hidden initially) -->
+    <div class="card mt-4" id="progressCard" style="display: none;">
+        <div class="card-header">
+            <h5 class="mb-0">Migration Progress</h5>
+        </div>
+        <div class="card-body">
+            <div class="progress mb-3">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div id="progressLog" style="max-height: 300px; overflow-y: auto;">
+                <!-- Progress messages will be added here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update selected count
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.server-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+}
+
+// Add event listeners to checkboxes
+document.querySelectorAll('.server-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+
+// Server search functionality
+document.getElementById('serverSearch').addEventListener('input', function(e) {
+    const search = e.target.value.toLowerCase();
+    document.querySelectorAll('.server-item').forEach(item => {
+        const name = item.dataset.name;
+        const gameType = item.dataset.gameType;
+        if (name.includes(search) || gameType.includes(search)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// Select all/none
+function selectAll() {
+    document.querySelectorAll('.server-checkbox').forEach(cb => {
+        if (cb.closest('.server-item').style.display !== 'none') {
+            cb.checked = true;
+        }
+    });
+    updateSelectedCount();
+}
+
+function selectNone() {
+    document.querySelectorAll('.server-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    updateSelectedCount();
+}
+
+// Filter templates by game type
+function filterTemplates() {
+    const gameType = document.getElementById('gameTypeFilter').value;
+    document.querySelectorAll('.template-item').forEach(item => {
+        if (!gameType || item.dataset.gameType === gameType) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Execute migration
+function executeMigration() {
+    const selectedServers = Array.from(document.querySelectorAll('.server-checkbox:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    const selectedTemplate = document.querySelector('input[name="templateRadio"]:checked');
+    
+    if (selectedServers.length === 0) {
+        alert('Please select at least one server');
+        return;
+    }
+    
+    if (!selectedTemplate) {
+        alert('Please select a template');
+        return;
+    }
+    
+    const templateId = parseInt(selectedTemplate.value);
+    
+    if (!confirm(`Are you sure you want to migrate ${selectedServers.length} server(s) to the selected template?\n\nThis will create new configuration versions for each server.`)) {
+        return;
+    }
+    
+    // Show progress card
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('progressLog').innerHTML = '';
+    document.getElementById('progressBar').style.width = '0%';
+    
+    // Log start
+    addProgressLog('info', `Starting migration of ${selectedServers.length} servers...`);
+    
+    // Execute migration
+    fetch('{{ url_for("config.migrate_servers_to_ptero") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            server_ids: selectedServers,
+            template_id: templateId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update progress
+            const successCount = data.results.filter(r => r.success).length;
+            const failureCount = data.results.filter(r => !r.success).length;
+            
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            
+            addProgressLog('success', `Migration completed! ${successCount} succeeded, ${failureCount} failed`);
+            
+            // Log individual results
+            data.results.forEach(result => {
+                if (result.success) {
+                    addProgressLog('success', `Server ${result.server_id}: ${result.message}`);
+                } else {
+                    addProgressLog('error', `Server ${result.server_id}: ${result.message}`);
+                }
+            });
+            
+            // Show completion message
+            setTimeout(() => {
+                if (failureCount === 0) {
+                    alert('Migration completed successfully!');
+                    location.reload();
+                } else {
+                    alert(`Migration completed with ${failureCount} error(s). See log for details.`);
+                }
+            }, 1000);
+        } else {
+            addProgressLog('error', `Migration failed: ${data.message}`);
+            document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            document.getElementById('progressBar').classList.add('bg-danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        addProgressLog('error', `An error occurred: ${error.message}`);
+        document.getElementById('progressBar').classList.remove('progress-bar-animated');
+        document.getElementById('progressBar').classList.add('bg-danger');
+    });
+}
+
+function addProgressLog(type, message) {
+    const log = document.getElementById('progressLog');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let iconClass = 'fa-info-circle';
+    let textClass = 'text-info';
+    
+    if (type === 'success') {
+        iconClass = 'fa-check-circle';
+        textClass = 'text-success';
+    } else if (type === 'error') {
+        iconClass = 'fa-times-circle';
+        textClass = 'text-danger';
+    }
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = `mb-2 ${textClass}`;
+    logEntry.innerHTML = `
+        <small class="text-muted">[${timestamp}]</small>
+        <i class="fas ${iconClass} ms-2"></i>
+        <span class="ms-1">${message}</span>
+    `;
+    
+    log.appendChild(logEntry);
+    log.scrollTop = log.scrollHeight;
+}
+</script>
+
+<style>
+.server-item, .template-item {
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.server-item:hover, .template-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}
