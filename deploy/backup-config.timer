@@ -1,0 +1,11 @@
+[Unit]
+Description=Run configuration backup weekly
+Requires=backup-config.service
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+Unit=backup-config.service
+
+[Install]
+WantedBy=timers.target

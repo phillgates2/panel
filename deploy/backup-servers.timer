@@ -1,0 +1,11 @@
+[Unit]
+Description=Run server backups every 6 hours
+Requires=backup-servers.service
+
+[Timer]
+OnCalendar=*-*-* *:00/6:00
+Persistent=true
+Unit=backup-servers.service
+
+[Install]
+WantedBy=timers.target

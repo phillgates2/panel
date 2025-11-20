@@ -1,4 +1,5 @@
 import io
+import csv
 import os
 import secrets
 import shutil
@@ -8,6 +9,8 @@ from datetime import date, datetime, timedelta, timezone
 from flask import (Blueprint, Flask, Response, abort, flash, jsonify, redirect,
                    render_template, render_template_string, request, send_file,
                    session, url_for)
+from flask_caching import Cache
+from flask_compress import Compress
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
@@ -19,7 +22,12 @@ import werkzeug
 from sqlalchemy import text
 from werkzeug.security import check_password_hash, generate_password_hash
 
-if not hasattr(werkzeug, "__version__"):
+try:
+    import importlib.metadata
+    werkzeug_version = importlib.metadata.version("werkzeug")
+    werkzeug.__version__ = werkzeug_version
+except Exception:
+    # Fallback for older Python versions or if metadata is unavailable
     werkzeug.__version__ = getattr(werkzeug, "__release__", "0")
 
 # Load environment variables from .env file
@@ -69,6 +77,12 @@ app.secret_key = config.SECRET_KEY
 from flask_socketio import SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Initialize Cache for performance optimization
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})
+
+# Initialize Compression
+compress = Compress(app)
+
 # Initialize SQLAlchemy (bound to app). Using the classic pattern keeps
 # behavior consistent with the rest of the code and test suite.
 from flask_sqlalchemy import SQLAlchemy
@@ -89,6 +103,280 @@ try:
 except Exception:
     mail = None
 
+# Create main blueprint for routes
+main_bp = Blueprint("main", __name__)
+
+# Initialize Database Admin integration
+try:
+    DatabaseAdmin(app, db)
+except Exception:
+    # Best-effort during tests; ignore failures
+    pass
+
+
+# ============================================================================
+# TEAM MANAGEMENT ROUTES
+# ============================================================================
+
+@main_bp.route("/admin/teams", methods=["GET"])
+def teams_dashboard():
+    """Team management dashboard."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("dashboard"))
+
+    from models_extended import UserGroup, UserGroupMembership
+
+    teams = UserGroup.query.all()
+    team_data = []
+
+    for team in teams:
+        members = UserGroupMembership.query.filter_by(group_id=team.id).all()
+        member_users = []
+        for membership in members:
+            member_user = db.session.get(User, membership.user_id)
+            if member_user:
+                member_users.append(member_user)
+
+        team_data.append({
+            'team': team,
+            'members': member_users,
+            'member_count': len(member_users)
+        })
+
+    return render_template("teams.html", user=user, teams=team_data)
+
+
+@main_bp.route("/admin/teams/create", methods=["POST"])
+def create_team():
+    """Create a new team."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    from models_extended import UserGroup
+
+    team_name = request.form.get("name", "").strip()
+    description = request.form.get("description", "").strip()
+
+    if not team_name:
+        flash("Team name is required", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    try:
+        new_team = UserGroup(
+            name=team_name,
+            description=description,
+            permissions=json.dumps([])  # Empty permissions array
+        )
+        db.session.add(new_team)
+        db.session.commit()
+        flash(f"Team '{team_name}' created successfully", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error creating team: {str(e)}", "error")
+
+    return redirect(url_for("teams_dashboard"))
+
+
+@main_bp.route("/admin/teams/<int:team_id>/add_member", methods=["POST"])
+def add_team_member(team_id):
+    """Add a member to a team."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    from models_extended import UserGroup, UserGroupMembership
+
+    member_email = request.form.get("email", "").strip()
+
+    if not member_email:
+        flash("Member email is required", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    # Find user by email
+    member_user = User.query.filter_by(email=member_email).first()
+    if not member_user:
+        flash("User not found", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    # Check if team exists
+    team = db.session.get(UserGroup, team_id)
+    if not team:
+        flash("Team not found", "error")
+        return redirect(url_for("teams_dashboard"))
+
+    # Check if already a member
+    existing = UserGroupMembership.query.filter_by(
+        user_id=member_user.id, group_id=team_id
+    ).first()
+    if existing:
+        flash("User is already a member of this team", "warning")
+        return redirect(url_for("teams_dashboard"))
+
+    try:
+        membership = UserGroupMembership(
+            user_id=member_user.id,
+            group_id=team_id
+        )
+        db.session.add(membership)
+        db.session.commit()
+        flash(f"Added {member_user.first_name} {member_user.last_name} to team '{team.name}'", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error adding member: {str(e)}", "error")
+
+    return redirect(url_for("teams_dashboard"))
+
+
+# ============================================================================
+# SECURITY MANAGEMENT ROUTES
+# ============================================================================
+
+@main_bp.route("/admin/security", methods=["GET"])
+def security_dashboard():
+    """Security management dashboard."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("dashboard"))
+
+    # Get security data
+    whitelist = IPWhitelist.query.filter_by(is_active=True).all()
+    blacklist = IPBlacklist.query.filter_by(is_active=True).all()
+    recent_events = SecurityEvent.query.order_by(SecurityEvent.created_at.desc()).limit(20).all()
+
+    return render_template("security.html", user=user, whitelist=whitelist, blacklist=blacklist, recent_events=recent_events)
+
+
+@main_bp.route("/admin/security/whitelist/add", methods=["POST"])
+def add_to_whitelist():
+    """Add IP to whitelist."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("security_dashboard"))
+
+    ip_address = request.form.get("ip_address", "").strip()
+    description = request.form.get("description", "").strip()
+
+    if not ip_address:
+        flash("IP address is required", "error")
+        return redirect(url_for("security_dashboard"))
+
+    # Validate IP address format
+    import ipaddress
+    try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        flash("Invalid IP address format", "error")
+        return redirect(url_for("security_dashboard"))
+
+    try:
+        whitelist_entry = IPWhitelist(
+            ip_address=ip_address,
+            description=description,
+            created_by=user.id
+        )
+        db.session.add(whitelist_entry)
+        db.session.commit()
+
+        # Log security event
+        log_security_event("ip_whitelisted", ip_address, user.id, f"IP {ip_address} added to whitelist")
+
+        flash(f"IP {ip_address} added to whitelist", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error adding IP to whitelist: {str(e)}", "error")
+
+    return redirect(url_for("security_dashboard"))
+
+
+@main_bp.route("/admin/security/blacklist/add", methods=["POST"])
+def add_to_blacklist():
+    """Add IP to blacklist."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("Admin access required", "error")
+        return redirect(url_for("security_dashboard"))
+
+    ip_address = request.form.get("ip_address", "").strip()
+    reason = request.form.get("reason", "").strip()
+
+    if not ip_address:
+        flash("IP address is required", "error")
+        return redirect(url_for("security_dashboard"))
+
+    # Validate IP address format
+    import ipaddress
+    try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        flash("Invalid IP address format", "error")
+        return redirect(url_for("security_dashboard"))
+
+    try:
+        blacklist_entry = IPBlacklist(
+            ip_address=ip_address,
+            reason=reason,
+            created_by=user.id
+        )
+        db.session.add(blacklist_entry)
+        db.session.commit()
+
+        # Log security event
+        log_security_event("ip_blacklisted", ip_address, user.id, f"IP {ip_address} blacklisted: {reason}")
+
+        flash(f"IP {ip_address} added to blacklist", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error adding IP to blacklist: {str(e)}", "error")
+
+    return redirect(url_for("security_dashboard"))
+
+
+def log_security_event(event_type, ip_address=None, user_id=None, description=None, severity="info"):
+    """Log a security event."""
+    try:
+        event = SecurityEvent(
+            event_type=event_type,
+            ip_address=ip_address,
+            user_id=user_id,
+            description=description,
+            severity=severity
+        )
+        db.session.add(event)
+        db.session.commit()
+    except Exception as e:
+        print(f"Error logging security event: {e}")
+
 
 def create_app(config_obj=None):
     """Application factory.
@@ -108,6 +396,14 @@ def create_app(config_obj=None):
     # Initialize SocketIO for real-time features
     from flask_socketio import SocketIO
     _socketio = SocketIO(_app, cors_allowed_origins="*")
+
+    # Initialize Cache for performance optimization
+    from flask_caching import Cache
+    _cache = Cache(_app, config={'CACHE_TYPE': 'simple'})
+
+    # Initialize Compression
+    from flask_compress import Compress
+    _compress = Compress(_app)
 
     # Configure logging for the new app
     from logging_config import setup_logging  # noqa: E402
@@ -147,45 +443,6 @@ def create_app(config_obj=None):
         DatabaseAdmin(_app, db)
     except Exception:
         # Best-effort during tests; ignore failures
-        pass
-
-    # Register main blueprint so routes defined on `main_bp` are
-    # available on factory-created apps as well.
-    try:
-        _app.register_blueprint(main_bp)
-    except AssertionError:
-        # already registered on this app
-        pass
-
-    # Register optional feature blueprints (import here to avoid circular imports)
-    try:
-        from routes_config import config_bp
-        try:
-            _app.register_blueprint(config_bp)
-        except AssertionError:
-            pass
-    except Exception:
-        pass
-    
-    try:
-        import cms as _cms
-
-        if hasattr(_cms, "cms_bp"):
-            try:
-                _app.register_blueprint(_cms.cms_bp)
-            except AssertionError:
-                pass
-    except Exception:
-        pass
-    try:
-        import forum as _forum
-
-        if hasattr(_forum, "forum_bp"):
-            try:
-                _app.register_blueprint(_forum.forum_bp)
-            except AssertionError:
-                pass
-    except Exception:
         pass
 
     # Backwards-compat: create un-prefixed endpoint aliases on the
@@ -247,6 +504,85 @@ def create_app(config_obj=None):
         pass
     try:
         _app.before_request(ensure_theme_migration_once)
+    except Exception:
+        pass
+
+    # Register blueprints on the factory-created app
+    try:
+        _app.register_blueprint(main_bp)
+    except AssertionError:
+        pass
+
+    try:
+        import cms as _cms
+        if hasattr(_cms, "cms_bp"):
+            try:
+                _app.register_blueprint(_cms.cms_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+
+    try:
+        import forum as _forum
+        if hasattr(_forum, "forum_bp"):
+            try:
+                _app.register_blueprint(_forum.forum_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+
+    # Register additional blueprints that were added later
+    try:
+        _app.register_blueprint(monitoring_bp)
+    except (AssertionError, NameError):
+        pass
+
+    try:
+        _app.register_blueprint(routes_rbac.rbac_bp)
+    except (AssertionError, NameError):
+        pass
+
+    # Create backwards-compat unprefixed endpoint aliases for factory-created apps
+    try:
+        bp_names = [main_bp.name]
+        try:
+            import cms as _cms
+            if hasattr(_cms, "cms_bp"):
+                bp_names.append(_cms.cms_bp.name)
+        except NameError:
+            pass
+        try:
+            import forum as _forum
+            if hasattr(_forum, "forum_bp"):
+                bp_names.append(_forum.forum_bp.name)
+        except NameError:
+            pass
+
+        for rule in list(_app.url_map.iter_rules()):
+            ep = rule.endpoint
+            for bpname in bp_names:
+                if ep.startswith(f"{bpname}."):
+                    short = ep.split(".", 1)[1]
+                    if short not in _app.view_functions:
+                        view = _app.view_functions.get(ep)
+                        if view:
+                            try:
+                                methods = [
+                                    m
+                                    for m in rule.methods
+                                    if m not in ("HEAD", "OPTIONS")
+                                ]
+                                _app.add_url_rule(
+                                    rule.rule,
+                                    endpoint=short,
+                                    view_func=view,
+                                    methods=methods,
+                                )
+                            except Exception:
+                                pass
+                    break
     except Exception:
         pass
 
@@ -391,10 +727,6 @@ db.init_app(app)
 # Initialize Database Admin integration
 db_admin = DatabaseAdmin(app, db)
 
-# Blueprint for main application routes. We will register this on both the
-# module-level `app` and any apps created via `create_app()`.
-main_bp = Blueprint("main", __name__)
-
 # Optional CMS and Forum blueprints (kept optional so imports won't fail in test environments)
 try:
     from cms import cms_bp  # type: ignore
@@ -449,10 +781,19 @@ class User(db.Model):
     totp_enabled = db.Column(db.Boolean, default=False)   # Whether 2FA is enabled
     backup_codes = db.Column(db.Text, nullable=True)      # JSON array of backup codes
 
+    # API Access
+    api_token = db.Column(db.String(128), nullable=True, unique=True)  # API access token
+    api_token_created = db.Column(db.DateTime, nullable=True)          # When token was created
+    api_token_last_used = db.Column(db.DateTime, nullable=True)        # Last API usage
+
     # Session management
     last_login = db.Column(db.DateTime, nullable=True)
     login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
+    
+    # Profile
+    bio = db.Column(db.Text, nullable=True)  # User biography
+    avatar = db.Column(db.String(255), nullable=True)  # Avatar image filename
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -529,6 +870,26 @@ class User(db.Model):
     def is_server_mod(self):
         return self.role == "server_mod"
 
+    def generate_api_token(self):
+        """Generate a new API token for the user."""
+        import secrets
+        self.api_token = secrets.token_urlsafe(64)
+        self.api_token_created = datetime.now(timezone.utc)
+        return self.api_token
+
+    def revoke_api_token(self):
+        """Revoke the current API token."""
+        self.api_token = None
+        self.api_token_created = None
+        self.api_token_last_used = None
+
+    def validate_api_token(self, token):
+        """Validate an API token and update last used time."""
+        if self.api_token and self.api_token == token:
+            self.api_token_last_used = datetime.now(timezone.utc)
+            return True
+        return False
+
 
 # Association table: server-specific roles for users (server_admin/server_mod)
 class ServerUser(db.Model):
@@ -602,6 +963,53 @@ class SiteAsset(db.Model):
     data = db.Column(db.LargeBinary, nullable=False)
     mimetype = db.Column(db.String(128), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class IPWhitelist(db.Model):
+    """IP addresses allowed to access the system."""
+
+    __tablename__ = "ip_whitelist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False, unique=True)  # IPv4/IPv6 support
+    description = db.Column(db.String(256), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    creator = db.relationship("User")
+
+
+class IPBlacklist(db.Model):
+    """IP addresses blocked from accessing the system."""
+
+    __tablename__ = "ip_blacklist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False, unique=True)  # IPv4/IPv6 support
+    reason = db.Column(db.String(256), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    creator = db.relationship("User")
+
+
+class SecurityEvent(db.Model):
+    """Log security-related events."""
+
+    __tablename__ = "security_event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(64), nullable=False)  # login_attempt, ip_blocked, etc.
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    severity = db.Column(db.String(16), default="info")  # info, warning, critical
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship("User")
 
 
 # Import extended models (this must be after db is defined)
@@ -847,7 +1255,7 @@ def login():
                 flash("Account is temporarily locked due to too many failed login attempts. Please try again later.", "error")
                 log_security_event(
                     event_type="login_blocked",
-                    message=f"Login blocked for locked account: {email}",
+                    description=f"Login blocked for locked account: {email}",
                     user_id=user.id,
                     ip_address=request.remote_addr,
                 )
@@ -897,7 +1305,7 @@ def login():
             # Log security event
             log_security_event(
                 event_type="login_success",
-                message=f"User login successful: {email}",
+                description=f"User login successful: {email}",
                 user_id=user.id,
                 ip_address=request.remote_addr,
             )
@@ -916,7 +1324,7 @@ def login():
             # Log failed login attempt
             log_security_event(
                 event_type="login_failed",
-                message=f"Failed login attempt for: {email}",
+                description=f"Failed login attempt for: {email}",
                 user_id=user.id if user else None,
                 ip_address=request.remote_addr,
             )
@@ -999,7 +1407,7 @@ def verify_2fa():
             # Log security event
             log_security_event(
                 event_type="login_2fa_success",
-                message=f"2FA verification successful for: {email}",
+                description=f"2FA verification successful for: {email}",
                 user_id=user.id,
                 ip_address=request.remote_addr,
             )
@@ -1013,7 +1421,7 @@ def verify_2fa():
 
             log_security_event(
                 event_type="login_2fa_failed",
-                message=f"2FA verification failed for: {email}",
+                description=f"2FA verification failed for: {email}",
                 user_id=user.id,
                 ip_address=request.remote_addr,
             )
@@ -1159,6 +1567,1228 @@ def dashboard():
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
     return render_template("dashboard.html", user=user, config=config)
+
+
+@main_bp.route("/profile", methods=["GET", "POST"])
+def profile():
+    """User profile management."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+    
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        # CSRF check
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("profile"))
+
+        # Handle avatar upload
+        if "avatar" in request.files:
+            file = request.files["avatar"]
+            if file and file.filename:
+                # Validate file type
+                if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    flash("Invalid file type. Only PNG, JPG, JPEG, and GIF are allowed.", "error")
+                    return redirect(url_for("profile"))
+                
+                # Process and save avatar
+                try:
+                    # Create avatars directory if it doesn't exist
+                    avatar_dir = os.path.join(app.root_path, "static", "avatars")
+                    os.makedirs(avatar_dir, exist_ok=True)
+                    
+                    # Generate secure filename
+                    filename = secure_filename(f"{user.id}_{secrets.token_hex(8)}.png")
+                    filepath = os.path.join(avatar_dir, filename)
+                    
+                    # Process image with PIL
+                    image = Image.open(file)
+                    # Convert to RGB if necessary (for JPEG compatibility)
+                    if image.mode in ("RGBA", "P"):
+                        image = image.convert("RGB")
+                    # Resize to 200x200 max while maintaining aspect ratio
+                    image.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                    # Create square image with white background
+                    square_image = ImageOps.pad(image, (200, 200), color='white')
+                    # Save as PNG
+                    square_image.save(filepath, "PNG")
+                    
+                    # Remove old avatar if exists
+                    if user.avatar:
+                        old_path = os.path.join(avatar_dir, user.avatar)
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+                    
+                    # Update user avatar
+                    user.avatar = filename
+                    
+                except Exception as e:
+                    flash(f"Error processing avatar: {str(e)}", "error")
+                    return redirect(url_for("profile"))
+
+        # Update profile
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        bio = request.form.get("bio", "").strip()[:500]  # Limit bio to 500 chars
+        
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+        user.bio = bio
+        
+        try:
+            db.session.commit()
+            flash("Profile updated successfully", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating profile: {str(e)}", "error")
+        
+        return redirect(url_for("profile"))
+
+    return render_template("profile.html", user=user)
+
+
+@main_bp.route("/profile/avatar/remove", methods=["POST"])
+def remove_avatar():
+    """Remove user avatar."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+    
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    # CSRF check
+    try:
+        verify_csrf()
+    except Exception:
+        flash("Invalid CSRF token", "error")
+        return redirect(url_for("profile"))
+
+    # Remove avatar file if exists
+    if user.avatar:
+        avatar_path = os.path.join(app.root_path, "static", "avatars", user.avatar)
+        if os.path.exists(avatar_path):
+            try:
+                os.remove(avatar_path)
+            except Exception:
+                pass  # Ignore file removal errors
+        
+        user.avatar = None
+        try:
+            db.session.commit()
+            flash("Avatar removed successfully", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error removing avatar: {str(e)}", "error")
+    
+    return redirect(url_for("profile"))
+
+
+@main_bp.route("/analytics", methods=["GET"])
+def analytics_dashboard():
+    """Advanced analytics dashboard with real-time metrics and insights."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    # Check RBAC permission for analytics access
+    from rbac import has_permission
+    if not has_permission(user, "monitor.view_system"):
+        flash("Analytics access requires appropriate permissions", "error")
+        return redirect(url_for("dashboard"))
+
+    return render_template("analytics.html", user=user)
+
+
+@main_bp.route("/api/analytics/metrics", methods=["GET"])
+def get_analytics_metrics():
+    """API endpoint for analytics data."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        # Get time range (default last 24 hours)
+        hours = int(request.args.get('hours', 24))
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        # Server performance metrics
+        performance_data = db.session.query(
+            ServerMetrics.timestamp,
+            db.func.avg(ServerMetrics.cpu_usage).label('cpu_avg'),
+            db.func.avg(ServerMetrics.memory_percentage).label('memory_avg'),
+            db.func.avg(ServerMetrics.player_count).label('players_avg')
+        ).filter(ServerMetrics.timestamp >= since)\
+         .group_by(db.func.strftime('%Y-%m-%d %H', ServerMetrics.timestamp))\
+         .order_by(ServerMetrics.timestamp)\
+         .all()
+
+        # Player activity over time
+        player_activity = []
+        for row in performance_data:
+            player_activity.append({
+                'time': row.timestamp.strftime('%H:00'),
+                'cpu': round(row.cpu_avg or 0, 1),
+                'memory': round(row.memory_avg or 0, 1),
+                'players': int(row.players_avg or 0)
+            })
+
+        # Current server status
+        current_metrics = db.session.query(ServerMetrics)\
+            .filter(ServerMetrics.timestamp >= datetime.now(timezone.utc) - timedelta(minutes=5))\
+            .order_by(ServerMetrics.timestamp.desc())\
+            .first()
+
+        current_status = {
+            'cpu_usage': round(current_metrics.cpu_usage or 0, 1) if current_metrics else 0,
+            'memory_usage': round(current_metrics.memory_percentage or 0, 1) if current_metrics else 0,
+            'player_count': current_metrics.player_count or 0 if current_metrics else 0,
+            'active_servers': db.session.query(Server).count()
+        }
+
+        # Top maps by player count
+        top_maps = db.session.query(
+            ServerMetrics.map_name,
+            db.func.avg(ServerMetrics.player_count).label('avg_players')
+        ).filter(
+            ServerMetrics.timestamp >= since,
+            ServerMetrics.map_name.isnot(None)
+        ).group_by(ServerMetrics.map_name)\
+         .order_by(db.desc('avg_players'))\
+         .limit(10)\
+         .all()
+
+        map_data = [{'map': row.map_name, 'players': round(row.avg_players, 1)} for row in top_maps]
+
+        # Geographic distribution (mock data for now - would need IP geolocation)
+        geo_data = [
+            {'country': 'United States', 'players': 45},
+            {'country': 'Germany', 'players': 23},
+            {'country': 'United Kingdom', 'players': 18},
+            {'country': 'Canada', 'players': 12},
+            {'country': 'Australia', 'players': 8}
+        ]
+
+        # Player retention analysis (simplified - tracks unique players over time)
+        retention_data = []
+        for days_ago in range(7, 0, -1):
+            date_start = (datetime.now(timezone.utc) - timedelta(days=days_ago)).date()
+            date_end = (datetime.now(timezone.utc) - timedelta(days=days_ago-1)).date()
+            
+            players_day1 = db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))\
+                .filter(db.func.date(ServerMetrics.timestamp) == date_start)\
+                .scalar() or 0
+            
+            players_day2 = db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))\
+                .filter(db.func.date(ServerMetrics.timestamp) == date_end)\
+                .scalar() or 0
+            
+            retention_rate = (players_day2 / players_day1 * 100) if players_day1 > 0 else 0
+            retention_data.append({
+                'date': date_start.strftime('%m/%d'),
+                'retention': round(retention_rate, 1)
+            })
+
+        # Server uptime tracking
+        uptime_data = []
+        total_servers = db.session.query(Server).count()
+        for days_ago in range(7, 0, -1):
+            check_date = (datetime.now(timezone.utc) - timedelta(days=days_ago)).date()
+            online_servers = db.session.query(db.func.count(db.distinct(ServerMetrics.server_id)))\
+                .filter(db.func.date(ServerMetrics.timestamp) == check_date)\
+                .scalar() or 0
+            
+            uptime_percentage = (online_servers / total_servers * 100) if total_servers > 0 else 0
+            uptime_data.append({
+                'date': check_date.strftime('%m/%d'),
+                'uptime': round(uptime_percentage, 1)
+            })
+
+        return jsonify({
+            'performance': player_activity,
+            'current_status': current_status,
+            'top_maps': map_data,
+            'geographic': geo_data,
+            'retention': retention_data,
+            'uptime': uptime_data,
+            'time_range': f'Last {hours} hours'
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/analytics/export", methods=["GET"])
+def export_analytics_csv():
+    """Export analytics data as CSV."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        hours = int(request.args.get('hours', 24))
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        # Get performance data
+        performance_data = db.session.query(
+            ServerMetrics.timestamp,
+            db.func.avg(ServerMetrics.cpu_usage).label('cpu_avg'),
+            db.func.avg(ServerMetrics.memory_percentage).label('memory_avg'),
+            db.func.avg(ServerMetrics.player_count).label('players_avg')
+        ).filter(ServerMetrics.timestamp >= since)\
+         .group_by(db.func.strftime('%Y-%m-%d %H', ServerMetrics.timestamp))\
+         .order_by(ServerMetrics.timestamp)\
+         .all()
+
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Timestamp', 'CPU Usage (%)', 'Memory Usage (%)', 'Player Count'])
+
+        for row in performance_data:
+            writer.writerow([
+                row.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                round(row.cpu_avg or 0, 1),
+                round(row.memory_avg or 0, 1),
+                int(row.players_avg or 0)
+            ])
+
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=analytics_{hours}h.csv'}
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# REST API ENDPOINTS
+# ============================================================================
+
+@main_bp.route("/api/servers", methods=["GET"])
+def api_get_servers():
+    """Get list of servers accessible to the authenticated user."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Get servers user can access
+    servers = Server.query.filter(
+        (Server.owner_id == uid) | (Server.users.any(user_id=uid))
+    ).all()
+
+    server_data = []
+    for server in servers:
+        server_data.append({
+            'id': server.id,
+            'name': server.name,
+            'host': server.host,
+            'port': server.port,
+            'game_type': server.game_type,
+            'status': 'online' if server.is_online() else 'offline',
+            'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
+            'max_players': server.max_players or 32,
+            'map': server.current_map,
+            'created_at': server.created_at.isoformat() if server.created_at else None,
+            'updated_at': server.updated_at.isoformat() if server.updated_at else None
+        })
+
+    return jsonify({
+        'servers': server_data,
+        'total': len(server_data)
+    })
+
+
+@main_bp.route("/api/servers/<int:server_id>", methods=["GET"])
+def api_get_server(server_id):
+    """Get detailed information about a specific server."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    # Get recent metrics
+    recent_metrics = ServerMetrics.query.filter_by(server_id=server_id)\
+        .order_by(ServerMetrics.timestamp.desc())\
+        .limit(10)\
+        .all()
+
+    metrics_data = []
+    for metric in recent_metrics:
+        metrics_data.append({
+            'timestamp': metric.timestamp.isoformat(),
+            'cpu_usage': metric.cpu_usage,
+            'memory_percentage': metric.memory_percentage,
+            'player_count': metric.player_count,
+            'map_name': metric.map_name
+        })
+
+    server_data = {
+        'id': server.id,
+        'name': server.name,
+        'host': server.host,
+        'port': server.port,
+        'game_type': server.game_type,
+        'status': 'online' if server.is_online() else 'offline',
+        'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
+        'max_players': server.max_players or 32,
+        'map': server.current_map,
+        'config': json.loads(server.raw_config) if server.raw_config else {},
+        'recent_metrics': metrics_data,
+        'created_at': server.created_at.isoformat() if server.created_at else None,
+        'updated_at': server.updated_at.isoformat() if server.updated_at else None
+    }
+
+    return jsonify(server_data)
+
+
+@main_bp.route("/api/servers/<int:server_id>/status", methods=["GET"])
+def api_get_server_status(server_id):
+    """Get real-time status of a server."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    try:
+        # Get current status
+        is_online = server.is_online() if hasattr(server, 'is_online') else False
+        player_count = server.get_player_count() if hasattr(server, 'get_player_count') else 0
+
+        status_data = {
+            'server_id': server_id,
+            'online': is_online,
+            'player_count': player_count,
+            'max_players': server.max_players or 32,
+            'current_map': server.current_map,
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }
+
+        return jsonify(status_data)
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to get server status: {str(e)}"}), 500
+
+
+@main_bp.route("/api/servers/<int:server_id>/command", methods=["POST"])
+def api_send_command(server_id):
+    """Send RCON command to server."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    if not data or 'command' not in data:
+        return jsonify({"error": "Command is required"}), 400
+
+    command = data['command'].strip()
+    if not command:
+        return jsonify({"error": "Command cannot be empty"}), 400
+
+    try:
+        # Send RCON command
+        rcon = ETLegacyRcon.from_server(server)
+        response = rcon.send_command(command)
+
+        # Log the command
+        command_log = RconCommandHistory(
+            server_id=server_id,
+            user_id=uid,
+            command=command,
+            response=response,
+            timestamp=datetime.now(timezone.utc)
+        )
+        db.session.add(command_log)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'command': command,
+            'response': response,
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to send command: {str(e)}"}), 500
+
+
+@main_bp.route("/api/servers/<int:server_id>/players", methods=["GET"])
+def api_get_server_players(server_id):
+    """Get list of players on a server."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    try:
+        # Get player list (this would need to be implemented in the server model)
+        players = server.get_players() if hasattr(server, 'get_players') else []
+
+        player_data = []
+        for player in players:
+            player_data.append({
+                'name': player.get('name', 'Unknown'),
+                'score': player.get('score', 0),
+                'ping': player.get('ping', 0),
+                'team': player.get('team', 'spectator')
+            })
+
+        return jsonify({
+            'server_id': server_id,
+            'players': player_data,
+            'count': len(player_data),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to get player list: {str(e)}"}), 500
+
+
+@main_bp.route("/api/webhooks", methods=["POST"])
+def api_webhook():
+    """Handle incoming webhooks from external services."""
+    # Basic webhook endpoint - can be extended for specific integrations
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid webhook data"}), 400
+
+    # Log webhook for debugging
+    print(f"Webhook received: {data}")
+
+    # Process webhook based on type
+    webhook_type = data.get('type', 'unknown')
+
+    if webhook_type == 'server_status':
+        # Handle server status updates
+        server_id = data.get('server_id')
+        status = data.get('status')
+
+        if server_id and status:
+            # Update server status in database
+            server = db.session.get(Server, server_id)
+            if server:
+                # This could trigger notifications, etc.
+                print(f"Server {server_id} status update: {status}")
+
+    elif webhook_type == 'player_event':
+        # Handle player join/leave events
+        server_id = data.get('server_id')
+        player_name = data.get('player_name')
+        event_type = data.get('event')  # 'join' or 'leave'
+
+        if server_id and player_name and event_type:
+            print(f"Player {player_name} {event_type}ed server {server_id}")
+
+    return jsonify({"status": "received"}), 200
+
+
+# ============================================================================
+# API AUTHENTICATION
+# ============================================================================
+
+def authenticate_api_token():
+    """Authenticate user via API token."""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+
+    token = auth_header.replace('Bearer ', '')
+
+    # Find user with this token
+    user = User.query.filter_by(api_token=token).first()
+    if user and user.validate_api_token(token):
+        db.session.commit()  # Save last used time
+        return user
+
+    return None
+
+
+def require_api_auth(f):
+    """Decorator to require API authentication."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = authenticate_api_token()
+        if not user:
+            return jsonify({"error": "Invalid or missing API token"}), 401
+
+        # Add user to request context
+        request.api_user = user
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ============================================================================
+# API TOKEN MANAGEMENT ROUTES
+# ============================================================================
+
+@main_bp.route("/api/tokens", methods=["GET"])
+def api_get_tokens():
+    """Get user's API tokens."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    tokens = []
+    if user.api_token:
+        tokens.append({
+            'token': user.api_token[:20] + "...",  # Show only first 20 chars
+            'created_at': user.api_token_created.isoformat() if user.api_token_created else None,
+            'last_used': user.api_token_last_used.isoformat() if user.api_token_last_used else None
+        })
+
+    return render_template("api_tokens.html", user=user, tokens=tokens)
+
+
+@main_bp.route("/api/tokens/generate", methods=["POST"])
+def api_generate_token():
+    """Generate a new API token."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    # Revoke existing token
+    user.revoke_api_token()
+
+    # Generate new token
+    token = user.generate_api_token()
+    db.session.commit()
+
+    flash("New API token generated successfully", "success")
+    return redirect(url_for("api_get_tokens"))
+
+
+@main_bp.route("/api/tokens/revoke", methods=["POST"])
+def api_revoke_token():
+    """Revoke the current API token."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    user.revoke_api_token()
+    db.session.commit()
+
+    flash("API token revoked successfully", "success")
+    return redirect(url_for("api_get_tokens"))
+
+
+# ============================================================================
+# RATE LIMITING
+# ============================================================================
+
+from functools import wraps
+import time
+
+# Simple in-memory rate limiting (for production, use Redis)
+rate_limits = {}
+
+def rate_limit_decorator(max_calls=100, time_window=60):
+    """Rate limiting decorator."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Get client identifier (IP address for now)
+            client_ip = request.remote_addr
+            key = f"{client_ip}:{f.__name__}"
+
+            current_time = time.time()
+            if key not in rate_limits:
+                rate_limits[key] = []
+
+            # Clean old entries
+            rate_limits[key] = [t for t in rate_limits[key] if current_time - t < time_window]
+
+            # Check rate limit
+            if len(rate_limits[key]) >= max_calls:
+                return jsonify({"error": "Rate limit exceeded"}), 429
+
+            # Add current request
+            rate_limits[key].append(current_time)
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+# ============================================================================
+# REST API ENDPOINTS (Token Authenticated)
+# ============================================================================
+
+@main_bp.route("/api/v1/servers", methods=["GET"])
+@require_api_auth
+@rate_limit_decorator(max_calls=60, time_window=60)  # 60 requests per minute
+def api_v1_get_servers():
+    """Get list of servers accessible to the authenticated user (API version)."""
+    user = request.api_user
+
+    # Get servers user can access
+    servers = Server.query.filter(
+        (Server.owner_id == user.id) | (Server.users.any(user_id=user.id))
+    ).all()
+
+    server_data = []
+    for server in servers:
+        server_data.append({
+            'id': server.id,
+            'name': server.name,
+            'host': server.host,
+            'port': server.port,
+            'game_type': server.game_type,
+            'status': 'online' if server.is_online() else 'offline',
+            'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
+            'max_players': server.max_players or 32,
+            'map': server.current_map,
+            'created_at': server.created_at.isoformat() if server.created_at else None,
+            'updated_at': server.updated_at.isoformat() if server.updated_at else None
+        })
+
+    return jsonify({
+        'servers': server_data,
+        'total': len(server_data),
+        'api_version': 'v1'
+    })
+
+
+@main_bp.route("/api/v1/servers/<int:server_id>", methods=["GET"])
+@require_api_auth
+@rate_limit_decorator(max_calls=120, time_window=60)  # 120 requests per minute
+def api_v1_get_server(server_id):
+    """Get detailed information about a specific server (API version)."""
+    user = request.api_user
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != user.id and not server.users.filter_by(user_id=user.id).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    server_data = {
+        'id': server.id,
+        'name': server.name,
+        'host': server.host,
+        'port': server.port,
+        'game_type': server.game_type,
+        'status': 'online' if server.is_online() else 'offline',
+        'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
+        'max_players': server.max_players or 32,
+        'map': server.current_map,
+        'created_at': server.created_at.isoformat() if server.created_at else None,
+        'updated_at': server.updated_at.isoformat() if server.updated_at else None
+    }
+
+    return jsonify(server_data)
+
+
+@main_bp.route("/api/v1/servers/<int:server_id>/command", methods=["POST"])
+@require_api_auth
+@rate_limit_decorator(max_calls=30, time_window=60)  # 30 commands per minute
+def api_v1_send_command(server_id):
+    """Send RCON command to server (API version)."""
+    user = request.api_user
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != user.id and not server.users.filter_by(user_id=user.id).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    if not data or 'command' not in data:
+        return jsonify({"error": "Command is required"}), 400
+
+    command = data['command'].strip()
+    if not command:
+        return jsonify({"error": "Command cannot be empty"}), 400
+
+    try:
+        # Send RCON command
+        rcon = ETLegacyRcon.from_server(server)
+        response = rcon.send_command(command)
+
+        # Log the command
+        command_log = RconCommandHistory(
+            server_id=server_id,
+            user_id=user.id,
+            command=command,
+            response=response,
+            timestamp=datetime.now(timezone.utc)
+        )
+        db.session.add(command_log)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'command': command,
+            'response': response,
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to send command: {str(e)}"}), 500
+
+
+@main_bp.route("/api/v1/webhooks", methods=["POST"])
+@rate_limit_decorator(max_calls=1000, time_window=60)  # Higher limit for webhooks
+def api_v1_webhook():
+    """Handle incoming webhooks from external services (API version)."""
+    # For webhooks, we might want to use a different authentication method
+    # or allow anonymous webhooks with validation
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid webhook data"}), 400
+
+    # Log webhook for debugging
+    print(f"Webhook received: {data}")
+
+    # Process webhook based on type
+    webhook_type = data.get('type', 'unknown')
+
+    if webhook_type == 'server_status':
+        # Handle server status updates
+        server_id = data.get('server_id')
+        status = data.get('status')
+
+        if server_id and status:
+            # Update server status in database
+            server = db.session.get(Server, server_id)
+            if server:
+                # This could trigger notifications, etc.
+                print(f"Server {server_id} status update: {status}")
+
+    elif webhook_type == 'player_event':
+        # Handle player join/leave events
+        server_id = data.get('server_id')
+        player_name = data.get('player_name')
+        event_type = data.get('event')  # 'join' or 'leave'
+
+        if server_id and player_name and event_type:
+            print(f"Player {player_name} {event_type}ed server {server_id}")
+
+    return jsonify({"status": "received"}), 200
+
+
+@main_bp.route("/api/v1/health", methods=["GET"])
+@rate_limit_decorator(max_calls=1000, time_window=60)  # High limit for health checks
+def api_v1_health_check():
+    """API health check endpoint (API version)."""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0",
+        "api_version": "v1"
+    })
+
+
+@main_bp.route("/api/docs", methods=["GET"])
+def api_docs():
+    """API documentation page."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    return render_template("api_docs.html", user=user)
+
+
+@main_bp.route("/admin/rbac/init", methods=["POST"])
+def admin_rbac_init():
+    """Initialize the RBAC system with default permissions and roles."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        flash("RBAC initialization requires admin privileges", "error")
+        return redirect(url_for("dashboard"))
+
+    try:
+        from rbac import initialize_rbac_system
+        initialize_rbac_system()
+        flash("RBAC system initialized successfully", "success")
+    except Exception as e:
+        flash(f"Failed to initialize RBAC system: {str(e)}", "error")
+
+    return redirect(url_for("admin_rbac_roles"))
+
+
+from backup_manager import BackupManager
+
+# Initialize backup manager
+backup_manager = BackupManager(backup_dir="backups")
+
+# ============================================================================
+# BACKUP MANAGEMENT ROUTES
+# ============================================================================
+
+@main_bp.route("/backups", methods=["GET"])
+def backup_dashboard():
+    """Backup management dashboard."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, uid)
+    if not user:
+        return redirect(url_for("login"))
+
+    # Check RBAC permission for backup access
+    from rbac import has_permission
+    if not has_permission(user, "admin.backup_restore"):
+        flash("Backup access requires appropriate permissions", "error")
+        return redirect(url_for("dashboard"))
+
+    # Get backup statistics
+    stats = backup_manager.get_backup_stats()
+
+    # Get recent backups
+    recent_backups = backup_manager.list_backups()
+
+    return render_template("backups.html", user=user, stats=stats, recent_backups=recent_backups)
+
+
+@main_bp.route("/api/backups/create/database", methods=["POST"])
+def api_create_database_backup():
+    """Create a database backup."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        name = request.form.get('name') or f"manual_db_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        backup_file = backup_manager.create_database_backup(name)
+
+        if backup_file:
+            return jsonify({
+                "success": True,
+                "message": "Database backup created successfully",
+                "backup_file": backup_file,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to create database backup"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/create/config", methods=["POST"])
+def api_create_config_backup():
+    """Create a configuration backup."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        name = request.form.get('name') or f"manual_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        config_files = request.form.get('files')
+        if config_files:
+            config_files = json.loads(config_files)
+        else:
+            config_files = None
+
+        backup_file = backup_manager.create_config_backup(config_files, name)
+
+        if backup_file:
+            return jsonify({
+                "success": True,
+                "message": "Configuration backup created successfully",
+                "backup_file": backup_file,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to create configuration backup"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/create/server/<int:server_id>", methods=["POST"])
+def api_create_server_backup(server_id):
+    """Create a server configuration backup."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        return jsonify({"error": "Server not found"}), 404
+
+    # Check if user has access to this server
+    if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
+        return jsonify({"error": "Access denied"}), 403
+
+    try:
+        name = request.form.get('name') or f"server_{server_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Get server data for backup
+        server_data = {
+            'id': server.id,
+            'name': server.name,
+            'host': server.host,
+            'port': server.port,
+            'rcon_password': server.rcon_password,
+            'variables_json': server.variables_json,
+            'raw_config': server.raw_config,
+            'game_type': server.game_type,
+            'max_players': server.max_players
+        }
+
+        backup_file = backup_manager.create_server_backup(server_id, server_data, name)
+
+        if backup_file:
+            return jsonify({
+                "success": True,
+                "message": "Server backup created successfully",
+                "backup_file": backup_file,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to create server backup"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/list", methods=["GET"])
+def api_list_backups():
+    """List available backups."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        backup_type = request.args.get('type')
+        backups = backup_manager.list_backups(backup_type)
+        return jsonify(backups)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/restore/database", methods=["POST"])
+def api_restore_database():
+    """Restore database from backup."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        backup_file = request.form.get('backup_file')
+        if not backup_file:
+            return jsonify({"error": "Backup file is required"}), 400
+
+        success = backup_manager.restore_database(backup_file)
+
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Database restored successfully",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to restore database"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/restore/config", methods=["POST"])
+def api_restore_config():
+    """Restore configuration from backup."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        backup_file = request.form.get('backup_file')
+        if not backup_file:
+            return jsonify({"error": "Backup file is required"}), 400
+
+        restored_files = backup_manager.restore_config(backup_file)
+
+        if restored_files:
+            return jsonify({
+                "success": True,
+                "message": f"Configuration restored successfully. Files: {', '.join(restored_files)}",
+                "restored_files": restored_files,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"error": "Failed to restore configuration"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/cleanup", methods=["POST"])
+def api_cleanup_backups():
+    """Clean up old backups."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        days_to_keep = int(request.form.get('days', 30))
+        deleted_files = backup_manager.cleanup_old_backups(days_to_keep)
+
+        return jsonify({
+            "success": True,
+            "message": f"Cleaned up {len(deleted_files)} old backup files",
+            "deleted_files": deleted_files,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.route("/api/backups/download/<path:filename>", methods=["GET"])
+def api_download_backup(filename):
+    """Download a backup file."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        # Security check - ensure file is within backups directory
+        backup_path = Path("backups") / filename
+        if not backup_path.exists() or not backup_path.is_file():
+            return jsonify({"error": "Backup file not found"}), 404
+
+        # Ensure path is within backups directory
+        if not str(backup_path.resolve()).startswith(str(Path("backups").resolve())):
+            return jsonify({"error": "Access denied"}), 403
+
+        return send_file(str(backup_path), as_attachment=True)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @main_bp.route("/rcon", methods=["GET", "POST"])
@@ -1740,7 +3370,7 @@ def admin_set_role():
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
-    if not is_system_admin_user(actor):
+    if not has_permission(actor, "admin.user_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     try:
@@ -1770,7 +3400,7 @@ def admin_servers():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
-    if not is_system_admin_user(user):
+    if not has_permission(user, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     servers = Server.query.order_by(Server.name).all()
@@ -1783,7 +3413,7 @@ def admin_create_server():
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
-    if not is_system_admin_user(actor):
+    if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     if request.method == "POST":
@@ -1871,7 +3501,7 @@ def admin_delete_server(server_id):
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
-    if not is_system_admin_user(actor):
+    if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     try:
@@ -1897,7 +3527,7 @@ def admin_audit():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
-    if not is_system_admin_user(user):
+    if not has_permission(user, "admin.audit_view"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     # pagination & filtering
@@ -2009,7 +3639,7 @@ def admin_users():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
-    if not is_system_admin_user(user):
+    if not has_permission(user, "admin.user_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     users = User.query.order_by(User.email).all()
@@ -2084,7 +3714,7 @@ def admin_server_manage_users(server_id):
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
-    if not is_system_admin_user(actor):
+    if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     server = db.session.get(Server, server_id)
@@ -2130,7 +3760,7 @@ def admin_jobs():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
-    if not is_admin_user(user):
+    if not has_permission(user, "admin.job_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
 
@@ -2316,10 +3946,10 @@ if __name__ == "__main__":
     # Import extended routes
     # Temporarily commented out to avoid circular imports during monitoring system integration
     # import routes_extended
-    # import routes_rbac
+    import routes_rbac
     # Enterprise systems temporarily disabled to avoid SQLAlchemy context issues
     from routes_config import config_bp
-    # from monitoring_system import monitoring_bp, start_monitoring
+    from monitoring_system import monitoring_bp, start_monitoring
     # from api_monitoring import api_bp
     # from log_analytics import log_analytics_bp, start_log_analytics
     # from multi_server_management import multi_server_bp, start_multi_server_system
@@ -2327,7 +3957,7 @@ if __name__ == "__main__":
     # Register config blueprint for Ptero-Eggs management
     app.register_blueprint(config_bp)
     # Register other blueprints - Temporarily disabled
-    # app.register_blueprint(monitoring_bp)
+    app.register_blueprint(monitoring_bp)
     # app.register_blueprint(api_bp)
     # app.register_blueprint(log_analytics_bp)
     # app.register_blueprint(multi_server_bp)
@@ -2729,6 +4359,62 @@ def handle_rcon_command(data):
         emit('rcon_error', {'message': f'Command failed: {str(e)}'})
 
 
+# Register blueprints after all routes are defined
+try:
+    app.register_blueprint(main_bp)
+except (AssertionError, ValueError):
+    # already registered
+    pass
+
+# Register optional feature blueprints (import here to avoid circular imports)
+try:
+    from routes_config import config_bp
+    try:
+        app.register_blueprint(config_bp)
+    except (AssertionError, ValueError):
+        pass
+except Exception:
+    pass
+
+try:
+    import cms as _cms
+    if hasattr(_cms, "cms_bp"):
+        try:
+            app.register_blueprint(_cms.cms_bp)
+        except (AssertionError, ValueError):
+            pass
+except Exception:
+    pass
+
+try:
+    import forum as _forum
+    if hasattr(_forum, "forum_bp"):
+        try:
+            app.register_blueprint(_forum.forum_bp)
+        except (AssertionError, ValueError):
+            pass
+except Exception:
+    pass
+
+try:
+    from monitoring_system import monitoring_bp
+    try:
+        app.register_blueprint(monitoring_bp)
+    except (AssertionError, ValueError):
+        pass
+except Exception:
+    pass
+
+try:
+    from routes_rbac import rbac_bp
+    try:
+        app.register_blueprint(rbac_bp)
+    except (AssertionError, ValueError):
+        pass
+except Exception:
+    pass
+
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection."""
@@ -2742,5 +4428,8 @@ def handle_disconnect():
 
 
 if __name__ == "__main__":
+    # Start monitoring system
+    start_monitoring(app)
+    
     # Run with SocketIO for real-time features
-    socketio.run(app, host='0.0.0.0', port=8080, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8080, debug=False)

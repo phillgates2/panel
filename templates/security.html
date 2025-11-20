@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>🔒 Security Management</h1>
+            <p class="text-secondary">Manage IP access controls and monitor security events</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>IP Whitelist</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_to_whitelist') }}" class="mb-3">
+                        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}"/>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" name="ip_address" placeholder="IP Address" required>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" name="description" placeholder="Description">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-success btn-sm">Add</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    {% if whitelist %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Description</th>
+                                        <th>Added</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in whitelist %}
+                                    <tr>
+                                        <td><code>{{ entry.ip_address }}</code></td>
+                                        <td>{{ entry.description or 'No description' }}</td>
+                                        <td>{{ entry.created_at.strftime('%Y-%m-%d') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No IP addresses whitelisted.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>IP Blacklist</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_to_blacklist') }}" class="mb-3">
+                        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}"/>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" name="ip_address" placeholder="IP Address" required>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" class="form-control" name="reason" placeholder="Reason">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-danger btn-sm">Block</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    {% if blacklist %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Reason</th>
+                                        <th>Blocked</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in blacklist %}
+                                    <tr>
+                                        <td><code>{{ entry.ip_address }}</code></td>
+                                        <td>{{ entry.reason or 'No reason' }}</td>
+                                        <td>{{ entry.created_at.strftime('%Y-%m-%d') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No IP addresses blacklisted.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Security Events</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_events %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Event</th>
+                                        <th>IP Address</th>
+                                        <th>Severity</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in recent_events %}
+                                    <tr>
+                                        <td>{{ event.created_at.strftime('%m-%d %H:%M') }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ event.event_type.replace('_', ' ').title() }}</span>
+                                        </td>
+                                        <td><code>{{ event.ip_address or 'N/A' }}</code></td>
+                                        <td>
+                                            <span class="badge bg-{{ 'warning' if event.severity == 'warning' else 'danger' if event.severity == 'critical' else 'info' }}">
+                                                {{ event.severity.title() }}
+                                            </span>
+                                        </td>
+                                        <td>{{ event.description or 'No description' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No security events recorded.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+code {
+    background: var(--code-bg);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875em;
+}
+
+.table td {
+    font-size: 0.875em;
+}
+</style>
+{% endblock %}

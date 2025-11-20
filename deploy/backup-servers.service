@@ -1,0 +1,20 @@
+[Unit]
+Description=Panel Server Backup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=panel
+WorkingDirectory=/workspaces/panel
+ExecStart=/usr/bin/python3 -c "
+import sys
+sys.path.insert(0, '/workspaces/panel')
+from tasks import run_scheduled_server_backups
+result = run_scheduled_server_backups()
+print('Server backup result:', result)
+"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

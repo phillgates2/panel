@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>📊 Analytics Dashboard</h1>
+            <p class="text-secondary">Real-time server performance and player insights</p>
+        </div>
+        <div class="header-actions">
+            <select id="timeRange" class="form-select" style="width: auto;">
+                <option value="1">Last Hour</option>
+                <option value="6">Last 6 Hours</option>
+                <option value="24" selected>Last 24 Hours</option>
+                <option value="72">Last 3 Days</option>
+                <option value="168">Last Week</option>
+            </select>
+            <button id="refreshBtn" class="btn btn-primary">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button id="exportBtn" class="btn btn-secondary">
+                <i class="fas fa-download"></i> Export CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Current Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-value" id="activeServers">0</div>
+                    <div class="stat-label">Active Servers</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-value" id="currentPlayers">0</div>
+                    <div class="stat-label">Current Players</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="stat-value" id="avgCpu">0%</div>
+                    <div class="stat-label">Avg CPU Usage</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-memory"></i>
+                    </div>
+                    <div class="stat-value" id="avgMemory">0%</div>
+                    <div class="stat-label">Avg Memory Usage</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line"></i> Performance Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-map"></i> Popular Maps</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mapsChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Geographic Distribution & Player Activity -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-globe"></i> Geographic Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="geographicChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock"></i> Peak Hours Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="peakHoursChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Retention & Server Uptime -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-users"></i> Player Retention (7 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="retentionChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-server"></i> Server Uptime (7 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="uptimeChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Metrics Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-table"></i> Detailed Server Metrics</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="metricsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>CPU Usage</th>
+                            <th>Memory Usage</th>
+                            <th>Player Count</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metricsTableBody">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let performanceChart, mapsChart, geographicChart, peakHoursChart, retentionChart, uptimeChart;
+let currentTimeRange = 24;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadAnalyticsData();
+
+    // Time range selector
+    document.getElementById('timeRange').addEventListener('change', function(e) {
+        currentTimeRange = parseInt(e.target.value);
+        loadAnalyticsData();
+    });
+
+    // Refresh button
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadAnalyticsData();
+    });
+
+    // Export button
+    document.getElementById('exportBtn').addEventListener('click', function() {
+        window.open(`/api/analytics/export?hours=${currentTimeRange}`, '_blank');
+    });
+
+    // Auto-refresh every 5 minutes
+    setInterval(loadAnalyticsData, 300000);
+});
+
+function initializeCharts() {
+    // Performance Trends Chart
+    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+    performanceChart = new Chart(perfCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'CPU Usage (%)',
+                data: [],
+                borderColor: '#ff6b6b',
+                backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Memory Usage (%)',
+                data: [],
+                borderColor: '#4ecdc4',
+                backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Player Count',
+                data: [],
+                borderColor: '#45b7d1',
+                backgroundColor: 'rgba(69, 183, 209, 0.1)',
+                tension: 0.4,
+                yAxisID: 'players'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                players: {
+                    position: 'right',
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+
+    // Maps Chart
+    const mapsCtx = document.getElementById('mapsChart').getContext('2d');
+    mapsChart = new Chart(mapsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b',
+                    '#eb4d4b', '#6c5ce7', '#a29bfe', '#fd79a8', '#e17055'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Geographic Chart
+    const geoCtx = document.getElementById('geographicChart').getContext('2d');
+    geographicChart = new Chart(geoCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Players',
+                data: [],
+                backgroundColor: '#74b9ff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Peak Hours Chart
+    const peakCtx = document.getElementById('peakHoursChart').getContext('2d');
+    peakHoursChart = new Chart(peakCtx, {
+        type: 'radar',
+        data: {
+            labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+            datasets: [{
+                label: 'Average Players',
+                data: [12, 8, 25, 45, 38, 52],
+                borderColor: '#00b894',
+                backgroundColor: 'rgba(0, 184, 148, 0.2)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Retention Chart
+    const retentionCtx = document.getElementById('retentionChart').getContext('2d');
+    retentionChart = new Chart(retentionCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Retention Rate (%)',
+                data: [],
+                borderColor: '#6c5ce7',
+                backgroundColor: 'rgba(108, 92, 231, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // Uptime Chart
+    const uptimeCtx = document.getElementById('uptimeChart').getContext('2d');
+    uptimeChart = new Chart(uptimeCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Uptime (%)',
+                data: [],
+                backgroundColor: '#00b894',
+                borderColor: '#00b894',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+async function loadAnalyticsData() {
+    try {
+        const response = await fetch(`/api/analytics/metrics?hours=${currentTimeRange}`);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('Analytics error:', data.error);
+            return;
+        }
+
+        updateCurrentStatus(data.current_status);
+        updatePerformanceChart(data.performance);
+        updateMapsChart(data.top_maps);
+        updateGeographicChart(data.geographic);
+        updateRetentionChart(data.retention);
+        updateUptimeChart(data.uptime);
+        updateMetricsTable(data.performance);
+
+    } catch (error) {
+        console.error('Failed to load analytics data:', error);
+    }
+}
+
+function updateCurrentStatus(status) {
+    document.getElementById('activeServers').textContent = status.active_servers;
+    document.getElementById('currentPlayers').textContent = status.player_count;
+    document.getElementById('avgCpu').textContent = `${status.cpu_usage}%`;
+    document.getElementById('avgMemory').textContent = `${status.memory_usage}%`;
+}
+
+function updatePerformanceChart(performanceData) {
+    const labels = performanceData.map(d => d.time);
+    const cpuData = performanceData.map(d => d.cpu);
+    const memoryData = performanceData.map(d => d.memory);
+    const playerData = performanceData.map(d => d.players);
+
+    performanceChart.data.labels = labels;
+    performanceChart.data.datasets[0].data = cpuData;
+    performanceChart.data.datasets[1].data = memoryData;
+    performanceChart.data.datasets[2].data = playerData;
+    performanceChart.update();
+}
+
+function updateMapsChart(mapsData) {
+    const labels = mapsData.map(d => d.map);
+    const data = mapsData.map(d => d.players);
+
+    mapsChart.data.labels = labels;
+    mapsChart.data.datasets[0].data = data;
+    mapsChart.update();
+}
+
+function updateGeographicChart(geoData) {
+    const labels = geoData.map(d => d.country);
+    const data = geoData.map(d => d.players);
+
+    geographicChart.data.labels = labels;
+    geographicChart.data.datasets[0].data = data;
+    geographicChart.update();
+}
+
+function updateMetricsTable(performanceData) {
+    const tbody = document.getElementById('metricsTableBody');
+    tbody.innerHTML = '';
+
+    performanceData.slice(-20).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.time}</td>
+            <td>${row.cpu}%</td>
+            <td>${row.memory}%</td>
+            <td>${row.players}</td>
+            <td><span class="badge bg-success">Online</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateRetentionChart(retentionData) {
+    retentionChart.data.labels = retentionData.map(d => d.date);
+    retentionChart.data.datasets[0].data = retentionData.map(d => d.retention);
+    retentionChart.update();
+}
+
+function updateUptimeChart(uptimeData) {
+    uptimeChart.data.labels = uptimeData.map(d => d.date);
+    uptimeChart.data.datasets[0].data = uptimeData.map(d => d.uptime);
+    uptimeChart.update();
+}
+</script>
+
+<style>
+.stat-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    border-radius: 10px 10px 0 0 !important;
+}
+
+#refreshBtn {
+    animation: none;
+}
+
+#refreshBtn.refreshing {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}

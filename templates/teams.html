@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-page">
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>👥 Team Management</h1>
+            <p class="text-secondary">Manage teams and user access permissions</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Teams</h5>
+                </div>
+                <div class="card-body">
+                    {% if teams %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Team Name</th>
+                                        <th>Description</th>
+                                        <th>Members</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for team_data in teams %}
+                                    <tr>
+                                        <td>{{ team_data.team.name }}</td>
+                                        <td>{{ team_data.team.description or 'No description' }}</td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ team_data.member_count }}</span>
+                                            {% if team_data.members %}
+                                                <small class="text-muted">
+                                                    {{ team_data.members[:3]|join(', ') }}
+                                                    {% if team_data.members|length > 3 %}...{% endif %}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" data-team-id="{{ team_data.team.id }}" data-team-name="{{ team_data.team.name }}" onclick="showAddMemberModal(this)">
+                                                Add Member
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No teams created yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Create New Team</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_team') }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}"/>
+                        <div class="mb-3">
+                            <label for="team_name" class="form-label">Team Name</label>
+                            <input type="text" class="form-control" id="team_name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="team_description" class="form-label">Description</label>
+                            <textarea class="form-control" id="team_description" name="description" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Team</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Team Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-primary">{{ teams|length }}</h3>
+                            <small class="text-muted">Total Teams</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success">{{ teams|sum(attribute='member_count') }}</h3>
+                            <small class="text-muted">Total Members</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Member Modal -->
+<div class="modal fade" id="addMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Member to <span id="modalTeamName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addMemberForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}"/>
+                    <div class="mb-3">
+                        <label for="member_email" class="form-label">User Email</label>
+                        <input type="email" class="form-control" id="member_email" name="email" required>
+                        <div class="form-text">Enter the email address of the user to add</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAddMemberModal(button) {
+    const teamId = button.getAttribute('data-team-id');
+    const teamName = button.getAttribute('data-team-name');
+    
+    document.getElementById('modalTeamName').textContent = teamName;
+    document.getElementById('addMemberForm').action = `/admin/teams/${teamId}/add_member`;
+    new bootstrap.Modal(document.getElementById('addMemberModal')).show();
+}
+</script>
+
+<style>
+.table th {
+    border-top: none;
+    font-weight: 600;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

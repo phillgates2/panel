@@ -12,6 +12,8 @@
     <title>Panel</title>
     <!-- Browser Detection - Must run before page render -->
     <script src="{{ url_for('static', filename='js/browser-detect.js') }}"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
       (function() {
         try {
@@ -39,6 +41,7 @@
     {% endif %}
   </head>
   <body class="fade-in">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
       <div class="container">
         <nav>
@@ -56,6 +59,17 @@
               <a href="/register" class="{{ 'active' if request.endpoint == 'register' }}">📝 Register</a>
             {% else %}
               <a href="/dashboard" class="{{ 'active' if request.endpoint == 'dashboard' }}">📊 Dashboard</a>
+              <a href="/profile" class="{{ 'active' if request.endpoint == 'profile' }}">👤 Profile</a>
+              <a href="/api/docs" class="{{ 'active' if request.endpoint == 'api_docs' }}">📚 API Docs</a>
+              <a href="/api/tokens" class="{{ 'active' if request.endpoint == 'api_get_tokens' }}">🔑 API Tokens</a>
+              {% if user.is_system_admin() %}
+                <a href="/analytics" class="{{ 'active' if request.endpoint == 'analytics_dashboard' }}">📈 Analytics</a>
+                <a href="/admin/monitoring/dashboard" class="{{ 'active' if request.endpoint and 'monitoring' in request.endpoint }}">📊 Monitoring</a>
+                <a href="/admin/teams" class="{{ 'active' if request.endpoint == 'teams_dashboard' }}">👥 Teams</a>
+                <a href="/admin/security" class="{{ 'active' if request.endpoint == 'security_dashboard' }}">🔒 Security</a>
+                <a href="/backups" class="{{ 'active' if request.endpoint == 'backup_dashboard' }}">💾 Backups</a>
+                <a href="/admin/rbac/roles" class="{{ 'active' if 'rbac' in request.endpoint }}">👥 RBAC</a>
+              {% endif %}
               <a href="/logout">🚪 Logout</a>
             {% endif %}
             {% if theme_toggle_enabled %}
@@ -93,7 +107,9 @@
           {% endif %}
         {% endwith %}
         
-        {% block content %}{% endblock %}
+        <main id="main-content">
+            {% block content %}{% endblock %}
+        </main>
       </div>
     </main>
 
@@ -225,3 +241,4 @@
     </script>
   </body>
   </html>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

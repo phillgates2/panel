@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="backups-page">
+    <div class="page-header">
+        <div class="welcome-section">
+            <h1>💾 Backup Management</h1>
+            <p class="text-secondary">Automated backup system for database, configuration, and server data</p>
+        </div>
+    </div>
+
+    <!-- Backup Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.by_type.database.count }}</div>
+                    <div class="stat-label">Database Backups</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.by_type.config.count }}</div>
+                    <div class="stat-label">Config Backups</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.by_type.server.count }}</div>
+                    <div class="stat-label">Server Backups</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <div class="stat-icon">
+                        <i class="fas fa-hdd"></i>
+                    </div>
+                    <div class="stat-value">{{ "%.1f"|format(stats.total_size / 1024 / 1024) }} MB</div>
+                    <div class="stat-label">Total Size</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Backups -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-database"></i> Database Backup</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Create a backup of the panel database containing all users, servers, and settings.
+                    </p>
+                    <form id="dbBackupForm">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="name" placeholder="Backup name (optional)">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-download"></i> Create Database Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cogs"></i> Configuration Backup</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Backup configuration files, environment variables, and panel settings.
+                    </p>
+                    <form id="configBackupForm">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="name" placeholder="Backup name (optional)">
+                        </div>
+                        <div class="mb-3">
+                            <textarea class="form-control" name="files" rows="3"
+                                      placeholder="Config files (one per line, optional)"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-file-archive"></i> Create Config Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-server"></i> Server Backup</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Backup individual server configurations and settings.
+                    </p>
+                    <form id="serverBackupForm">
+                        <div class="mb-3">
+                            <select class="form-select" name="server_id" required>
+                                <option value="">Select Server</option>
+                                {% for server in recent_backups.get('servers', []) %}
+                                <option value="{{ server.id }}">{{ server.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="name" placeholder="Backup name (optional)">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save"></i> Create Server Backup
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Backups -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fas fa-history"></i> Recent Backups</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Database Backups -->
+                <div class="col-md-4">
+                    <h6>Database Backups</h6>
+                    <div class="backup-list">
+                        {% for backup in recent_backups.database[:5] %}
+                        <div class="backup-item d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <small class="text-muted">{{ backup.name }}</small><br>
+                                <small class="text-secondary">{{ backup.modified[:19] }}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        onclick="downloadBackup('database/{{ backup.name }}')">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        onclick="restoreBackup('database', '{{ backup.path }}')">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if not recent_backups.database %}
+                        <p class="text-muted small">No database backups found</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Config Backups -->
+                <div class="col-md-4">
+                    <h6>Configuration Backups</h6>
+                    <div class="backup-list">
+                        {% for backup in recent_backups.config[:5] %}
+                        <div class="backup-item d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <small class="text-muted">{{ backup.name }}</small><br>
+                                <small class="text-secondary">{{ backup.modified[:19] }}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        onclick="downloadBackup('config/{{ backup.name }}')">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        onclick="restoreBackup('config', '{{ backup.path }}')">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if not recent_backups.config %}
+                        <p class="text-muted small">No configuration backups found</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Server Backups -->
+                <div class="col-md-4">
+                    <h6>Server Backups</h6>
+                    <div class="backup-list">
+                        {% for backup in recent_backups.server[:5] %}
+                        <div class="backup-item d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <small class="text-muted">{{ backup.name }}</small><br>
+                                <small class="text-secondary">{{ backup.modified[:19] }}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        onclick="downloadBackup('servers/{{ backup.name }}')">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if not recent_backups.server %}
+                        <p class="text-muted small">No server backups found</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Actions -->
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5><i class="fas fa-wrench"></i> Maintenance</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Cleanup Old Backups</h6>
+                    <p class="text-muted small mb-3">
+                        Remove backups older than specified days to save disk space.
+                    </p>
+                    <form id="cleanupForm" class="d-flex gap-2">
+                        <input type="number" class="form-control" name="days" value="30" min="1" style="width: auto;">
+                        <span class="align-self-center">days</span>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-trash"></i> Cleanup
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <h6>Backup Statistics</h6>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="h5 mb-0">{{ stats.file_count }}</div>
+                            <small class="text-muted">Total Files</small>
+                        </div>
+                        <div class="col-6">
+                            {% if stats.oldest_backup %}
+                            <div class="small mb-0">{{ stats.oldest_backup.strftime('%Y-%m-%d') }}</div>
+                            <small class="text-muted">Oldest Backup</small>
+                            {% else %}
+                            <div class="small mb-0">-</div>
+                            <small class="text-muted">No Backups</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Database backup form
+    document.getElementById('dbBackupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        createBackup('database', new FormData(this));
+    });
+
+    // Config backup form
+    document.getElementById('configBackupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        createBackup('config', new FormData(this));
+    });
+
+    // Server backup form
+    document.getElementById('serverBackupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const serverId = formData.get('server_id');
+        createServerBackup(serverId, formData);
+    });
+
+    // Cleanup form
+    document.getElementById('cleanupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        cleanupBackups(new FormData(this));
+    });
+});
+
+async function createBackup(type, formData) {
+    try {
+        const response = await fetch(`/api/backups/create/${type}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('success', result.message);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('error', result.error || 'Backup creation failed');
+        }
+    } catch (error) {
+        showAlert('error', 'Network error occurred');
+    }
+}
+
+async function createServerBackup(serverId, formData) {
+    try {
+        const response = await fetch(`/api/backups/create/server/${serverId}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('success', result.message);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('error', result.error || 'Server backup creation failed');
+        }
+    } catch (error) {
+        showAlert('error', 'Network error occurred');
+    }
+}
+
+async function restoreBackup(type, backupPath) {
+    if (!confirm(`Are you sure you want to restore this ${type} backup? This may overwrite existing data.`)) {
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('backup_file', backupPath);
+
+        const response = await fetch(`/api/backups/restore/${type}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('success', result.message);
+        } else {
+            showAlert('error', result.error || 'Restore failed');
+        }
+    } catch (error) {
+        showAlert('error', 'Network error occurred');
+    }
+}
+
+async function cleanupBackups(formData) {
+    if (!confirm('Are you sure you want to delete old backups? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/backups/cleanup', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('success', result.message);
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('error', result.error || 'Cleanup failed');
+        }
+    } catch (error) {
+        showAlert('error', 'Network error occurred');
+    }
+}
+
+function downloadBackup(filename) {
+    window.open(`/api/backups/download/${filename}`, '_blank');
+}
+
+function showAlert(type, message) {
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+
+<style>
+.backups-page {
+    padding: 20px 0;
+}
+
+.stat-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.backup-item {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+}
+
+.backup-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.form-control, .form-select {
+    border-radius: 6px;
+}
+
+.btn {
+    border-radius: 6px;
+}
+</style>
+{% endblock %}

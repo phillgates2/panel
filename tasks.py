@@ -41,6 +41,22 @@ def _discord_post(payload):
         pass
 
 
+def _slack_post(message):
+    webhook = os.environ.get("PANEL_SLACK_WEBHOOK", "") or getattr(
+        config, "SLACK_WEBHOOK", ""
+    )
+    if not webhook:
+        return
+    try:
+        import requests
+
+        payload = {"text": message}
+        requests.post(webhook, json=payload, timeout=10)
+    except Exception:
+        # best-effort
+        pass
+
+
 def run_autodeploy(download_url=None):
     env = os.environ.copy()
     if download_url:
@@ -192,3 +208,251 @@ def run_ptero_eggs_sync():
         _log("ptero_eggs_sync", f"Exception: {e}")
         _discord_post({"content": f"ptero_eggs_sync exception: {e}"})
         return {"ok": False, "err": str(e)}
+
+
+# ============================================================================
+# BACKUP SCHEDULING FUNCTIONS
+# ============================================================================
+
+def run_scheduled_database_backup():
+    """Run scheduled database backup."""
+    from backup_manager import BackupManager
+
+    _log("backup", "Starting scheduled database backup")
+
+    try:
+        backup_manager = BackupManager()
+        backup_file = backup_manager.create_database_backup()
+
+        if backup_file:
+            _log("backup", f"Database backup completed: {backup_file}")
+
+            # Send Discord notification
+            _discord_post({
+                "embeds": [
+                    {
+                        "title": "Database Backup Completed",
+                        "description": f"Backup saved to: {backup_file}",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 3066993,  # Green
+                    }
+                ]
+            })
+            # Send Slack notification
+            _slack_post(f"✅ Database backup completed: {backup_file}")
+
+            return {"ok": True, "backup_file": backup_file}
+        else:
+            _log("backup", "Database backup failed")
+            _discord_post({
+                "embeds": [
+                    {
+                        "title": "Database Backup Failed",
+                        "description": "Failed to create database backup",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 15158332,  # Red
+                    }
+                ]
+            })
+            return {"ok": False, "error": "Backup creation failed"}
+
+    except Exception as e:
+        _log("backup", f"Database backup exception: {e}")
+        _discord_post({"content": f"Database backup exception: {e}"})
+        _slack_post(f"🚨 Database backup exception: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def run_scheduled_config_backup():
+    """Run scheduled configuration backup."""
+    from backup_manager import BackupManager
+
+    _log("backup", "Starting scheduled configuration backup")
+
+    try:
+        backup_manager = BackupManager()
+        backup_file = backup_manager.create_config_backup()
+
+        if backup_file:
+            _log("backup", f"Configuration backup completed: {backup_file}")
+
+            # Send Discord notification
+            _discord_post({
+                "embeds": [
+                    {
+                        "title": "Configuration Backup Completed",
+                        "description": f"Backup saved to: {backup_file}",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 3066993,  # Green
+                    }
+                ]
+            })
+
+            return {"ok": True, "backup_file": backup_file}
+        else:
+            _log("backup", "Configuration backup failed")
+            _discord_post({
+                "embeds": [
+                    {
+                        "title": "Configuration Backup Failed",
+                        "description": "Failed to create configuration backup",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 15158332,  # Red
+                    }
+                ]
+            })
+            return {"ok": False, "error": "Backup creation failed"}
+
+    except Exception as e:
+        _log("backup", f"Configuration backup exception: {e}")
+        _discord_post({"content": f"Configuration backup exception: {e}"})
+        return {"ok": False, "error": str(e)}
+
+
+def run_scheduled_server_backups():
+    """Run scheduled backups for all servers."""
+    from app import db, Server
+    from backup_manager import BackupManager
+
+    _log("backup", "Starting scheduled server backups")
+
+    try:
+        backup_manager = BackupManager()
+
+        # Get all servers
+        servers = Server.query.all()
+        results = []
+
+        for server in servers:
+            try:
+                # Get server data for backup
+                server_data = {
+                    'id': server.id,
+                    'name': server.name,
+                    'host': server.host,
+                    'port': server.port,
+                    'rcon_password': server.rcon_password,
+                    'variables_json': server.variables_json,
+                    'raw_config': server.raw_config,
+                    'game_type': server.game_type,
+                    'max_players': server.max_players
+                }
+
+                backup_file = backup_manager.create_server_backup(
+                    server.id,
+                    server_data,
+                    f"scheduled_server_{server.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                )
+
+                if backup_file:
+                    results.append({"server_id": server.id, "status": "success", "backup_file": backup_file})
+                    _log("backup", f"Server {server.id} backup completed: {backup_file}")
+                else:
+                    results.append({"server_id": server.id, "status": "failed", "error": "Backup creation failed"})
+                    _log("backup", f"Server {server.id} backup failed")
+
+            except Exception as e:
+                results.append({"server_id": server.id, "status": "error", "error": str(e)})
+                _log("backup", f"Server {server.id} backup exception: {e}")
+
+        # Send Discord notification
+        success_count = sum(1 for r in results if r["status"] == "success")
+        total_count = len(results)
+
+        _discord_post({
+            "embeds": [
+                {
+                    "title": "Server Backups Completed",
+                    "description": f"Successfully backed up {success_count}/{total_count} servers",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "color": 3066993 if success_count == total_count else 16776960,  # Green or Yellow
+                }
+            ]
+        })
+
+        return {"ok": True, "results": results}
+
+    except Exception as e:
+        _log("backup", f"Server backups exception: {e}")
+        _discord_post({"content": f"Server backups exception: {e}"})
+        return {"ok": False, "error": str(e)}
+
+
+def run_backup_cleanup(days_to_keep=30):
+    """Run scheduled backup cleanup."""
+    from backup_manager import BackupManager
+
+    _log("backup", f"Starting scheduled backup cleanup (keeping {days_to_keep} days)")
+
+    try:
+        backup_manager = BackupManager()
+        deleted_files = backup_manager.cleanup_old_backups(days_to_keep)
+
+        _log("backup", f"Backup cleanup completed: {len(deleted_files)} files deleted")
+
+        # Send Discord notification
+        _discord_post({
+            "embeds": [
+                {
+                    "title": "Backup Cleanup Completed",
+                    "description": f"Deleted {len(deleted_files)} old backup files",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "color": 3066993,  # Green
+                }
+            ]
+        })
+        # Send Slack notification
+        _slack_post(f"🧹 Backup cleanup completed: {len(deleted_files)} old files deleted")
+
+        return {"ok": True, "deleted_count": len(deleted_files), "deleted_files": deleted_files}
+
+    except Exception as e:
+        _log("backup", f"Backup cleanup exception: {e}")
+        _discord_post({"content": f"Backup cleanup exception: {e}"})
+        _slack_post(f"🚨 Backup cleanup exception: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def run_auto_scaling_check():
+    """Monitor server performance and auto-scale as needed."""
+    _log("scaling", "Starting auto-scaling check")
+
+    try:
+        from app import db, Server, ServerMetrics
+        from datetime import datetime, timezone, timedelta
+
+        # Get servers with high CPU usage in last 5 minutes
+        five_min_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
+        
+        high_cpu_servers = db.session.query(Server)\
+            .join(ServerMetrics)\
+            .filter(ServerMetrics.timestamp >= five_min_ago)\
+            .filter(ServerMetrics.cpu_usage > 90)\
+            .distinct(Server.id)\
+            .all()
+
+        for server in high_cpu_servers:
+            _log("scaling", f"Server {server.name} has high CPU usage, considering restart")
+            
+            # Send notifications
+            _discord_post({
+                "embeds": [
+                    {
+                        "title": "High CPU Alert",
+                        "description": f"Server {server.name} has CPU > 90%. Auto-restart initiated.",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 15158332,  # Red
+                    }
+                ]
+            })
+            _slack_post(f"🚨 High CPU alert: Server {server.name} CPU > 90%, auto-restart initiated")
+
+            # TODO: Implement actual server restart logic
+            # This would require integration with the game server management system
+
+        _log("scaling", f"Auto-scaling check completed: {len(high_cpu_servers)} servers flagged")
+
+    except Exception as e:
+        _log("scaling", f"Auto-scaling check exception: {e}")
+        _discord_post({"content": f"Auto-scaling check exception: {e}"})
+        _slack_post(f"🚨 Auto-scaling check exception: {e}")

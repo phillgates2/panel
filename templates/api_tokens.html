@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="api-tokens-page">
+    <div class="page-header">
+        <div class="welcome-section">
+            <h1>🔑 API Access Tokens</h1>
+            <p class="text-secondary">Manage your API tokens for programmatic access to the panel</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-key"></i> Your API Tokens</h5>
+                </div>
+                <div class="card-body">
+                    {% if tokens %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Token Preview</th>
+                                        <th>Created</th>
+                                        <th>Last Used</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for token in tokens %}
+                                    <tr>
+                                        <td>
+                                            <code>{{ token.token }}</code>
+                                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToken('{{ token.token }}')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </td>
+                                        <td>{{ token.created_at or 'Unknown' }}</td>
+                                        <td>{{ token.last_used or 'Never' }}</td>
+                                        <td>
+                                            <form method="post" action="{{ url_for('api_revoke_token') }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-danger"
+                                                        onclick="return confirm('Are you sure you want to revoke this token?')">
+                                                    <i class="fas fa-trash"></i> Revoke
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-key fa-3x text-muted mb-3"></i>
+                            <h5>No API Tokens</h5>
+                            <p class="text-muted">You haven't generated any API tokens yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-plus"></i> Generate New Token</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        API tokens allow programmatic access to your servers and panel data.
+                        Keep them secure and don't share them publicly.
+                    </p>
+                    <form method="post" action="{{ url_for('api_generate_token') }}">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-key"></i> Generate New Token
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5><i class="fas fa-code"></i> API Documentation</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Base URL</h6>
+                    <code class="d-block mb-3">{{ request.host_url }}api/v1/</code>
+
+                    <h6>Authentication</h6>
+                    <p class="small text-muted mb-2">
+                        Include your token in the Authorization header:
+                    </p>
+                    <code class="d-block small mb-3">
+Authorization: Bearer YOUR_TOKEN_HERE
+                    </code>
+
+                    <h6>Example Request</h6>
+                    <pre class="small"><code>curl -H "Authorization: Bearer YOUR_TOKEN" \
+{{ request.host_url }}api/v1/servers</code></pre>
+
+                    <a href="{{ url_for('api_docs') }}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-book"></i> View Full API Docs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToken(token) {
+    navigator.clipboard.writeText(token).then(function() {
+        // Show success message
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Failed to copy token: ', err);
+    });
+}
+</script>
+
+<style>
+.api-tokens-page {
+    padding: 20px 0;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    border-radius: 10px 10px 0 0 !important;
+}
+
+code {
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+pre code {
+    display: block;
+    padding: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow-x: auto;
+}
+</style>
+{% endblock %}

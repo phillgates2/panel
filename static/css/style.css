@@ -1012,10 +1012,16 @@ input#captcha:focus {
     
     nav a {
         text-align: center;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
     }
     
     h1 { font-size: 2rem; }
     h2 { font-size: 1.75rem; }
+    h3 { font-size: 1.5rem; }
+    h4 { font-size: 1.25rem; }
+    h5 { font-size: 1.1rem; }
+    h6 { font-size: 1rem; }
     
     form, .login-form {
         max-width: 100%;
@@ -1034,6 +1040,7 @@ input#captcha:focus {
     
     .card-actions {
         justify-content: center;
+        flex-wrap: wrap;
     }
     
     .info-row {
@@ -1041,9 +1048,243 @@ input#captcha:focus {
         gap: 0.5rem;
         text-align: center;
     }
+    
+    /* Table responsiveness */
+    .table-responsive {
+        border: none;
+    }
+    
+    .table-responsive table {
+        font-size: 0.875rem;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem;
+        white-space: nowrap;
+    }
+    
+    /* Button groups */
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        border-radius: 6px !important;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Form improvements */
+    .form-control {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 0.75rem;
+    }
+    
+    .form-select {
+        font-size: 16px;
+        padding: 0.75rem;
+    }
+    
+    /* Modal improvements */
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: none;
+    }
+    
+    .modal-content {
+        border-radius: 12px;
+    }
+    
+    /* Dashboard cards */
+    .row > .col-md-6 {
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Navigation improvements */
+    .navbar-toggler {
+        border: none;
+        background: transparent;
+    }
+    
+    /* Profile avatar */
+    .profile-avatar-large {
+        width: 100px;
+        height: 100px;
+        font-size: 40px;
+    }
+    
+    /* Analytics charts */
+    .chart-container {
+        height: 250px !important;
+    }
+    
+    /* API docs */
+    .api-nav {
+        flex-direction: column;
+    }
+    
+    .api-nav .nav-link {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border);
+    }
 }
 
-/* ===== ANIMATIONS ===== */
+/* Tablet styles */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .container {
+        margin: 1.5rem;
+        padding: 2rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px; /* iOS touch target size */
+        padding: 0.75rem 1.5rem;
+    }
+    
+    nav a {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .form-control,
+    .form-select {
+        min-height: 44px;
+    }
+    
+    /* Larger touch targets for interactive elements */
+    .dropdown-toggle,
+    .btn-link {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+
+/* Focus indicators */
+.btn:focus,
+.form-control:focus,
+.form-select:focus,
+nav a:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(31, 111, 235, 0.25);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --border: #ffffff;
+        --text-secondary: #ffffff;
+        --shadow: rgba(255, 255, 255, 0.2);
+    }
+    
+    :root[data-theme="light"] {
+        --border: #000000;
+        --text-secondary: #000000;
+        --shadow: rgba(0, 0, 0, 0.2);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .loading-spinner {
+        animation: none;
+    }
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip links for keyboard navigation */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: var(--accent);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    border-radius: 4px;
+    z-index: 1000;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* Better color contrast */
+.text-high-contrast {
+    color: var(--text) !important;
+}
+
+.bg-high-contrast {
+    background-color: var(--panel) !important;
+    border: 2px solid var(--border) !important;
+}
+
+/* Accessible form validation */
+.form-control:invalid {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(218, 54, 51, 0.25);
+}
+
+.form-control:valid {
+    border-color: var(--success);
+}
+
+/* ARIA live regions for dynamic content */
+.live-region {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.live-region[aria-live] {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+}
+
+/* Focus within for complex components */
+.card:focus-within,
+.modal:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
@@ -1577,4 +1818,36 @@ select:focus-visible {
         width: 45px;
         height: 45px;
     }
+}
+
+/* ===== LOADING SPINNER ===== */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-overlay.hidden {
+    display: none;
 }

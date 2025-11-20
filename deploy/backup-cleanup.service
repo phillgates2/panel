@@ -1,0 +1,20 @@
+[Unit]
+Description=Panel Backup Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=panel
+WorkingDirectory=/workspaces/panel
+ExecStart=/usr/bin/python3 -c "
+import sys
+sys.path.insert(0, '/workspaces/panel')
+from tasks import run_backup_cleanup
+result = run_backup_cleanup(days_to_keep=30)
+print('Backup cleanup result:', result)
+"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

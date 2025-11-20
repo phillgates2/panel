@@ -1,0 +1,11 @@
+[Unit]
+Description=Run backup cleanup monthly
+Requires=backup-cleanup.service
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+Unit=backup-cleanup.service
+
+[Install]
+WantedBy=timers.target

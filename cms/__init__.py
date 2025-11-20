@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
+from flask_caching import Cache
 
 from app import User, db, verify_csrf
 from tools.auth import admin_required as auth_admin_required
@@ -299,7 +300,14 @@ def admin_blog_delete(post_id):
 
 @cms_bp.route("/blog")
 def blog_index():
-    posts = BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+    from flask_caching import Cache
+    cache = Cache(current_app)
+    # Try to get from cache
+    cache_key = 'blog_index_posts'
+    posts = cache.get(cache_key)
+    if posts is None:
+        posts = BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+        cache.set(cache_key, posts, timeout=600)
     return render_template("cms/blog_index.html", posts=posts)
 
 

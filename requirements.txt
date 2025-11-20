@@ -44,11 +44,17 @@ email-validator==2.1.0
 flask-socketio==5.3.6
 python-socketio==5.10.0
 
+# Caching
+Flask-Caching==2.1.0
+
+# Compression
+Flask-Compress==1.13
+
 # Monitoring and Metrics
 prometheus-flask-exporter==0.23.0
 
 # Enterprise Dependencies - Optimized Versions
-psutil==5.9.6
+# psutil==5.9.6  # Commented out due to build issues in Alpine
 paramiko==3.4.0
 PyYAML==6.0.1
 python-dotenv==1.0.0
