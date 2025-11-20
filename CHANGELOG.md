@@ -2,6 +2,112 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2025-11-20
+
+### 🚀 **Major Features**
+
+#### Team/Organization Management
+- **UserGroup Model** - Complete team management system with:
+  - Team creation, editing, and deletion
+  - Member assignment and management
+  - Team statistics and member counts
+  - Admin-only access controls
+
+- **Team Management Interface**
+  - `/admin/teams` - Teams dashboard with member overview
+  - `/admin/teams/create` - Create new teams
+  - `/admin/teams/<id>/add_member` - Add members to teams
+  - Modern UI with member cards and statistics
+
+#### Enhanced Security Features
+- **IP Whitelist/Blacklist Management**
+  - Security dashboard at `/admin/security`
+  - Add/remove IP addresses from whitelist/blacklist
+  - Security event logging and monitoring
+  - Real-time security status display
+
+- **Security Models**
+  - `IPWhitelist` and `IPBlacklist` models
+  - `SecurityEvent` model for audit logging
+  - Integration with existing user activity tracking
+
+#### Mobile Responsiveness & Accessibility
+- **Comprehensive Mobile Design**
+  - Mobile-first CSS with responsive breakpoints
+  - Touch-friendly interfaces and navigation
+  - Optimized layouts for all screen sizes
+
+- **WCAG Accessibility Compliance**
+  - ARIA labels and roles throughout the application
+  - Skip navigation links for keyboard users
+  - Focus management and visual indicators
+  - High contrast support and reduced motion preferences
+
+#### Testing & Quality Assurance
+- **Comprehensive Test Suite**
+  - 13 new test cases covering all implemented features
+  - Team management functionality tests
+  - Security feature validation
+  - Mobile responsiveness verification
+  - Accessibility compliance checks
+  - API documentation access testing
+
+### 🔧 **Technical Improvements**
+
+#### Flask Application Architecture
+- **Blueprint Registration Fixes**
+  - Resolved Flask blueprint registration issues in `create_app()`
+  - Fixed route registration timing problems
+  - Proper blueprint initialization for test environments
+
+#### Database & ORM Updates
+- **SQLAlchemy Modernization**
+  - Updated deprecated `query.get()` calls to `session.get()`
+  - Improved database query patterns
+  - Enhanced error handling in database operations
+
+#### Security & Performance
+- **CSRF Token Handling**
+  - Corrected CSRF token references in templates
+  - Consistent token validation across forms
+  - Enhanced security for form submissions
+
+- **Rate Limiting Improvements**
+  - Resolved function name conflicts in rate limiting
+  - Proper decorator vs function separation
+
+#### Development Experience
+- **Warning Resolution**
+  - Fixed Werkzeug version detection warnings
+  - Updated import patterns for modern Python standards
+  - Cleaned up deprecation warnings
+
+### 📊 **Database Changes**
+- **New Tables**
+  - `user_group` - Team/organization storage
+  - `user_group_membership` - Team membership relationships
+  - `ip_whitelist` - IP whitelist entries
+  - `ip_blacklist` - IP blacklist entries
+  - `security_event` - Security audit logging
+
+### 🎨 **UI/UX Enhancements**
+- **Navigation Updates**
+  - Added Teams and Security links to admin navigation
+  - Improved navigation structure for new features
+
+- **Template Modernization**
+  - Updated templates with consistent CSRF handling
+  - Enhanced mobile responsiveness across all pages
+  - Improved accessibility features throughout
+
+### 🧪 **Testing Infrastructure**
+- **New Test File: `tests/test_new_features.py`**
+  - `TestTeamManagement` - Team creation, member management
+  - `TestSecurityFeatures` - IP whitelist/blacklist functionality
+  - `TestAPIDocumentation` - API docs access verification
+  - `TestMobileResponsiveness` - Mobile viewport and CSS validation
+  - `TestAccessibility` - Skip links, main content, focus styles
+
 ## [3.3.0] - 2025-11-19
 
 ### 🚀 **Major Features**
