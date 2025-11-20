@@ -2,7 +2,13 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#238636">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Panel">
+    <link rel="apple-touch-icon" href="/static/favicon.ico">
+    <link rel="manifest" href="/static/manifest.json">
     <title>Panel</title>
     <!-- Browser Detection - Must run before page render -->
     <script src="{{ url_for('static', filename='js/browser-detect.js') }}"></script>
@@ -182,6 +188,40 @@
           }
         });
       })();
+    </script>
+
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle theme">
+      <i class="fas fa-moon"></i>
+    </button>
+
+    <script>
+      // Theme toggle functionality
+      const themeToggle = document.getElementById('theme-toggle-btn');
+      const html = document.documentElement;
+
+      // Load saved theme
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      html.setAttribute('data-theme', savedTheme);
+      updateThemeIcon(savedTheme);
+
+      themeToggle.addEventListener('click', function() {
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeIcon(newTheme);
+      });
+
+      function updateThemeIcon(theme) {
+        const icon = themeToggle.querySelector('i');
+        if (theme === 'dark') {
+          icon.className = 'fas fa-moon';
+        } else {
+          icon.className = 'fas fa-sun';
+        }
+      }
     </script>
   </body>
   </html>

@@ -1341,3 +1341,240 @@ select:focus-visible {
         box-shadow: none !important;
     }
 }
+
+/* ===== RCON CONSOLE STYLING ===== */
+.console-output {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.console-line {
+    margin: 2px 0;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.console-command {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    border-left: 3px solid #4ade80;
+}
+
+.console-output {
+    color: #e5e7eb;
+}
+
+.console-error {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+    border-left: 3px solid #f87171;
+}
+
+.console-system {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    border-left: 3px solid #fbbf24;
+}
+
+/* Real-time indicator */
+.realtime-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse 2s infinite;
+}
+
+.realtime-indicator.offline {
+    background: #ef4444;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Mobile responsive console */
+@media (max-width: 768px) {
+    .console-output {
+        font-size: 12px;
+        min-height: 200px;
+        max-height: 300px;
+    }
+
+    .btn-group .btn {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+}
+
+/* ===== MOBILE RESPONSIVE IMPROVEMENTS ===== */
+@media (max-width: 768px) {
+    /* Navigation improvements */
+    .navbar-brand {
+        font-size: 18px;
+    }
+
+    .navbar-nav .nav-link {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    /* Dashboard cards */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .stat-card {
+        padding: 15px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    /* Tables become horizontally scrollable */
+    .table-responsive {
+        font-size: 14px;
+    }
+
+    .table-responsive .btn {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+
+    /* Form improvements */
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-control {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 10px 12px;
+    }
+
+    /* Button groups */
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .btn-group .btn {
+        flex: 1;
+        min-width: 80px;
+    }
+
+    /* Cards */
+    .card {
+        margin-bottom: 15px;
+    }
+
+    .card-header {
+        padding: 12px 15px;
+    }
+
+    .card-body {
+        padding: 15px;
+    }
+
+    /* Modal improvements */
+    .modal-dialog {
+        margin: 10px;
+    }
+
+    /* RCON specific mobile improvements */
+    .console-output {
+        font-size: 12px;
+        min-height: 250px;
+        max-height: 400px;
+    }
+
+    /* Server selector */
+    #server-select {
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    /* Hide less important elements on small screens */
+    .text-muted {
+        font-size: 12px;
+    }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .nav-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-control {
+        min-height: 44px;
+    }
+
+    /* Larger touch targets for interactive elements */
+    .dropdown-toggle::after {
+        margin-left: 8px;
+    }
+}
+
+/* Progressive Web App styles */
+@media all and (display-mode: standalone) {
+    /* Hide browser UI when in PWA mode */
+    .navbar {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* Dark mode toggle button */
+.theme-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    background: var(--panel-hover);
+    transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .theme-toggle {
+        bottom: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+    }
+}

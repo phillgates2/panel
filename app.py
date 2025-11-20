@@ -65,6 +65,10 @@ app = Flask(__name__)
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
 
+# Initialize SocketIO for real-time features
+from flask_socketio import SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 # Initialize SQLAlchemy (bound to app). Using the classic pattern keeps
 # behavior consistent with the rest of the code and test suite.
 from flask_sqlalchemy import SQLAlchemy
@@ -100,6 +104,10 @@ def create_app(config_obj=None):
     else:
         _app.config.from_object(config_obj)
     _app.secret_key = _app.config.get("SECRET_KEY", getattr(config, "SECRET_KEY", None))
+
+    # Initialize SocketIO for real-time features
+    from flask_socketio import SocketIO
+    _socketio = SocketIO(_app, cors_allowed_origins="*")
 
     # Configure logging for the new app
     from logging_config import setup_logging  # noqa: E402
@@ -436,11 +444,72 @@ class User(db.Model):
     reset_token = db.Column(db.String(128), nullable=True)
     role = db.Column(db.String(32), default="user")
 
+    # Two-Factor Authentication
+    totp_secret = db.Column(db.String(32), nullable=True)  # TOTP secret for 2FA
+    totp_enabled = db.Column(db.Boolean, default=False)   # Whether 2FA is enabled
+    backup_codes = db.Column(db.Text, nullable=True)      # JSON array of backup codes
+
+    # Session management
+    last_login = db.Column(db.DateTime, nullable=True)
+    login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def is_account_locked(self):
+        """Check if account is temporarily locked due to failed login attempts."""
+        if self.locked_until and datetime.now(timezone.utc) < self.locked_until:
+            return True
+        return False
+
+    def record_login_attempt(self, success=False):
+        """Record a login attempt and handle account locking."""
+        if success:
+            self.login_attempts = 0
+            self.locked_until = None
+            self.last_login = datetime.now(timezone.utc)
+        else:
+            self.login_attempts += 1
+            if self.login_attempts >= 5:  # Lock after 5 failed attempts
+                self.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    def verify_totp(self, code):
+        """Verify TOTP code for 2FA."""
+        if not self.totp_enabled or not self.totp_secret:
+            return True  # 2FA not enabled
+
+        try:
+            import pyotp
+            totp = pyotp.TOTP(self.totp_secret)
+            return totp.verify(code)
+        except Exception:
+            return False
+
+    def generate_backup_codes(self):
+        """Generate new backup codes for account recovery."""
+        import secrets
+        codes = [secrets.token_hex(4).upper() for _ in range(10)]
+        self.backup_codes = json.dumps(codes)
+        return codes
+
+    def use_backup_code(self, code):
+        """Use a backup code and remove it from the list."""
+        if not self.backup_codes:
+            return False
+
+        try:
+            codes = json.loads(self.backup_codes)
+            if code in codes:
+                codes.remove(code)
+                self.backup_codes = json.dumps(codes) if codes else None
+                return True
+        except Exception:
+            pass
+        return False
 
     @property
     def display_name(self):
@@ -773,7 +842,27 @@ def login():
                 return redirect(url_for("login"))
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
+            # Check if account is locked
+            if user.is_account_locked():
+                flash("Account is temporarily locked due to too many failed login attempts. Please try again later.", "error")
+                log_security_event(
+                    event_type="login_blocked",
+                    message=f"Login blocked for locked account: {email}",
+                    user_id=user.id,
+                    ip_address=request.remote_addr,
+                )
+                return redirect(url_for("login"))
+
+            # Check if 2FA is enabled
+            if user.totp_enabled:
+                # Store user ID in session temporarily and redirect to 2FA verification
+                session['pending_2fa_user_id'] = user.id
+                session['pending_2fa_email'] = email
+                return redirect(url_for('verify_2fa'))
+
+            # No 2FA required, proceed with login
             session["user_id"] = user.id
+            user.record_login_attempt(success=True)
 
             # Create session tracking record
             import secrets
@@ -819,16 +908,120 @@ def login():
             flash("Logged in", "success")
             return redirect(url_for("dashboard"))
         else:
+            # Failed login - record attempt
+            if user:
+                user.record_login_attempt(success=False)
+                db.session.commit()
+
             # Log failed login attempt
             log_security_event(
                 event_type="login_failed",
                 message=f"Failed login attempt for: {email}",
-                user_id=None,
+                user_id=user.id if user else None,
                 ip_address=request.remote_addr,
             )
             flash("Invalid credentials", "error")
             return redirect(url_for("login"))
     return render_template("login.html")
+
+
+@main_bp.route("/verify-2fa", methods=["GET", "POST"])
+def verify_2fa():
+    """Verify two-factor authentication code."""
+    user_id = session.get('pending_2fa_user_id')
+    email = session.get('pending_2fa_email')
+
+    if not user_id or not email:
+        flash("Session expired. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, user_id)
+    if not user or not user.totp_enabled:
+        session.pop('pending_2fa_user_id', None)
+        session.pop('pending_2fa_email', None)
+        flash("Two-factor authentication not required.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        try:
+            verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("verify_2fa"))
+
+        code = request.form.get("code", "").strip()
+        backup_code = request.form.get("backup_code", "").strip()
+
+        # Verify TOTP code or backup code
+        code_valid = False
+        if code and user.verify_totp(code):
+            code_valid = True
+        elif backup_code and user.use_backup_code(backup_code):
+            code_valid = True
+            flash("Backup code used. Please generate new backup codes.", "warning")
+
+        if code_valid:
+            # Complete login process
+            session["user_id"] = user.id
+            user.record_login_attempt(success=True)
+            session.pop('pending_2fa_user_id', None)
+            session.pop('pending_2fa_email', None)
+
+            # Create session tracking record
+            import secrets
+            session_token = secrets.token_urlsafe(32)
+            session["session_token"] = session_token
+
+            # Lazy import to avoid circular dependency
+            from models_extended import UserActivity, UserSession
+
+            user_session = UserSession(
+                user_id=user.id,
+                session_token=session_token,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get("User-Agent", ""),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            )
+            db.session.add(user_session)
+
+            db.session.add(
+                UserActivity(
+                    user_id=user.id,
+                    activity_type="login_2fa",
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get("User-Agent", ""),
+                    details=json.dumps({"email": email, "method": "backup_code" if backup_code else "totp"}),
+                )
+            )
+
+            db.session.commit()
+
+            # Log security event
+            log_security_event(
+                event_type="login_2fa_success",
+                message=f"2FA verification successful for: {email}",
+                user_id=user.id,
+                ip_address=request.remote_addr,
+            )
+
+            flash("Logged in successfully", "success")
+            return redirect(url_for("dashboard"))
+        else:
+            # Record failed 2FA attempt
+            user.record_login_attempt(success=False)
+            db.session.commit()
+
+            log_security_event(
+                event_type="login_2fa_failed",
+                message=f"2FA verification failed for: {email}",
+                user_id=user.id,
+                ip_address=request.remote_addr,
+            )
+
+            flash("Invalid verification code", "error")
+            return redirect(url_for("verify_2fa"))
+
+    return render_template("verify_2fa.html", email=email)
 
 
 @main_bp.route("/logout", methods=["GET", "POST"])
@@ -2454,3 +2647,100 @@ try:
                         pass
 except Exception:
     pass
+
+
+# SocketIO Event Handlers for Real-Time Features
+@socketio.on('join_rcon')
+def handle_join_rcon(data):
+    """Join RCON room for a specific server."""
+    server_id = data.get('server_id')
+    user_id = session.get('user_id')
+    
+    if not user_id or not server_id:
+        return {'error': 'Authentication required'}
+    
+    # Check if user has access to this server
+    user = db.session.get(User, user_id)
+    server = db.session.get(Server, server_id)
+    
+    if not server or not user_can_edit_server(user, server):
+        return {'error': 'Access denied'}
+    
+    room = f'rcon_{server_id}'
+    join_room(room)
+    emit('joined_room', {'server_id': server_id, 'server_name': server.name})
+
+
+@socketio.on('leave_rcon')
+def handle_leave_rcon(data):
+    """Leave RCON room."""
+    server_id = data.get('server_id')
+    if server_id:
+        room = f'rcon_{server_id}'
+        leave_room(room)
+
+
+@socketio.on('rcon_command')
+def handle_rcon_command(data):
+    """Execute RCON command and broadcast result."""
+    server_id = data.get('server_id')
+    command = data.get('command', '').strip()
+    user_id = session.get('user_id')
+    
+    if not user_id or not server_id or not command:
+        emit('rcon_error', {'message': 'Invalid request'})
+        return
+    
+    # Check permissions
+    user = db.session.get(User, user_id)
+    server = db.session.get(Server, server_id)
+    
+    if not server or not user_can_edit_server(user, server):
+        emit('rcon_error', {'message': 'Access denied'})
+        return
+    
+    # Check server connection details
+    if not server.host or not server.port or not server.rcon_password:
+        emit('rcon_error', {'message': 'Server connection not configured'})
+        return
+    
+    try:
+        from rcon_client import ETLegacyRcon
+        rc = ETLegacyRcon.from_server(server)
+        result = rc.send(command)
+        
+        # Broadcast to all users in this server's RCON room
+        room = f'rcon_{server_id}'
+        emit('rcon_output', {
+            'command': command,
+            'output': result,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'user': user.email
+        }, room=room)
+        
+        # Log the command
+        db.session.add(AuditLog(
+            actor_id=user.id, 
+            action=f"rcon_command:{server.name}:{command[:50]}"
+        ))
+        db.session.commit()
+        
+    except Exception as e:
+        emit('rcon_error', {'message': f'Command failed: {str(e)}'})
+
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection."""
+    print('Client connected')
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection."""
+    print('Client disconnected')
+
+
+if __name__ == "__main__":
+    # Run with SocketIO for real-time features
+    socketio.run(app, host='0.0.0.0', port=8080, debug=True)

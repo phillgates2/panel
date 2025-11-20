@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h4><i class="fas fa-shield-alt"></i> Two-Factor Authentication</h4>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Enter the verification code from your authenticator app or use a backup code.</p>
+
+          <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+
+            <div class="mb-3">
+              <label for="code" class="form-label">Authenticator Code</label>
+              <input type="text" class="form-control text-center" id="code" name="code"
+                     placeholder="000000" maxlength="6" pattern="[0-9]{6}" autocomplete="off" autofocus>
+              <div class="form-text">6-digit code from your authenticator app</div>
+            </div>
+
+            <div class="text-center mb-3">
+              <span class="text-muted">or</span>
+            </div>
+
+            <div class="mb-3">
+              <label for="backup_code" class="form-label">Backup Code</label>
+              <input type="text" class="form-control text-center" id="backup_code" name="backup_code"
+                     placeholder="ABCD-1234" autocomplete="off">
+              <div class="form-text">Use one of your backup codes</div>
+            </div>
+
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check"></i> Verify
+              </button>
+            </div>
+          </form>
+
+          <hr>
+
+          <div class="text-center">
+            <a href="{{ url_for('login') }}" class="btn btn-link">Back to Login</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Auto-focus and auto-submit for better UX
+document.getElementById('code').addEventListener('input', function(e) {
+  const value = e.target.value.replace(/\D/g, '');
+  e.target.value = value;
+
+  // Auto-submit when 6 digits entered
+  if (value.length === 6) {
+    setTimeout(() => {
+      e.target.form.submit();
+    }, 500);
+  }
+});
+</script>
+{% endblock %}

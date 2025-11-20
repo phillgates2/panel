@@ -18,29 +18,33 @@
 <div class="card mb-4">
   <div class="card-header">
     <h5 class="mb-0">Console: {{ current_server.name }}</h5>
-    {% if current_server.host and current_server.port %}
     <small class="text-muted">{{ current_server.host }}:{{ current_server.port }}</small>
-    {% else %}
-    <small class="text-warning">⚠️ Connection details not configured</small>
-    {% endif %}
+    <div class="form-check form-switch float-end">
+      <input class="form-check-input" type="checkbox" id="realtime-toggle" checked>
+      <label class="form-check-label" for="realtime-toggle">
+        Real-time updates
+      </label>
+    </div>
   </div>
   <div class="card-body">
-    <form method="post">
+    <form id="rcon-form" method="post">
       <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
       <div class="input-group mb-3">
-        <input type="text" name="command" class="form-control" placeholder="Enter RCON command..." required>
-        <button type="submit" class="btn btn-primary">Send Command</button>
+        <input type="text" id="command-input" class="form-control" placeholder="Enter RCON command..." required>
+        <button type="submit" class="btn btn-primary" id="send-btn">Send Command</button>
       </div>
     </form>
 
-    {% if output is defined and output %}
     <div class="mt-3">
-      <h6>Output:</h6>
-      <div class="bg-dark text-light p-3 rounded" style="font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">
-        {{ output }}
+      <h6>Console Output:</h6>
+      <div id="console-output" class="bg-dark text-light p-3 rounded console-output" style="font-family: 'Courier New', monospace; min-height: 300px; max-height: 500px; overflow-y: auto; white-space: pre-wrap;">
+        <!-- Console output will appear here -->
+      </div>
+      <div class="mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearConsole()">Clear Console</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="scrollToBottom()">Scroll to Bottom</button>
       </div>
     </div>
-    {% endif %}
   </div>
 </div>
 
@@ -52,10 +56,10 @@
       </div>
       <div class="card-body">
         <div class="d-grid gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('status')">status</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('players')">players</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('map_restart')">map_restart</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendCommand('kick all')">kick all</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendQuickCommand('status')">status</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendQuickCommand('players')">players</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendQuickCommand('map_restart')">map_restart</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sendQuickCommand('kick all')">kick all</button>
         </div>
       </div>
     </div>
@@ -67,10 +71,10 @@
       </div>
       <div class="card-body">
         <div class="d-grid gap-2">
-          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendCommand('g_gametype 2')">Set Campaign Mode</button>
-          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendCommand('timelimit 20')">Set Time Limit 20min</button>
-          <button type="button" class="btn btn-outline-warning btn-sm" onclick="sendCommand('map oasis')">Change Map to Oasis</button>
-          <button type="button" class="btn btn-outline-danger btn-sm" onclick="sendCommand('quit')">Shutdown Server</button>
+          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendQuickCommand('g_gametype 2')">Set Campaign Mode</button>
+          <button type="button" class="btn btn-outline-info btn-sm" onclick="sendQuickCommand('timelimit 20')">Set Time Limit 20min</button>
+          <button type="button" class="btn btn-outline-warning btn-sm" onclick="sendQuickCommand('map oasis')">Change Map to Oasis</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="sendQuickCommand('quit')">Shutdown Server</button>
         </div>
       </div>
     </div>
@@ -90,14 +94,130 @@
 {% endif %}
 </div>
 
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-function changeServer(serverId) {
-  window.location.href = '/rcon?server_id=' + serverId;
+let socket;
+let realtimeEnabled = true;
+let currentServerId = {{ current_server.id if current_server else 'null' }};
+
+function initSocketIO() {
+    socket = io();
+
+    socket.on('connect', function() {
+        console.log('Connected to server');
+        if (currentServerId && realtimeEnabled) {
+            joinRconRoom();
+        }
+    });
+
+    socket.on('disconnect', function() {
+        console.log('Disconnected from server');
+    });
+
+    socket.on('joined_room', function(data) {
+        addToConsole(`[SYSTEM] Joined RCON room for ${data.server_name}`, 'system');
+    });
+
+    socket.on('rcon_output', function(data) {
+        const timestamp = new Date(data.timestamp).toLocaleTimeString();
+        addToConsole(`[${timestamp}] ${data.user}: ${data.command}`, 'command');
+        addToConsole(data.output, 'output');
+    });
+
+    socket.on('rcon_error', function(data) {
+        addToConsole(`[ERROR] ${data.message}`, 'error');
+    });
+}
+
+function joinRconRoom() {
+    if (socket && currentServerId) {
+        socket.emit('join_rcon', { server_id: currentServerId });
+    }
+}
+
+function leaveRconRoom() {
+    if (socket && currentServerId) {
+        socket.emit('leave_rcon', { server_id: currentServerId });
+    }
 }
 
 function sendCommand(command) {
-  document.querySelector('input[name="command"]').value = command;
-  document.querySelector('form').submit();
+    if (!command) return;
+
+    if (realtimeEnabled && socket) {
+        // Send via WebSocket
+        socket.emit('rcon_command', {
+            server_id: currentServerId,
+            command: command
+        });
+    } else {
+        // Fallback to HTTP POST
+        const form = document.getElementById('rcon-form');
+        const input = document.getElementById('command-input');
+        input.value = command;
+        form.submit();
+    }
+}
+
+function addToConsole(text, type = 'output') {
+    const output = document.getElementById('console-output');
+    const line = document.createElement('div');
+    line.className = `console-line console-${type}`;
+    line.textContent = text;
+    output.appendChild(line);
+    scrollToBottom();
+}
+
+function clearConsole() {
+    document.getElementById('console-output').innerHTML = '';
+}
+
+function scrollToBottom() {
+    const output = document.getElementById('console-output');
+    output.scrollTop = output.scrollHeight;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    initSocketIO();
+
+    // Form submission
+    document.getElementById('rcon-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const command = document.getElementById('command-input').value.trim();
+        if (command) {
+            sendCommand(command);
+            document.getElementById('command-input').value = '';
+        }
+    });
+
+    // Real-time toggle
+    document.getElementById('realtime-toggle').addEventListener('change', function(e) {
+        realtimeEnabled = e.target.checked;
+        if (realtimeEnabled) {
+            joinRconRoom();
+        } else {
+            leaveRconRoom();
+        }
+    });
+
+    // Enter key in command input
+    document.getElementById('command-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('rcon-form').dispatchEvent(new Event('submit'));
+        }
+    });
+});
+
+function changeServer(serverId) {
+    leaveRconRoom();
+    window.location.href = '/rcon?server_id=' + serverId;
+}
+
+// Quick command buttons
+function sendQuickCommand(command) {
+    sendCommand(command);
 }
 </script>
 {% endblock %}

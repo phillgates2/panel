@@ -1,0 +1,19 @@
+{
+  "name": "Panel - Game Server Management",
+  "short_name": "Panel",
+  "description": "Professional game server management panel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#238636",
+  "icons": [
+    {
+      "src": "/static/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
