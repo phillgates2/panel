@@ -9,14 +9,32 @@ import json
 from datetime import datetime, timezone
 
 from flask import (Blueprint, flash, jsonify, redirect, render_template,
-                   request, url_for)
-from flask_login import current_user, login_required
+                   request, session, url_for)
 
-from app import db
+from app import db, User
 from config_manager import (ConfigDeployment, ConfigManager, ConfigTemplate,
                             ConfigVersion)
 
 config_bp = Blueprint("config", __name__)
+
+
+def is_system_admin_user(user):
+    """Check if user has system admin role."""
+    return user and user.role == "system_admin"
+
+
+def require_admin():
+    """Check if current user is admin, redirect if not."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login")), None
+    
+    user = db.session.get(User, user_id)
+    if not is_system_admin_user(user):
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard")), None
+    
+    return None, user
 
 
 @config_bp.route("/api/servers/list")
