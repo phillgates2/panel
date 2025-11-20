@@ -85,6 +85,43 @@ h3 { font-size: 1.5rem; }
 
 p { margin-bottom: 1rem; }
 
+/* ===== LINKS ===== */
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+a:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+a:active {
+    color: var(--primary);
+}
+
+/* Content area links - more visible */
+.container a:not(.btn):not([class*="btn-"]):not(.nav-link):not(.brand-link):not(.action-item):not(.feature-link):not(.read-more):not(.view-all-link) {
+    color: var(--accent);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.container a:not(.btn):not([class*="btn-"]):not(.nav-link):not(.brand-link):not(.action-item):not(.feature-link):not(.read-more):not(.view-all-link):hover {
+    color: var(--accent-hover);
+    text-decoration-thickness: 2px;
+}
+
 /* ===== LAYOUT ===== */
 .container {
     max-width: 1200px;
@@ -788,6 +825,90 @@ input#captcha:focus {
 .btn-outline-secondary:hover {
     background: var(--panel-hover);
     border-color: var(--text-secondary);
+}
+
+/* Solid button variants */
+.btn-primary {
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--accent);
+    box-shadow: 0 4px 15px rgba(31, 111, 235, 0.3);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: 0 8px 25px rgba(31, 111, 235, 0.4);
+    transform: translateY(-3px);
+}
+
+.btn-secondary {
+    background: var(--panel-hover);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.btn-secondary:hover {
+    background: var(--panel);
+    border-color: var(--text-secondary);
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+    border: 1px solid var(--success);
+    box-shadow: 0 4px 15px rgba(35, 134, 54, 0.3);
+}
+
+.btn-success:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    box-shadow: 0 8px 25px rgba(35, 134, 54, 0.4);
+    transform: translateY(-3px);
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+    border: 1px solid var(--danger);
+    box-shadow: 0 4px 15px rgba(218, 54, 51, 0.3);
+}
+
+.btn-danger:hover {
+    background: #c92a2a;
+    border-color: #c92a2a;
+    box-shadow: 0 8px 25px rgba(218, 54, 51, 0.4);
+    transform: translateY(-3px);
+}
+
+.btn-warning {
+    background: var(--warning);
+    color: white;
+    border: 1px solid var(--warning);
+    box-shadow: 0 4px 15px rgba(251, 133, 0, 0.3);
+}
+
+.btn-warning:hover {
+    background: #e07700;
+    border-color: #e07700;
+    box-shadow: 0 8px 25px rgba(251, 133, 0, 0.4);
+    transform: translateY(-3px);
+}
+
+.btn-info {
+    background: #58a6ff;
+    color: white;
+    border: 1px solid #58a6ff;
+    box-shadow: 0 4px 15px rgba(88, 166, 255, 0.3);
+}
+
+.btn-info:hover {
+    background: #388bfd;
+    border-color: #388bfd;
+    box-shadow: 0 8px 25px rgba(88, 166, 255, 0.4);
+    transform: translateY(-3px);
 }
 
 /* ===== HEADER ACTIONS ===== */
