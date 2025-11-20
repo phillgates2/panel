@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="fas fa-database me-2"></i>Database Manager</h2>
+    <a href="/" class="btn btn-outline-primary"><i class="fas fa-home"></i> Home</a>
+  </div>
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Database Info</h5>
+      <ul class="list-group list-group-flush mb-3">
+        <li class="list-group-item"><strong>Type:</strong> {{ db_info.type }}</li>
+        <li class="list-group-item"><strong>Database:</strong> {{ db_info.database }}</li>
+        {% if db_info.version %}<li class="list-group-item"><strong>Version:</strong> {{ db_info.version }}</li>{% endif %}
+        <li class="list-group-item"><strong>Tables:</strong> {{ db_info.tables|length }}</li>
+      </ul>
+      <h6 class="mt-3">Tables</h6>
+      <div class="row">
+        {% for table in db_info.tables %}
+        <div class="col-md-4 mb-2">
+          <a href="{{ url_for('admin_db_table', table_name=table) }}" class="btn btn-outline-secondary w-100 text-start">
+            <i class="fas fa-table me-2"></i>{{ table }}
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Quick Actions</h5>
+      <a href="{{ url_for('admin_db_query') }}" class="btn btn-primary me-2"><i class="fas fa-terminal"></i> Execute SQL Query</a>
+      <a href="{{ url_for('admin_db_export') }}" class="btn btn-success me-2"><i class="fas fa-file-export"></i> Export Database</a>
+      <a href="{{ url_for('admin_db_import') }}" class="btn btn-info"><i class="fas fa-file-import"></i> Import Database</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
