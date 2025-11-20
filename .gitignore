@@ -103,4 +103,4 @@ htmlcov/
 dmypy.json
 
 # Local repository backup bundle (kept outside the repo in /tmp)
-panel-repo-backup.bundle
+panel-repo-backup.bundleinstance/*.db
