@@ -71,10 +71,12 @@ FEATURES:
     • User Management - Role-based access control (5 permission levels)
     • Forum System - Community discussions with moderation tools
     • Blog/CMS - Publish news and updates with markdown support
-    • Database Admin UI - Manage your data through web interface
+    • Database Admin UI - Modern, stylish web interface for managing your data
     • Audit Logging - Track all administrative actions
     • API Keys - Secure programmatic access
     • Two-Factor Authentication - Enhanced account security
+    • Enhanced Navigation - Consistent, user-friendly panel experience
+    • Automated Ptero Eggs setup and migration
 
 USAGE:
     # Installation
@@ -1360,6 +1362,14 @@ PYEOF
         warn "migrate_cms_forum.py not found, skipping CMS/Forum migrations"
     fi
     
+    # After CMS/Forum migration, automate Ptero Eggs setup
+    log "Automating Ptero Eggs setup..."
+    if [[ -f "ptero_eggs_updater.py" ]]; then
+        python3 ptero_eggs_updater.py --auto || warn "Ptero Eggs automation had warnings (may be already applied)"
+    else
+        warn "ptero_eggs_updater.py not found, skipping Ptero Eggs automation"
+    fi
+    
     # Create admin user
     log "Creating admin user..."
     python3 << PYEOF || warn "Admin user creation failed"
@@ -1665,7 +1675,10 @@ interactive_setup() {
     
     # Summary
     echo
-    echo -e "${BOLD}${MAGENTA}Configuration Summary${NC}"
+    echo -e "${BOLD}${MAGENTA}╔═══════════════════════════════════════════╗${NC}"
+    echo -e "${BOLD}${MAGENTA}║         Panel Installer v3.0              ║${NC}"
+    echo -e "${BOLD}${MAGENTA}║         PostgreSQL Edition                ║${NC}"
+    echo -e "${BOLD}${MAGENTA}╚═══════════════════════════════════════════╝${NC}"
     echo -e "  Mode: ${GREEN}$([[ "$DEBUG_MODE" == "true" ]] && echo "Development" || echo "Production")${NC}"
     echo -e "  Install to: ${GREEN}$INSTALL_DIR${NC}"
     echo -e "  Database: ${GREEN}PostgreSQL ($DB_HOST:$DB_PORT/$DB_NAME)${NC}"
@@ -1675,6 +1688,24 @@ interactive_setup() {
     echo -e "  Systemd: ${GREEN}$SETUP_SYSTEMD${NC}"
     echo -e "  Nginx: ${GREEN}$SETUP_NGINX${NC}"
     echo -e "  SSL: ${GREEN}$SETUP_SSL${NC}"
+    echo    
+    echo -e "${BOLD}${YELLOW}Database Configuration (PostgreSQL)${NC}"
+    echo -e "${YELLOW}Configure PostgreSQL connection settings${NC}"
+    echo -e "  Host: ${GREEN}$DB_HOST${NC}"
+    echo -e "  Port: ${GREEN}$DB_PORT${NC}"
+    echo -e "  Name: ${GREEN}$DB_NAME${NC}"
+    echo -e "  User: ${GREEN}$DB_USER${NC}"
+    echo -e "  Pass: ${GREEN}$DB_PASS${NC}"
+    echo
+    echo -e "${BOLD}${YELLOW}Admin Account Setup${NC}"
+    echo -e "${YELLOW}Create a system administrator account${NC}"
+    echo -e "  Email: ${GREEN}$ADMIN_EMAIL${NC}"
+    echo -e "  Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+    echo
+    echo -e "${BOLD}${MAGENTA}╔═══════════════════════════════════════════╗${NC}"
+    echo -e "${BOLD}${MAGENTA}║         Panel Installer v3.0              ║${NC}"
+    echo -e "${BOLD}${MAGENTA}║         PostgreSQL Edition                ║${NC}"
+    echo -e "${BOLD}${MAGENTA}╚═══════════════════════════════════════════╝${NC}"
     echo
     
     if ! prompt_confirm "Proceed with installation?" "y"; then
@@ -2255,9 +2286,3 @@ Try installing manually: sudo $PKG_MANAGER install nginx"
     echo "  sudo ufw allow 8080/tcp # Panel (if not using nginx proxy)"
     echo
 }
-
-# ============================================================================
-# Execute
-# ============================================================================
-
-main "$@"

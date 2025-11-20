@@ -55,6 +55,7 @@ WHAT GETS REMOVED:
     - User data directories (optional)
     - SSL certificates (optional)
     - PostgreSQL database (optional)
+    - All files and configs related to the new stylish database admin UI and navigation enhancements
 
 EXAMPLES:
     # Interactive uninstall
