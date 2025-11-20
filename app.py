@@ -139,6 +139,15 @@ def create_app(config_obj=None):
 
     # Register optional feature blueprints (import here to avoid circular imports)
     try:
+        from routes_config import config_bp
+        try:
+            _app.register_blueprint(config_bp)
+        except AssertionError:
+            pass
+    except Exception:
+        pass
+    
+    try:
         import cms as _cms
 
         if hasattr(_cms, "cms_bp"):
