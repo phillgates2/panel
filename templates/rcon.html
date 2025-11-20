@@ -5,7 +5,7 @@
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
   <label>Command: <input name="command" required style="width:70%"></label>
-  <button type="submit">Send</button>
+  <button type="submit" class="btn btn-primary">Send</button>
 </form>
 {% if output is defined %}
   <h3>Output</h3>
