@@ -33,9 +33,7 @@ def configure_security_headers(app):
         # HTTP Strict Transport Security (HSTS)
         # Only enable in production with HTTPS
         if not app.debug and app.config.get("PREFERRED_URL_SCHEME") == "https":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         # X-Content-Type-Options
         # Prevent MIME type sniffing
@@ -69,9 +67,7 @@ def configure_security_headers(app):
 
         # Cache-Control for sensitive pages
         if request.path.startswith("/admin") or request.path.startswith("/account"):
-            response.headers["Cache-Control"] = (
-                "no-store, no-cache, must-revalidate, private"
-            )
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
 
@@ -99,12 +95,8 @@ def configure_cors(app, allowed_origins=None):
         origin = request.headers.get("Origin")
         if origin in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Methods"] = (
-                "GET, POST, PUT, DELETE, OPTIONS"
-            )
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization"
-            )
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             response.headers["Access-Control-Max-Age"] = "3600"
         return response
 

@@ -1002,128 +1002,128 @@ input#captcha:focus {
         padding: 1.5rem;
         border-radius: 12px;
     }
-    
+
     .nav-links {
         flex-direction: column;
         align-items: stretch;
         width: 100%;
         gap: 0.25rem;
     }
-    
+
     nav a {
         text-align: center;
         padding: 0.75rem 1rem;
         font-size: 0.9rem;
     }
-    
+
     h1 { font-size: 2rem; }
     h2 { font-size: 1.75rem; }
     h3 { font-size: 1.5rem; }
     h4 { font-size: 1.25rem; }
     h5 { font-size: 1.1rem; }
     h6 { font-size: 1rem; }
-    
+
     form, .login-form {
         max-width: 100%;
     }
-    
+
     .dashboard-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
-    
+
     .card-header {
         flex-direction: column;
         text-align: center;
         gap: 0.5rem;
     }
-    
+
     .card-actions {
         justify-content: center;
         flex-wrap: wrap;
     }
-    
+
     .info-row {
         flex-direction: column;
         gap: 0.5rem;
         text-align: center;
     }
-    
+
     /* Table responsiveness */
     .table-responsive {
         border: none;
     }
-    
+
     .table-responsive table {
         font-size: 0.875rem;
     }
-    
+
     .table-responsive th,
     .table-responsive td {
         padding: 0.5rem;
         white-space: nowrap;
     }
-    
+
     /* Button groups */
     .btn-group {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .btn-group .btn {
         border-radius: 6px !important;
         margin-bottom: 0.25rem;
     }
-    
+
     /* Form improvements */
     .form-control {
         font-size: 16px; /* Prevents zoom on iOS */
         padding: 0.75rem;
     }
-    
+
     .form-select {
         font-size: 16px;
         padding: 0.75rem;
     }
-    
+
     /* Modal improvements */
     .modal-dialog {
         margin: 0.5rem;
         max-width: none;
     }
-    
+
     .modal-content {
         border-radius: 12px;
     }
-    
+
     /* Dashboard cards */
     .row > .col-md-6 {
         margin-bottom: 1.5rem;
     }
-    
+
     /* Navigation improvements */
     .navbar-toggler {
         border: none;
         background: transparent;
     }
-    
+
     /* Profile avatar */
     .profile-avatar-large {
         width: 100px;
         height: 100px;
         font-size: 40px;
     }
-    
+
     /* Analytics charts */
     .chart-container {
         height: 250px !important;
     }
-    
+
     /* API docs */
     .api-nav {
         flex-direction: column;
     }
-    
+
     .api-nav .nav-link {
         padding: 0.5rem;
         border-bottom: 1px solid var(--border);
@@ -1136,7 +1136,7 @@ input#captcha:focus {
         margin: 1.5rem;
         padding: 2rem;
     }
-    
+
     .dashboard-grid {
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 1.5rem;
@@ -1149,19 +1149,19 @@ input#captcha:focus {
         min-height: 44px; /* iOS touch target size */
         padding: 0.75rem 1.5rem;
     }
-    
+
     nav a {
         min-height: 44px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
-    
+
     .form-control,
     .form-select {
         min-height: 44px;
     }
-    
+
     /* Larger touch targets for interactive elements */
     .dropdown-toggle,
     .btn-link {
@@ -1189,7 +1189,7 @@ nav a:focus {
         --text-secondary: #ffffff;
         --shadow: rgba(255, 255, 255, 0.2);
     }
-    
+
     :root[data-theme="light"] {
         --border: #000000;
         --text-secondary: #000000;
@@ -1207,7 +1207,7 @@ nav a:focus {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
-    
+
     .loading-spinner {
         animation: none;
     }
@@ -1571,12 +1571,12 @@ select:focus-visible {
     .btn {
         display: none !important;
     }
-    
+
     body {
         background: white !important;
         color: black !important;
     }
-    
+
     .panel {
         border: 1px solid #ccc !important;
         box-shadow: none !important;

@@ -70,12 +70,12 @@
                                     <td>{{ deployment.deployer.email if deployment.deployer else 'System' }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-info" 
+                                            <button class="btn btn-outline-info"
                                                     onclick="viewDeploymentLog({{ deployment.id }})"
                                                     title="View deployment log">
                                                 <i class="fas fa-file-alt"></i>
                                             </button>
-                                            <a href="{{ url_for('config.server_config', server_id=deployment.config_version.server_id) }}" 
+                                            <a href="{{ url_for('config.server_config', server_id=deployment.config_version.server_id) }}"
                                                class="btn btn-outline-primary"
                                                title="Go to server config">
                                                 <i class="fas fa-cog"></i>
@@ -111,7 +111,7 @@
                     {% set successful_deployments = deployments|selectattr('deployment_status', 'equalto', 'success')|list|length %}
                     {% set failed_deployments = deployments|selectattr('deployment_status', 'equalto', 'failed')|list|length %}
                     {% set success_rate = (successful_deployments / total_deployments * 100) if total_deployments > 0 else 0 %}
-                    
+
                     <div class="row text-center">
                         <div class="col-4">
                             <h4 class="text-primary">{{ total_deployments }}</h4>
@@ -137,7 +137,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
@@ -201,7 +201,7 @@ function refreshData() {
 function viewDeploymentLog(deploymentId) {
     // Fetch deployment details including log
     const deployment = {{ deployments|tojson }}.find(d => d.id === deploymentId);
-    
+
     if (deployment) {
         let content = `
             <div class="row mb-3">
@@ -220,9 +220,9 @@ function viewDeploymentLog(deploymentId) {
             <h6>Deployment Log:</h6>
             <pre class="bg-dark text-light p-3 rounded">${deployment.deployment_log || 'No log available'}</pre>
         `;
-        
+
         document.getElementById('deploymentLogContent').innerHTML = content;
-        
+
         const modal = new bootstrap.Modal(document.getElementById('deploymentLogModal'));
         modal.show();
     }

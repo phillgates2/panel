@@ -8,17 +8,17 @@
 
   <form method="post" class="login-form">
     <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-    
+
     <div class="form-group">
       <label for="email">📧 Email Address</label>
       <input id="email" name="email" type="email" required placeholder="Enter your email" />
     </div>
-    
+
     {% if not config.TESTING %}
     <div id="captcha-expired" class="alert alert-warning hidden">
       ⚠️ Captcha expired — it has been refreshed. Please solve the new captcha.
     </div>
-    
+
     <div class="captcha-container">
       <div class="captcha-header">
         <label>🤖 Security Verification</label>
@@ -30,18 +30,18 @@
       <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
       <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
     </div>
-    
+
     <div class="form-group">
       <label for="captcha">✏️ Enter the code above</label>
       <input id="captcha" name="captcha" required placeholder="Enter captcha code" style="text-transform: uppercase;" />
     </div>
     {% endif %}
-    
+
     <button type="submit" class="btn btn-primary">📨 Request Reset Link</button>
-    
+
     <div class="form-footer text-center mt-1">
       <p class="text-secondary">
-        Remember your password? 
+        Remember your password?
         <a href="/login" style="color: var(--accent); text-decoration: none; font-weight: 600;">Sign in here</a>
       </p>
     </div>

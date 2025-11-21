@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregated Logs Dashboard - Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            border-left: 3px solid;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+        }
+        .log-info { border-left-color: #17a2b8; }
+        .log-warning { border-left-color: #ffc107; }
+        .log-error { border-left-color: #dc3545; }
+        .log-debug { border-left-color: #6c757d; }
+        .log-success { border-left-color: #28a745; }
+        .log-stats-card {
+            transition: transform 0.2s;
+        }
+        .log-stats-card:hover {
+            transform: translateY(-2px);
+        }
+        .filter-btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .log-timestamp {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+        .log-level-badge {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin">
+                <i class="fas fa-tachometer-alt"></i> Panel Admin
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin/monitoring">
+                    <i class="fas fa-chart-line"></i> Basic Monitoring
+                </a>
+                <a class="nav-link" href="/admin/monitoring/enhanced">
+                    <i class="fas fa-chart-area"></i> Enhanced Dashboard
+                </a>
+                <a class="nav-link active" href="/admin/logs/aggregated">
+                    <i class="fas fa-file-alt"></i> Logs
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-file-alt"></i> Aggregated Logs Dashboard</h1>
+                    <div>
+                        <button id="refreshBtn" class="btn btn-primary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button id="exportBtn" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Export Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Statistics -->
+        <div class="row mb-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="card log-stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-bar fa-2x text-primary mb-2"></i>
+                        <h4 id="totalLogs1h">--</h4>
+                        <p class="text-muted mb-0">Logs (1h)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card log-stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                        <h4 id="totalLogs24h">--</h4>
+                        <p class="text-muted mb-0">Logs (24h)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card log-stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-area fa-2x text-warning mb-2"></i>
+                        <h4 id="totalLogs7d">--</h4>
+                        <p class="text-muted mb-0">Logs (7d)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card log-stats-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                        <h4 id="errorCount">--</h4>
+                        <p class="text-muted mb-0">Errors</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Charts -->
+        <div class="row mb-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Log Types Distribution (24h)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="logTypesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Log Activity Trend</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="logActivityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Filters -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-filter"></i> Log Filters</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Log Level</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="logLevel" id="all" autocomplete="off" checked>
+                                    <label class="btn btn-outline-secondary filter-btn active" for="all">All</label>
+                                    <input type="radio" class="btn-check" name="logLevel" id="info" autocomplete="off">
+                                    <label class="btn btn-outline-info filter-btn" for="info">Info</label>
+                                    <input type="radio" class="btn-check" name="logLevel" id="warning" autocomplete="off">
+                                    <label class="btn btn-outline-warning filter-btn" for="warning">Warning</label>
+                                    <input type="radio" class="btn-check" name="logLevel" id="error" autocomplete="off">
+                                    <label class="btn btn-outline-danger filter-btn" for="error">Error</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Time Range</label>
+                                <select class="form-select" id="timeRange">
+                                    <option value="1h">Last Hour</option>
+                                    <option value="24h" selected>Last 24 Hours</option>
+                                    <option value="7d">Last 7 Days</option>
+                                    <option value="30d">Last 30 Days</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Search</label>
+                                <input type="text" class="form-control" id="searchInput" placeholder="Search logs...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Action Type</label>
+                                <select class="form-select" id="actionFilter">
+                                    <option value="">All Actions</option>
+                                    <option value="login">Login</option>
+                                    <option value="logout">Logout</option>
+                                    <option value="server_create">Server Create</option>
+                                    <option value="server_delete">Server Delete</option>
+                                    <option value="user_create">User Create</option>
+                                    <option value="admin_action">Admin Action</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Logs -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list"></i> Recent Log Entries</h5>
+                        <small class="text-muted">Showing last 50 entries</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="logsContainer">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading logs...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let logTypesChart, logActivityChart;
+        let allLogs = [];
+        let filteredLogs = [];
+
+        // Initialize charts
+        function initCharts() {
+            const ctx1 = document.getElementById('logTypesChart').getContext('2d');
+            logTypesChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            'rgba(23, 162, 184, 0.6)',   // info
+                            'rgba(255, 193, 7, 0.6)',    // warning
+                            'rgba(220, 53, 69, 0.6)',    // error
+                            'rgba(108, 117, 125, 0.6)',  // debug
+                            'rgba(40, 167, 69, 0.6)'     // success
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            const ctx2 = document.getElementById('logActivityChart').getContext('2d');
+            logActivityChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Log Count',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update statistics display
+        function updateStats(stats) {
+            document.getElementById('totalLogs1h').textContent = stats['1h']?.total_logs || 0;
+            document.getElementById('totalLogs24h').textContent = stats['24h']?.total_logs || 0;
+            document.getElementById('totalLogs7d').textContent = stats['7d']?.total_logs || 0;
+
+            // Calculate error count from 24h stats
+            const errorActions = ['login_failed', 'server_error', 'admin_error'];
+            let errorCount = 0;
+            if (stats['24h']?.action_breakdown) {
+                errorActions.forEach(action => {
+                    errorCount += stats['24h'].action_breakdown[action] || 0;
+                });
+            }
+            document.getElementById('errorCount').textContent = errorCount;
+
+            // Update log types chart
+            const actionBreakdown = stats['24h']?.action_breakdown || {};
+            const labels = Object.keys(actionBreakdown);
+            const data = Object.values(actionBreakdown);
+
+            logTypesChart.data.labels = labels;
+            logTypesChart.data.datasets[0].data = data;
+            logTypesChart.update();
+        }
+
+        // Render log entries
+        function renderLogs(logs) {
+            const container = document.getElementById('logsContainer');
+
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted">No log entries found</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            logs.forEach(log => {
+                const logDiv = document.createElement('div');
+                logDiv.className = `log-entry log-${getLogLevel(log.action)}`;
+
+                const timestamp = new Date(log.created_at).toLocaleString();
+                const level = getLogLevelBadge(log.action);
+
+                logDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                ${level}
+                                <small class="log-timestamp ms-2">${timestamp}</small>
+                            </div>
+                            <div class="log-message">
+                                <strong>${log.action.replace('_', ' ').toUpperCase()}</strong>
+                                ${log.details ? ` - ${log.details}` : ''}
+                            </div>
+                            ${log.user_id ? `<small class="text-muted">User ID: ${log.user_id}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(logDiv);
+            });
+        }
+
+        // Get log level class
+        function getLogLevel(action) {
+            if (action.includes('error') || action.includes('failed')) return 'error';
+            if (action.includes('warning')) return 'warning';
+            if (action.includes('success') || action.includes('create')) return 'success';
+            if (action.includes('debug')) return 'debug';
+            return 'info';
+        }
+
+        // Get log level badge
+        function getLogLevelBadge(action) {
+            const level = getLogLevel(action);
+            const colors = {
+                'error': 'badge bg-danger',
+                'warning': 'badge bg-warning',
+                'success': 'badge bg-success',
+                'debug': 'badge bg-secondary',
+                'info': 'badge bg-info'
+            };
+
+            return `<span class="${colors[level]}">${level.toUpperCase()}</span>`;
+        }
+
+        // Filter logs
+        function filterLogs() {
+            const levelFilter = document.querySelector('input[name="logLevel"]:checked').id;
+            const timeRange = document.getElementById('timeRange').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const actionFilter = document.getElementById('actionFilter').value;
+
+            filteredLogs = allLogs.filter(log => {
+                // Level filter
+                if (levelFilter !== 'all') {
+                    const logLevel = getLogLevel(log.action);
+                    if (logLevel !== levelFilter) return false;
+                }
+
+                // Time range filter (simplified - would need proper date filtering)
+                // Action filter
+                if (actionFilter && log.action !== actionFilter) return false;
+
+                // Search filter
+                if (searchTerm) {
+                    const searchText = `${log.action} ${log.details || ''}`.toLowerCase();
+                    if (!searchText.includes(searchTerm)) return false;
+                }
+
+                return true;
+            });
+
+            renderLogs(filteredLogs.slice(0, 50)); // Show first 50
+        }
+
+        // Load logs and stats
+        async function loadLogsData() {
+            try {
+                const [logsResponse, statsResponse] = await Promise.all([
+                    fetch('/admin/logs/aggregated'), // This would need to be an API endpoint
+                    fetch('/api/monitoring/logs/stats')
+                ]);
+
+                if (statsResponse.ok) {
+                    const stats = await statsResponse.json();
+                    updateStats(stats);
+                }
+
+                // For now, simulate log data loading
+                // In a real implementation, you'd have an API endpoint that returns log data
+                allLogs = [
+                    {
+                        id: 1,
+                        action: 'login',
+                        details: 'User logged in successfully',
+                        user_id: 1,
+                        created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() // 30 min ago
+                    },
+                    {
+                        id: 2,
+                        action: 'server_create',
+                        details: 'New server created',
+                        user_id: 1,
+                        created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() // 2 hours ago
+                    },
+                    {
+                        id: 3,
+                        action: 'login_failed',
+                        details: 'Invalid credentials',
+                        user_id: null,
+                        created_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString() // 4 hours ago
+                    }
+                ];
+
+                filteredLogs = [...allLogs];
+                renderLogs(filteredLogs);
+
+            } catch (error) {
+                console.error('Error loading logs data:', error);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', loadLogsData);
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const dataStr = JSON.stringify(filteredLogs, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = `panel-logs-${new Date().toISOString().split('T')[0]}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        });
+
+        // Filter event listeners
+        document.querySelectorAll('input[name="logLevel"]').forEach(radio => {
+            radio.addEventListener('change', filterLogs);
+        });
+
+        document.getElementById('timeRange').addEventListener('change', filterLogs);
+        document.getElementById('searchInput').addEventListener('input', filterLogs);
+        document.getElementById('actionFilter').addEventListener('change', filterLogs);
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadLogsData();
+
+            // Auto-refresh every 60 seconds
+            setInterval(loadLogsData, 60000);
+        });
+    </script>
+</body>
+</html>

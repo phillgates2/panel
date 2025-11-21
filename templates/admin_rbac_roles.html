@@ -63,7 +63,7 @@
                                     </a>
                                     {% if not role.is_system_role %}
                                     <form method="post" action="/admin/rbac/roles/{{ role.id }}/delete" class="d-inline">
-                                        <button type="submit" class="btn btn-outline-danger" 
+                                        <button type="submit" class="btn btn-outline-danger"
                                                 onclick="return confirm('Delete role {{ role.name }}? This cannot be undone.')">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -128,7 +128,7 @@
                         <div class="card mb-2">
                             <div class="card-header py-2">
                                 <div class="form-check">
-                                    <input class="form-check-input category-checkbox" type="checkbox" 
+                                    <input class="form-check-input category-checkbox" type="checkbox"
                                            id="category-{{ category }}">
                                     <label class="form-check-label fw-bold" for="category-{{ category }}">
                                         {{ category|title }}
@@ -138,8 +138,8 @@
                             <div class="card-body py-2">
                                 {% for permission in perms %}
                                 <div class="form-check">
-                                    <input class="form-check-input permission-checkbox" type="checkbox" 
-                                           name="permissions" value="{{ permission.id }}" 
+                                    <input class="form-check-input permission-checkbox" type="checkbox"
+                                           name="permissions" value="{{ permission.id }}"
                                            id="perm-{{ permission.id }}"
                                            data-category="{{ category }}">
                                     <label class="form-check-label" for="perm-{{ permission.id }}">
@@ -168,7 +168,7 @@ document.querySelectorAll('.category-checkbox').forEach(categoryCheck => {
     categoryCheck.addEventListener('change', function() {
         const category = this.id.replace('category-', '');
         const permissionChecks = document.querySelectorAll(`[data-category="${category}"]`);
-        
+
         permissionChecks.forEach(check => {
             check.checked = this.checked;
         });
@@ -182,7 +182,7 @@ document.querySelectorAll('.permission-checkbox').forEach(permCheck => {
         const categoryCheck = document.getElementById(`category-${category}`);
         const categoryPerms = document.querySelectorAll(`[data-category="${category}"]`);
         const checkedPerms = document.querySelectorAll(`[data-category="${category}"]:checked`);
-        
+
         if (checkedPerms.length === 0) {
             categoryCheck.checked = false;
             categoryCheck.indeterminate = false;

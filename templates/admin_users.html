@@ -356,20 +356,20 @@
     .info-cards {
         grid-template-columns: 1fr;
     }
-    
+
     .users-table-container {
         overflow-x: auto;
     }
-    
+
     .users-table {
         min-width: 800px;
     }
-    
+
     .role-form {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .btn-update {
         width: 100%;
     }
@@ -383,7 +383,7 @@ document.querySelectorAll('.role-form').forEach(form => {
         const select = this.querySelector('.role-select');
         const currentRole = select.options[select.selectedIndex].getAttribute('selected');
         const newRole = select.value;
-        
+
         if (newRole === 'system_admin' && !currentRole) {
             if (!confirm('⚠️ Are you sure you want to grant System Admin privileges to this user? This gives them full access to the system.')) {
                 e.preventDefault();
@@ -393,4 +393,3 @@ document.querySelectorAll('.role-form').forEach(form => {
 });
 </script>
 {% endblock %}
-

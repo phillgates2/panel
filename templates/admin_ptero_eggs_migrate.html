@@ -23,10 +23,10 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="serverSearch" 
+                        <input type="text" class="form-control" id="serverSearch"
                                placeholder="Search servers...">
                     </div>
-                    
+
                     <div class="mb-3">
                         <button class="btn btn-sm btn-outline-primary" onclick="selectAll()">
                             Select All
@@ -35,13 +35,13 @@
                             Select None
                         </button>
                     </div>
-                    
+
                     <div style="max-height: 400px; overflow-y: auto;" id="serverList">
                         {% if servers %}
                         {% for server in servers %}
-                        <div class="form-check server-item" data-name="{{ server.name|lower }}" 
+                        <div class="form-check server-item" data-name="{{ server.name|lower }}"
                              data-game-type="{{ server.game_type|lower }}">
-                            <input class="form-check-input server-checkbox" type="checkbox" 
+                            <input class="form-check-input server-checkbox" type="checkbox"
                                    value="{{ server.id }}" id="server{{ server.id }}">
                             <label class="form-check-label" for="server{{ server.id }}">
                                 <strong>{{ server.name }}</strong>
@@ -53,7 +53,7 @@
                         <p class="text-muted">No servers available for migration</p>
                         {% endif %}
                     </div>
-                    
+
                     <div class="mt-3">
                         <small class="text-muted">
                             <span id="selectedCount">0</span> server(s) selected
@@ -79,12 +79,12 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <div style="max-height: 400px; overflow-y: auto;" id="templateList">
                         {% if templates %}
                         {% for template in templates %}
                         <div class="form-check template-item" data-game-type="{{ template.game_type }}">
-                            <input class="form-check-input" type="radio" name="templateRadio" 
+                            <input class="form-check-input" type="radio" name="templateRadio"
                                    value="{{ template.id }}" id="template{{ template.id }}">
                             <label class="form-check-label" for="template{{ template.id }}">
                                 <strong>{{ template.name.replace(' (Ptero-Eggs)', '') }}</strong>
@@ -130,7 +130,7 @@
         </div>
         <div class="card-body">
             <div class="progress mb-3">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
                      role="progressbar" id="progressBar" style="width: 0%"></div>
             </div>
             <div id="progressLog" style="max-height: 300px; overflow-y: auto;">
@@ -199,33 +199,33 @@ function filterTemplates() {
 function executeMigration() {
     const selectedServers = Array.from(document.querySelectorAll('.server-checkbox:checked'))
         .map(cb => parseInt(cb.value));
-    
+
     const selectedTemplate = document.querySelector('input[name="templateRadio"]:checked');
-    
+
     if (selectedServers.length === 0) {
         alert('Please select at least one server');
         return;
     }
-    
+
     if (!selectedTemplate) {
         alert('Please select a template');
         return;
     }
-    
+
     const templateId = parseInt(selectedTemplate.value);
-    
+
     if (!confirm(`Are you sure you want to migrate ${selectedServers.length} server(s) to the selected template?\n\nThis will create new configuration versions for each server.`)) {
         return;
     }
-    
+
     // Show progress card
     document.getElementById('progressCard').style.display = 'block';
     document.getElementById('progressLog').innerHTML = '';
     document.getElementById('progressBar').style.width = '0%';
-    
+
     // Log start
     addProgressLog('info', `Starting migration of ${selectedServers.length} servers...`);
-    
+
     // Execute migration
     fetch('{{ url_for("config.migrate_servers_to_ptero") }}', {
         method: 'POST',
@@ -243,12 +243,12 @@ function executeMigration() {
             // Update progress
             const successCount = data.results.filter(r => r.success).length;
             const failureCount = data.results.filter(r => !r.success).length;
-            
+
             document.getElementById('progressBar').style.width = '100%';
             document.getElementById('progressBar').classList.remove('progress-bar-animated');
-            
+
             addProgressLog('success', `Migration completed! ${successCount} succeeded, ${failureCount} failed`);
-            
+
             // Log individual results
             data.results.forEach(result => {
                 if (result.success) {
@@ -257,7 +257,7 @@ function executeMigration() {
                     addProgressLog('error', `Server ${result.server_id}: ${result.message}`);
                 }
             });
-            
+
             // Show completion message
             setTimeout(() => {
                 if (failureCount === 0) {
@@ -284,10 +284,10 @@ function executeMigration() {
 function addProgressLog(type, message) {
     const log = document.getElementById('progressLog');
     const timestamp = new Date().toLocaleTimeString();
-    
+
     let iconClass = 'fa-info-circle';
     let textClass = 'text-info';
-    
+
     if (type === 'success') {
         iconClass = 'fa-check-circle';
         textClass = 'text-success';
@@ -295,7 +295,7 @@ function addProgressLog(type, message) {
         iconClass = 'fa-times-circle';
         textClass = 'text-danger';
     }
-    
+
     const logEntry = document.createElement('div');
     logEntry.className = `mb-2 ${textClass}`;
     logEntry.innerHTML = `
@@ -303,7 +303,7 @@ function addProgressLog(type, message) {
         <i class="fas ${iconClass} ms-2"></i>
         <span class="ms-1">${message}</span>
     `;
-    
+
     log.appendChild(logEntry);
     log.scrollTop = log.scrollHeight;
 }

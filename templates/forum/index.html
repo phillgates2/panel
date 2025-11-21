@@ -26,7 +26,7 @@
                     <span class="status-badge badge-locked" title="Locked">🔒</span>
                     {% endif %}
                 </div>
-                
+
                 <div class="thread-content">
                     <h3><a href="{{ url_for('forum.view_thread', thread_id=t.id) }}">{{ t.title }}</a></h3>
                     <div class="thread-meta">
@@ -39,7 +39,7 @@
                         <span class="meta-item">💬 {{ t.post_count }} replies</span>
                     </div>
                 </div>
-                
+
                 {% if is_moderator %}
                 <div class="thread-actions">
                     <a href="{{ url_for('forum.edit_thread', thread_id=t.id) }}" class="btn-icon" title="Edit">✏️</a>
@@ -293,16 +293,16 @@
         gap: 1.5rem;
         text-align: center;
     }
-    
+
     .thread-main {
         flex-direction: column;
     }
-    
+
     .thread-meta {
         flex-direction: column;
         gap: 0.5rem;
     }
-    
+
     .thread-actions {
         width: 100%;
         justify-content: center;
@@ -310,4 +310,3 @@
 }
 </style>
 {% endblock %}
-

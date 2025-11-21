@@ -12,7 +12,7 @@
             <h2>📰 Recent Updates</h2>
             <a href="{{ url_for('cms.blog_index') }}" class="view-all-link">View All →</a>
         </div>
-        
+
         <div class="blog-grid">
             {% for post in recent_posts %}
             <article class="blog-card">
@@ -314,15 +314,14 @@
     .hero-section h1 {
         font-size: 2rem;
     }
-    
+
     .blog-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .features-grid {
         grid-template-columns: 1fr;
     }
 }
 </style>
 {% endblock %}
-

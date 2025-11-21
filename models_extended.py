@@ -46,9 +46,7 @@ class ApiKey(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     name = db.Column(db.String(128), nullable=False)  # Human-readable name
     key_hash = db.Column(db.String(256), nullable=False, unique=True)
-    key_prefix = db.Column(
-        db.String(16), nullable=False
-    )  # For display (e.g., "pk_abc...")
+    key_prefix = db.Column(db.String(16), nullable=False)  # For display (e.g., "pk_abc...")
     scopes = db.Column(db.Text, nullable=True)  # JSON array of allowed scopes
     last_used = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -82,9 +80,7 @@ class UserActivity(db.Model):
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(512), nullable=True)
     details = db.Column(db.Text, nullable=True)  # JSON with additional context
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship("User", backref=db.backref("activities", lazy="dynamic"))
 
@@ -95,13 +91,9 @@ class TwoFactorAuth(db.Model):
     __tablename__ = "two_factor_auth"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=False, unique=True
-    )
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, unique=True)
     secret = db.Column(db.String(32), nullable=False)  # Base32-encoded TOTP secret
-    backup_codes = db.Column(
-        db.Text, nullable=True
-    )  # JSON array of hashed backup codes
+    backup_codes = db.Column(db.Text, nullable=True)  # JSON array of hashed backup codes
     enabled = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     last_used = db.Column(db.DateTime, nullable=True)
@@ -116,9 +108,7 @@ class IpAccessControl(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(db.String(45), nullable=False, index=True)  # IP or CIDR
-    list_type = db.Column(
-        db.String(16), nullable=False, index=True
-    )  # 'whitelist' or 'blacklist'
+    list_type = db.Column(db.String(16), nullable=False, index=True)  # 'whitelist' or 'blacklist'
     description = db.Column(db.String(256), nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -135,14 +125,10 @@ class Notification(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     title = db.Column(db.String(256), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    notification_type = db.Column(
-        db.String(32), nullable=False
-    )  # info, success, warning, error
+    notification_type = db.Column(db.String(32), nullable=False)  # info, success, warning, error
     link = db.Column(db.String(512), nullable=True)  # Optional action link
     is_read = db.Column(db.Boolean, default=False, index=True)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship("User", backref=db.backref("notifications", lazy="dynamic"))
 
@@ -155,9 +141,7 @@ class ServerTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False, unique=True)
     description = db.Column(db.Text, nullable=True)
-    category = db.Column(
-        db.String(64), nullable=True
-    )  # competitive, casual, custom, etc.
+    category = db.Column(db.String(64), nullable=True)  # competitive, casual, custom, etc.
     variables_json = db.Column(db.Text, nullable=False)  # Default variables
     raw_config = db.Column(db.Text, nullable=False)  # Default config
     is_public = db.Column(db.Boolean, default=True, index=True)
@@ -173,9 +157,7 @@ class ScheduledTask(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
-    task_type = db.Column(
-        db.String(64), nullable=False
-    )  # restart, update, backup, etc.
+    task_type = db.Column(db.String(64), nullable=False)  # restart, update, backup, etc.
     schedule = db.Column(db.String(128), nullable=False)  # Cron-style schedule
     parameters = db.Column(db.Text, nullable=True)  # JSON parameters
     is_active = db.Column(db.Boolean, default=True, index=True)
@@ -195,9 +177,7 @@ class RconCommandHistory(db.Model):
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
     command = db.Column(db.Text, nullable=False)
     is_favorite = db.Column(db.Boolean, default=False, index=True)
-    executed_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    executed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship("User", backref=db.backref("rcon_history", lazy="dynamic"))
 
@@ -211,9 +191,7 @@ class PerformanceMetric(db.Model):
     metric_name = db.Column(db.String(128), nullable=False, index=True)
     metric_value = db.Column(db.Float, nullable=False)
     tags = db.Column(db.Text, nullable=True)  # JSON key-value pairs
-    timestamp = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class UserGroup(db.Model):
@@ -238,6 +216,4 @@ class UserGroupMembership(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey("user_group.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    __table_args__ = (
-        db.UniqueConstraint("user_id", "group_id", name="_user_group_uc"),
-    )
+    __table_args__ = (db.UniqueConstraint("user_id", "group_id", name="_user_group_uc"),)

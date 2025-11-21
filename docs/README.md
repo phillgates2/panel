@@ -8,7 +8,7 @@ Welcome to the Panel documentation! This directory contains comprehensive guides
 - **[Database Management Guide](DATABASE_MANAGEMENT.md)** - Complete guide to using the integrated database manager
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues and problems
 
-### Developer Documentation  
+### Developer Documentation
 - **[API Documentation](API_DOCUMENTATION.md)** - REST API reference and examples
 - **[Development Guide](../README_DEV.md)** - Development setup and contributing guidelines
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Panel
@@ -80,9 +80,9 @@ Welcome to the Panel documentation! This directory contains comprehensive guides
 ### Database Query Example
 ```sql
 -- Count users by role
-SELECT role, COUNT(*) as count 
-FROM user 
-GROUP BY role 
+SELECT role, COUNT(*) as count
+FROM user
+GROUP BY role
 ORDER BY count DESC;
 ```
 
@@ -91,7 +91,7 @@ ORDER BY count DESC;
 import requests
 
 # Execute query via API
-response = requests.post('http://localhost:8080/admin/database/query', 
+response = requests.post('http://localhost:8080/admin/database/query',
     json={'query': 'SELECT * FROM user LIMIT 5'},
     cookies=session_cookies
 )
@@ -145,7 +145,7 @@ Documentation is updated with each release. Check:
 
 - [ ] Read main README
 - [ ] Install Panel
-- [ ] Create admin account  
+- [ ] Create admin account
 - [ ] Access database manager
 - [ ] Read database management guide
 - [ ] Try example queries

@@ -14,19 +14,21 @@ Requirements:
     - RBAC system initialized
 """
 
-import sys
 import os
+import sys
 
 # Add the panel directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 
 def migrate_users_to_rbac():
     """Migrate existing users to RBAC roles based on their current simple roles."""
 
     # Import here to avoid import errors if Flask isn't available
     try:
-        from app import app, db, User
-        from rbac import Role, UserRole, initialize_rbac_system, has_permission
+        from app import User, app, db
+        from rbac import Role, UserRole, has_permission, initialize_rbac_system
+
         print("✓ Imports successful")
     except ImportError as e:
         print(f"✗ Import error: {e}")
@@ -66,11 +68,13 @@ def migrate_users_to_rbac():
             # Check current simple roles and assign appropriate RBAC roles
             if user.role == "system_admin":
                 # System admins get Super Administrator role
-                if not UserRole.query.filter_by(user_id=user.id, role_id=super_admin_role.id).first():
+                if not UserRole.query.filter_by(
+                    user_id=user.id, role_id=super_admin_role.id
+                ).first():
                     user_role_assignment = UserRole(
                         user_id=user.id,
                         role_id=super_admin_role.id,
-                        assigned_by=user.id  # Self-assigned during migration
+                        assigned_by=user.id,  # Self-assigned during migration
                     )
                     db.session.add(user_role_assignment)
                     assigned_roles.append("Super Administrator")
@@ -80,9 +84,7 @@ def migrate_users_to_rbac():
                 # Server admins get Administrator role
                 if not UserRole.query.filter_by(user_id=user.id, role_id=admin_role.id).first():
                     user_role_assignment = UserRole(
-                        user_id=user.id,
-                        role_id=admin_role.id,
-                        assigned_by=user.id
+                        user_id=user.id, role_id=admin_role.id, assigned_by=user.id
                     )
                     db.session.add(user_role_assignment)
                     assigned_roles.append("Administrator")
@@ -90,11 +92,11 @@ def migrate_users_to_rbac():
 
             elif user.role == "server_mod":
                 # Server mods get Server Manager role
-                if not UserRole.query.filter_by(user_id=user.id, role_id=server_manager_role.id).first():
+                if not UserRole.query.filter_by(
+                    user_id=user.id, role_id=server_manager_role.id
+                ).first():
                     user_role_assignment = UserRole(
-                        user_id=user.id,
-                        role_id=server_manager_role.id,
-                        assigned_by=user.id
+                        user_id=user.id, role_id=server_manager_role.id, assigned_by=user.id
                     )
                     db.session.add(user_role_assignment)
                     assigned_roles.append("Server Manager")
@@ -104,9 +106,7 @@ def migrate_users_to_rbac():
                 # Regular users get User role
                 if not UserRole.query.filter_by(user_id=user.id, role_id=user_role.id).first():
                     user_role_assignment = UserRole(
-                        user_id=user.id,
-                        role_id=user_role.id,
-                        assigned_by=user.id
+                        user_id=user.id, role_id=user_role.id, assigned_by=user.id
                     )
                     db.session.add(user_role_assignment)
                     assigned_roles.append("User")
@@ -143,7 +143,7 @@ def verify_migration():
     print("\nVerifying migration...")
 
     try:
-        from app import app, db, User
+        from app import User, app, db
         from rbac import has_permission
 
         with app.app_context():
@@ -159,7 +159,7 @@ def verify_migration():
                     "user.view_own",
                     "server.view_assigned",
                     "monitor.view_system",
-                    "admin.user_management"
+                    "admin.user_management",
                 ]
 
                 for perm in permissions_to_test:

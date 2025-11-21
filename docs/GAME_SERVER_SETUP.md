@@ -18,7 +18,7 @@ import json
 
 with app.app_context():
     admin_user = User.query.filter_by(role='system_admin').first()
-    
+
     template = ConfigTemplate(
         name="Counter-Strike: Source Server",
         description="Standard CS:S dedicated server",
@@ -49,7 +49,7 @@ cd /opt/servers/css
         is_default=True,
         created_by=admin_user.id,
     )
-    
+
     db.session.add(template)
     db.session.commit()
     print(f"Created template: {template.name}")
@@ -80,7 +80,7 @@ game_type = request.form.get("game_type", "etlegacy")
 
 # Load template based on game type
 template = ConfigTemplate.query.filter_by(
-    game_type=game_type, 
+    game_type=game_type,
     is_default=True
 ).first()
 
@@ -281,13 +281,13 @@ def main():
         if not admin:
             print("No admin user found!")
             return
-        
+
         for game_id, data in TEMPLATES.items():
             existing = ConfigTemplate.query.filter_by(name=data["name"]).first()
             if existing:
                 print(f"Template '{data['name']}' already exists, skipping")
                 continue
-            
+
             template = ConfigTemplate(
                 name=data["name"],
                 description=data["description"],
@@ -298,7 +298,7 @@ def main():
             )
             db.session.add(template)
             print(f"✓ Created template: {data['name']}")
-        
+
         db.session.commit()
         print("\n✅ Templates created successfully!")
 
@@ -404,7 +404,7 @@ sudo chown -R panel-user:panel-user /opt/servers
 
 ---
 
-**Next Steps**: 
+**Next Steps**:
 - Create your first server via the panel
 - Upload game files to the server
 - Configure and start your server

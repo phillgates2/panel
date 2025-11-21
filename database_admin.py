@@ -67,9 +67,9 @@ class DatabaseAdmin:
             else:
                 cursor = conn.cursor()
                 cursor.execute(query, params or ())
-                if query.strip().upper().startswith(
-                    "SELECT"
-                ) or query.strip().upper().startswith("PRAGMA"):
+                if query.strip().upper().startswith("SELECT") or query.strip().upper().startswith(
+                    "PRAGMA"
+                ):
                     results = [dict(row) for row in cursor.fetchall()]
                     conn.close()
                     return {"success": True, "data": results}
@@ -92,9 +92,7 @@ class DatabaseAdmin:
             if result["success"]:
                 return [row["tablename"] for row in result["data"]]
         else:
-            result = self.execute_query(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            result = self.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
             if result["success"]:
                 return [row["name"] for row in result["data"]]
         return []
@@ -102,8 +100,8 @@ class DatabaseAdmin:
     def get_table_structure(self, table_name):
         """Get table structure"""
         if self.is_postgres():
-            query = """SELECT column_name, data_type, is_nullable, column_default 
-                       FROM information_schema.columns 
+            query = """SELECT column_name, data_type, is_nullable, column_default
+                       FROM information_schema.columns
                        WHERE table_name = %s AND table_schema = 'public'"""
             return self.execute_query(query, (table_name,))
         else:
@@ -210,7 +208,7 @@ DATABASE_ADMIN_HOME_TEMPLATE = """
         {% if db_info.version %}<p><strong>Version:</strong> {{ db_info.version }}</p>{% endif %}
         <p><strong>Tables:</strong> {{ db_info.tables|length }}</p>
     </div>
-    
+
     <h2>Tables</h2>
     <ul class="tables-list">
         {% for table in db_info.tables %}
@@ -228,7 +226,7 @@ DATABASE_ADMIN_HOME_TEMPLATE = """
         <li>Export and import data</li>
         <li>View database structure</li>
     </ul>
-    
+
     <h3>Quick Actions</h3>
     <a href="{{ url_for('admin_db_query') }}" class="btn">Execute SQL Query</a>
     <a href="{{ url_for('admin_db_export') }}" class="btn btn-success">Export Database</a>
@@ -244,13 +242,13 @@ DATABASE_ADMIN_TABLE_TEMPLATE = """
 
 <div class="main-content">
     <h2>Table Data: {{ table_name }}</h2>
-    
+
     {% if result.success %}
         {% if result.data %}
         <div class="pagination">
             Showing {{ offset + 1 }} to {{ offset + result.data|length }} of {{ total }} rows
         </div>
-        
+
         <table>
             <thead>
                 <tr>
@@ -269,7 +267,7 @@ DATABASE_ADMIN_TABLE_TEMPLATE = """
                 {% endfor %}
             </tbody>
         </table>
-        
+
         <div class="pagination">
             {% if offset > 0 %}
             <a href="{{ url_for('admin_db_table', table_name=table_name, offset=offset-limit) }}">&laquo; Previous</a>
@@ -290,14 +288,14 @@ DATABASE_ADMIN_TABLE_TEMPLATE = """
 DATABASE_ADMIN_QUERY_TEMPLATE = """
 <div class="main-content">
     <h2>SQL Query</h2>
-    
+
     <form method="post">
         <textarea name="query" class="query-box" placeholder="Enter your SQL query here...">{{ query or '' }}</textarea>
         <br>
         <button type="submit" class="btn">Execute Query</button>
         <button type="button" onclick="document.querySelector('.query-box').value=''" class="btn btn-danger">Clear</button>
     </form>
-    
+
     {% if result %}
         {% if result.success %}
             {% if result.data %}
@@ -327,7 +325,7 @@ DATABASE_ADMIN_QUERY_TEMPLATE = """
             <div class="alert alert-danger">Error: {{ result.error }}</div>
         {% endif %}
     {% endif %}
-    
+
     <h3>Quick Queries</h3>
     <div>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT name FROM sqlite_master WHERE type='table'\" class="btn">Show Tables</a>

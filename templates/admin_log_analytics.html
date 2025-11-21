@@ -33,7 +33,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-warning text-white">
                 <div class="card-body">
@@ -47,7 +47,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-danger text-white">
                 <div class="card-body">
@@ -61,7 +61,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-success text-white">
                 <div class="card-body">
@@ -100,7 +100,7 @@
                                             <span class="badge bg-success">Normal</span>
                                         {% endif %}
                                     </div>
-                                    
+
                                     <div class="row text-center mb-3">
                                         <div class="col-4">
                                             <div class="metric-value">{{ stat.recent_logs }}</div>
@@ -115,9 +115,9 @@
                                             <div class="metric-label">Alerts</div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="d-grid gap-2">
-                                        <a href="{{ url_for('log_analytics.server_log_analysis', server_id=stat.server.id) }}" 
+                                        <a href="{{ url_for('log_analytics.server_log_analysis', server_id=stat.server.id) }}"
                                            class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-chart-area"></i> Detailed Analysis
                                         </a>
@@ -144,7 +144,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -173,7 +173,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -307,11 +307,11 @@ function refreshDashboard() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     initializeCharts();
-    
+
     // Load real-time data
     loadAnomalies();
     loadAlerts();
-    
+
     // Auto-refresh every 60 seconds
     setInterval(() => {
         loadAnomalies();

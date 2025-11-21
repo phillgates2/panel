@@ -65,7 +65,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="stopCommand" class="form-label">Stop Command</label>
-                    <input type="text" class="form-control font-monospace" id="stopCommand" 
+                    <input type="text" class="form-control font-monospace" id="stopCommand"
                            placeholder="e.g., stop, quit, shutdown">
                     <small class="form-text text-muted">Command to gracefully stop the server</small>
                 </div>
@@ -116,12 +116,12 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label for="installContainer" class="form-label">Installation Container</label>
-                    <input type="text" class="form-control font-monospace" id="installContainer" 
+                    <input type="text" class="form-control font-monospace" id="installContainer"
                            placeholder="e.g., ghcr.io/pterodactyl/installers:debian">
                 </div>
                 <div class="mb-3">
                     <label for="installEntrypoint" class="form-label">Installation Entrypoint</label>
-                    <input type="text" class="form-control font-monospace" id="installEntrypoint" 
+                    <input type="text" class="form-control font-monospace" id="installEntrypoint"
                            placeholder="e.g., bash" value="bash">
                 </div>
             </div>
@@ -135,7 +135,7 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label for="features" class="form-label">Feature Tags</label>
-                    <input type="text" class="form-control" id="features" 
+                    <input type="text" class="form-control" id="features"
                            placeholder="e.g., steam_disk_space, eula, java_version">
                     <small class="form-text text-muted">
                         Comma-separated list of feature tags
@@ -177,12 +177,12 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label for="varName" class="form-label">Variable Name *</label>
-                    <input type="text" class="form-control" id="varName" 
+                    <input type="text" class="form-control" id="varName"
                            placeholder="e.g., SERVER_PORT">
                 </div>
                 <div class="mb-3">
                     <label for="varDisplayName" class="form-label">Display Name *</label>
-                    <input type="text" class="form-control" id="varDisplayName" 
+                    <input type="text" class="form-control" id="varDisplayName"
                            placeholder="e.g., Server Port">
                 </div>
                 <div class="mb-3">
@@ -195,7 +195,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="varRules" class="form-label">Validation Rules</label>
-                    <input type="text" class="form-control" id="varRules" 
+                    <input type="text" class="form-control" id="varRules"
                            placeholder="e.g., required|integer|between:1,65535">
                 </div>
                 <div class="form-check mb-2">
@@ -247,19 +247,19 @@ function addVariable() {
     document.getElementById('varRules').value = '';
     document.getElementById('varUserViewable').checked = true;
     document.getElementById('varUserEditable').checked = true;
-    
+
     new bootstrap.Modal(document.getElementById('variableModal')).show();
 }
 
 function saveVariable() {
     const name = document.getElementById('varName').value.trim();
     const displayName = document.getElementById('varDisplayName').value.trim();
-    
+
     if (!name || !displayName) {
         alert('Variable name and display name are required');
         return;
     }
-    
+
     variables[name] = {
         name: displayName,
         description: document.getElementById('varDescription').value.trim(),
@@ -268,7 +268,7 @@ function saveVariable() {
         user_editable: document.getElementById('varUserEditable').checked,
         rules: document.getElementById('varRules').value.trim(),
     };
-    
+
     renderVariables();
     bootstrap.Modal.getInstance(document.getElementById('variableModal')).hide();
 }
@@ -276,16 +276,16 @@ function saveVariable() {
 function renderVariables() {
     const list = document.getElementById('variablesList');
     const noVars = document.getElementById('noVariables');
-    
+
     if (Object.keys(variables).length === 0) {
         noVars.style.display = 'block';
         list.innerHTML = '';
         return;
     }
-    
+
     noVars.style.display = 'none';
     list.innerHTML = '';
-    
+
     for (const [key, value] of Object.entries(variables)) {
         const div = document.createElement('div');
         div.className = 'card mb-2';
@@ -321,10 +321,10 @@ function deleteVariable(key) {
 function addDockerImage() {
     const name = prompt('Enter Docker image name (e.g., "SteamCMD_Debian"):');
     if (!name) return;
-    
+
     const image = prompt('Enter Docker image URL (e.g., "ghcr.io/pterodactyl/steamcmd:debian"):');
     if (!image) return;
-    
+
     dockerImages[name] = image;
     renderDockerImages();
 }
@@ -332,16 +332,16 @@ function addDockerImage() {
 function renderDockerImages() {
     const list = document.getElementById('dockerImagesList');
     const noImages = document.getElementById('noDockerImages');
-    
+
     if (Object.keys(dockerImages).length === 0) {
         noImages.style.display = 'block';
         list.innerHTML = '';
         return;
     }
-    
+
     noImages.style.display = 'none';
     list.innerHTML = '';
-    
+
     for (const [key, value] of Object.entries(dockerImages)) {
         const div = document.createElement('div');
         div.className = 'card mb-2';
@@ -375,16 +375,16 @@ function buildTemplateData() {
         .split(',')
         .map(f => f.trim())
         .filter(f => f.length > 0);
-    
+
     const installation = {};
     const container = document.getElementById('installContainer').value.trim();
     const entrypoint = document.getElementById('installEntrypoint').value.trim();
-    
+
     if (container) {
         installation.script_summary = `Container: ${container}`;
         installation.entrypoint = entrypoint || 'bash';
     }
-    
+
     return {
         startup_command: document.getElementById('startupCommand').value.trim(),
         stop_command: document.getElementById('stopCommand').value.trim(),
@@ -404,24 +404,24 @@ function previewTemplate() {
 // Form submission
 document.getElementById('customTemplateForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
     const name = document.getElementById('templateName').value.trim();
     const gameType = document.getElementById('gameType').value.trim();
     const description = document.getElementById('description').value.trim();
     const isDefault = document.getElementById('isDefault').checked;
-    
+
     if (!name || !gameType) {
         alert('Template name and game type are required');
         return;
     }
-    
+
     const templateData = buildTemplateData();
-    
+
     if (!templateData.startup_command) {
         alert('Startup command is required');
         return;
     }
-    
+
     const payload = {
         name: name,
         game_type: gameType,
@@ -429,7 +429,7 @@ document.getElementById('customTemplateForm').addEventListener('submit', functio
         is_default: isDefault,
         ...templateData
     };
-    
+
     // Submit
     fetch('{{ url_for("config.create_custom_ptero_template") }}', {
         method: 'POST',

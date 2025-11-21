@@ -1,0 +1,256 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pre-commit
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pre-commit
+        key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pre-commit-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+        pip install -r requirements-test.txt
+
+    - name: Install additional linting tools
+      run: |
+        pip install \
+          mypy \
+          pydocstyle \
+          radon \
+          vulture \
+          flake8-docstrings \
+          pep8-naming \
+          flake8-bugbear \
+          mccabe
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit install
+        pre-commit run --all-files --show-diff-on-failure
+
+    - name: Run mypy (type checking)
+      run: |
+        mypy app/ services/ input_validation.py feature_flags.py \
+          --ignore-missing-imports \
+          --no-strict-optional \
+          --show-error-codes \
+          --cache-dir .mypy_cache || true
+
+    - name: Run pydocstyle (documentation linting)
+      run: |
+        pydocstyle app/ services/ \
+          --convention=google \
+          --add-ignore=D100,D104,D105,D107 || true
+
+    - name: Run radon (complexity analysis)
+      run: |
+        echo "=== Cyclomatic Complexity ==="
+        radon cc app/ services/ -a -i A,B,C || true
+
+        echo "=== Maintainability Index ==="
+        radon mi app/ services/ || true
+
+        echo "=== Raw Metrics ==="
+        radon raw app/ services/ || true
+
+        # Check for functions with high complexity
+        echo "=== High Complexity Functions ==="
+        if radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "; then
+          echo "❌ Functions with complexity > 15 found:"
+          radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "
+          echo "complexity_issues=true" >> $GITHUB_ENV
+        else
+          echo "✅ No functions with high complexity"
+        fi
+
+    - name: Run vulture (dead code detection)
+      run: |
+        vulture app/ services/ || true
+
+    - name: Run flake8 with additional plugins
+      run: |
+        flake8 app/ services/ \
+          --max-line-length=100 \
+          --extend-ignore=E203,W503 \
+          --docstring-convention=google \
+          --per-file-ignores="__init__.py:F401" || true
+
+    - name: Run bandit (security linting)
+      run: |
+        bandit -r app/ services/ \
+          -f json \
+          -o bandit-lint-report.json \
+          --exclude-dir tests \
+          --skip B101,B601 || true
+
+        # Check for high-severity issues
+        if [ -f bandit-lint-report.json ]; then
+          high_issues=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-lint-report.json 2>/dev/null || echo "0")
+          if [ "$high_issues" -gt "0" ]; then
+            echo "🚨 High-severity security issues found:"
+            jq '.results[] | select(.issue_severity == "HIGH")' bandit-lint-report.json
+            echo "security_issues=true" >> $GITHUB_ENV
+          fi
+        fi
+
+    - name: Generate code quality report
+      run: |
+        echo "# Code Quality Report" > code-quality-report.md
+        echo "" >> code-quality-report.md
+        echo "Generated on: $(date)" >> code-quality-report.md
+        echo "Commit: ${{ github.sha }}" >> code-quality-report.md
+        echo "" >> code-quality-report.md
+
+        if [ "${{ env.complexity_issues }}" = "true" ] || [ "${{ env.security_issues }}" = "true" ]; then
+          echo "## 🚨 ISSUES FOUND" >> code-quality-report.md
+          echo "" >> code-quality-report.md
+          [ "${{ env.complexity_issues }}" = "true" ] && echo "- High complexity functions detected" >> code-quality-report.md
+          [ "${{ env.security_issues }}" = "true" ] && echo "- Security issues in code" >> code-quality-report.md
+          echo "" >> code-quality-report.md
+        else
+          echo "## ✅ NO CRITICAL ISSUES" >> code-quality-report.md
+          echo "" >> code-quality-report.md
+        fi
+
+        echo "## Code Metrics" >> code-quality-report.md
+        echo "" >> code-quality-report.md
+
+        # Count lines of code
+        loc=$(find app/ services/ -name "*.py" -exec wc -l {} \; | tail -1 | awk '{print $1}')
+        echo "- Lines of code: $loc" >> code-quality-report.md
+
+        # Count functions
+        functions=$(grep -r "^def " app/ services/ | wc -l)
+        echo "- Functions: $functions" >> code-quality-report.md
+
+        # Count classes
+        classes=$(grep -r "^class " app/ services/ | wc -l)
+        echo "- Classes: $classes" >> code-quality-report.md
+
+    - name: Upload code quality reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: code-quality-reports
+        path: |
+          code-quality-report.md
+          bandit-lint-report.json
+        retention-days: 30
+
+    - name: Comment PR with code quality issues
+      if: env.complexity_issues == 'true' || env.security_issues == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          let comment = '## 🚨 Code Quality Issues Detected\n\n';
+          comment += 'The following code quality issues were found:\n\n';
+
+          if (process.env.complexity_issues === 'true') {
+            comment += '### 🔄 High Complexity Functions\n';
+            comment += 'Functions with cyclomatic complexity > 15 were detected. ';
+            comment += 'Consider refactoring these functions to improve maintainability.\n\n';
+          }
+
+          if (process.env.security_issues === 'true') {
+            comment += '### 🔒 Security Issues\n';
+            comment += 'Potential security vulnerabilities were found in the code. ';
+            comment += 'Please review and fix these issues.\n\n';
+          }
+
+          comment += '### 📊 View Details\n';
+          comment += '- [Code Quality Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+          comment += '- [Full Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n';
+
+          comment += '### 🔧 Suggested Actions\n';
+          comment += '1. Review the complexity analysis results\n';
+          comment += '2. Address security findings\n';
+          comment += '3. Consider refactoring complex functions\n';
+          comment += '4. Run `make lint` locally to see issues\n';
+
+          // Post comment on PR
+          if (context.payload.pull_request) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: comment
+            });
+          }
+
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-prod.txt
+        pip install -r requirements-test.txt
+
+    - name: Run performance tests
+      run: |
+        pytest tests/test_performance.py \
+          -v \
+          --tb=short \
+          --durations=10 \
+          --maxfail=5
+
+    - name: Generate performance report
+      run: |
+        echo "# Performance Test Report" > performance-report.md
+        echo "" >> performance-report.md
+        echo "Generated on: $(date)" >> performance-report.md
+        echo "Commit: ${{ github.sha }}" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "## Test Results" >> performance-report.md
+        echo "" >> performance-report.md
+        echo "\`\`\`" >> performance-report.md
+        pytest tests/test_performance.py --tb=line --durations=0 >> performance-report.md 2>&1 || true
+        echo "\`\`\`" >> performance-report.md
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-reports
+        path: |
+          performance-report.md
+        retention-days: 30

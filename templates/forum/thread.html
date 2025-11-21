@@ -19,7 +19,7 @@
                 <span class="info-item">📅 {{ thread.created_at.strftime('%B %d, %Y') }}</span>
             </div>
         </div>
-        
+
         <div class="thread-actions">
             <a href="{{ url_for('forum.index') }}" class="btn btn-secondary">← Back to Forum</a>
             {% if is_moderator %}
@@ -45,7 +45,7 @@
                 </div>
                 {% endif %}
             </div>
-            
+
             <div class="post-content-section">
                 <div class="post-header-bar">
                     <span class="post-date">📅 {{ p.created_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
@@ -61,7 +61,7 @@
                     </div>
                     {% endif %}
                 </div>
-                
+
                 <div class="post-content">
                     {% if p._html is defined %}
                         {{ p._html|safe }}
@@ -83,13 +83,13 @@
         <h2>💬 Post a Reply</h2>
         <form method="post" action="{{ url_for('forum.reply_thread', thread_id=thread.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
+
             <div class="form-group">
                 <label for="content">Your Message</label>
                 <textarea id="content" name="content" rows="8" placeholder="Write your reply... (Markdown supported)" required></textarea>
                 <small>Supports Markdown formatting</small>
             </div>
-            
+
             <button type="submit" class="btn btn-primary">📤 Post Reply</button>
         </form>
     </div>
@@ -462,26 +462,26 @@
     .thread-header {
         flex-direction: column;
     }
-    
+
     .thread-actions {
         width: 100%;
     }
-    
+
     .post-card {
         flex-direction: column;
     }
-    
+
     .post-author-section {
         flex-direction: row;
         width: 100%;
         text-align: left;
     }
-    
+
     .author-info {
         text-align: left;
         margin-left: 1rem;
     }
-    
+
     .post-header-bar {
         flex-direction: column;
         gap: 0.75rem;
@@ -490,4 +490,3 @@
 }
 </style>
 {% endblock %}
-

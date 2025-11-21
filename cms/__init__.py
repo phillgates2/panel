@@ -1,7 +1,16 @@
 from datetime import datetime, timezone
 
-from flask import (Blueprint, abort, current_app, flash, redirect,
-                   render_template, request, session, url_for)
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_caching import Cache
 
 from app import User, db, verify_csrf
@@ -13,7 +22,7 @@ cms_bp = Blueprint("cms", __name__, url_prefix="/cms")
 @cms_bp.context_processor
 def inject_csrf_token():
     """Inject csrf_token function into CMS templates"""
-    return {'csrf_token': lambda: session.get('csrf_token', '')}
+    return {"csrf_token": lambda: session.get("csrf_token", "")}
 
 
 def admin_required(fn):
@@ -55,7 +64,7 @@ class BlogPost(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    
+
     author = db.relationship("User", backref="blog_posts", foreign_keys=[author_id])
 
 
@@ -70,9 +79,7 @@ def index():
     q = db.session.query(Page).order_by(Page.title)
     total = q.count()
     pages = q.offset((page - 1) * per_page).limit(per_page).all()
-    return render_template(
-        "cms/index.html", pages=pages, page=page, per_page=per_page, total=total
-    )
+    return render_template("cms/index.html", pages=pages, page=page, per_page=per_page, total=total)
 
 
 @cms_bp.route("/<slug>")
@@ -146,9 +153,7 @@ def admin_login():
         # Prefer authenticating against the User model (hashed passwords).
         user = None
         try:
-            user = (
-                db.session.query(User).filter_by(email=(username or "").lower()).first()
-            )
+            user = db.session.query(User).filter_by(email=(username or "").lower()).first()
         except Exception:
             user = None
         if user:
@@ -199,41 +204,41 @@ def admin_blog_create():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("cms.admin_blog_create"))
-        
+
         title = request.form.get("title", "").strip()
         slug = request.form.get("slug", "").strip()
         content = request.form.get("content", "")
         excerpt = request.form.get("excerpt", "").strip()
         is_published = request.form.get("is_published") == "on"
-        
+
         if not title or not slug:
             flash("Title and slug are required", "error")
             return redirect(url_for("cms.admin_blog_create"))
-        
+
         # Check if slug already exists
         existing = BlogPost.query.filter_by(slug=slug).first()
         if existing:
             flash(f"Slug '{slug}' already exists", "error")
             return redirect(url_for("cms.admin_blog_create"))
-        
+
         author_id = session.get("admin_user_id") or session.get("user_id")
         if not author_id:
             flash("Author not found", "error")
             return redirect(url_for("cms.admin_blog_create"))
-        
+
         post = BlogPost(
             title=title,
             slug=slug,
             content=content,
             excerpt=excerpt,
             author_id=author_id,
-            is_published=is_published
+            is_published=is_published,
         )
         db.session.add(post)
         db.session.commit()
         flash(f"Blog post '{title}' created", "success")
         return redirect(url_for("cms.admin_blog_list"))
-    
+
     return render_template("cms/admin_blog_edit.html", post=None)
 
 
@@ -241,30 +246,30 @@ def admin_blog_create():
 @admin_required
 def admin_blog_edit(post_id):
     post = BlogPost.query.get_or_404(post_id)
-    
+
     if request.method == "POST":
         try:
             verify_csrf()
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
-        
+
         title = request.form.get("title", "").strip()
         slug = request.form.get("slug", "").strip()
         content = request.form.get("content", "")
         excerpt = request.form.get("excerpt", "").strip()
         is_published = request.form.get("is_published") == "on"
-        
+
         if not title or not slug:
             flash("Title and slug are required", "error")
             return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
-        
+
         # Check if slug conflicts with another post
         existing = BlogPost.query.filter(BlogPost.slug == slug, BlogPost.id != post_id).first()
         if existing:
             flash(f"Slug '{slug}' is already used by another post", "error")
             return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
-        
+
         post.title = title
         post.slug = slug
         post.content = content
@@ -274,7 +279,7 @@ def admin_blog_edit(post_id):
         db.session.commit()
         flash(f"Blog post '{title}' updated", "success")
         return redirect(url_for("cms.admin_blog_list"))
-    
+
     return render_template("cms/admin_blog_edit.html", post=post)
 
 
@@ -286,7 +291,7 @@ def admin_blog_delete(post_id):
     except Exception:
         flash("Invalid CSRF token", "error")
         return redirect(url_for("cms.admin_blog_list"))
-    
+
     post = BlogPost.query.get_or_404(post_id)
     title = post.title
     db.session.delete(post)
@@ -301,12 +306,15 @@ def admin_blog_delete(post_id):
 @cms_bp.route("/blog")
 def blog_index():
     from flask_caching import Cache
+
     cache = Cache(current_app)
     # Try to get from cache
-    cache_key = 'blog_index_posts'
+    cache_key = "blog_index_posts"
     posts = cache.get(cache_key)
     if posts is None:
-        posts = BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+        posts = (
+            BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+        )
         cache.set(cache_key, posts, timeout=600)
     return render_template("cms/blog_index.html", posts=posts)
 

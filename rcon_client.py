@@ -44,11 +44,7 @@ class ETLegacyRcon:
     @classmethod
     def from_server(cls, server):
         """Create RCON client from Server model instance."""
-        return cls(
-            host=server.host,
-            port=server.port,
-            password=server.rcon_password
-        )
+        return cls(host=server.host, port=server.port, password=server.rcon_password)
 
 
 if __name__ == "__main__":

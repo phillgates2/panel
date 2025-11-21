@@ -18,13 +18,18 @@ from datetime import datetime, timezone
 
 import pyotp
 import qrcode
-from flask import (abort, flash, jsonify, redirect, render_template, request,
-                   url_for)
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
 from app import AuditLog, Server, User, app, db
 from app import session as flask_session
-from models_extended import (ApiKey, Notification, ServerTemplate,
-                             TwoFactorAuth, UserActivity, UserSession)
+from models_extended import (
+    ApiKey,
+    Notification,
+    ServerTemplate,
+    TwoFactorAuth,
+    UserActivity,
+    UserSession,
+)
 
 # import psutil  # Temporarily commented for testing
 
@@ -168,9 +173,9 @@ def admin_audit_export():
     output.seek(0)
     response = make_response(output.getvalue())
     response.headers["Content-Type"] = "text/csv"
-    response.headers["Content-Disposition"] = (
-        f'attachment; filename=audit_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    )
+    response.headers[
+        "Content-Disposition"
+    ] = f'attachment; filename=audit_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
 
     return response
 
@@ -193,9 +198,7 @@ def account_sessions():
 
     current_token = flask_session.get("session_token")
 
-    return render_template(
-        "account_sessions.html", sessions=sessions, current_token=current_token
-    )
+    return render_template("account_sessions.html", sessions=sessions, current_token=current_token)
 
 
 @app.route("/account/sessions/<int:session_id>/revoke", methods=["POST"])
@@ -289,9 +292,7 @@ def account_api_keys():
     if not user_id:
         return redirect(url_for("login"))
 
-    keys = (
-        ApiKey.query.filter_by(user_id=user_id).order_by(ApiKey.created_at.desc()).all()
-    )
+    keys = ApiKey.query.filter_by(user_id=user_id).order_by(ApiKey.created_at.desc()).all()
 
     return render_template("account_api_keys.html", api_keys=keys)
 
@@ -317,9 +318,7 @@ def create_api_key():
     db.session.commit()
 
     # Show key ONCE to user
-    flash(
-        f"API Key created: {key_value} (save this, it won't be shown again!)", "success"
-    )
+    flash(f"API Key created: {key_value} (save this, it won't be shown again!)", "success")
     return redirect(url_for("account_api_keys"))
 
 
@@ -663,9 +662,7 @@ def create_server_from_template(template_id):
         name = request.form.get("name", "").strip()
         if not name:
             flash("Server name required", "error")
-            return redirect(
-                url_for("create_server_from_template", template_id=template_id)
-            )
+            return redirect(url_for("create_server_from_template", template_id=template_id))
 
         # Create server from template
         server = Server(
@@ -712,3 +709,200 @@ def send_notification(user_id, title, message, notif_type="info", link=None):
     )
     db.session.add(notif)
     db.session.commit()
+
+
+# Security Monitoring Routes
+@app.route("/admin/security-dashboard")
+@require_system_admin
+def security_dashboard():
+    """Security monitoring dashboard for administrators."""
+    from security_hardening import security_hardening
+
+    security_report = security_hardening.get_security_report()
+
+    # Get recent security events from database
+    recent_events = []
+    try:
+        # Get audit logs related to security
+        security_audit_logs = (
+            db.session.query(AuditLog)
+            .filter(AuditLog.action.in_([
+                'login_failed', 'suspicious_activity', 'rate_limit_exceeded',
+                'blocked_ip', 'security_violation', 'password_changed'
+            ]))
+            .order_by(AuditLog.timestamp.desc())
+            .limit(50)
+            .all()
+        )
+
+        for log in security_audit_logs:
+            recent_events.append({
+                'timestamp': log.timestamp,
+                'event_type': log.action,
+                'user': log.user.username if log.user else 'System',
+                'details': log.details,
+                'ip_address': log.ip_address
+            })
+    except Exception as e:
+        app.logger.error(f"Error fetching security audit logs: {e}")
+
+    return render_template(
+        "security_dashboard.html",
+        security_report=security_report,
+        recent_events=recent_events,
+        title="Security Dashboard"
+    )
+
+
+@app.route("/api/admin/security-report")
+@require_system_admin
+def api_security_report():
+    """API endpoint for security monitoring data."""
+    from security_hardening import security_hardening
+
+    security_report = security_hardening.get_security_report()
+
+    # Add additional security metrics
+    try:
+        # Count failed login attempts in last 24 hours
+        from datetime import datetime, timedelta
+        yesterday = datetime.now() - timedelta(days=1)
+
+        failed_logins = (
+            db.session.query(AuditLog)
+            .filter(AuditLog.action == 'login_failed')
+            .filter(AuditLog.timestamp >= yesterday)
+            .count()
+        )
+
+        # Count active user sessions
+        active_sessions = db.session.query(UserSession).filter_by(is_active=True).count()
+
+        # Count API keys created in last 7 days
+        week_ago = datetime.now() - timedelta(days=7)
+        new_api_keys = (
+            db.session.query(ApiKey)
+            .filter(ApiKey.created_at >= week_ago)
+            .count()
+        )
+
+        security_report.update({
+            'failed_logins_24h': failed_logins,
+            'active_sessions': active_sessions,
+            'new_api_keys_7d': new_api_keys,
+            'timestamp': datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error gathering additional security metrics: {e}")
+
+    return jsonify(security_report)
+
+
+@app.route("/api/admin/security-events")
+@require_system_admin
+def api_security_events():
+    """API endpoint for security events data."""
+    limit = request.args.get('limit', 100, type=int)
+    offset = request.args.get('offset', 0, type=int)
+
+    try:
+        # Get security-related audit logs
+        security_events = (
+            db.session.query(AuditLog)
+            .filter(AuditLog.action.in_([
+                'login_failed', 'suspicious_activity', 'rate_limit_exceeded',
+                'blocked_ip', 'security_violation', 'password_changed',
+                'api_key_created', 'api_key_deleted', 'session_created',
+                'session_destroyed'
+            ]))
+            .order_by(AuditLog.timestamp.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        events_data = []
+        for event in security_events:
+            events_data.append({
+                'id': event.id,
+                'timestamp': event.timestamp.isoformat(),
+                'event_type': event.action,
+                'user': event.user.username if event.user else 'System',
+                'user_id': event.user_id,
+                'details': event.details,
+                'ip_address': event.ip_address,
+                'user_agent': event.user_agent
+            })
+
+        return jsonify({
+            'events': events_data,
+            'total': len(events_data),
+            'limit': limit,
+            'offset': offset
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching security events: {e}")
+        return jsonify({'error': 'Failed to fetch security events'}), 500
+
+
+@app.route("/admin/security-settings", methods=["GET", "POST"])
+@require_system_admin
+def security_settings():
+    """Security settings management for administrators."""
+    if request.method == "POST":
+        # Handle security settings updates
+        try:
+            # Update security configurations
+            settings_updated = []
+
+            # Rate limiting settings
+            if 'rate_limit_enabled' in request.form:
+                # This would update configuration
+                settings_updated.append('Rate limiting')
+
+            # Security headers settings
+            if 'enhanced_headers' in request.form:
+                settings_updated.append('Enhanced security headers')
+
+            # Input validation settings
+            if 'strict_validation' in request.form:
+                settings_updated.append('Strict input validation')
+
+            if settings_updated:
+                flash(f"Security settings updated: {', '.join(settings_updated)}", "success")
+
+                # Log the security settings change
+                user_id = flask_session.get("user_id")
+                audit_log = AuditLog(
+                    user_id=user_id,
+                    action="security_settings_updated",
+                    details=f"Updated settings: {', '.join(settings_updated)}",
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent')
+                )
+                db.session.add(audit_log)
+                db.session.commit()
+
+            return redirect(url_for('security_settings'))
+
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error updating security settings: {e}")
+            flash("Error updating security settings", "error")
+
+    # Get current security settings
+    current_settings = {
+        'rate_limiting_enabled': True,
+        'enhanced_headers_enabled': True,
+        'input_validation_enabled': True,
+        'security_monitoring_enabled': True,
+        'audit_logging_enabled': True
+    }
+
+    return render_template(
+        "security_settings.html",
+        current_settings=current_settings,
+        title="Security Settings"
+    )

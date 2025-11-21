@@ -1,0 +1,538 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # ============================================================================
+  # CODE QUALITY CHECKS
+  # ============================================================================
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+        pip install -r requirements-test.txt
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit install
+        pre-commit run --all-files --show-diff-on-failure
+
+    - name: Run security linting
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+        # Check if there are any high-severity issues
+        if jq -e '.results | map(select(.issue_severity == "HIGH")) | length > 0' bandit-report.json; then
+          echo "High-severity security issues found!"
+          jq '.results[] | select(.issue_severity == "HIGH")' bandit-report.json
+          exit 1
+        fi
+
+    - name: Run type checking (mypy)
+      run: |
+        mypy app/ services/ --ignore-missing-imports --no-strict-optional || true
+
+    - name: Run complexity analysis
+      run: |
+        pip install radon
+        radon cc app/ services/ -a -i A,B || true
+        # Fail if any function has complexity > 15
+        if radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "; then
+          echo "Functions with high complexity found!"
+          radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "
+          exit 1
+        fi
+
+    - name: Run documentation linting
+      run: |
+        pip install pydocstyle
+        pydocstyle app/ services/ || true
+
+    - name: Upload code quality reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: code-quality-reports
+        path: |
+          bandit-report.json
+        retention-days: 30
+
+  # ============================================================================
+  # TESTING
+  # ============================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_panel
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-test-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-test-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-prod.txt
+        pip install -r requirements-test.txt
+
+    - name: Run database migrations
+      run: |
+        export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/test_panel"
+        python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all()"
+
+    - name: Run tests with coverage
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_panel
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+      run: |
+        pytest tests/ -v \
+          --cov=app \
+          --cov=services \
+          --cov=input_validation \
+          --cov=feature_flags \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=80 \
+          --junitxml=test-results.xml
+
+    - name: Run performance tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_panel
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+      run: |
+        pytest tests/test_performance.py -v --tb=short --maxfail=3
+
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_panel
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key
+      run: |
+        pytest tests/test_api_integration.py -v --tb=short
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          test-results.xml
+          htmlcov/
+        retention-days: 30
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: success()
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # ============================================================================
+  # SECURITY SCANNING
+  # ============================================================================
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Run safety check
+      run: |
+        pip install safety
+        safety check --full-report --output safety-report.json || true
+
+    - name: Run pip-audit
+      run: |
+        pip install pip-audit
+        pip-audit --format json --output pip-audit-report.json || true
+
+    - name: Run semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: p/security-audit
+        output: semgrep-report.json
+      continue-on-error: true
+
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    - name: Upload security scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: trivy-results.sarif
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          safety-report.json
+          pip-audit-report.json
+          semgrep-report.json
+        retention-days: 30
+
+  # ============================================================================
+  # DOCKER BUILD & SCAN
+  # ============================================================================
+  docker:
+    name: Docker Build & Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [code-quality, test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: panel
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false  # Change to true for actual deployment
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        target: production
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+
+    - name: Scan Docker image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'image'
+        scan-ref: 'panel:latest'
+        format: 'sarif'
+        output: 'trivy-docker-results.sarif'
+        exit-code: 1  # Fail on HIGH/CRITICAL vulnerabilities
+
+    - name: Upload Docker scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: trivy-docker-results.sarif
+
+  # ============================================================================
+  # DEPLOYMENT
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [code-quality, test, security-scan, docker]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster panel-staging \
+          --service panel-service \
+          --force-new-deployment \
+          --region ${{ secrets.AWS_REGION }}
+
+    - name: Wait for deployment to complete
+      run: |
+        aws ecs wait services-stable \
+          --cluster panel-staging \
+          --services panel-service \
+          --region ${{ secrets.AWS_REGION }}
+
+    - name: Run smoke tests
+      run: |
+        # Wait for service to be healthy
+        sleep 60
+
+        # Run basic health check
+        curl -f https://staging-api.panel.com/health || exit 1
+
+        # Run basic API test
+        curl -f https://staging-api.panel.com/api/openapi.json || exit 1
+
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      if: success()
+      with:
+        status: success
+        text: "Staging deployment completed successfully"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify deployment failure
+      uses: 8398a7/action-slack@v3
+      if: failure()
+      with:
+        status: failure
+        text: "Staging deployment failed"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [code-quality, test, security-scan, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Create deployment backup
+      run: |
+        # Create database backup before deployment
+        aws rds create-db-snapshot \
+          --db-instance-identifier panel-production \
+          --db-snapshot-identifier pre-deployment-$(date +%Y%m%d-%H%M%S) \
+          --region ${{ secrets.AWS_REGION }}
+
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster panel-production \
+          --service panel-service \
+          --force-new-deployment \
+          --region ${{ secrets.AWS_REGION }}
+
+    - name: Wait for deployment to complete
+      run: |
+        aws ecs wait services-stable \
+          --cluster panel-production \
+          --services panel-service \
+          --region ${{ secrets.AWS_REGION }}
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for service to be healthy
+        sleep 120
+
+        # Run comprehensive health checks
+        curl -f https://api.panel.com/health || exit 1
+        curl -f https://api.panel.com/health/ready || exit 1
+        curl -f https://api.panel.com/health/live || exit 1
+
+        # Test critical endpoints
+        curl -f https://api.panel.com/api/openapi.json || exit 1
+
+        # Test with authentication if available
+        # Add more comprehensive tests here
+
+    - name: Run performance validation
+      run: |
+        # Basic performance check
+        time curl -s https://api.panel.com/health > /dev/null
+
+        # Check response time is acceptable
+        response_time=$(curl -o /dev/null -s -w "%{time_total}" https://api.panel.com/health)
+        if (( $(echo "$response_time > 2.0" | bc -l) )); then
+          echo "Response time too slow: ${response_time}s"
+          exit 1
+        fi
+
+    - name: Notify production deployment success
+      uses: 8398a7/action-slack@v3
+      if: success()
+      with:
+        status: success
+        text: "Production deployment completed successfully 🎉"
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify production deployment failure
+      uses: 8398a7/action-slack@v3
+      if: failure()
+      with:
+        status: failure
+        text: "Production deployment failed! 🚨"
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed, initiating rollback..."
+        # Implement rollback logic here
+        # Could redeploy previous version or trigger manual intervention
+
+  # ============================================================================
+  # DEPENDENCY UPDATES
+  # ============================================================================
+  dependency-check:
+    name: Check Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Check for dependency updates
+      run: |
+        pip install pip-tools
+        pip-compile --upgrade --dry-run requirements-prod.in > /dev/null 2>&1 || echo "Dependencies can be updated"
+
+    - name: Create dependency update PR
+      if: failure()
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: update dependencies"
+        title: "Update Dependencies"
+        body: "Automated dependency updates"
+        branch: automated/dependency-updates
+        delete-branch: true

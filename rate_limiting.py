@@ -18,14 +18,42 @@ def get_user_id_or_ip():
     return session.get("user_id", get_remote_address())
 
 
+def get_user_id_or_ip():
+    """Get user ID if logged in, otherwise use IP address for rate limiting"""
+    from flask import session
+
+    return session.get("user_id", get_remote_address())
+
+
+def get_rate_limit_by_role():
+    """Get rate limit based on user role"""
+    from flask import session
+    from app import db
+
+    user_id = session.get("user_id")
+    if user_id:
+        try:
+            from app import User
+            user = db.session.get(User, user_id)
+            if user and user.is_system_admin():
+                return "1000 per hour"  # Higher limit for admins
+            elif user and user.is_admin:
+                return "500 per hour"   # Higher limit for admins
+        except Exception:
+            pass  # Fall back to default
+
+    return "200 per hour"  # Default for regular users/guests
+
+
 def setup_rate_limiting(app):
     """
-    Configure rate limiting for the Flask application
+    Configure rate limiting for the Flask application with role-based limits
 
-    Default limits:
-    - 100 requests per hour for general endpoints
-    - 20 requests per minute for login
-    - 30 requests per minute for API endpoints
+    Limits by user role:
+    - System admins: 1000 requests per hour
+    - Regular admins: 500 requests per hour
+    - Users: 200 requests per hour
+    - Guests: 200 requests per hour (IP-based)
     """
 
     limiter = Limiter(
@@ -34,19 +62,34 @@ def setup_rate_limiting(app):
         default_limits=["200 per hour"],  # Global default
         storage_uri=app.config.get("REDIS_URL", "redis://127.0.0.1:6379/0"),
         storage_options={"socket_connect_timeout": 30},
-        strategy="fixed-window",  # or "moving-window" for more accuracy
-        headers_enabled=True,  # Add X-RateLimit headers to responses
+        strategy="fixed-window",
+        headers_enabled=True,
     )
 
     # Custom error handler for rate limit exceeded
     @app.errorhandler(429)
     def ratelimit_handler(e):
-        logger.warning(
-            f"Rate limit exceeded for {get_remote_address()}: {e.description}"
-        )
-        return {"error": "Rate limit exceeded", "message": str(e.description)}, 429
+        logger.warning(f"Rate limit exceeded for {get_remote_address()}: {e.description}")
+        return {
+            "error": "Rate limit exceeded",
+            "message": str(e.description),
+            "retry_after": getattr(e, 'retry_after', 3600)
+        }, 429
 
-    logger.info("Rate limiting enabled")
+    # Specific limits for sensitive endpoints
+    from flask_limiter import RequestLimit
+
+    # Authentication endpoints - stricter limits
+    limiter.limit("5 per minute")(app.view_functions.get('login', lambda: None))
+    limiter.limit("3 per minute")(app.view_functions.get('register', lambda: None))
+
+    # API endpoints - moderate limits
+    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('api_get_tokens', lambda: None))
+
+    # Admin endpoints - role-based limits
+    limiter.limit(get_rate_limit_by_role, key_func=get_user_id_or_ip)(app.view_functions.get('teams_dashboard', lambda: None))
+
+    logger.info("Rate limiting enabled with role-based limits")
 
     return limiter
 

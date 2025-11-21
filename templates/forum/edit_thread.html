@@ -9,7 +9,7 @@
     <div class="form-container">
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
+
             <div class="form-group">
                 <label for="title">📝 Thread Title</label>
                 <input type="text" id="title" name="title" value="{{ thread.title }}" required>
@@ -187,11 +187,11 @@
         gap: 1rem;
         align-items: flex-start;
     }
-    
+
     .form-actions {
         flex-direction: column;
     }
-    
+
     .btn {
         width: 100%;
         text-align: center;
@@ -199,4 +199,3 @@
 }
 </style>
 {% endblock %}
-

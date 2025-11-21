@@ -110,7 +110,7 @@ class DatabaseSecurity:
         """Get hash of query for tracking"""
         import hashlib
 
-        return hashlib.md5(query.encode()).hexdigest()
+        return hashlib.sha256(query.encode()).hexdigest()
 
 
 def require_db_admin(f):
@@ -122,9 +122,7 @@ def require_db_admin(f):
             return jsonify({"error": "Authentication required"}), 401
 
         # Check rate limiting
-        allowed, message = DatabaseSecurity.rate_limit_check(
-            session["user_id"], "login"
-        )
+        allowed, message = DatabaseSecurity.rate_limit_check(session["user_id"], "login")
         if not allowed:
             return jsonify({"error": message}), 429
 

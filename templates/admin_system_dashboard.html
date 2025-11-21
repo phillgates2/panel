@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <h1>System Dashboard</h1>
-    
+
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card">
@@ -13,8 +13,8 @@
                     <h5 class="card-title">CPU Usage</h5>
                     <h2 class="metric-value">{{ "%.1f"|format(cpu_percent) }}%</h2>
                     <div class="progress">
-                        <div class="progress-bar" role="progressbar" 
-                             style="width: {{ cpu_percent }}%" 
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ cpu_percent }}%"
                              aria-valuenow="{{ cpu_percent }}" aria-valuemin="0" aria-valuemax="100">
                         </div>
                     </div>
@@ -27,13 +27,13 @@
                     <h5 class="card-title">Memory Usage</h5>
                     <h2 class="metric-value">{{ "%.1f"|format(memory.percent) }}%</h2>
                     <div class="progress">
-                        <div class="progress-bar" role="progressbar" 
-                             style="width: {{ memory.percent }}%" 
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ memory.percent }}%"
                              aria-valuenow="{{ memory.percent }}" aria-valuemin="0" aria-valuemax="100">
                         </div>
                     </div>
                     <small class="text-muted metric-details">
-                        {{ "%.1f"|format(memory.used / 1024 / 1024 / 1024) }} GB / 
+                        {{ "%.1f"|format(memory.used / 1024 / 1024 / 1024) }} GB /
                         {{ "%.1f"|format(memory.total / 1024 / 1024 / 1024) }} GB
                     </small>
                 </div>
@@ -45,13 +45,13 @@
                     <h5 class="card-title">Disk Usage</h5>
                     <h2 class="metric-value">{{ "%.1f"|format(disk.percent) }}%</h2>
                     <div class="progress">
-                        <div class="progress-bar" role="progressbar" 
-                             style="width: {{ disk.percent }}%" 
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ disk.percent }}%"
                              aria-valuenow="{{ disk.percent }}" aria-valuemin="0" aria-valuemax="100">
                         </div>
                     </div>
                     <small class="text-muted metric-details">
-                        {{ "%.1f"|format(disk.used / 1024 / 1024 / 1024) }} GB / 
+                        {{ "%.1f"|format(disk.used / 1024 / 1024 / 1024) }} GB /
                         {{ "%.1f"|format(disk.total / 1024 / 1024 / 1024) }} GB
                     </small>
                 </div>
@@ -62,13 +62,13 @@
                 <div class="card-body">
                     <h5 class="card-title">Services</h5>
                     <p>
-                        <strong>Gunicorn:</strong> 
+                        <strong>Gunicorn:</strong>
                         <span class="badge bg-{{ 'success' if gunicorn_status == 'active' else 'danger' }}">
                             {{ gunicorn_status }}
                         </span>
                     </p>
                     <p>
-                        <strong>Worker:</strong> 
+                        <strong>Worker:</strong>
                         <span class="badge bg-{{ 'success' if worker_status == 'active' else 'danger' }}">
                             {{ worker_status }}
                         </span>
@@ -77,14 +77,14 @@
             </div>
         </div>
     </div>
-    
+
     <!-- System Alerts -->
     <div class="row mb-4">
         <div class="col-12">
             <div id="systemAlerts"></div>
         </div>
     </div>
-    
+
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
@@ -133,7 +133,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="alert alert-info d-flex justify-content-between align-items-center">
         <span>
             <strong>Auto-refresh:</strong> Live metrics update every 30 seconds.
@@ -156,17 +156,17 @@
 document.addEventListener('DOMContentLoaded', function() {
     let autoRefreshEnabled = true;
     let refreshTimer;
-    
+
     const refreshBtn = document.getElementById('refreshBtn');
     const autoRefreshToggle = document.getElementById('autoRefreshToggle');
-    
+
     // Manual refresh
     refreshBtn.addEventListener('click', function() {
         refreshMetrics();
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
         this.disabled = true;
     });
-    
+
     // Auto-refresh toggle
     autoRefreshToggle.addEventListener('change', function() {
         autoRefreshEnabled = this.checked;
@@ -176,17 +176,17 @@ document.addEventListener('DOMContentLoaded', function() {
             stopAutoRefresh();
         }
     });
-    
+
     function startAutoRefresh() {
         refreshTimer = setInterval(refreshMetrics, 30000); // 30 seconds
     }
-    
+
     function stopAutoRefresh() {
         if (refreshTimer) {
             clearInterval(refreshTimer);
         }
     }
-    
+
     function refreshMetrics() {
         fetch('/api/system/metrics')
             .then(response => response.json())
@@ -203,52 +203,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 refreshBtn.disabled = false;
             });
     }
-    
+
     function updateMetrics(data) {
         // Update CPU
         updateProgressBar('cpu', data.cpu);
-        
+
         // Update Memory
         updateProgressBar('memory', data.memory.percent);
         updateMemoryDetails(data.memory);
-        
+
         // Update Disk
         updateProgressBar('disk', data.disk.percent);
         updateDiskDetails(data.disk);
-        
+
         // Update database stats
         updateDatabaseStats(data.database);
-        
+
         // Update process count
         const processCount = document.getElementById('processCount');
         if (processCount && data.processes) {
             processCount.textContent = data.processes;
         }
-        
+
         // Check for alerts
         checkAlerts(data);
-        
+
         // Update timestamp
         const now = new Date().toLocaleTimeString();
         document.querySelectorAll('.metric-timestamp').forEach(el => {
             el.textContent = `Last updated: ${now}`;
         });
     }
-    
+
     function updateProgressBar(type, percent) {
         const progressBar = document.querySelector(`[data-metric="${type}"] .progress-bar`);
         const percentText = document.querySelector(`[data-metric="${type}"] .metric-value`);
-        
+
         if (progressBar) {
             progressBar.style.width = percent + '%';
             progressBar.setAttribute('aria-valuenow', percent);
         }
-        
+
         if (percentText) {
             percentText.textContent = percent.toFixed(1) + '%';
         }
     }
-    
+
     function updateMemoryDetails(memory) {
         const details = document.querySelector('[data-metric="memory"] .metric-details');
         if (details) {
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
             details.textContent = `${usedGB} GB / ${totalGB} GB`;
         }
     }
-    
+
     function updateDiskDetails(disk) {
         const details = document.querySelector('[data-metric="disk"] .metric-details');
         if (details) {
@@ -266,12 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
             details.textContent = `${usedGB} GB / ${totalGB} GB`;
         }
     }
-    
+
     function updateDatabaseStats(database) {
         const userCount = document.getElementById('userCount');
         const serverCount = document.getElementById('serverCount');
         const sessionCount = document.getElementById('sessionCount');
-        
+
         if (userCount && database.users !== undefined) {
             userCount.textContent = database.users;
         }
@@ -282,10 +282,10 @@ document.addEventListener('DOMContentLoaded', function() {
             sessionCount.textContent = database.active_sessions;
         }
     }
-    
+
     function checkAlerts(data) {
         const alerts = [];
-        
+
         // CPU alert
         if (data.cpu > 80) {
             alerts.push({
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 message: `High CPU usage: ${data.cpu.toFixed(1)}%`
             });
         }
-        
+
         // Memory alert
         if (data.memory.percent > 85) {
             alerts.push({
@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 message: `High memory usage: ${data.memory.percent.toFixed(1)}%`
             });
         }
-        
+
         // Disk alert
         if (data.disk.percent > 90) {
             alerts.push({
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 message: `High disk usage: ${data.disk.percent.toFixed(1)}%`
             });
         }
-        
+
         // Service alerts
         if (data.services && data.services.gunicorn !== 'active') {
             alerts.push({
@@ -322,26 +322,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 message: 'Gunicorn service is not active'
             });
         }
-        
+
         if (data.services && data.services.worker !== 'active') {
             alerts.push({
                 level: 'warning',
                 message: 'Worker service is not active'
             });
         }
-        
+
         displayAlerts(alerts);
     }
-    
+
     function displayAlerts(alerts) {
         const alertContainer = document.getElementById('systemAlerts');
         if (!alertContainer) return;
-        
+
         if (alerts.length === 0) {
             alertContainer.innerHTML = '';
             return;
         }
-        
+
         let html = '';
         alerts.forEach(alert => {
             html += `
@@ -352,13 +352,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
-        
+
         alertContainer.innerHTML = html;
     }
-    
+
     // Start auto-refresh
     startAutoRefresh();
-    
+
     // Add timestamp elements to metrics
     document.querySelectorAll('.card-body').forEach(card => {
         if (!card.querySelector('.metric-timestamp')) {

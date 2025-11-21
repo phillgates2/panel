@@ -1,6 +1,7 @@
 """Alembic migration environment configuration."""
 
 import os
+
 # Import the app and db to access models
 import sys
 from logging.config import fileConfig

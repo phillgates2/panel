@@ -6,14 +6,14 @@
 <div class="container">
     <h1>API Keys</h1>
     <p class="text-muted">Generate API keys for programmatic access to Panel.</p>
-    
+
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Create New API Key</h5>
             <form method="post" action="{{ url_for('create_api_key') }}">
                 <div class="mb-3">
                     <label for="name" class="form-label">Key Name</label>
-                    <input type="text" name="name" id="name" class="form-control" 
+                    <input type="text" name="name" id="name" class="form-control"
                            required placeholder="e.g., CI/CD Pipeline">
                     <small class="form-text text-muted">
                         Give this key a descriptive name to remember its purpose.
@@ -23,7 +23,7 @@
             </form>
         </div>
     </div>
-    
+
     <div class="card">
         <div class="card-body">
             <h5 class="card-title">Your API Keys</h5>
@@ -51,9 +51,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            <form method="post" action="{{ url_for('delete_api_key', key_id=key.id) }}" 
+                            <form method="post" action="{{ url_for('delete_api_key', key_id=key.id) }}"
                                   class="d-inline">
-                                <button type="submit" class="btn btn-danger btn-sm" 
+                                <button type="submit" class="btn btn-danger btn-sm"
                                         onclick="return confirm('Delete this API key?')">
                                     Delete
                                 </button>
@@ -63,7 +63,7 @@
                     {% endfor %}
                 </tbody>
             </table>
-            
+
             {% if not api_keys %}
             <p class="text-muted">No API keys yet. Create one above to get started.</p>
             {% endif %}

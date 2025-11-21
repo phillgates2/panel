@@ -86,4 +86,3 @@ if [ "$buffers_bytes" -gt "$THRESH_BYTES" ]; then
       log "PID file $ET_PID_FILE not found"
   fi
 fi
-

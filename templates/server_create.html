@@ -17,7 +17,7 @@
         <div class="card-body">
             <form method="post" action="{{ url_for('admin_create_server') }}" class="form-stylish">
                 <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-                
+
                 <div class="form-group">
                     <label for="game_type">
                         <i class="fas fa-gamepad"></i> Game Type
@@ -36,7 +36,7 @@
                     </select>
                     <small class="text-muted">Select the game type - default configuration will be loaded automatically</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="name">
                         <i class="fas fa-server"></i> Server Name *
@@ -44,7 +44,7 @@
                     <input type="text" name="name" id="name" required placeholder="e.g., My ET:Legacy Server" />
                     <small class="text-muted">Unique identifier for this server</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">
                         <i class="fas fa-align-left"></i> Description
@@ -100,7 +100,7 @@
             </form>
         </div>
     </div>
-    
+
     <div class="card mt-3">
         <div class="card-header">
             <h5><i class="fas fa-info-circle"></i> Configuration Info</h5>

@@ -35,27 +35,17 @@ class LogEntry(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
-    timestamp = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
-    level = db.Column(
-        db.String(20), nullable=False, index=True
-    )  # INFO, WARN, ERROR, DEBUG
-    source = db.Column(
-        db.String(100), nullable=True, index=True
-    )  # Component that generated log
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    level = db.Column(db.String(20), nullable=False, index=True)  # INFO, WARN, ERROR, DEBUG
+    source = db.Column(db.String(100), nullable=True, index=True)  # Component that generated log
     message = db.Column(db.Text, nullable=False)
-    message_hash = db.Column(
-        db.String(64), nullable=False, index=True
-    )  # For deduplication
+    message_hash = db.Column(db.String(64), nullable=False, index=True)  # For deduplication
     raw_line = db.Column(db.Text, nullable=True)  # Original log line
 
     # Parsed fields
     player_id = db.Column(db.String(50), nullable=True, index=True)
     player_name = db.Column(db.String(100), nullable=True, index=True)
-    action = db.Column(
-        db.String(50), nullable=True, index=True
-    )  # kill, death, connect, etc.
+    action = db.Column(db.String(50), nullable=True, index=True)  # kill, death, connect, etc.
     weapon = db.Column(db.String(50), nullable=True)
     map_name = db.Column(db.String(100), nullable=True, index=True)
 
@@ -84,12 +74,8 @@ class LogPattern(db.Model):
     avg_frequency = db.Column(db.Float, nullable=True)  # Messages per hour
 
     # Severity and alerting
-    severity = db.Column(
-        db.String(20), default="info"
-    )  # info, warning, error, critical
-    alert_threshold = db.Column(
-        db.Integer, nullable=True
-    )  # Alert when count exceeds this
+    severity = db.Column(db.String(20), default="info")  # info, warning, error, critical
+    alert_threshold = db.Column(db.Integer, nullable=True)  # Alert when count exceeds this
     is_benign = db.Column(db.Boolean, default=False)  # User-marked as safe
     is_monitored = db.Column(db.Boolean, default=True)
 
@@ -101,9 +87,7 @@ class LogAnomaly(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
-    log_entry_id = db.Column(
-        db.Integer, db.ForeignKey("log_entries.id"), nullable=False
-    )
+    log_entry_id = db.Column(db.Integer, db.ForeignKey("log_entries.id"), nullable=False)
 
     anomaly_type = db.Column(db.String(50), nullable=False, index=True)
     severity = db.Column(db.String(20), nullable=False, index=True)
@@ -122,9 +106,7 @@ class LogAnomaly(db.Model):
     resolved_by = db.Column(db.String(100), nullable=True)
     resolution_notes = db.Column(db.Text, nullable=True)
 
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class LogAlert(db.Model):
@@ -154,9 +136,7 @@ class LogAlert(db.Model):
     auto_resolve = db.Column(db.Boolean, default=False)
     resolved_at = db.Column(db.DateTime, nullable=True)
 
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 @dataclass
@@ -185,9 +165,7 @@ class LogParser:
             "disconnect": re.compile(r"ClientDisconnect: (\d+)"),
             "userinfo": re.compile(r"ClientUserinfoChanged: (\d+) (.+)"),
             "say": re.compile(r"say: (.+?): (.+)"),
-            "map_change": re.compile(
-                r"InitGame: .*fs_game\\.*\\g_gametype\\.*\\mapname\\([^\\]+)"
-            ),
+            "map_change": re.compile(r"InitGame: .*fs_game\\.*\\g_gametype\\.*\\mapname\\([^\\]+)"),
             "server_start": re.compile(r"------- Server Initialization -------"),
             "server_shutdown": re.compile(r"------- Server Shutdown -------"),
             "rcon_command": re.compile(r"rcon from (.+?): (.+)"),
@@ -222,17 +200,13 @@ class LogParser:
         timestamp_match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
         if timestamp_match:
             try:
-                timestamp = datetime.strptime(
-                    timestamp_match.group(1), "%Y-%m-%d %H:%M:%S"
-                )
+                timestamp = datetime.strptime(timestamp_match.group(1), "%Y-%m-%d %H:%M:%S")
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
                 line = line[len(timestamp_match.group(0)) :].strip()
             except ValueError:
                 pass
 
-        result = LogParseResult(
-            level=level, source=source, message=message, timestamp=timestamp
-        )
+        result = LogParseResult(level=level, source=source, message=message, timestamp=timestamp)
 
         # Try to match specific patterns
         for pattern_name, pattern in self.patterns.items():
@@ -267,9 +241,7 @@ class AnomalyDetector:
     def __init__(self):
         self.baseline_stats = defaultdict(dict)
         self.pattern_frequencies = defaultdict(int)
-        self.time_series_data = defaultdict(
-            lambda: deque(maxlen=1440)
-        )  # 24 hours of minutes
+        self.time_series_data = defaultdict(lambda: deque(maxlen=1440))  # 24 hours of minutes
 
     def update_baseline(self, server_id: int, log_entries: List[LogEntry]):
         """Update baseline statistics for a server."""
@@ -288,9 +260,7 @@ class AnomalyDetector:
                 hourly_counts.values()
             )
             self.baseline_stats[server_id]["std_messages_per_hour"] = (
-                statistics.stdev(hourly_counts.values())
-                if len(hourly_counts) > 1
-                else 0
+                statistics.stdev(hourly_counts.values()) if len(hourly_counts) > 1 else 0
             )
 
         # Update pattern frequencies
@@ -317,9 +287,7 @@ class AnomalyDetector:
 
             # Statistical anomaly detection (3-sigma rule)
             if abs(current_hour_count - avg_rate) > 3 * std_rate:
-                confidence = min(
-                    abs(current_hour_count - avg_rate) / (std_rate + 1), 1.0
-                )
+                confidence = min(abs(current_hour_count - avg_rate) / (std_rate + 1), 1.0)
                 anomalies.append(
                     (
                         recent_entries[0],
@@ -330,9 +298,7 @@ class AnomalyDetector:
 
         # Check for unusual patterns
         for entry in recent_entries:
-            pattern_key = (
-                f"{server_id}_{entry.level}_{entry.source}_{entry.action or 'unknown'}"
-            )
+            pattern_key = f"{server_id}_{entry.level}_{entry.source}_{entry.action or 'unknown'}"
 
             # New pattern detection
             if self.pattern_frequencies[pattern_key] == 0:
@@ -363,12 +329,12 @@ class LogProcessor:
 
         self.is_running = True
         self.app = app
-        
+
         # Only start thread if app context is available
         if app is None:
             logger.warning("LogProcessor.start_processing() called without app context")
             return
-            
+
         self.worker_thread = threading.Thread(target=self._process_loop, daemon=True)
         self.worker_thread.start()
         logger.info("Advanced log analytics system started")
@@ -425,8 +391,7 @@ class LogProcessor:
                 .filter(
                     LogEntry.server_id == server_id,
                     LogEntry.message_hash == message_hash,
-                    LogEntry.timestamp
-                    > datetime.now(timezone.utc) - timedelta(hours=1),
+                    LogEntry.timestamp > datetime.now(timezone.utc) - timedelta(hours=1),
                 )
                 .first()
             )
@@ -506,9 +471,7 @@ class LogProcessor:
                     continue
 
                 # Detect anomalies
-                anomalies = self.anomaly_detector.detect_anomalies(
-                    server.id, recent_entries
-                )
+                anomalies = self.anomaly_detector.detect_anomalies(server.id, recent_entries)
 
                 for entry, confidence, description in anomalies:
                     # Create anomaly record
@@ -571,9 +534,7 @@ def log_analytics_dashboard():
         # Anomaly count
         anomaly_count = (
             db.session.query(func.count(LogAnomaly.id))
-            .filter(
-                LogAnomaly.server_id == server.id, LogAnomaly.is_resolved.is_(False)
-            )
+            .filter(LogAnomaly.server_id == server.id, LogAnomaly.is_resolved.is_(False))
             .scalar()
         )
 
@@ -661,16 +622,10 @@ def create_log_indexes():
     """Create database indexes for log analytics performance."""
     try:
         # Composite indexes for common queries
-        index1 = Index(
-            "idx_log_server_timestamp", LogEntry.server_id, LogEntry.timestamp
-        )
+        index1 = Index("idx_log_server_timestamp", LogEntry.server_id, LogEntry.timestamp)
         index2 = Index("idx_log_level_timestamp", LogEntry.level, LogEntry.timestamp)
-        index3 = Index(
-            "idx_anomaly_server_resolved", LogAnomaly.server_id, LogAnomaly.is_resolved
-        )
-        index4 = Index(
-            "idx_alert_server_resolved", LogAlert.server_id, LogAlert.resolved_at
-        )
+        index3 = Index("idx_anomaly_server_resolved", LogAnomaly.server_id, LogAnomaly.is_resolved)
+        index4 = Index("idx_alert_server_resolved", LogAlert.server_id, LogAlert.resolved_at)
 
         # Create indexes if they don't exist
         for index in [index1, index2, index3, index4]:

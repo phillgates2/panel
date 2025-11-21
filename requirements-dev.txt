@@ -19,6 +19,8 @@ isort==5.13.2
 flake8==7.0.0
 pylint==3.0.3
 mypy==1.8.0
+radon==6.0.1
+pydocstyle==6.3.0
 bandit==1.7.6
 
 # Pre-commit hooks
@@ -42,9 +44,9 @@ pip-audit==2.6.3
 py-spy==0.3.14
 memory-profiler==0.61.0
 
-# Type stubs
-types-requests==2.31.0
-types-redis==4.6.0
+# Configuration validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
 
 # Fast Python linter/formatter
 ruff

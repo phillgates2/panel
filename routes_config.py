@@ -8,12 +8,10 @@ import difflib
 import json
 from datetime import datetime, timezone
 
-from flask import (Blueprint, flash, jsonify, redirect, render_template,
-                   request, session, url_for)
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 
-from app import db, User
-from config_manager import (ConfigDeployment, ConfigManager, ConfigTemplate,
-                            ConfigVersion)
+from app import User, db
+from config_manager import ConfigDeployment, ConfigManager, ConfigTemplate, ConfigVersion
 
 config_bp = Blueprint("config", __name__)
 
@@ -28,12 +26,12 @@ def require_admin():
     user_id = session.get("user_id")
     if not user_id:
         return redirect(url_for("login")), None
-    
+
     user = db.session.get(User, user_id)
     if not is_system_admin_user(user):
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard")), None
-    
+
     return None, user
 
 
@@ -41,31 +39,32 @@ def require_admin():
 def api_list_servers():
     """API endpoint to list all servers for template application."""
     from app import Server
-    
+
     # Authentication check
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user or not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
-    
-    servers = Server.query.order_by(Server.name).all()
-    
-    return jsonify({
-        "success": True,
-        "servers": [
-            {
-                "id": s.id,
-                "name": s.name,
-                "game_type": s.game_type,
-                "status": getattr(s, "status", "unknown"),
-            }
-            for s in servers
-        ]
-    })
 
+    servers = Server.query.order_by(Server.name).all()
+
+    return jsonify(
+        {
+            "success": True,
+            "servers": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "game_type": s.game_type,
+                    "status": getattr(s, "status", "unknown"),
+                }
+                for s in servers
+            ],
+        }
+    )
 
 
 @config_bp.route("/admin/config/templates")
@@ -75,17 +74,17 @@ def config_templates():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     # Authentication check
     user_id = session.get("user_id")
     if not user_id:
         flash("Please log in", "error")
         return redirect(url_for("login"))
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user or not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
@@ -103,7 +102,7 @@ def create_template():
     if not user_id:
         flash("Please log in", "error")
         return redirect(url_for("login"))
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user or not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
@@ -135,9 +134,7 @@ def create_template():
         except Exception as e:
             db.session.rollback()
             return (
-                jsonify(
-                    {"success": False, "message": f"Error creating template: {str(e)}"}
-                ),
+                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
                 500,
             )
 
@@ -151,11 +148,11 @@ def edit_template(template_id):
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
@@ -193,9 +190,7 @@ def update_template(template_id):
     except Exception as e:
         db.session.rollback()
         return (
-            jsonify(
-                {"success": False, "message": f"Error updating template: {str(e)}"}
-            ),
+            jsonify({"success": False, "message": f"Error updating template: {str(e)}"}),
             500,
         )
 
@@ -207,11 +202,11 @@ def server_config(server_id):
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     from app import Server
 
     server = Server.query.get_or_404(server_id)
@@ -296,20 +291,18 @@ def create_config_version(server_id):
         )
 
 
-@config_bp.route(
-    "/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"]
-)
+@config_bp.route("/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"])
 def deploy_config_version(server_id, version_id):
     """Deploy a configuration version."""
     # Authentication check
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     from app import Server
 
     server = Server.query.get_or_404(server_id)
@@ -343,9 +336,7 @@ def deploy_config_version(server_id, version_id):
         )
 
 
-@config_bp.route(
-    "/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"]
-)
+@config_bp.route("/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"])
 def rollback_config_version(server_id, version_id):
     """Rollback to a previous configuration version."""
     from app import Server
@@ -387,11 +378,11 @@ def compare_config_versions(server_id):
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     from app import Server
 
     server = Server.query.get_or_404(server_id)
@@ -417,9 +408,7 @@ def compare_config_versions(server_id):
 
     except Exception as e:
         return (
-            jsonify(
-                {"success": False, "message": f"Error comparing versions: {str(e)}"}
-            ),
+            jsonify({"success": False, "message": f"Error comparing versions: {str(e)}"}),
             500,
         )
 
@@ -435,9 +424,7 @@ def config_version_details(server_id, version_id):
     if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
-    version = ConfigVersion.query.filter_by(
-        server_id=server_id, id=version_id
-    ).first_or_404()
+    version = ConfigVersion.query.filter_by(server_id=server_id, id=version_id).first_or_404()
 
     deployments = (
         ConfigDeployment.query.filter_by(config_version_id=version_id)
@@ -464,9 +451,7 @@ def config_version_details(server_id, version_id):
                     "status": d.deployment_status,
                     "log": d.deployment_log,
                     "started_at": d.started_at.isoformat(),
-                    "completed_at": (
-                        d.completed_at.isoformat() if d.completed_at else None
-                    ),
+                    "completed_at": (d.completed_at.isoformat() if d.completed_at else None),
                     "deployer": d.deployer.email if d.deployer else "Unknown",
                 }
                 for d in deployments
@@ -482,16 +467,14 @@ def get_template_data(template_id):
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     template = ConfigTemplate.query.get_or_404(template_id)
 
-    return jsonify(
-        {"success": True, "template_data": json.loads(template.template_data)}
-    )
+    return jsonify({"success": True, "template_data": json.loads(template.template_data)})
 
 
 @config_bp.route("/admin/config/deployments")
@@ -525,12 +508,12 @@ def ptero_eggs_browser():
     if not user_id:
         flash("Please log in", "error")
         return redirect(url_for("login"))
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         flash("User not found", "error")
         return redirect(url_for("login"))
-    
+
     if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
@@ -582,6 +565,7 @@ def ptero_eggs_browser():
 
     # Get sync status
     from ptero_eggs_updater import PteroEggsUpdater
+
     updater = PteroEggsUpdater()
     sync_status = updater.get_sync_status()
 
@@ -625,11 +609,11 @@ def ptero_eggs_template_preview(template_id):
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     if not current_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
 
@@ -640,6 +624,7 @@ def ptero_eggs_template_preview(template_id):
 
     # Get version history if available
     from ptero_eggs_updater import PteroEggsTemplateVersion
+
     versions = (
         PteroEggsTemplateVersion.query.filter_by(template_id=template_id)
         .order_by(PteroEggsTemplateVersion.version_number.desc())
@@ -733,11 +718,11 @@ def compare_ptero_eggs_templates():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
@@ -757,7 +742,7 @@ def compare_ptero_eggs_templates():
 
     # Calculate differences
     import difflib
-    
+
     def dict_to_lines(d):
         return json.dumps(d, indent=2).splitlines()
 
@@ -844,11 +829,11 @@ def migrate_servers_to_ptero():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
-    
+
     current_user = db.session.get(User, user_id)
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 401
-    
+
     if not current_user.is_system_admin():
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
@@ -863,7 +848,9 @@ def migrate_servers_to_ptero():
 
             if not server_ids or not template_id:
                 return (
-                    jsonify({"success": False, "message": "Server IDs and template ID are required"}),
+                    jsonify(
+                        {"success": False, "message": "Server IDs and template ID are required"}
+                    ),
                     400,
                 )
 
@@ -875,7 +862,13 @@ def migrate_servers_to_ptero():
                 try:
                     server = Server.query.get(server_id)
                     if not server:
-                        results.append({"server_id": server_id, "success": False, "message": "Server not found"})
+                        results.append(
+                            {
+                                "server_id": server_id,
+                                "success": False,
+                                "message": "Server not found",
+                            }
+                        )
                         continue
 
                     # Update server
@@ -893,31 +886,39 @@ def migrate_servers_to_ptero():
                     if hasattr(server, "config"):
                         server_config = json.loads(server.config) if server.config else {}
                         server_config["ptero_egg_template_id"] = template.id
-                        server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
+                        server_config["ptero_egg_applied_at"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
                         server.config = json.dumps(server_config)
 
-                    results.append({
-                        "server_id": server_id,
-                        "success": True,
-                        "message": "Migration successful",
-                        "version_id": version.id,
-                    })
+                    results.append(
+                        {
+                            "server_id": server_id,
+                            "success": True,
+                            "message": "Migration successful",
+                            "version_id": version.id,
+                        }
+                    )
 
                 except Exception as e:
-                    results.append({
-                        "server_id": server_id,
-                        "success": False,
-                        "message": str(e),
-                    })
+                    results.append(
+                        {
+                            "server_id": server_id,
+                            "success": False,
+                            "message": str(e),
+                        }
+                    )
 
             db.session.commit()
 
             success_count = sum(1 for r in results if r["success"])
-            return jsonify({
-                "success": True,
-                "message": f"Migrated {success_count}/{len(server_ids)} servers successfully",
-                "results": results,
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Migrated {success_count}/{len(server_ids)} servers successfully",
+                    "results": results,
+                }
+            )
 
         except Exception as e:
             db.session.rollback()

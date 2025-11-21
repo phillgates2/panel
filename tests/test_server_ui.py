@@ -82,9 +82,7 @@ def client():
                 # create a server record and an audit entry
                 s = Server(name="ci-server", description="CI server")
                 db.session.add(s)
-                db.session.add(
-                    AuditLog(actor_id=admin.id, action=f"create_server:{s.name}")
-                )
+                db.session.add(AuditLog(actor_id=admin.id, action=f"create_server:{s.name}"))
                 db.session.commit()
 
             # set session to be authenticated as admin and request export

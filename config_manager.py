@@ -52,9 +52,7 @@ class ConfigVersion(db.Model):
     deployed_at = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=False)
 
-    server = db.relationship(
-        "Server", backref=db.backref("config_versions", lazy="dynamic")
-    )
+    server = db.relationship("Server", backref=db.backref("config_versions", lazy="dynamic"))
     creator = db.relationship("User", foreign_keys=[created_by])
 
 
@@ -64,9 +62,7 @@ class ConfigDeployment(db.Model):
     __tablename__ = "config_deployment"
 
     id = db.Column(db.Integer, primary_key=True)
-    config_version_id = db.Column(
-        db.Integer, db.ForeignKey("config_version.id"), nullable=False
-    )
+    config_version_id = db.Column(db.Integer, db.ForeignKey("config_version.id"), nullable=False)
     deployment_status = db.Column(
         db.String(32), nullable=False
     )  # pending, success, failed, rollback
@@ -89,9 +85,7 @@ class ConfigManager:
 
     def get_current_config(self):
         """Get the currently active configuration."""
-        return ConfigVersion.query.filter_by(
-            server_id=self.server_id, is_active=True
-        ).first()
+        return ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).first()
 
     def create_version(self, config_data, user_id, change_summary=None):
         """Create a new configuration version."""
@@ -154,9 +148,9 @@ class ConfigManager:
 
             if success:
                 # Mark as active and deactivate others
-                ConfigVersion.query.filter_by(
-                    server_id=self.server_id, is_active=True
-                ).update({"is_active": False})
+                ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).update(
+                    {"is_active": False}
+                )
 
                 version.is_active = True
                 version.deployed_at = datetime.now(timezone.utc)
@@ -199,15 +193,13 @@ class ConfigManager:
 
             if success:
                 # Mark as active
-                ConfigVersion.query.filter_by(
-                    server_id=self.server_id, is_active=True
-                ).update({"is_active": False})
+                ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).update(
+                    {"is_active": False}
+                )
 
                 version.is_active = True
                 deployment.deployment_status = "success"
-                deployment.deployment_log = (
-                    f"Rolled back to version {version.version_number}"
-                )
+                deployment.deployment_log = f"Rolled back to version {version.version_number}"
             else:
                 deployment.deployment_status = "failed"
                 deployment.deployment_log = "Rollback failed"
@@ -290,9 +282,7 @@ class ConfigManager:
             if key not in config1:
                 differences.append({"type": "added", "key": key, "value": config2[key]})
             elif key not in config2:
-                differences.append(
-                    {"type": "removed", "key": key, "value": config1[key]}
-                )
+                differences.append({"type": "removed", "key": key, "value": config1[key]})
             elif config1[key] != config2[key]:
                 differences.append(
                     {
@@ -332,16 +322,17 @@ class ConfigManager:
 def create_default_templates():
     """Create default configuration templates."""
     try:
-        from app import User
         from flask import current_app
-        
+
+        from app import User
+
         # Ensure we're in an app context
         if not current_app:
             print("Warning: create_default_templates called without Flask app context")
             return
 
         # Get the first admin user or create a system user
-        admin_user = User.query.filter_by(role='system_admin').first()
+        admin_user = User.query.filter_by(role="system_admin").first()
         if not admin_user:
             return
 
@@ -351,7 +342,7 @@ def create_default_templates():
                 "description": "Standard ET:Legacy server configuration",
                 "game_type": "etlegacy",
                 "template_data": {
-                "server_cfg": """// ET:Legacy Server Configuration
+                    "server_cfg": """// ET:Legacy Server Configuration
 set sv_hostname "ET:Legacy Server"
 set rconpassword "changeme"
 set sv_maxclients 32
@@ -379,21 +370,21 @@ set nextmap ""
 
 exec "campaign.cfg"
 """,
-                "campaign_cfg": """// Campaign Configuration
+                    "campaign_cfg": """// Campaign Configuration
 set g_gametype 6
 clearscriptlist
 scriptlist maps/goldrush.script
-scriptlist maps/oasis.script  
+scriptlist maps/oasis.script
 scriptlist maps/battery.script
 scriptlist maps/radar.script
 scriptlist maps/railgun.script
 scriptlist maps/fueldump.script
 """,
-                "startup_script": f"""#!/bin/bash
+                    "startup_script": f"""#!/bin/bash
 cd {config.DOWNLOAD_DIR}
 ./etlded +set dedicated 2 +set net_port 27960 +exec server.cfg
 """,  # Use OS-aware path
-                "mod_config": """// n!tmod Configuration
+                    "mod_config": """// n!tmod Configuration
 set nitmod_version "2.3.1"
 set g_shrubbot "shrubbot.cfg"
 set g_shrubbot_logs 1
@@ -405,7 +396,7 @@ set g_shrubbot_logs 1
                 "description": "Competition-ready server with strict settings",
                 "game_type": "etlegacy",
                 "template_data": {
-                "server_cfg": """// ET:Legacy Competition Server
+                    "server_cfg": """// ET:Legacy Competition Server
 set sv_hostname "ET:Legacy Competition Server"
 set rconpassword "changeme"
 set sv_maxclients 12
@@ -425,7 +416,7 @@ set g_axismaxlives 1
 
 exec "campaign.cfg"
 """,
-                "campaign_cfg": """// Competition Maps
+                    "campaign_cfg": """// Competition Maps
 set g_gametype 6
 clearscriptlist
 scriptlist maps/supply.script

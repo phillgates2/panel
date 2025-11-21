@@ -55,17 +55,17 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-primary" 
+                                    <button type="button" class="btn btn-outline-primary"
                                             data-bs-toggle="modal" data-bs-target="#assignRoleModal"
                                             onclick="setAssignUser({{ user.id }}, '{{ user.email }}')">
                                         <i class="fas fa-plus"></i> Assign Role
                                     </button>
-                                    <button type="button" class="btn btn-outline-info" 
+                                    <button type="button" class="btn btn-outline-info"
                                             onclick="viewUserPermissions({{ user.id }})">
                                         <i class="fas fa-eye"></i> View Permissions
                                     </button>
                                     {% if user.user_roles %}
-                                    <button type="button" class="btn btn-outline-warning" 
+                                    <button type="button" class="btn btn-outline-warning"
                                             data-bs-toggle="modal" data-bs-target="#revokeRoleModal"
                                             onclick="setRevokeUser({{ user.id }}, '{{ user.email }}')">
                                         <i class="fas fa-minus"></i> Revoke Role
@@ -87,7 +87,7 @@
                         <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}">Previous</a>
                     </li>
                     {% endif %}
-                    
+
                     {% for p in pagination.iter_pages() %}
                         {% if p %}
                             <li class="page-item {% if p == pagination.page %}active{% endif %}">
@@ -97,7 +97,7 @@
                             <li class="page-item disabled"><span class="page-link">...</span></li>
                         {% endif %}
                     {% endfor %}
-                    
+
                     {% if pagination.has_next %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}">Next</a>
@@ -214,12 +214,12 @@ function setRevokeUser(userId, userEmail) {
     currentUser = userId;
     document.getElementById('revokeUserInfo').textContent = userEmail;
     document.getElementById('revokeRoleForm').action = `/admin/rbac/users/${userId}/revoke-role`;
-    
+
     // Populate roles for this user
     const user = {{ users|tojson }}.find(u => u.id === userId);
     const revokeSelect = document.getElementById('revokeRoleSelect');
     revokeSelect.innerHTML = '<option value="">Select a role...</option>';
-    
+
     if (user && user.user_roles) {
         user.user_roles.forEach(userRole => {
             const option = document.createElement('option');
@@ -233,13 +233,13 @@ function setRevokeUser(userId, userEmail) {
 function viewUserPermissions(userId) {
     const modal = new bootstrap.Modal(document.getElementById('userPermissionsModal'));
     modal.show();
-    
+
     // Load user permissions via API
     fetch(`/api/rbac/user/${userId}/permissions`)
         .then(response => response.json())
         .then(data => {
             const content = document.getElementById('userPermissionsContent');
-            
+
             if (data.permissions && data.permissions.length > 0) {
                 // Group permissions by category
                 const grouped = {};
@@ -250,7 +250,7 @@ function viewUserPermissions(userId) {
                     }
                     grouped[category].push(perm);
                 });
-                
+
                 let html = `<h6>Permissions for ${data.email}:</h6>`;
                 for (const [category, perms] of Object.entries(grouped)) {
                     html += `<div class="mb-3">`;
@@ -261,7 +261,7 @@ function viewUserPermissions(userId) {
                     });
                     html += `</div></div>`;
                 }
-                
+
                 content.innerHTML = html;
             } else {
                 content.innerHTML = '<p class="text-muted">No permissions assigned to this user.</p>';
@@ -269,7 +269,7 @@ function viewUserPermissions(userId) {
         })
         .catch(error => {
             console.error('Error loading permissions:', error);
-            document.getElementById('userPermissionsContent').innerHTML = 
+            document.getElementById('userPermissionsContent').innerHTML =
                 '<p class="text-danger">Error loading permissions.</p>';
         });
 }

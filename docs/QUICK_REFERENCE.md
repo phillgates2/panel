@@ -37,7 +37,7 @@
    # Example for ET:Legacy
    mkdir -p /opt/servers/your-server-name
    cd /opt/servers/your-server-name
-   
+
    # Download game files
    wget https://www.etlegacy.com/download/file/111 -O etlegacy.tar.gz
    tar -xzf etlegacy.tar.gz

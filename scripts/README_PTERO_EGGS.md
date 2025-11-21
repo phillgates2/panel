@@ -125,15 +125,15 @@ import json
 with app.app_context():
     # Find a template
     template = ConfigTemplate.query.filter_by(name='Palworld (Ptero-Eggs)').first()
-    
+
     if template:
         # Load configuration
         config = json.loads(template.template_data)
-        
+
         # Access variables
         server_name_var = config['variables']['SERVER_NAME']
         print(f"Default server name: {server_name_var['default']}")
-        
+
         # Access startup command
         print(f"Startup: {config['startup_command']}")
 ```
@@ -195,28 +195,28 @@ import json
 with app.app_context():
     # Get a server
     server = Server.query.filter_by(name='My Palworld Server').first()
-    
+
     # Get the template
     template = ConfigTemplate.query.filter_by(name='Palworld (Ptero-Eggs)').first()
-    
+
     if server and template:
         config = json.loads(template.template_data)
-        
+
         # Update server configuration
         server.game_type = template.game_type
-        
+
         # Apply egg configuration
         if hasattr(server, 'config'):
             server_config = json.loads(server.config) if server.config else {}
             server_config['ptero_egg_template_id'] = template.id
-            
+
             # Merge startup command, variables, etc.
             for key in ['startup_command', 'stop_command', 'variables']:
                 if key in config:
                     server_config[key] = config[key]
-            
+
             server.config = json.dumps(server_config)
-        
+
         db.session.commit()
 ```
 

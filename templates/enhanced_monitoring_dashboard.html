@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Monitoring Dashboard - Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .metric-card {
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        .alert-critical {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        .alert-warning {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-critical { background-color: #dc3545; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin">
+                <i class="fas fa-tachometer-alt"></i> Panel Admin
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin/monitoring">
+                    <i class="fas fa-chart-line"></i> Basic Monitoring
+                </a>
+                <a class="nav-link active" href="/admin/monitoring/enhanced">
+                    <i class="fas fa-chart-area"></i> Enhanced Dashboard
+                </a>
+                <a class="nav-link" href="/admin/logs/aggregated">
+                    <i class="fas fa-file-alt"></i> Logs
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-chart-area"></i> Enhanced Monitoring Dashboard</h1>
+                    <div>
+                        <button id="refreshBtn" class="btn btn-primary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button id="exportBtn" class="btn btn-secondary">
+                            <i class="fas fa-download"></i> Export Metrics
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Section -->
+        <div id="alertsSection" class="row mb-4" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Active Alerts</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="alertsContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Metrics Grid -->
+        <div class="dashboard-grid">
+            <!-- CPU Usage -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">CPU Usage</div>
+                            <div class="metric-value" id="cpuUsage">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-microchip fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar" id="cpuProgress" role="progressbar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Usage -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">Memory Usage</div>
+                            <div class="metric-value" id="memoryUsage">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-memory fa-2x text-success"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" id="memoryProgress" role="progressbar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk Usage -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">Disk Usage</div>
+                            <div class="metric-value" id="diskUsage">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-hdd fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-warning" id="diskProgress" role="progressbar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Connections -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">DB Connections</div>
+                            <div class="metric-value" id="dbConnections">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-database fa-2x text-info"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Pool: <span id="dbPoolSize">--</span></small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Redis Status -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">Redis Memory</div>
+                            <div class="metric-value" id="redisMemory">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-server fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Clients: <span id="redisClients">--</span></small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Application Metrics -->
+            <div class="card metric-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="metric-label">Active Users</div>
+                            <div class="metric-value" id="activeUsers">--</div>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-users fa-2x text-secondary"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Total: <span id="totalUsers">--</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line"></i> System Performance Trends</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-server"></i> Server Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="serverStatusContainer">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network & Application Metrics -->
+        <div class="row mt-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-network-wired"></i> Network I/O</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="networkChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-globe"></i> Application Metrics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="appMetricsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let performanceChart, networkChart, appMetricsChart;
+        let metricsHistory = [];
+        const maxHistoryPoints = 20;
+
+        // Initialize charts
+        function initCharts() {
+            const ctx1 = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU Usage %',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Memory Usage %',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('networkChart').getContext('2d');
+            networkChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Sent (MB)', 'Received (MB)'],
+                    datasets: [{
+                        label: 'Network I/O',
+                        data: [],
+                        backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            const ctx3 = document.getElementById('appMetricsChart').getContext('2d');
+            appMetricsChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active Users', 'Inactive Users'],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['rgba(255, 205, 86, 0.6)', 'rgba(201, 203, 207, 0.6)']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Update metrics display
+        function updateMetrics(metrics) {
+            // Update metric cards
+            document.getElementById('cpuUsage').textContent = `${metrics.cpu.usage_percent.toFixed(1)}%`;
+            document.getElementById('cpuProgress').style.width = `${metrics.cpu.usage_percent}%`;
+
+            document.getElementById('memoryUsage').textContent = `${metrics.memory.usage_percent.toFixed(1)}%`;
+            document.getElementById('memoryProgress').style.width = `${metrics.memory.usage_percent}%`;
+
+            document.getElementById('diskUsage').textContent = `${metrics.disk.usage_percent.toFixed(1)}%`;
+            document.getElementById('diskProgress').style.width = `${metrics.disk.usage_percent}%`;
+
+            document.getElementById('dbConnections').textContent = metrics.database.checked_out;
+            document.getElementById('dbPoolSize').textContent = metrics.database.pool_size;
+
+            document.getElementById('redisMemory').textContent = `${metrics.redis.used_memory_mb} MB`;
+            document.getElementById('redisClients').textContent = metrics.redis.connected_clients;
+
+            document.getElementById('activeUsers').textContent = metrics.application.active_users;
+            document.getElementById('totalUsers').textContent = metrics.application.total_users;
+
+            // Update charts
+            updateCharts(metrics);
+        }
+
+        // Update charts with new data
+        function updateCharts(metrics) {
+            const timestamp = new Date(metrics.timestamp).toLocaleTimeString();
+
+            // Add to history
+            metricsHistory.push({
+                time: timestamp,
+                cpu: metrics.cpu.usage_percent,
+                memory: metrics.memory.usage_percent,
+                network_sent: metrics.network.bytes_sent_mb,
+                network_recv: metrics.network.bytes_recv_mb,
+                active_users: metrics.application.active_users,
+                total_users: metrics.application.total_users
+            });
+
+            // Keep only recent history
+            if (metricsHistory.length > maxHistoryPoints) {
+                metricsHistory.shift();
+            }
+
+            // Update performance chart
+            performanceChart.data.labels = metricsHistory.map(m => m.time);
+            performanceChart.data.datasets[0].data = metricsHistory.map(m => m.cpu);
+            performanceChart.data.datasets[1].data = metricsHistory.map(m => m.memory);
+            performanceChart.update();
+
+            // Update network chart
+            networkChart.data.datasets[0].data = [
+                metrics.network.bytes_sent_mb,
+                metrics.network.bytes_recv_mb
+            ];
+            networkChart.update();
+
+            // Update app metrics chart
+            appMetricsChart.data.datasets[0].data = [
+                metrics.application.active_users,
+                metrics.application.total_users - metrics.application.active_users
+            ];
+            appMetricsChart.update();
+        }
+
+        // Update alerts display
+        function updateAlerts(alerts) {
+            const alertsContainer = document.getElementById('alertsContainer');
+            const alertsSection = document.getElementById('alertsSection');
+
+            if (alerts.length === 0) {
+                alertsSection.style.display = 'none';
+                return;
+            }
+
+            alertsSection.style.display = 'block';
+            alertsContainer.innerHTML = '';
+
+            alerts.forEach(alert => {
+                const alertClass = alert.severity === 'critical' ? 'alert-critical' : 'alert-warning';
+                const iconClass = alert.severity === 'critical' ? 'fas fa-exclamation-circle' : 'fas fa-exclamation-triangle';
+
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert ${alertClass} mb-2`;
+                alertDiv.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="${iconClass} me-2"></i>
+                        <div>
+                            <strong>${alert.message}</strong>
+                            <br>
+                            <small class="text-muted">Threshold: ${alert.threshold} | Current: ${alert.value}</small>
+                        </div>
+                    </div>
+                `;
+                alertsContainer.appendChild(alertDiv);
+            });
+        }
+
+        // Load metrics from API
+        async function loadMetrics() {
+            try {
+                const [metricsResponse, alertsResponse] = await Promise.all([
+                    fetch('/api/monitoring/metrics'),
+                    fetch('/api/monitoring/alerts')
+                ]);
+
+                if (metricsResponse.ok && alertsResponse.ok) {
+                    const metrics = await metricsResponse.json();
+                    const alerts = await alertsResponse.json();
+
+                    updateMetrics(metrics);
+                    updateAlerts(alerts.alerts);
+                }
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+            }
+        }
+
+        // Refresh button handler
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadMetrics();
+        });
+
+        // Export button handler
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const dataStr = JSON.stringify(metricsHistory, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = `panel-metrics-${new Date().toISOString().split('T')[0]}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        });
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadMetrics();
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadMetrics, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@
     <div class="form-container">
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
+
             <div class="form-group">
                 <label for="content">Post Content</label>
                 <textarea id="content" name="content" rows="15" required>{{ post.content }}</textarea>
@@ -157,11 +157,11 @@
         gap: 1rem;
         align-items: flex-start;
     }
-    
+
     .form-actions {
         flex-direction: column;
     }
-    
+
     .btn {
         width: 100%;
         text-align: center;
@@ -169,4 +169,3 @@
 }
 </style>
 {% endblock %}
-

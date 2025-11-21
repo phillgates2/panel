@@ -1,0 +1,91 @@
+version: '3.8'
+
+# Test environment for CI/CD pipelines
+# Runs tests in isolated containers with proper dependencies
+
+services:
+  test:
+    build:
+      context: .
+      target: development
+    container_name: panel_test
+    environment:
+      - PANEL_DB_HOST=test-db
+      - PANEL_DB_PORT=5432
+      - PANEL_DB_USER=panel_test
+      - PANEL_DB_PASS=test_password
+      - PANEL_DB_NAME=panel_test
+      - PANEL_REDIS_URL=redis://test-redis:6379/0
+      - PANEL_SECRET_KEY=test-secret-key-for-testing-only
+      - FLASK_ENV=testing
+      - PYTHONPATH=/app
+    volumes:
+      - ./:/app
+      - test-results:/app/test-results
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        pip install -r requirements-test.txt &&
+        python -m pytest tests/ -v --cov=. --cov-report=xml:/app/test-results/coverage.xml --cov-report=term --junitxml=/app/test-results/junit.xml
+      "
+    networks:
+      - test-network
+
+  test-db:
+    image: postgres:15-alpine
+    container_name: panel_test_db
+    environment:
+      - POSTGRES_DB=panel_test
+      - POSTGRES_USER=panel_test
+      - POSTGRES_PASSWORD=test_password
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panel_test -d panel_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-redis:
+    image: redis:7-alpine
+    container_name: panel_test_redis
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  security-scan:
+    build:
+      context: .
+      target: security-scan
+    container_name: panel_security_scan
+    volumes:
+      - ./:/app
+      - test-results:/app/test-results
+    command: >
+      sh -c "
+        bandit -r . -f json -o /app/test-results/bandit-report.json || echo 'Bandit scan completed' &&
+        safety check --full-report --output json | tee /app/test-results/safety-report.json || echo 'Safety check completed'
+      "
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test-db-data:
+    driver: local
+  test-results:
+    driver: local

@@ -8,8 +8,7 @@ social systems for ET:Legacy game servers.
 import json
 from datetime import datetime, timedelta, timezone
 
-from flask import (Blueprint, flash, jsonify, redirect, render_template,
-                   request, url_for)
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import desc, func, or_
 
@@ -31,12 +30,8 @@ class Player(db.Model):
     ip_address = db.Column(db.String(45), nullable=True)  # IPv6 support
 
     # Status
-    status = db.Column(
-        db.String(32), default="active"
-    )  # active, banned, suspended, vip
-    registration_date = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc)
-    )
+    status = db.Column(db.String(32), default="active")  # active, banned, suspended, vip
+    registration_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     last_seen = db.Column(db.DateTime, nullable=True)
     last_server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
 
@@ -77,9 +72,7 @@ class PlayerBan(db.Model):
     )  # NULL for global ban
 
     # Ban details
-    ban_type = db.Column(
-        db.String(32), nullable=False
-    )  # temporary, permanent, ip, guid
+    ban_type = db.Column(db.String(32), nullable=False)  # temporary, permanent, ip, guid
     reason = db.Column(db.Text, nullable=False)
     evidence = db.Column(db.Text, nullable=True)  # Screenshots, logs, etc.
 
@@ -106,15 +99,11 @@ class PlayerReport(db.Model):
     __tablename__ = "player_report"
 
     id = db.Column(db.Integer, primary_key=True)
-    reported_player_id = db.Column(
-        db.Integer, db.ForeignKey("player.id"), nullable=False
-    )
+    reported_player_id = db.Column(db.Integer, db.ForeignKey("player.id"), nullable=False)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
 
     # Report details
-    report_type = db.Column(
-        db.String(32), nullable=False
-    )  # cheating, griefing, spam, etc.
+    report_type = db.Column(db.String(32), nullable=False)  # cheating, griefing, spam, etc.
     description = db.Column(db.Text, nullable=False)
     evidence = db.Column(db.Text, nullable=True)  # JSON array of evidence
 
@@ -161,9 +150,7 @@ class PlayerAchievement(db.Model):
     earned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
 
-    player = db.relationship(
-        "Player", backref=db.backref("achievements", lazy="dynamic")
-    )
+    player = db.relationship("Player", backref=db.backref("achievements", lazy="dynamic"))
     server = db.relationship("Server")
 
 
@@ -222,9 +209,7 @@ class CommunityEvent(db.Model):
     entry_requirements = db.Column(db.Text, nullable=True)  # JSON
 
     # Status
-    status = db.Column(
-        db.String(32), default="planned"
-    )  # planned, active, completed, cancelled
+    status = db.Column(db.String(32), default="planned")  # planned, active, completed, cancelled
 
     # Organization
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -351,9 +336,7 @@ class PlayerManager:
                 "veteran_10h": {"total_playtime": 600},  # 10 hours
                 "veteran_100h": {"total_playtime": 6000},  # 100 hours
                 "killer_1000": {"total_kills": 1000},
-                "survivor": {
-                    "deaths_ratio": lambda p: p.total_deaths < p.total_kills * 0.5
-                },
+                "survivor": {"deaths_ratio": lambda p: p.total_deaths < p.total_kills * 0.5},
                 "regular": {"total_sessions": 50},
             }
 
@@ -409,9 +392,7 @@ class PlayerManager:
         try:
             expires_at = None
             if duration_hours:
-                expires_at = datetime.now(timezone.utc) + timedelta(
-                    hours=duration_hours
-                )
+                expires_at = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
 
             ban = PlayerBan(
                 player_id=player_id,
@@ -647,9 +628,7 @@ def ban_player(player_id):
             evidence=data.get("evidence"),
         )
 
-        return jsonify(
-            {"success": True, "ban_id": ban.id, "message": "Player banned successfully"}
-        )
+        return jsonify({"success": True, "ban_id": ban.id, "message": "Player banned successfully"})
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

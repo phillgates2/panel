@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: panel-config
+  labels:
+    app: panel
+data:
+  # Application configuration
+  FLASK_DEBUG: "false"
+  FLASK_TESTING: "false"
+  SESSION_TYPE: "redis"
+  CACHE_TYPE: "redis"
+  CACHE_DEFAULT_TIMEOUT: "300"
+
+  # Database configuration
+  SQLALCHEMY_TRACK_MODIFICATIONS: "false"
+  SQLALCHEMY_ENGINE_OPTIONS: |
+    {
+      "pool_pre_ping": true,
+      "pool_recycle": 300,
+      "pool_size": 10,
+      "max_overflow": 20
+    }
+
+  # Redis configuration
+  RQ_REDIS_URL: "redis://panel-redis:6379/1"
+  CACHE_REDIS_URL: "redis://panel-redis:6379/2"
+
+  # Monitoring configuration
+  METRICS_ENABLED: "true"
+  LOG_LEVEL: "INFO"
+  SENTRY_DSN: ""  # Set in secrets if using Sentry
+
+  # Rate limiting
+  RATELIMIT_STORAGE_URL: "redis://panel-redis:6379/3"
+  RATELIMIT_DEFAULT: "100 per minute"
+
+  # File upload configuration
+  MAX_CONTENT_LENGTH: "104857600"  # 100MB
+  UPLOAD_FOLDER: "/app/uploads"
+
+  # Security headers
+  SECURITY_HEADERS_ENABLED: "true"
+  CSP_DEFAULT_SRC: "'self'"
+  CSP_SCRIPT_SRC: "'self' 'unsafe-inline' https://cdn.jsdelivr.net"
+  CSP_STYLE_SRC: "'self' 'unsafe-inline' https://fonts.googleapis.com"

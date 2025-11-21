@@ -94,23 +94,23 @@ error() {
 confirm() {
     local prompt="$1"
     local default="${2:-n}"
-    
+
     if [[ "$FORCE" == "true" ]]; then
         return 0
     fi
-    
+
     local response
     echo -e "${YELLOW}$prompt [y/n]${NC} (default: $default): " >&2
-    
+
     # Read from /dev/tty to handle piped input
     if [[ -t 0 ]]; then
         read response
     else
         read response < /dev/tty
     fi
-    
+
     response="${response:-$default}"
-    
+
     [[ "$response" =~ ^[Yy] ]]
 }
 
@@ -129,7 +129,7 @@ detect_system() {
 
 stop_services() {
     log "Stopping Panel services and timers..."
-    
+
     local services=(
         "panel-gunicorn"
         "gunicorn"
@@ -146,7 +146,7 @@ stop_services() {
         "ssl-renewal"
         "panel-logrotate"
     )
-    
+
     local timers=(
         "check-worker.timer"
         "memwatch.timer"
@@ -157,7 +157,7 @@ stop_services() {
         "ssl-renewal.timer"
         "panel-logrotate.timer"
     )
-    
+
     # Stop and disable timers first
     for timer in "${timers[@]}"; do
         if systemctl is-active --quiet "$timer" 2>/dev/null; then
@@ -166,7 +166,7 @@ stop_services() {
             $SUDO systemctl disable "$timer" 2>/dev/null || true
         fi
     done
-    
+
     # Stop and disable services
     for service in "${services[@]}"; do
         if systemctl is-active --quiet "$service" 2>/dev/null; then
@@ -175,7 +175,7 @@ stop_services() {
             $SUDO systemctl disable "$service" 2>/dev/null || true
         fi
     done
-    
+
     # Remove systemd service and timer files
     local systemd_files=(
         "/etc/systemd/system/panel-gunicorn.service"
@@ -201,34 +201,34 @@ stop_services() {
         "/etc/systemd/system/panel-logrotate.service"
         "/etc/systemd/system/panel-logrotate.timer"
     )
-    
+
     for file in "${systemd_files[@]}"; do
         if [[ -f "$file" ]]; then
             log "Removing $file..."
             $SUDO rm -f "$file"
         fi
     done
-    
+
     $SUDO systemctl daemon-reload 2>/dev/null || true
 }
 
 remove_nginx_config() {
     log "Removing Nginx configuration..."
-    
+
     local nginx_configs=(
         "/etc/nginx/sites-enabled/panel"
         "/etc/nginx/sites-available/panel"
         "/etc/nginx/conf.d/panel.conf"
         "/etc/nginx/conf.d/nginx_game_chrisvanek.conf"
     )
-    
+
     for config in "${nginx_configs[@]}"; do
         if [[ -f "$config" ]]; then
             log "Removing $config..."
             $SUDO rm -f "$config"
         fi
     done
-    
+
     # Test and reload nginx if it's running
     if command -v nginx &>/dev/null && systemctl is-active --quiet nginx 2>/dev/null; then
         $SUDO nginx -t && $SUDO systemctl reload nginx || warn "Nginx reload failed"
@@ -237,12 +237,12 @@ remove_nginx_config() {
 
 remove_logrotate_config() {
     log "Removing logrotate configuration..."
-    
+
     local logrotate_configs=(
         "/etc/logrotate.d/panel"
         "/etc/logrotate.d/panel-logrotate"
     )
-    
+
     for config in "${logrotate_configs[@]}"; do
         if [[ -f "$config" ]]; then
             log "Removing $config..."
@@ -253,12 +253,12 @@ remove_logrotate_config() {
 
 remove_sudoers_config() {
     log "Removing sudoers configuration..."
-    
+
     local sudoers_files=(
         "/etc/sudoers.d/panel"
         "/etc/sudoers.d/panel-sudoers"
     )
-    
+
     for sudoers in "${sudoers_files[@]}"; do
         if [[ -f "$sudoers" ]]; then
             log "Removing $sudoers..."
@@ -269,13 +269,13 @@ remove_sudoers_config() {
 
 remove_ssl_certificates() {
     log "Checking for SSL certificates..."
-    
+
     local cert_dirs=(
         "/etc/letsencrypt/live/panel"
         "/etc/letsencrypt/archive/panel"
         "/etc/letsencrypt/renewal/panel.conf"
     )
-    
+
     local has_certs=false
     for cert_path in "${cert_dirs[@]}"; do
         if [[ -e "$cert_path" ]]; then
@@ -283,7 +283,7 @@ remove_ssl_certificates() {
             break
         fi
     done
-    
+
     if [[ "$has_certs" == "true" ]]; then
         echo
         if confirm "Remove SSL certificates?" "n"; then
@@ -302,14 +302,14 @@ remove_ssl_certificates() {
 
 remove_installation() {
     log "Checking installation directory: $INSTALL_DIR"
-    
+
     if [[ ! -d "$INSTALL_DIR" ]]; then
         warn "Installation directory not found: $INSTALL_DIR"
         return
     fi
-    
+
     log "Installation directory exists, preparing to remove: $INSTALL_DIR"
-    
+
     # Show what will be removed
     echo
     echo -e "${YELLOW}The following will be removed:${NC}"
@@ -322,25 +322,25 @@ remove_installation() {
     echo "  - Configuration files"
     echo "  - Forum and CMS data"
     echo
-    
+
     log "Prompting user for installation directory removal confirmation..."
     if ! confirm "Remove installation directory?"; then
         log "Skipping directory removal"
         return
     fi
-    
+
     rm -rf "$INSTALL_DIR"
     log "Installation directory removed"
 }
 
 remove_user_data() {
     log "Checking for user data directories..."
-    
+
     local data_dirs=(
         "$HOME/.local/share/panel"
         "$HOME/.config/panel"
     )
-    
+
     local has_data=false
     for data_dir in "${data_dirs[@]}"; do
         if [[ -d "$data_dir" ]]; then
@@ -348,7 +348,7 @@ remove_user_data() {
             break
         fi
     done
-    
+
     if [[ "$has_data" == "true" ]]; then
         echo
         echo -e "${YELLOW}User data directories found:${NC}"
@@ -358,7 +358,7 @@ remove_user_data() {
             fi
         done
         echo
-        
+
         if confirm "Remove user data directories?" "n"; then
             for data_dir in "${data_dirs[@]}"; do
                 if [[ -d "$data_dir" ]]; then
@@ -378,20 +378,20 @@ drop_postgresql_db() {
         log "PostgreSQL not found, skipping database removal"
         return
     fi
-    
+
     log "PostgreSQL found, checking if database should be dropped..."
     echo
     if ! confirm "Drop PostgreSQL database 'panel'?" "n"; then
         log "Keeping PostgreSQL database"
         return
     fi
-    
+
     log "Dropping PostgreSQL database..."
-    
+
     # Try to drop database and user
     $SUDO -u postgres psql -c "DROP DATABASE IF EXISTS panel;" 2>/dev/null || warn "Could not drop database"
     $SUDO -u postgres psql -c "DROP USER IF EXISTS panel_user;" 2>/dev/null || warn "Could not drop user"
-    
+
     log "PostgreSQL database dropped"
 }
 
@@ -402,7 +402,7 @@ drop_postgresql_db() {
 parse_args() {
     KEEP_DB=false
     KEEP_DATA=false
-    
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
@@ -435,28 +435,28 @@ parse_args() {
 
 main() {
     parse_args "$@"
-    
+
     echo
     echo -e "${BOLD}${RED}╔═══════════════════════════════════════════╗${NC}"
     echo -e "${BOLD}${RED}║         Panel Uninstaller                 ║${NC}"
     echo -e "${BOLD}${RED}╚═══════════════════════════════════════════╝${NC}"
     echo
-    
+
     detect_system
-    
+
     log "FORCE=$FORCE"
     log "Installation directory: $INSTALL_DIR"
-    
+
     echo -e "${YELLOW}WARNING: This will remove Panel and its data!${NC}"
     echo -e "${YELLOW}Installation directory: $INSTALL_DIR${NC}"
     echo
-    
+
     log "Prompting user for initial confirmation..."
     if ! confirm "Continue with uninstallation?" "n"; then
         log "Uninstallation cancelled"
         exit 0
     fi
-    
+
     log "User confirmed uninstallation, proceeding..."
     echo
     stop_services
@@ -466,21 +466,21 @@ main() {
     remove_ssl_certificates
     remove_installation
     remove_user_data
-    
+
     if [[ "$KEEP_DB" != "true" ]]; then
         drop_postgresql_db
     fi
-    
+
     echo
     echo -e "${BOLD}${GREEN}╔═══════════════════════════════════════════╗${NC}"
     echo -e "${BOLD}${GREEN}║   Uninstallation Complete!                ║${NC}"
     echo -e "${BOLD}${GREEN}╚═══════════════════════════════════════════╝${NC}"
     echo
-    
+
     if [[ "$KEEP_DB" == "true" ]]; then
         echo -e "${YELLOW}Note:${NC} PostgreSQL database was preserved"
     fi
-    
+
     log "Panel has been removed from your system"
     log "Thank you for using Panel!"
     echo

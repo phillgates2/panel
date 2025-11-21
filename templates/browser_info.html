@@ -3,67 +3,67 @@
 {% block content %}
 <div class="container">
   <h1>🌐 Browser Information</h1>
-  
+
   <div class="panel">
     <h2>Detected Browser Details</h2>
     <div id="browser-info-display">
       <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        
+
         <div class="info-card panel" style="padding: 1rem;">
           <h3>🌐 Browser</h3>
           <p><strong>Name:</strong> <span id="browser-name">Detecting...</span></p>
           <p><strong>Version:</strong> <span id="browser-version">-</span></p>
           <p><strong>Engine:</strong> <span id="browser-engine">-</span></p>
         </div>
-        
+
         <div class="info-card panel" style="padding: 1rem;">
           <h3>💻 Operating System</h3>
           <p><strong>OS:</strong> <span id="os-name">Detecting...</span></p>
           <p><strong>Version:</strong> <span id="os-version">-</span></p>
           <p><strong>Device Type:</strong> <span id="device-type">-</span></p>
         </div>
-        
+
         <div class="info-card panel" style="padding: 1rem;">
           <h3>📱 Device Features</h3>
           <p><strong>Touch Support:</strong> <span id="feature-touch">-</span></p>
           <p><strong>WebGL:</strong> <span id="feature-webgl">-</span></p>
           <p><strong>Service Worker:</strong> <span id="feature-sw">-</span></p>
         </div>
-        
+
         <div class="info-card panel" style="padding: 1rem;">
           <h3>🎨 CSS Features</h3>
           <p><strong>Flexbox:</strong> <span id="feature-flexbox">-</span></p>
           <p><strong>Grid:</strong> <span id="feature-grid">-</span></p>
           <p><strong>Custom Props:</strong> <span id="feature-customprops">-</span></p>
         </div>
-        
+
       </div>
     </div>
-    
+
     <h2 style="margin-top: 2rem;">🔍 Technical Details</h2>
     <div class="panel" style="padding: 1rem; margin-top: 1rem;">
       <p><strong>User Agent:</strong></p>
       <code id="user-agent" style="display: block; background: var(--panel-hover); padding: 1rem; border-radius: 4px; font-size: 0.85rem; word-break: break-all; margin-top: 0.5rem;">Detecting...</code>
     </div>
-    
+
     <div class="panel" style="padding: 1rem; margin-top: 1rem;">
       <p><strong>Applied CSS Classes:</strong></p>
       <code id="html-classes" style="display: block; background: var(--panel-hover); padding: 1rem; border-radius: 4px; font-size: 0.85rem; word-break: break-all; margin-top: 0.5rem;">Detecting...</code>
     </div>
-    
+
     <div class="panel" style="padding: 1rem; margin-top: 1rem;">
       <p><strong>Screen Resolution:</strong> <span id="screen-res">-</span></p>
       <p><strong>Viewport Size:</strong> <span id="viewport-size">-</span></p>
       <p><strong>Device Pixel Ratio:</strong> <span id="pixel-ratio">-</span></p>
       <p><strong>Color Depth:</strong> <span id="color-depth">-</span></p>
     </div>
-    
+
     <h2 style="margin-top: 2rem;">⚙️ Compatibility Warnings</h2>
     <div id="compatibility-warnings" class="panel" style="padding: 1rem; margin-top: 1rem;">
       <p>Checking compatibility...</p>
     </div>
   </div>
-  
+
   <div style="margin-top: 2rem;">
     <a href="/admin/tools" class="btn btn-secondary">← Back to Admin Tools</a>
   </div>
@@ -76,24 +76,24 @@
       setTimeout(displayBrowserInfo, 100);
       return;
     }
-    
+
     const detect = window.BrowserDetect;
-    
+
     // Browser info
     document.getElementById('browser-name').textContent = detect.browser.name;
     document.getElementById('browser-version').textContent = detect.browser.version;
     document.getElementById('browser-engine').textContent = detect.browser.engine;
-    
+
     // OS info
     document.getElementById('os-name').textContent = detect.os.name;
     document.getElementById('os-version').textContent = detect.os.version || 'Unknown';
-    
+
     // Device type
     let deviceType = 'Desktop';
     if (detect.isMobile()) deviceType = 'Mobile';
     else if (detect.isTablet()) deviceType = 'Tablet';
     document.getElementById('device-type').textContent = deviceType;
-    
+
     // Features
     document.getElementById('feature-touch').textContent = detect.features.touch ? '✅ Yes' : '❌ No';
     document.getElementById('feature-webgl').textContent = detect.features.webgl ? '✅ Yes' : '❌ No';
@@ -101,54 +101,54 @@
     document.getElementById('feature-flexbox').textContent = detect.features.flexbox ? '✅ Yes' : '❌ No';
     document.getElementById('feature-grid').textContent = detect.features.grid ? '✅ Yes' : '❌ No';
     document.getElementById('feature-customprops').textContent = detect.features.customprops ? '✅ Yes' : '❌ No';
-    
+
     // User agent
     document.getElementById('user-agent').textContent = navigator.userAgent;
-    
+
     // HTML classes
     document.getElementById('html-classes').textContent = document.documentElement.className || 'None';
-    
+
     // Screen info
     document.getElementById('screen-res').textContent = screen.width + ' × ' + screen.height;
     document.getElementById('viewport-size').textContent = window.innerWidth + ' × ' + window.innerHeight;
     document.getElementById('pixel-ratio').textContent = window.devicePixelRatio || 1;
     document.getElementById('color-depth').textContent = screen.colorDepth + ' bit';
-    
+
     // Compatibility warnings
     const warnings = [];
-    
+
     if (detect.browser.name === 'IE') {
       warnings.push('⚠️ <strong>Internet Explorer is not supported.</strong> Please use a modern browser.');
     }
-    
+
     if (detect.browser.name === 'Safari' && detect.browser.version < 14) {
       warnings.push('⚠️ Your Safari version is outdated. Some features may not work correctly.');
     }
-    
+
     if (detect.browser.name === 'Firefox' && detect.browser.version < 90) {
       warnings.push('⚠️ Your Firefox version is outdated. Please update for better performance.');
     }
-    
+
     if (detect.browser.name === 'Chrome' && detect.browser.version < 90) {
       warnings.push('⚠️ Your Chrome version is outdated. Please update for security and performance.');
     }
-    
+
     if (!detect.features.flexbox) {
       warnings.push('⚠️ Your browser does not support CSS Flexbox. Layout may appear broken.');
     }
-    
+
     if (!detect.features.grid) {
       warnings.push('⚠️ Your browser does not support CSS Grid. Some layouts may not work correctly.');
     }
-    
+
     if (!detect.features.customprops) {
       warnings.push('⚠️ Your browser does not support CSS Custom Properties. Theming may not work.');
     }
-    
+
     if (!detect.features.websockets) {
       warnings.push('⚠️ Your browser does not support WebSockets. Real-time features will not work.');
     }
-    
+
     const warningsEl = document.getElementById('compatibility-warnings');
     if (warnings.length === 0) {
       warningsEl.innerHTML = '<p style="color: var(--success);">✅ Your browser is fully compatible with all Panel features!</p>';
@@ -156,14 +156,14 @@
       warningsEl.innerHTML = warnings.map(w => '<div style="margin-bottom: 0.5rem;">' + w + '</div>').join('');
     }
   }
-  
+
   // Start detection
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', displayBrowserInfo);
   } else {
     displayBrowserInfo();
   }
-  
+
   // Update viewport size on resize
   window.addEventListener('resize', function() {
     document.getElementById('viewport-size').textContent = window.innerWidth + ' × ' + window.innerHeight;
@@ -174,26 +174,26 @@
   .info-grid {
     animation: fadeIn 0.5s ease-out;
   }
-  
+
   .info-card {
     transition: transform 0.2s, box-shadow 0.2s;
   }
-  
+
   .info-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px var(--shadow-lg);
   }
-  
+
   .info-card h3 {
     margin-top: 0;
     color: var(--accent);
   }
-  
+
   .info-card p {
     margin: 0.5rem 0;
     font-size: 0.95rem;
   }
-  
+
   .info-card strong {
     color: var(--text-secondary);
   }

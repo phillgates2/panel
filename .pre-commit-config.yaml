@@ -39,8 +39,13 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
-        additional_dependencies: [types-all]
-        args: ['--ignore-missing-imports']
+        additional_dependencies:
+          - types-Flask
+          - types-SQLAlchemy
+          - types-redis
+          - types-Pillow
+          - types-requests
+        args: ['--ignore-missing-imports', '--no-strict-optional']
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.6
@@ -48,3 +53,21 @@ repos:
       - id: bandit
         args: ['-c', '.bandit.yml']
         exclude: ^tests/
+
+  - repo: https://github.com/rubik/radon
+    rev: 6.0.1
+    hooks:
+      - id: radon
+        name: radon-complexity
+        entry: radon cc
+        language: python
+        args: ['--min', 'C', '--max', '10', '--show-complexity', '--total-average']
+        files: \.py$
+        exclude: ^tests/|^migrations/
+
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: ['--convention=google', '--add-ignore=D100,D104,D105,D107,D203,D204,D213,D215,D400,D401,D402,D403,D404,D405,D406,D407,D408,D409,D410,D411,D412,D413,D414,D415,D416,D417']
+        exclude: ^tests/|^migrations/

@@ -44,15 +44,15 @@
                                     <td>{{ template.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('config.edit_template', template_id=template.id) }}" 
+                                            <a href="{{ url_for('config.edit_template', template_id=template.id) }}"
                                                class="btn btn-outline-primary">
                                                 <i class="fas fa-edit"></i> Edit
                                             </a>
-                                            <button class="btn btn-outline-info" 
+                                            <button class="btn btn-outline-info"
                                                     onclick="previewTemplate({{ template.id }})">
                                                 <i class="fas fa-eye"></i> Preview
                                             </button>
-                                            <button class="btn btn-outline-danger" 
+                                            <button class="btn btn-outline-danger"
                                                     onclick="deleteTemplate({{ template.id }})">
                                                 <i class="fas fa-trash"></i> Delete
                                             </button>
@@ -108,50 +108,50 @@
                         <label for="templateDescription" class="form-label">Description</label>
                         <textarea class="form-control" id="templateDescription" rows="2"></textarea>
                     </div>
-                    
+
                     <div class="mb-3">
                         <h6>Configuration Files</h6>
                         <div class="accordion" id="configAccordion">
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
                                             data-bs-target="#serverCfgCollapse">
                                         Server Configuration (server.cfg)
                                     </button>
                                 </h2>
                                 <div id="serverCfgCollapse" class="accordion-collapse collapse show">
                                     <div class="accordion-body">
-                                        <textarea class="form-control font-monospace" id="serverCfg" 
+                                        <textarea class="form-control font-monospace" id="serverCfg"
                                                   rows="10" placeholder="Enter server.cfg content..."></textarea>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                             data-bs-target="#campaignCfgCollapse">
                                         Campaign Configuration (campaign.cfg)
                                     </button>
                                 </h2>
                                 <div id="campaignCfgCollapse" class="accordion-collapse collapse">
                                     <div class="accordion-body">
-                                        <textarea class="form-control font-monospace" id="campaignCfg" 
+                                        <textarea class="form-control font-monospace" id="campaignCfg"
                                                   rows="8" placeholder="Enter campaign.cfg content..."></textarea>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="accordion-item">
                                 <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                             data-bs-target="#startupScriptCollapse">
                                         Startup Script (start_server.sh)
                                     </button>
                                 </h2>
                                 <div id="startupScriptCollapse" class="accordion-collapse collapse">
                                     <div class="accordion-body">
-                                        <textarea class="form-control font-monospace" id="startupScript" 
+                                        <textarea class="form-control font-monospace" id="startupScript"
                                                   rows="6" placeholder="Enter startup script content..."></textarea>
                                     </div>
                                 </div>
@@ -197,7 +197,7 @@ function createTemplate() {
             startup_script: document.getElementById('startupScript').value
         }
     };
-    
+
     fetch('{{ url_for("config.create_template") }}', {
         method: 'POST',
         headers: {
@@ -225,13 +225,13 @@ function previewTemplate(templateId) {
     .then(data => {
         if (data.success) {
             let content = '<div class="accordion" id="previewAccordion">';
-            
+
             Object.keys(data.template_data).forEach((key, index) => {
                 const isFirst = index === 0;
                 content += `
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button ${isFirst ? '' : 'collapsed'}" type="button" 
+                            <button class="accordion-button ${isFirst ? '' : 'collapsed'}" type="button"
                                     data-bs-toggle="collapse" data-bs-target="#preview${index}">
                                 ${key.replace(/_/g, ' ').toUpperCase()}
                             </button>
@@ -244,10 +244,10 @@ function previewTemplate(templateId) {
                     </div>
                 `;
             });
-            
+
             content += '</div>';
             document.getElementById('templatePreviewContent').innerHTML = content;
-            
+
             const modal = new bootstrap.Modal(document.getElementById('previewTemplateModal'));
             modal.show();
         }

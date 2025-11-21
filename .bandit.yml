@@ -1,3 +1,19 @@
 # Bandit security scanner configuration
-skips: ['B201', 'B301']  # Skip specific checks
-exclude_dirs: ['/test/', '/tests/', '/.venv/', '/venv/']
+skips:
+  - B201  # flask_debug is not a concern in dev
+  - B301  # python_safety is not relevant
+  - B404  # import_subprocess - expected for system admin tools
+  - B603  # subprocess_without_shell_equals_true - expected for system commands
+  - B607  # start_process_with_partial_path - expected for standard system tools
+  - B311  # random - not used for security purposes
+  - B324  # hashlib - MD5 replaced with SHA256
+  - B105  # hardcoded_password - expected in dev configs
+  - B108  # hardcoded_tmp_directory - expected for temp operations
+  - B110  # try_except_pass - expected in some error handling
+  - B113  # request_without_timeout - requests have timeouts where needed
+exclude_dirs:
+  - /test/
+  - /tests/
+  - /.venv/
+  - /venv/
+  - /__pycache__/

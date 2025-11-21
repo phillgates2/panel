@@ -101,9 +101,7 @@ class SSLRenewalManager:
             result = subprocess.run(cmd, capture_output=True, text=True)
 
             if result.returncode != 0:
-                logger.warning(
-                    f"Could not check certificate for {domain}: {result.stderr}"
-                )
+                logger.warning(f"Could not check certificate for {domain}: {result.stderr}")
                 return None
 
             # Parse the expiry date
@@ -156,9 +154,7 @@ class SSLRenewalManager:
                 logger.info(f"Successfully renewed certificate for {domain}")
                 return True
             else:
-                logger.error(
-                    f"Failed to renew certificate for {domain}: {result.stderr}"
-                )
+                logger.error(f"Failed to renew certificate for {domain}: {result.stderr}")
                 return False
 
         except Exception as e:
@@ -259,9 +255,7 @@ Services reloaded: {', '.join(self.config['services_to_reload'])}
 
         # Send failure notification if any failed
         if failed_domains:
-            subject = (
-                f"SSL certificate renewal failed for {len(failed_domains)} domains"
-            )
+            subject = f"SSL certificate renewal failed for {len(failed_domains)} domains"
             message = f"""
 SSL Certificate Renewal Failure Report
 

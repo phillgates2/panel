@@ -1,0 +1,109 @@
+groups:
+  - name: panel_alerts
+    rules:
+    # CPU Usage Alerts
+    - alert: HighCPUUsage
+      expr: panel_cpu_usage_percent > 90
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High CPU usage detected"
+        description: "CPU usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    - alert: HighCPUUsageWarning
+      expr: panel_cpu_usage_percent > 75
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Elevated CPU usage"
+        description: "CPU usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    # Memory Usage Alerts
+    - alert: HighMemoryUsage
+      expr: panel_memory_usage_percent > 90
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High memory usage detected"
+        description: "Memory usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    - alert: HighMemoryUsageWarning
+      expr: panel_memory_usage_percent > 80
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Elevated memory usage"
+        description: "Memory usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    # Disk Usage Alerts
+    - alert: HighDiskUsage
+      expr: panel_disk_usage_percent > 95
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High disk usage detected"
+        description: "Disk usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    - alert: HighDiskUsageWarning
+      expr: panel_disk_usage_percent > 85
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Elevated disk usage"
+        description: "Disk usage is {{ $value }}% (instance {{ $labels.instance }})"
+
+    # Database Connection Alerts
+    - alert: HighDBConnections
+      expr: panel_db_connections_checked_out > 0.8 * panel_db_pool_size
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High database connection usage"
+        description: "Database connections checked out: {{ $value }} (pool size: {{ $labels.pool_size }})"
+
+    # Application Error Rate
+    - alert: HighErrorRate
+      expr: rate(panel_app_error_count[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High application error rate"
+        description: "Error rate is {{ $value }} errors per second"
+
+    # Redis Memory Usage
+    - alert: HighRedisMemory
+      expr: panel_redis_used_memory_mb > 500
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High Redis memory usage"
+        description: "Redis is using {{ $value }} MB of memory"
+
+    # Application Uptime
+    - alert: ApplicationDown
+      expr: up{job="panel"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Panel application is down"
+        description: "Panel application has been down for more than 1 minute"
+
+    # System Uptime
+    - alert: SystemRestart
+      expr: panel_system_uptime_seconds < 300
+      for: 1m
+      labels:
+        severity: info
+      annotations:
+        summary: "System recently restarted"
+        description: "System uptime is less than 5 minutes"

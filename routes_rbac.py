@@ -4,14 +4,44 @@ RBAC Management Routes
 Provides web interface for managing roles, permissions, and user assignments.
 """
 
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for, abort
 
 from app import User, app, db
 from models_extended import UserActivity
-from rbac import (Permission, Role, RolePermission, UserRole,
-                  assign_role_to_user, get_user_permissions, has_permission,
-                  initialize_rbac_system, revoke_role_from_user)
-from routes_extended import require_system_admin
+from rbac import (
+    Permission,
+    Role,
+    RolePermission,
+    UserRole,
+    assign_role_to_user,
+    get_user_permissions,
+    has_permission,
+    initialize_rbac_system,
+    revoke_role_from_user,
+)
+
+
+def require_system_admin(f):
+    """Decorator to require system admin access."""
+    from functools import wraps
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = request.session.get("user_id")
+        if not user_id:
+            flash("Please log in", "error")
+            return redirect(url_for("login"))
+
+        user = db.session.get(User, user_id)
+        if not user or not user.is_system_admin():
+            abort(403)
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+# ========== RBAC MANAGEMENT ROUTES ==========
 
 # ========== RBAC MANAGEMENT ROUTES ==========
 
@@ -178,9 +208,7 @@ def admin_rbac_users():
     if search:
         query = query.filter(User.email.like(f"%{search}%"))
 
-    pagination = query.order_by(User.email).paginate(
-        page=page, per_page=25, error_out=False
-    )
+    pagination = query.order_by(User.email).paginate(page=page, per_page=25, error_out=False)
 
     roles = Role.query.order_by(Role.name).all()
 
@@ -290,9 +318,7 @@ def api_rbac_user_permissions(user_id):
     user = User.query.get_or_404(user_id)
     permissions = list(get_user_permissions(user))
 
-    return jsonify(
-        {"user_id": user_id, "email": user.email, "permissions": permissions}
-    )
+    return jsonify({"user_id": user_id, "email": user.email, "permissions": permissions})
 
 
 @app.route("/api/rbac/check-permission", methods=["POST"])
@@ -312,6 +338,4 @@ def api_rbac_check_permission():
 
     has_perm = has_permission(user, permission_name)
 
-    return jsonify(
-        {"user_id": user_id, "permission": permission_name, "granted": has_perm}
-    )
+    return jsonify({"user_id": user_id, "permission": permission_name, "granted": has_perm})

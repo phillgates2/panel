@@ -1,0 +1,78 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: panel
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: panel
+          __path__: /var/log/panel/*.log
+    pipeline_stages:
+      - match:
+          selector: '{job="panel"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  timestamp: timestamp
+                  message: message
+                  user_id: user_id
+                  request_id: request_id
+            - labels:
+                level:
+                user_id:
+                request_id:
+            - timestamp:
+                source: timestamp
+                format: RFC3339Nano
+
+  - job_name: nginx
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          __path__: /var/log/nginx/*.log
+    pipeline_stages:
+      - match:
+          selector: '{job="nginx"}'
+          stages:
+            - regex:
+                expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>.*?)\] "(?P<request>.*?)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>.*?)" "(?P<http_user_agent>.*?)" "(?P<http_x_forwarded_for>.*?)" rt=(?P<request_time>[\d.]+) uct="(?P<upstream_connect_time>.*?)" uht="(?P<upstream_header_time>.*?)" urt="(?P<upstream_response_time>.*?)"$'
+            - labels:
+                status:
+                method:
+                path:
+            - metrics:
+                nginx_http_response_time:
+                  type: Histogram
+                  description: "HTTP response time"
+                  source: request_time
+                  config:
+                    buckets: [0.1, 0.5, 1, 2, 5, 10]
+
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - match:
+          selector: '{job="system"}'
+          stages:
+            - regex:
+                expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<hostname>\w+)\s+(?P<program>\w+)\s+(?P<message>.*)$'
+            - timestamp:
+                source: timestamp
+                format: 'Jan 2 15:04:05'

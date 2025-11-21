@@ -1,0 +1,87 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Check for updates weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install pip-tools
+      run: pip install pip-tools
+
+    - name: Update production dependencies
+      run: |
+        pip-compile --upgrade requirements-prod.in
+        pip-compile --upgrade requirements-dev.in
+        pip-compile --upgrade requirements-test.in
+
+    - name: Check for changes
+      id: verify-changed-files
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run tests with updated dependencies
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      run: |
+        pip install -r requirements-prod.txt
+        pip install -r requirements-dev.txt
+        pip install -r requirements-test.txt
+        pytest tests/ -x --tb=short
+
+    - name: Create Pull Request
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          chore: update dependencies
+
+          - Updated production dependencies
+          - Updated development dependencies
+          - Updated test dependencies
+        title: "⬆️ Update Dependencies"
+        body: |
+          ## Dependency Updates
+
+          This PR updates the project dependencies to their latest compatible versions.
+
+          ### Changes
+          - Production dependencies in `requirements-prod.txt`
+          - Development dependencies in `requirements-dev.txt`
+          - Test dependencies in `requirements-test.txt`
+
+          ### Testing
+          - All tests pass with updated dependencies
+          - No breaking changes detected
+
+          ### Review Checklist
+          - [ ] Review dependency changes for security implications
+          - [ ] Check for breaking changes in major version updates
+          - [ ] Verify all tests still pass
+        branch: automated/dependency-updates
+        delete-branch: true
+        labels: |
+          dependencies
+          automated
+        assignees: ${{ github.actor }}

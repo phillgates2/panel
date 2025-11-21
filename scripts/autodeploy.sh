@@ -108,4 +108,3 @@ rm -rf "$TMP_DIR"
 
 log "Deploy complete"
 [ -n "$DISCORD_WEBHOOK" ] && curl -s -X POST -H "Content-Type: application/json" -d "{\"content\": \"autodeploy: completed deployment of $DOWNLOAD_URL\"}" "$DISCORD_WEBHOOK" || true
-

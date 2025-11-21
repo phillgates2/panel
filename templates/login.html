@@ -8,22 +8,22 @@
 
   <form method="post" class="login-form">
     <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-    
+
     <div class="form-group">
       <label for="email">📧 Email Address</label>
       <input id="email" name="email" type="email" required placeholder="Enter your email" />
     </div>
-    
+
     <div class="form-group">
       <label for="password">🔒 Password</label>
       <input id="password" name="password" type="password" required placeholder="Enter your password" />
     </div>
-    
+
     {% if not config.TESTING %}
     <div id="captcha-expired" class="alert alert-warning hidden">
       ⚠️ Captcha expired — it has been refreshed. Please solve the new captcha.
     </div>
-    
+
     <div class="captcha-container">
       <div class="captcha-header">
         <label>🤖 Security Verification</label>
@@ -35,18 +35,18 @@
       <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
       <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
     </div>
-    
+
     <div class="form-group">
       <label for="captcha">✏️ Enter the code above</label>
       <input id="captcha" name="captcha" required placeholder="Enter captcha code" style="text-transform: uppercase;" />
     </div>
     {% endif %}
-    
+
     <button type="submit" class="btn btn-primary">🚀 Sign In</button>
-    
+
     <div class="form-footer text-center mt-1">
       <p class="text-secondary">
-        Don't have an account? 
+        Don't have an account?
         <a href="/register" style="color: var(--accent); text-decoration: none; font-weight: 600;">Create one here</a>
       </p>
       <p class="text-secondary" style="margin-top: 0.5rem;">

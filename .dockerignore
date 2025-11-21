@@ -1,0 +1,130 @@
+# Docker ignore file for optimized builds and security
+
+# Version control
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+README*
+CHANGELOG*
+CONTRIBUTING*
+
+# Test files
+tests/
+test-results/
+.coverage
+htmlcov/
+.pytest_cache/
+test_*.py
+*_test.py
+
+# Development files
+docker-compose.dev.yml
+docker-compose.override.yml
+docker-compose.test.yml
+Dockerfile.dev
+Makefile
+.pre-commit-config.yaml
+.flake8
+.bandit.yml
+
+# Logs
+*.log
+logs/
+panel.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# SSL certificates (should be mounted at runtime)
+nginx/ssl/
+
+# Node modules (if any frontend tools are added)
+node_modules/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Secrets and configuration
+.env*
+secrets/
+config.local.*
+instance/
+
+# Backup files
+*.bak
+*.backup
+backups/
+
+# Monitoring data (should be in volumes)
+monitoring/grafana/data/
+monitoring/prometheus/data/
+monitoring/loki/data/
+
+# Tools and scripts
+tools/
+scripts/
+uninstall.sh
+panel-doctor.sh
+panel-health-check.sh

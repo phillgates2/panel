@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-cogs"></i> Security Settings
+                    </h3>
+                    <div class="card-tools">
+                        <a href="{{ url_for('security_dashboard') }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-shield-alt"></i> Security Dashboard
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <form method="post" action="{{ url_for('security_settings') }}">
+                        {{ csrf_token() }}
+
+                        <!-- Rate Limiting Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-tachometer-alt"></i> Rate Limiting
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="rate_limit_enabled"
+                                               name="rate_limit_enabled" {{ 'checked' if current_settings.rate_limiting_enabled else '' }}>
+                                        <label class="custom-control-label" for="rate_limit_enabled">
+                                            Enable Rate Limiting
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Protects against brute force attacks and API abuse by limiting request rates per user/IP.
+                                    </small>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="default_rate_limit">Default Rate Limit</label>
+                                        <input type="text" class="form-control" id="default_rate_limit"
+                                               name="default_rate_limit" value="100 per hour" placeholder="100 per hour">
+                                        <small class="form-text text-muted">Requests per hour for regular users</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="admin_rate_limit">Admin Rate Limit</label>
+                                        <input type="text" class="form-control" id="admin_rate_limit"
+                                               name="admin_rate_limit" value="1000 per hour" placeholder="1000 per hour">
+                                        <small class="form-text text-muted">Requests per hour for administrators</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="login_rate_limit">Login Rate Limit</label>
+                                        <input type="text" class="form-control" id="login_rate_limit"
+                                               name="login_rate_limit" value="5 per minute" placeholder="5 per minute">
+                                        <small class="form-text text-muted">Login attempts per minute</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Security Headers Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-shield-alt"></i> Security Headers
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="enhanced_headers"
+                                               name="enhanced_headers" {{ 'checked' if current_settings.enhanced_headers_enabled else '' }}>
+                                        <label class="custom-control-label" for="enhanced_headers">
+                                            Enhanced Security Headers
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Enables comprehensive security headers including CSP, HSTS, COEP, COOP, and more.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="hsts_enabled"
+                                               name="hsts_enabled" checked>
+                                        <label class="custom-control-label" for="hsts_enabled">
+                                            HTTP Strict Transport Security (HSTS)
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Forces HTTPS connections and prevents protocol downgrades.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="csp_enabled"
+                                               name="csp_enabled" checked>
+                                        <label class="custom-control-label" for="csp_enabled">
+                                            Content Security Policy (CSP)
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Prevents XSS attacks by controlling resource loading.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input Validation Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-check-circle"></i> Input Validation
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="strict_validation"
+                                               name="strict_validation" {{ 'checked' if current_settings.input_validation_enabled else '' }}>
+                                        <label class="custom-control-label" for="strict_validation">
+                                            Strict Input Validation
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Enables enhanced validation for all user inputs including XSS prevention and SQL injection detection.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="sanitization_enabled"
+                                               name="sanitization_enabled" checked>
+                                        <label class="custom-control-label" for="sanitization_enabled">
+                                            HTML Sanitization
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Automatically sanitizes HTML content to prevent XSS attacks.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="password_min_length">Minimum Password Length</label>
+                                    <input type="number" class="form-control" id="password_min_length"
+                                           name="password_min_length" value="12" min="8" max="128">
+                                    <small class="form-text text-muted">
+                                        Minimum length for user passwords (recommended: 12+ characters)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Security Monitoring Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-eye"></i> Security Monitoring
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="security_monitoring"
+                                               name="security_monitoring" {{ 'checked' if current_settings.security_monitoring_enabled else '' }}>
+                                        <label class="custom-control-label" for="security_monitoring">
+                                            Security Event Monitoring
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Monitors and logs security-related events and suspicious activities.
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="audit_logging"
+                                               name="audit_logging" {{ 'checked' if current_settings.audit_logging_enabled else '' }}>
+                                        <label class="custom-control-label" for="audit_logging">
+                                            Audit Logging
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Logs all security-relevant actions for compliance and investigation.
+                                    </small>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="alert_email">Security Alert Email</label>
+                                        <input type="email" class="form-control" id="alert_email"
+                                               name="alert_email" placeholder="security@example.com">
+                                        <small class="form-text text-muted">
+                                            Email address for security alerts (optional)
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="max_security_events">Max Security Events to Keep</label>
+                                        <input type="number" class="form-control" id="max_security_events"
+                                               name="max_security_events" value="1000" min="100" max="10000">
+                                        <small class="form-text text-muted">
+                                            Maximum number of security events to retain in memory
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="card">
+                            <div class="card-body">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Security Settings
+                                </button>
+                                <a href="{{ url_for('security_dashboard') }}" class="btn btn-secondary ml-2">
+                                    <i class="fas fa-times"></i> Cancel
+                                </a>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+
+    form.addEventListener('submit', function(e) {
+        const passwordMinLength = document.getElementById('password_min_length').value;
+        if (passwordMinLength < 8) {
+            e.preventDefault();
+            alert('Minimum password length must be at least 8 characters.');
+            return false;
+        }
+
+        const alertEmail = document.getElementById('alert_email').value;
+        if (alertEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(alertEmail)) {
+            e.preventDefault();
+            alert('Please enter a valid email address for security alerts.');
+            return false;
+        }
+
+        return true;
+    });
+});
+</script>
+{% endblock %}

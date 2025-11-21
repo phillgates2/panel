@@ -4,13 +4,16 @@ Game Template Manager
 Add, list, and manage game server templates for the panel.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app import app, db, User
-from config_manager import ConfigTemplate
 import json
+
+from app import User, app, db
+from config_manager import ConfigTemplate
+
 
 def list_templates():
     """List all existing templates."""
@@ -19,26 +22,27 @@ def list_templates():
         if not templates:
             print("No templates found.")
             return
-        
+
         print(f"\n{'ID':<5} {'Game Type':<15} {'Name':<40} {'Default'}")
         print("-" * 80)
         for t in templates:
             print(f"{t.id:<5} {t.game_type:<15} {t.name:<40} {'Yes' if t.is_default else 'No'}")
         print()
 
+
 def add_template(game_type, name, description, config_dict, is_default=True):
     """Add a new template."""
     with app.app_context():
-        admin = User.query.filter_by(role='system_admin').first()
+        admin = User.query.filter_by(role="system_admin").first()
         if not admin:
             print("❌ No admin user found!")
             return False
-        
+
         existing = ConfigTemplate.query.filter_by(name=name).first()
         if existing:
             print(f"❌ Template '{name}' already exists (ID: {existing.id})")
             return False
-        
+
         template = ConfigTemplate(
             name=name,
             description=description,
@@ -52,6 +56,7 @@ def add_template(game_type, name, description, config_dict, is_default=True):
         print(f"✅ Created template: {name} (ID: {template.id})")
         return True
 
+
 def delete_template(template_id):
     """Delete a template by ID."""
     with app.app_context():
@@ -59,12 +64,13 @@ def delete_template(template_id):
         if not template:
             print(f"❌ Template ID {template_id} not found")
             return False
-        
+
         name = template.name
         db.session.delete(template)
         db.session.commit()
         print(f"✅ Deleted template: {name}")
         return True
+
 
 def add_common_games():
     """Add templates for common game servers."""
@@ -340,8 +346,7 @@ cd /opt/servers/rust
             "game_type": "palworld",
             "name": "Palworld Standard Server",
             "description": (
-                "Palworld multiplayer survival and crafting game server "
-                "(based on Ptero-Eggs)"
+                "Palworld multiplayer survival and crafting game server " "(based on Ptero-Eggs)"
             ),
             "config": {
                 "server_cfg": """# Palworld Server Configuration
@@ -448,55 +453,51 @@ cd /opt/servers/openra
             },
         },
     ]
-    
+
     print("\nAdding common game templates...\n")
     success_count = 0
     for game in games:
-        if add_template(
-            game["game_type"],
-            game["name"],
-            game["description"],
-            game["config"]
-        ):
+        if add_template(game["game_type"], game["name"], game["description"], game["config"]):
             success_count += 1
-    
+
     print(f"\n✅ Successfully added {success_count}/{len(games)} templates")
+
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Manage game server templates",
         epilog="""
 For importing 240+ game templates from Ptero-Eggs, see:
   scripts/import_ptero_eggs.py
-"""
+""",
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    
+
     # List templates
     subparsers.add_parser("list", help="List all templates")
-    
+
     # Add common games
     subparsers.add_parser("add-common", help="Add templates for common games")
-    
+
     # Delete template
     delete_parser = subparsers.add_parser("delete", help="Delete a template by ID")
     delete_parser.add_argument("id", type=int, help="Template ID to delete")
-    
+
     # Add custom template
     add_parser = subparsers.add_parser("add", help="Add a custom template")
     add_parser.add_argument("game_type", help="Game type identifier (e.g., 'css')")
     add_parser.add_argument("name", help="Template name")
     add_parser.add_argument("--description", default="", help="Template description")
     add_parser.add_argument("--config-file", required=True, help="JSON file with config data")
-    
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         return
-    
+
     if args.command == "list":
         list_templates()
     elif args.command == "add-common":
@@ -504,9 +505,10 @@ For importing 240+ game templates from Ptero-Eggs, see:
     elif args.command == "delete":
         delete_template(args.id)
     elif args.command == "add":
-        with open(args.config_file, 'r') as f:
+        with open(args.config_file, "r") as f:
             config_data = json.load(f)
         add_template(args.game_type, args.name, args.description, config_data)
+
 
 if __name__ == "__main__":
     main()

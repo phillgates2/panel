@@ -89,7 +89,7 @@
                     {% if sync_status.last_commit_hash %}
                     <div class="mt-3 pt-3 border-top">
                         <small class="text-muted">
-                            <i class="fas fa-code-branch"></i> Commit: 
+                            <i class="fas fa-code-branch"></i> Commit:
                             <code>{{ sync_status.last_commit_hash[:8] }}</code>
                             - {{ sync_status.last_commit_message }}
                         </small>
@@ -106,7 +106,7 @@
         <div class="col-md-4">
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-search"></i></span>
-                <input type="text" class="form-control" id="searchInput" 
+                <input type="text" class="form-control" id="searchInput"
                        placeholder="Search templates..." value="{{ search_query }}">
             </div>
         </div>
@@ -201,7 +201,7 @@
                 </a>
             </li>
             {% endif %}
-            
+
             {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
                 {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
@@ -213,7 +213,7 @@
                 <li class="page-item disabled"><span class="page-link">...</span></li>
                 {% endif %}
             {% endfor %}
-            
+
             {% if pagination.has_next %}
             <li class="page-item">
                 <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search_query }}&game_type={{ game_filter }}&sort={{ sort_by }}">
@@ -278,7 +278,7 @@ function applyFilters() {
     const search = document.getElementById('searchInput').value;
     const gameType = document.getElementById('gameTypeFilter').value;
     const sort = document.getElementById('sortSelect').value;
-    
+
     window.location.href = `{{ url_for('config.ptero_eggs_browser') }}?search=${encodeURIComponent(search)}&game_type=${encodeURIComponent(gameType)}&sort=${sort}`;
 }
 
@@ -294,7 +294,7 @@ function syncTemplates() {
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
-    
+
     fetch('{{ url_for("config.ptero_eggs_sync") }}', {
         method: 'POST',
         headers: {
@@ -337,7 +337,7 @@ function previewTemplate(templateId) {
                     <p class="text-muted">${data.template.description}</p>
                 </div>
             `;
-            
+
             // Add startup command
             if (data.template_data.startup_command) {
                 content += `
@@ -347,7 +347,7 @@ function previewTemplate(templateId) {
                     </div>
                 `;
             }
-            
+
             // Add variables
             if (data.template_data.variables && Object.keys(data.template_data.variables).length > 0) {
                 content += `
@@ -365,7 +365,7 @@ function previewTemplate(templateId) {
                                 </thead>
                                 <tbody>
                 `;
-                
+
                 for (const [key, value] of Object.entries(data.template_data.variables)) {
                     content += `
                         <tr>
@@ -376,7 +376,7 @@ function previewTemplate(templateId) {
                         </tr>
                     `;
                 }
-                
+
                 content += `
                                 </tbody>
                             </table>
@@ -384,7 +384,7 @@ function previewTemplate(templateId) {
                     </div>
                 `;
             }
-            
+
             // Add version history
             if (data.version_history && data.version_history.length > 0) {
                 content += `
@@ -392,7 +392,7 @@ function previewTemplate(templateId) {
                         <h6>Version History (${data.version_history.length})</h6>
                         <div class="list-group">
                 `;
-                
+
                 data.version_history.slice(0, 5).forEach(v => {
                     content += `
                         <div class="list-group-item">
@@ -404,13 +404,13 @@ function previewTemplate(templateId) {
                         </div>
                     `;
                 });
-                
+
                 content += `
                         </div>
                     </div>
                 `;
             }
-            
+
             document.getElementById('previewContent').innerHTML = content;
             new bootstrap.Modal(document.getElementById('previewModal')).show();
         } else {
@@ -425,20 +425,20 @@ function previewTemplate(templateId) {
 
 function applyToServer(templateId) {
     currentTemplateId = templateId;
-    
+
     // Load servers (this would need to be implemented in the backend)
     fetch('/api/servers/list')
     .then(response => response.json())
     .then(data => {
         const select = document.getElementById('serverSelect');
         select.innerHTML = '<option value="">-- Select a Server --</option>';
-        
+
         if (data.servers) {
             data.servers.forEach(server => {
                 select.innerHTML += `<option value="${server.id}">${server.name} (${server.game_type})</option>`;
             });
         }
-        
+
         new bootstrap.Modal(document.getElementById('applyModal')).show();
     })
     .catch(error => {
@@ -449,12 +449,12 @@ function applyToServer(templateId) {
 
 function confirmApply() {
     const serverId = document.getElementById('serverSelect').value;
-    
+
     if (!serverId) {
         alert('Please select a server');
         return;
     }
-    
+
     fetch(`{{ url_for('config.apply_ptero_eggs_template', template_id=0, server_id=0) }}`.replace('/0/0', `/${currentTemplateId}/${serverId}`), {
         method: 'POST',
         headers: {

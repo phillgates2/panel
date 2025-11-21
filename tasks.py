@@ -27,9 +27,7 @@ def _log(name, msg):
 
 
 def _discord_post(payload):
-    webhook = os.environ.get("PANEL_DISCORD_WEBHOOK", "") or getattr(
-        config, "DISCORD_WEBHOOK", ""
-    )
+    webhook = os.environ.get("PANEL_DISCORD_WEBHOOK", "") or getattr(config, "DISCORD_WEBHOOK", "")
     if not webhook:
         return
     try:
@@ -42,9 +40,7 @@ def _discord_post(payload):
 
 
 def _slack_post(message):
-    webhook = os.environ.get("PANEL_SLACK_WEBHOOK", "") or getattr(
-        config, "SLACK_WEBHOOK", ""
-    )
+    webhook = os.environ.get("PANEL_SLACK_WEBHOOK", "") or getattr(config, "SLACK_WEBHOOK", "")
     if not webhook:
         return
     try:
@@ -64,9 +60,7 @@ def run_autodeploy(download_url=None):
     script = os.path.join(os.getcwd(), "scripts", "autodeploy.sh")
     _log("autodeploy", f"Starting autodeploy (download_url={download_url})")
     try:
-        proc = subprocess.run(
-            [script], capture_output=True, text=True, env=env, timeout=3600
-        )
+        proc = subprocess.run([script], capture_output=True, text=True, env=env, timeout=3600)
         _log("autodeploy", "STDOUT:\n" + proc.stdout)
         _log("autodeploy", "STDERR:\n" + proc.stderr)
         if proc.returncode == 0:
@@ -113,9 +107,7 @@ def run_memwatch(pid_file=None):
     script = os.path.join(os.getcwd(), "scripts", "memwatch.sh")
     _log("memwatch", f"Running memwatch with pid_file={pid_file}")
     try:
-        proc = subprocess.run(
-            [script], capture_output=True, text=True, env=env, timeout=300
-        )
+        proc = subprocess.run([script], capture_output=True, text=True, env=env, timeout=300)
         _log("memwatch", "STDOUT:\n" + proc.stdout)
         _log("memwatch", "STDERR:\n" + proc.stderr)
         # Report a simple embed
@@ -141,30 +133,30 @@ def run_memwatch(pid_file=None):
 def run_ptero_eggs_sync():
     """
     Background task for automatic Ptero-Eggs template synchronization.
-    
+
     This task can be scheduled to run periodically using RQ or systemd timer.
     """
     _log("ptero_eggs_sync", "Starting Ptero-Eggs template sync")
-    
+
     try:
         # Import here to avoid circular dependencies
-        from app import app, db, User
+        from app import User, app, db
         from ptero_eggs_updater import PteroEggsUpdater
-        
+
         with app.app_context():
             # Get an admin user to attribute the update to
             admin = User.query.filter_by(role="system_admin").first()
             if not admin:
                 _log("ptero_eggs_sync", "ERROR: No admin user found")
                 return {"ok": False, "err": "No admin user found"}
-            
+
             # Run the sync
             updater = PteroEggsUpdater()
             stats = updater.sync_templates(admin.id)
-            
+
             if stats["success"]:
                 _log("ptero_eggs_sync", f"Sync completed: {stats['message']}")
-                
+
                 # Send Discord notification if configured
                 payload = {
                     "content": None,
@@ -183,11 +175,11 @@ def run_ptero_eggs_sync():
                     ],
                 }
                 _discord_post(payload)
-                
+
                 return {"ok": True, "stats": stats}
             else:
                 _log("ptero_eggs_sync", f"Sync failed: {stats['message']}")
-                
+
                 # Send error notification
                 payload = {
                     "content": None,
@@ -201,9 +193,9 @@ def run_ptero_eggs_sync():
                     ],
                 }
                 _discord_post(payload)
-                
+
                 return {"ok": False, "err": stats["message"]}
-                
+
     except Exception as e:
         _log("ptero_eggs_sync", f"Exception: {e}")
         _discord_post({"content": f"ptero_eggs_sync exception: {e}"})
@@ -213,6 +205,7 @@ def run_ptero_eggs_sync():
 # ============================================================================
 # BACKUP SCHEDULING FUNCTIONS
 # ============================================================================
+
 
 def run_scheduled_database_backup():
     """Run scheduled database backup."""
@@ -228,32 +221,36 @@ def run_scheduled_database_backup():
             _log("backup", f"Database backup completed: {backup_file}")
 
             # Send Discord notification
-            _discord_post({
-                "embeds": [
-                    {
-                        "title": "Database Backup Completed",
-                        "description": f"Backup saved to: {backup_file}",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "color": 3066993,  # Green
-                    }
-                ]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "Database Backup Completed",
+                            "description": f"Backup saved to: {backup_file}",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 3066993,  # Green
+                        }
+                    ]
+                }
+            )
             # Send Slack notification
             _slack_post(f"✅ Database backup completed: {backup_file}")
 
             return {"ok": True, "backup_file": backup_file}
         else:
             _log("backup", "Database backup failed")
-            _discord_post({
-                "embeds": [
-                    {
-                        "title": "Database Backup Failed",
-                        "description": "Failed to create database backup",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "color": 15158332,  # Red
-                    }
-                ]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "Database Backup Failed",
+                            "description": "Failed to create database backup",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 15158332,  # Red
+                        }
+                    ]
+                }
+            )
             return {"ok": False, "error": "Backup creation failed"}
 
     except Exception as e:
@@ -277,30 +274,34 @@ def run_scheduled_config_backup():
             _log("backup", f"Configuration backup completed: {backup_file}")
 
             # Send Discord notification
-            _discord_post({
-                "embeds": [
-                    {
-                        "title": "Configuration Backup Completed",
-                        "description": f"Backup saved to: {backup_file}",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "color": 3066993,  # Green
-                    }
-                ]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "Configuration Backup Completed",
+                            "description": f"Backup saved to: {backup_file}",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 3066993,  # Green
+                        }
+                    ]
+                }
+            )
 
             return {"ok": True, "backup_file": backup_file}
         else:
             _log("backup", "Configuration backup failed")
-            _discord_post({
-                "embeds": [
-                    {
-                        "title": "Configuration Backup Failed",
-                        "description": "Failed to create configuration backup",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "color": 15158332,  # Red
-                    }
-                ]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "Configuration Backup Failed",
+                            "description": "Failed to create configuration backup",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 15158332,  # Red
+                        }
+                    ]
+                }
+            )
             return {"ok": False, "error": "Backup creation failed"}
 
     except Exception as e:
@@ -311,7 +312,7 @@ def run_scheduled_config_backup():
 
 def run_scheduled_server_backups():
     """Run scheduled backups for all servers."""
-    from app import db, Server
+    from app import Server, db
     from backup_manager import BackupManager
 
     _log("backup", "Starting scheduled server backups")
@@ -327,28 +328,36 @@ def run_scheduled_server_backups():
             try:
                 # Get server data for backup
                 server_data = {
-                    'id': server.id,
-                    'name': server.name,
-                    'host': server.host,
-                    'port': server.port,
-                    'rcon_password': server.rcon_password,
-                    'variables_json': server.variables_json,
-                    'raw_config': server.raw_config,
-                    'game_type': server.game_type,
-                    'max_players': server.max_players
+                    "id": server.id,
+                    "name": server.name,
+                    "host": server.host,
+                    "port": server.port,
+                    "rcon_password": server.rcon_password,
+                    "variables_json": server.variables_json,
+                    "raw_config": server.raw_config,
+                    "game_type": server.game_type,
+                    "max_players": server.max_players,
                 }
 
                 backup_file = backup_manager.create_server_backup(
                     server.id,
                     server_data,
-                    f"scheduled_server_{server.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    f"scheduled_server_{server.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 )
 
                 if backup_file:
-                    results.append({"server_id": server.id, "status": "success", "backup_file": backup_file})
+                    results.append(
+                        {"server_id": server.id, "status": "success", "backup_file": backup_file}
+                    )
                     _log("backup", f"Server {server.id} backup completed: {backup_file}")
                 else:
-                    results.append({"server_id": server.id, "status": "failed", "error": "Backup creation failed"})
+                    results.append(
+                        {
+                            "server_id": server.id,
+                            "status": "failed",
+                            "error": "Backup creation failed",
+                        }
+                    )
                     _log("backup", f"Server {server.id} backup failed")
 
             except Exception as e:
@@ -359,16 +368,20 @@ def run_scheduled_server_backups():
         success_count = sum(1 for r in results if r["status"] == "success")
         total_count = len(results)
 
-        _discord_post({
-            "embeds": [
-                {
-                    "title": "Server Backups Completed",
-                    "description": f"Successfully backed up {success_count}/{total_count} servers",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "color": 3066993 if success_count == total_count else 16776960,  # Green or Yellow
-                }
-            ]
-        })
+        _discord_post(
+            {
+                "embeds": [
+                    {
+                        "title": "Server Backups Completed",
+                        "description": f"Successfully backed up {success_count}/{total_count} servers",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 3066993
+                        if success_count == total_count
+                        else 16776960,  # Green or Yellow
+                    }
+                ]
+            }
+        )
 
         return {"ok": True, "results": results}
 
@@ -391,16 +404,18 @@ def run_backup_cleanup(days_to_keep=30):
         _log("backup", f"Backup cleanup completed: {len(deleted_files)} files deleted")
 
         # Send Discord notification
-        _discord_post({
-            "embeds": [
-                {
-                    "title": "Backup Cleanup Completed",
-                    "description": f"Deleted {len(deleted_files)} old backup files",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "color": 3066993,  # Green
-                }
-            ]
-        })
+        _discord_post(
+            {
+                "embeds": [
+                    {
+                        "title": "Backup Cleanup Completed",
+                        "description": f"Deleted {len(deleted_files)} old backup files",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 3066993,  # Green
+                    }
+                ]
+            }
+        )
         # Send Slack notification
         _slack_post(f"🧹 Backup cleanup completed: {len(deleted_files)} old files deleted")
 
@@ -418,33 +433,38 @@ def run_auto_scaling_check():
     _log("scaling", "Starting auto-scaling check")
 
     try:
-        from app import db, Server, ServerMetrics
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from app import Server, ServerMetrics, db
 
         # Get servers with high CPU usage in last 5 minutes
         five_min_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
-        
-        high_cpu_servers = db.session.query(Server)\
-            .join(ServerMetrics)\
-            .filter(ServerMetrics.timestamp >= five_min_ago)\
-            .filter(ServerMetrics.cpu_usage > 90)\
-            .distinct(Server.id)\
+
+        high_cpu_servers = (
+            db.session.query(Server)
+            .join(ServerMetrics)
+            .filter(ServerMetrics.timestamp >= five_min_ago)
+            .filter(ServerMetrics.cpu_usage > 90)
+            .distinct(Server.id)
             .all()
+        )
 
         for server in high_cpu_servers:
             _log("scaling", f"Server {server.name} has high CPU usage, considering restart")
-            
+
             # Send notifications
-            _discord_post({
-                "embeds": [
-                    {
-                        "title": "High CPU Alert",
-                        "description": f"Server {server.name} has CPU > 90%. Auto-restart initiated.",
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "color": 15158332,  # Red
-                    }
-                ]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "High CPU Alert",
+                            "description": f"Server {server.name} has CPU > 90%. Auto-restart initiated.",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 15158332,  # Red
+                        }
+                    ]
+                }
+            )
             _slack_post(f"🚨 High CPU alert: Server {server.name} CPU > 90%, auto-restart initiated")
 
             # TODO: Implement actual server restart logic

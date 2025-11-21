@@ -25,8 +25,8 @@ SELECT * FROM user LIMIT 10;
 SELECT COUNT(*) as total FROM user;
 
 -- Join queries
-SELECT s.*, u.email 
-FROM server s 
+SELECT s.*, u.email
+FROM server s
 JOIN user u ON s.owner_id = u.id;
 ```
 
@@ -95,7 +95,7 @@ The system will warn you about:
    ```sql
    -- Test with LIMIT first
    SELECT * FROM users WHERE status='inactive' LIMIT 5;
-   
+
    -- Then run the actual operation
    DELETE FROM users WHERE status='inactive';
    ```
@@ -104,7 +104,7 @@ The system will warn you about:
    ```sql
    -- Good
    UPDATE users SET status='active' WHERE id=123;
-   
+
    -- Dangerous (updates ALL rows)
    UPDATE users SET status='active';
    ```

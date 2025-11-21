@@ -10,9 +10,7 @@ SECRET_KEY = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
 USE_SQLITE = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
 
 if USE_SQLITE:
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "PANEL_SQLITE_URI", "sqlite:///panel_dev.db"
-    )
+    SQLALCHEMY_DATABASE_URI = os.environ.get("PANEL_SQLITE_URI", "sqlite:///panel_dev.db")
 else:
     # PostgreSQL configuration
     DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
@@ -23,6 +21,18 @@ else:
     SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+# Database connection pooling and performance optimization
+SQLALCHEMY_ENGINE_OPTIONS = {
+    'pool_pre_ping': True,  # Verify connections before use
+    'pool_recycle': 300,    # Recycle connections after 5 minutes
+    'pool_size': 10,        # Base pool size
+    'max_overflow': 20,     # Maximum overflow connections
+    'pool_timeout': 30,     # Connection timeout
+}
+
+# Query optimization settings
+SQLALCHEMY_ECHO = os.environ.get("SQLALCHEMY_ECHO", "False") == "True"
 
 # OS-aware paths with environment variable overrides
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
@@ -36,17 +46,13 @@ ET_SERVER_PORT = int(os.environ.get("ET_SERVER_PORT", 27960))
 ET_RCON_PASSWORD = os.environ.get("ET_RCON_PASSWORD", "changeme")
 
 # OS-aware paths with environment variable overrides
-ET_PID_FILE = os.environ.get(
-    "ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid")
-)
+ET_PID_FILE = os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid"))
 DOWNLOAD_DIR = os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir)
 BACKUP_DIR = os.environ.get("PANEL_BACKUP_DIR", os_paths.backup_dir)
 
 # Admin list (comma separated emails) allowed to perform manual deploys/core-dumps
 ADMIN_EMAILS = [
-    e.strip().lower()
-    for e in os.environ.get("PANEL_ADMIN_EMAILS", "").split(",")
-    if e.strip()
+    e.strip().lower() for e in os.environ.get("PANEL_ADMIN_EMAILS", "").split(",") if e.strip()
 ]
 
 # Discord webhook for notifications (optional)

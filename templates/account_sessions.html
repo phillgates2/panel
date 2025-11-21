@@ -6,7 +6,7 @@
 <div class="container">
     <h1>Active Sessions</h1>
     <p class="text-muted">Manage your active login sessions. Revoke any suspicious sessions.</p>
-    
+
     <div class="row">
         {% for sess in sessions %}
         <div class="col-md-6 mb-3">
@@ -27,7 +27,7 @@
                     </p>
                     {% if sess.session_token != current_token %}
                     <form method="post" action="{{ url_for('revoke_session', session_id=sess.id) }}" class="d-inline">
-                        <button type="submit" class="btn btn-danger btn-sm" 
+                        <button type="submit" class="btn btn-danger btn-sm"
                                 onclick="return confirm('Revoke this session?')">
                             Revoke
                         </button>
@@ -38,7 +38,7 @@
         </div>
         {% endfor %}
     </div>
-    
+
     {% if not sessions %}
     <div class="alert alert-info">
         No active sessions found.

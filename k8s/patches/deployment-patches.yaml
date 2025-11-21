@@ -1,0 +1,11 @@
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value:
+    name: panel-storage
+    mountPath: /app/data
+- op: add
+  path: /spec/template/spec/volumes/-
+  value:
+    name: panel-storage
+    persistentVolumeClaim:
+      claimName: panel-storage

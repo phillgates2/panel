@@ -14,8 +14,7 @@ import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from flask import (Blueprint, jsonify, redirect, render_template, request,
-                   url_for)
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import desc, func
 
@@ -54,9 +53,7 @@ class LogEntry(db.Model):
     # Indexing
     indexed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    server = db.relationship(
-        "Server", backref=db.backref("log_entries", lazy="dynamic")
-    )
+    server = db.relationship("Server", backref=db.backref("log_entries", lazy="dynamic"))
 
 
 class LogPattern(db.Model):
@@ -182,9 +179,7 @@ class LogProcessor:
             return
 
         self.processing_active = True
-        self.processor_thread = threading.Thread(
-            target=self._processing_loop, daemon=True
-        )
+        self.processor_thread = threading.Thread(target=self._processing_loop, daemon=True)
         self.processor_thread.start()
 
     def stop_processing(self):
@@ -198,9 +193,7 @@ class LogProcessor:
         if not timestamp:
             timestamp = datetime.now(timezone.utc)
 
-        self.log_queue.put(
-            {"server_id": server_id, "log_line": log_line, "timestamp": timestamp}
-        )
+        self.log_queue.put({"server_id": server_id, "log_line": log_line, "timestamp": timestamp})
 
     def _processing_loop(self):
         """Main log processing loop."""
@@ -237,9 +230,7 @@ class LogProcessor:
         for pattern_id, pattern_info in self.compiled_patterns.items():
             match = pattern_info["pattern"].search(log_line)
             if match:
-                parsed_entry = self._extract_log_data(
-                    log_line, timestamp, match, pattern_info
-                )
+                parsed_entry = self._extract_log_data(log_line, timestamp, match, pattern_info)
                 break
 
         # If no pattern matched, create basic entry
@@ -343,9 +334,7 @@ class LogProcessor:
         # Check player pattern
         if alert.player_pattern and log_entry.player_name:
             try:
-                if not re.search(
-                    alert.player_pattern, log_entry.player_name, re.IGNORECASE
-                ):
+                if not re.search(alert.player_pattern, log_entry.player_name, re.IGNORECASE):
                     return False
             except re.error:
                 pass
@@ -353,9 +342,7 @@ class LogProcessor:
         # Check message pattern
         if alert.message_pattern:
             try:
-                if not re.search(
-                    alert.message_pattern, log_entry.message, re.IGNORECASE
-                ):
+                if not re.search(alert.message_pattern, log_entry.message, re.IGNORECASE):
                     return False
             except re.error:
                 pass
@@ -365,9 +352,7 @@ class LogProcessor:
     def _increment_alert_counter(self, server_id, alert_id):
         """Increment alert counter and check threshold."""
         alert_key = f"{server_id}:{alert_id}"
-        self.alert_counters[alert_key][
-            int(time.time() // 60)
-        ] += 1  # Per minute buckets
+        self.alert_counters[alert_key][int(time.time() // 60)] += 1  # Per minute buckets
 
     def _check_alert_thresholds(self):
         """Check alert thresholds and trigger actions."""
@@ -389,13 +374,10 @@ class LogProcessor:
                     for key in self.alert_counters.keys()
                     if key.endswith(f":{alert.id}")
                 ):
-
                     alert_key = f"{server_id}:{alert.id}"
 
                     # Count events in threshold window
-                    window_start = int(
-                        (current_time - alert.threshold_window_minutes * 60) // 60
-                    )
+                    window_start = int((current_time - alert.threshold_window_minutes * 60) // 60)
                     window_end = int(current_time // 60)
 
                     total_count = sum(
@@ -560,9 +542,7 @@ def server_logs(server_id):
     # Get server statistics
     stats = log_processor.get_log_statistics(server_id=server_id, hours=24)
 
-    return render_template(
-        "admin_logs_server.html", server=server, logs=logs, stats=stats
-    )
+    return render_template("admin_logs_server.html", server=server, logs=logs, stats=stats)
 
 
 @logs_bp.route("/admin/logs/patterns", methods=["GET", "POST"])

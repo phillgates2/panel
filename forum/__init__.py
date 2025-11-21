@@ -1,9 +1,18 @@
 from datetime import datetime, timezone
 
-from flask import (Blueprint, abort, current_app, flash, redirect,
-                   render_template, request, session, url_for)
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
-from app import db, verify_csrf, User
+from app import User, db, verify_csrf
 
 forum_bp = Blueprint("forum", __name__, url_prefix="/forum")
 
@@ -11,7 +20,7 @@ forum_bp = Blueprint("forum", __name__, url_prefix="/forum")
 @forum_bp.context_processor
 def inject_csrf_token():
     """Inject csrf_token function into forum templates"""
-    return {'csrf_token': lambda: session.get('csrf_token', '')}
+    return {"csrf_token": lambda: session.get("csrf_token", "")}
 
 
 def get_current_user():
@@ -36,6 +45,7 @@ def login_required(fn):
             flash("You must be logged in to perform this action", "error")
             return redirect(url_for("login", next=request.path))
         return fn(*args, **kwargs)
+
     wrapped.__name__ = getattr(fn, "__name__", "wrapped")
     return wrapped
 
@@ -46,6 +56,7 @@ def moderator_required(fn):
             flash("You must be a moderator or admin to perform this action", "error")
             return redirect(url_for("forum.index"))
         return fn(*args, **kwargs)
+
     wrapped.__name__ = getattr(fn, "__name__", "wrapped")
     return wrapped
 
@@ -58,7 +69,7 @@ class Thread(db.Model):
     is_pinned = db.Column(db.Boolean, default=False)
     is_locked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    
+
     author = db.relationship("User", backref="forum_threads", foreign_keys=[author_id])
 
 
@@ -85,22 +96,22 @@ def index():
     q = db.session.query(Thread).order_by(Thread.is_pinned.desc(), Thread.created_at.desc())
     total = q.count()
     threads = q.offset((page - 1) * per_page).limit(per_page).all()
-    
+
     # Add post count for each thread
     for thread in threads:
         thread.post_count = len(thread.posts)
-    
+
     current_user = get_current_user()
     is_mod = is_moderator_or_admin()
-    
+
     return render_template(
-        "forum/index.html", 
-        threads=threads, 
-        page=page, 
-        per_page=per_page, 
+        "forum/index.html",
+        threads=threads,
+        page=page,
+        per_page=per_page,
         total=total,
         current_user=current_user,
-        is_moderator=is_mod
+        is_moderator=is_mod,
     )
 
 
@@ -110,21 +121,17 @@ def view_thread(thread_id):
     thread = db.session.get(Thread, thread_id)
     if not thread:
         abort(404)
-    
+
     # paginate replies
     try:
         page = int(request.args.get("page", 1))
     except Exception:
         page = 1
     per_page = int(current_app.config.get("FORUM_REPLIES_PER_PAGE", 20))
-    q = (
-        db.session.query(Post)
-        .filter_by(thread_id=thread_id)
-        .order_by(Post.created_at.asc())
-    )
+    q = db.session.query(Post).filter_by(thread_id=thread_id).order_by(Post.created_at.asc())
     total = q.count()
     posts = q.offset((page - 1) * per_page).limit(per_page).all()
-    
+
     # optional markdown for posts with sanitization
     try:
         from markdown import markdown as md
@@ -140,7 +147,8 @@ def view_thread(thread_id):
             if sanitizer:
                 p._html = bleach.clean(
                     raw,
-                    tags=bleach.sanitizer.ALLOWED_TAGS + ["p", "pre", "code", "h1", "h2", "h3", "ul", "ol", "li", "blockquote"],
+                    tags=bleach.sanitizer.ALLOWED_TAGS
+                    + ["p", "pre", "code", "h1", "h2", "h3", "ul", "ol", "li", "blockquote"],
                     strip=True,
                 )
             else:
@@ -150,11 +158,12 @@ def view_thread(thread_id):
     except Exception:
         for p in posts:
             from markupsafe import escape
+
             p._html = escape(p.content)
-    
+
     current_user = get_current_user()
     is_mod = is_moderator_or_admin()
-    
+
     return render_template(
         "forum/thread.html",
         thread=thread,
@@ -163,7 +172,7 @@ def view_thread(thread_id):
         per_page=per_page,
         total=total,
         current_user=current_user,
-        is_moderator=is_mod
+        is_moderator=is_mod,
     )
 
 
@@ -174,11 +183,11 @@ def reply_thread(thread_id):
     thread = db.session.get(Thread, thread_id)
     if not thread:
         abort(404)
-    
+
     if thread.is_locked and not is_moderator_or_admin():
         flash("This thread is locked", "error")
         return redirect(url_for("forum.view_thread", thread_id=thread_id))
-    
+
     # CSRF protection
     try:
         verify_csrf()
@@ -191,7 +200,7 @@ def reply_thread(thread_id):
     if not content:
         flash("Content required", "error")
         return redirect(url_for("forum.view_thread", thread_id=thread_id))
-    
+
     p = Post(thread_id=thread_id, author_id=current_user.id, content=content)
     db.session.add(p)
     db.session.commit()
@@ -216,7 +225,7 @@ def create_thread():
         if not title or not content:
             flash("Title and content required", "error")
             return redirect(url_for("forum.create_thread"))
-        
+
         current_user = get_current_user()
         t = Thread(title=title, author_id=current_user.id)
         db.session.add(t)
@@ -226,7 +235,7 @@ def create_thread():
         db.session.commit()
         flash("Thread created", "success")
         return redirect(url_for("forum.view_thread", thread_id=t.id))
-    
+
     current_user = get_current_user()
     return render_template("forum/create_thread.html", current_user=current_user)
 
@@ -238,15 +247,15 @@ def edit_post(post_id):
     p = db.session.get(Post, post_id)
     if not p:
         abort(404)
-    
+
     current_user = get_current_user()
     is_mod = is_moderator_or_admin()
-    
+
     # Check if user is author or moderator
     if p.author_id != current_user.id and not is_mod:
         flash("You don't have permission to edit this post", "error")
         return redirect(url_for("forum.view_thread", thread_id=p.thread_id))
-    
+
     if request.method == "POST":
         try:
             verify_csrf()
@@ -298,7 +307,7 @@ def edit_thread(thread_id):
         db.session.commit()
         flash("Thread updated", "success")
         return redirect(url_for("forum.view_thread", thread_id=thread_id))
-    
+
     current_user = get_current_user()
     return render_template("forum/edit_thread.html", thread=t, current_user=current_user)
 

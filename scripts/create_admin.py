@@ -25,9 +25,7 @@ def main():
             # create a dummy user with minimal fields required by model
             from datetime import date
 
-            user = User(
-                first_name="Admin", last_name="", email=email, dob=date(1970, 1, 1)
-            )
+            user = User(first_name="Admin", last_name="", email=email, dob=date(1970, 1, 1))
             user.set_password(args.password)
             user.role = "system_admin"
             db.session.add(user)

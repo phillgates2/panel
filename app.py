@@ -1,16 +1,30 @@
-import io
 import csv
+import io
 import os
 import secrets
 import shutil
 import time
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
-from flask import (Blueprint, Flask, Response, abort, flash, jsonify, redirect,
-                   render_template, render_template_string, request, send_file,
-                   session, url_for)
+from flask import (
+    Blueprint,
+    Flask,
+    Response,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    render_template_string,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 from flask_caching import Cache
 from flask_compress import Compress
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
@@ -24,6 +38,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 try:
     import importlib.metadata
+
     werkzeug_version = importlib.metadata.version("werkzeug")
     werkzeug.__version__ = werkzeug_version
 except Exception:
@@ -47,13 +62,27 @@ from rq import Queue  # noqa: E402
 # that rule here because we need env vars loaded before `config`.
 import config  # noqa: E402
 import tasks  # noqa: E402
-from captcha import (generate_captcha_audio,  # noqa: E402
-                     generate_captcha_image)
+from captcha import generate_captcha_audio, generate_captcha_image  # noqa: E402
 from database_admin import DATABASE_ADMIN_BASE_TEMPLATE  # noqa: E402
-from database_admin import (DATABASE_ADMIN_HOME_TEMPLATE,
-                            DATABASE_ADMIN_QUERY_TEMPLATE,
-                            DATABASE_ADMIN_TABLE_TEMPLATE, DatabaseAdmin)
+from database_admin import (
+    DATABASE_ADMIN_HOME_TEMPLATE,
+    DATABASE_ADMIN_QUERY_TEMPLATE,
+    DATABASE_ADMIN_TABLE_TEMPLATE,
+    DatabaseAdmin,
+)
+
+# Import models and utilities
+# from models_extended import RconCommandHistory  # noqa: E402
+# from monitoring_system import ServerMetrics  # noqa: E402
+# from rbac import has_permission  # noqa: E402
+from rcon_client import ETLegacyRcon  # noqa: E402
 from validate_config import ConfigValidator  # noqa: E402
+
+# Import input validation schemas
+from input_validation import LoginSchema, RegisterSchema, validate_request  # noqa: E402
+
+# Import services
+from services import get_cache_service  # noqa: E402
 
 """
 CODE STRUCTURE NOTES:
@@ -68,17 +97,26 @@ Performance is optimized for the admin/dashboard use case, not high-traffic scen
 """
 
 app = Flask(__name__)
+
+# Validate configuration at startup
+from config_validator import validate_configuration_at_startup  # noqa: E402
+validate_configuration_at_startup(app)
+
 # Module-level app is initialized for backwards compatibility. Tests and
 # other tooling can create additional app instances via `create_app()`.
 app.config.from_object(config)
 app.secret_key = config.SECRET_KEY
 
 # Initialize SocketIO for real-time features
-from flask_socketio import SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Initialize Cache for performance optimization
-cache = Cache(app, config={'CACHE_TYPE': 'simple'})
+cache_config = {
+    "CACHE_TYPE": "redis",
+    "CACHE_REDIS_URL": os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"),
+    "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+}
+cache = Cache(app, config=cache_config)
 
 # Initialize Compression
 compress = Compress(app)
@@ -88,14 +126,14 @@ compress = Compress(app)
 from flask_sqlalchemy import SQLAlchemy
 
 # Configure logging
-from logging_config import log_security_event, setup_logging  # noqa: E402
+from structured_logging import log_security_event, setup_structured_logging  # noqa: E402
 
-logger = setup_logging(app)
+logger = setup_structured_logging(app)
 
-# Configure security headers
-from security_headers import configure_security_headers  # noqa: E402
+# Configure enhanced security hardening
+from security_hardening import init_security_hardening  # noqa: E402
 
-configure_security_headers(app)
+security_hardening = init_security_hardening(app)
 try:
     from tools.mail import mail  # noqa: E402
 
@@ -113,10 +151,28 @@ except Exception:
     # Best-effort during tests; ignore failures
     pass
 
+# Initialize metrics tracking
+app._request_count = 0
+app._error_count = 0
+
+@app.before_request
+def track_request_metrics():
+    """Track request metrics for monitoring."""
+    if not request.path.startswith('/static/'):
+        app._request_count += 1
+
+@app.after_request
+def track_error_metrics(response):
+    """Track error metrics for monitoring."""
+    if response.status_code >= 400:
+        app._error_count += 1
+    return response
+
 
 # ============================================================================
 # TEAM MANAGEMENT ROUTES
 # ============================================================================
+
 
 @main_bp.route("/admin/teams", methods=["GET"])
 def teams_dashboard():
@@ -143,11 +199,7 @@ def teams_dashboard():
             if member_user:
                 member_users.append(member_user)
 
-        team_data.append({
-            'team': team,
-            'members': member_users,
-            'member_count': len(member_users)
-        })
+        team_data.append({"team": team, "members": member_users, "member_count": len(member_users)})
 
     return render_template("teams.html", user=user, teams=team_data)
 
@@ -177,7 +229,7 @@ def create_team():
         new_team = UserGroup(
             name=team_name,
             description=description,
-            permissions=json.dumps([])  # Empty permissions array
+            permissions=json.dumps([]),  # Empty permissions array
         )
         db.session.add(new_team)
         db.session.commit()
@@ -222,21 +274,19 @@ def add_team_member(team_id):
         return redirect(url_for("teams_dashboard"))
 
     # Check if already a member
-    existing = UserGroupMembership.query.filter_by(
-        user_id=member_user.id, group_id=team_id
-    ).first()
+    existing = UserGroupMembership.query.filter_by(user_id=member_user.id, group_id=team_id).first()
     if existing:
         flash("User is already a member of this team", "warning")
         return redirect(url_for("teams_dashboard"))
 
     try:
-        membership = UserGroupMembership(
-            user_id=member_user.id,
-            group_id=team_id
-        )
+        membership = UserGroupMembership(user_id=member_user.id, group_id=team_id)
         db.session.add(membership)
         db.session.commit()
-        flash(f"Added {member_user.first_name} {member_user.last_name} to team '{team.name}'", "success")
+        flash(
+            f"Added {member_user.first_name} {member_user.last_name} to team '{team.name}'",
+            "success",
+        )
     except Exception as e:
         db.session.rollback()
         flash(f"Error adding member: {str(e)}", "error")
@@ -247,6 +297,7 @@ def add_team_member(team_id):
 # ============================================================================
 # SECURITY MANAGEMENT ROUTES
 # ============================================================================
+
 
 @main_bp.route("/admin/security", methods=["GET"])
 def security_dashboard():
@@ -265,7 +316,13 @@ def security_dashboard():
     blacklist = IPBlacklist.query.filter_by(is_active=True).all()
     recent_events = SecurityEvent.query.order_by(SecurityEvent.created_at.desc()).limit(20).all()
 
-    return render_template("security.html", user=user, whitelist=whitelist, blacklist=blacklist, recent_events=recent_events)
+    return render_template(
+        "security.html",
+        user=user,
+        whitelist=whitelist,
+        blacklist=blacklist,
+        recent_events=recent_events,
+    )
 
 
 @main_bp.route("/admin/security/whitelist/add", methods=["POST"])
@@ -289,6 +346,7 @@ def add_to_whitelist():
 
     # Validate IP address format
     import ipaddress
+
     try:
         ipaddress.ip_address(ip_address)
     except ValueError:
@@ -297,15 +355,15 @@ def add_to_whitelist():
 
     try:
         whitelist_entry = IPWhitelist(
-            ip_address=ip_address,
-            description=description,
-            created_by=user.id
+            ip_address=ip_address, description=description, created_by=user.id
         )
         db.session.add(whitelist_entry)
         db.session.commit()
 
         # Log security event
-        log_security_event("ip_whitelisted", ip_address, user.id, f"IP {ip_address} added to whitelist")
+        log_security_event(
+            "ip_whitelisted", ip_address, user.id, f"IP {ip_address} added to whitelist"
+        )
 
         flash(f"IP {ip_address} added to whitelist", "success")
     except Exception as e:
@@ -336,6 +394,7 @@ def add_to_blacklist():
 
     # Validate IP address format
     import ipaddress
+
     try:
         ipaddress.ip_address(ip_address)
     except ValueError:
@@ -343,16 +402,14 @@ def add_to_blacklist():
         return redirect(url_for("security_dashboard"))
 
     try:
-        blacklist_entry = IPBlacklist(
-            ip_address=ip_address,
-            reason=reason,
-            created_by=user.id
-        )
+        blacklist_entry = IPBlacklist(ip_address=ip_address, reason=reason, created_by=user.id)
         db.session.add(blacklist_entry)
         db.session.commit()
 
         # Log security event
-        log_security_event("ip_blacklisted", ip_address, user.id, f"IP {ip_address} blacklisted: {reason}")
+        log_security_event(
+            "ip_blacklisted", ip_address, user.id, f"IP {ip_address} blacklisted: {reason}"
+        )
 
         flash(f"IP {ip_address} added to blacklist", "success")
     except Exception as e:
@@ -360,22 +417,6 @@ def add_to_blacklist():
         flash(f"Error adding IP to blacklist: {str(e)}", "error")
 
     return redirect(url_for("security_dashboard"))
-
-
-def log_security_event(event_type, ip_address=None, user_id=None, description=None, severity="info"):
-    """Log a security event."""
-    try:
-        event = SecurityEvent(
-            event_type=event_type,
-            ip_address=ip_address,
-            user_id=user_id,
-            description=description,
-            severity=severity
-        )
-        db.session.add(event)
-        db.session.commit()
-    except Exception as e:
-        print(f"Error logging security event: {e}")
 
 
 def create_app(config_obj=None):
@@ -386,6 +427,11 @@ def create_app(config_obj=None):
     default `config` module.
     """
     _app = Flask(__name__)
+
+    # Validate configuration at startup
+    from config_validator import validate_configuration_at_startup  # noqa: E402
+    validate_configuration_at_startup(_app)
+
     # Load configuration
     if config_obj is None:
         _app.config.from_object(config)
@@ -395,20 +441,28 @@ def create_app(config_obj=None):
 
     # Initialize SocketIO for real-time features
     from flask_socketio import SocketIO
-    _socketio = SocketIO(_app, cors_allowed_origins="*")
+
+    _socketio = SocketIO(_app, cors_allowed_origins="*")  # noqa: F841
 
     # Initialize Cache for performance optimization
     from flask_caching import Cache
-    _cache = Cache(_app, config={'CACHE_TYPE': 'simple'})
+
+    _cache_config = {
+        "CACHE_TYPE": "redis",
+        "CACHE_REDIS_URL": os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"),
+        "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+    }
+    _cache = Cache(_app, config=_cache_config)  # noqa: F841
 
     # Initialize Compression
     from flask_compress import Compress
-    _compress = Compress(_app)
+
+    _compress = Compress(_app)  # noqa: F841
 
     # Configure logging for the new app
-    from logging_config import setup_logging  # noqa: E402
+    from structured_logging import setup_structured_logging  # noqa: E402
 
-    setup_logging(_app)
+    setup_structured_logging(_app)
 
     # Configure security headers
     from security_headers import configure_security_headers  # noqa: E402
@@ -470,11 +524,7 @@ def create_app(config_obj=None):
                         view = _app.view_functions.get(ep)
                         if view:
                             try:
-                                methods = [
-                                    m
-                                    for m in rule.methods
-                                    if m not in ("HEAD", "OPTIONS")
-                                ]
+                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
                                 _app.add_url_rule(
                                     rule.rule,
                                     endpoint=short,
@@ -515,6 +565,7 @@ def create_app(config_obj=None):
 
     try:
         import cms as _cms
+
         if hasattr(_cms, "cms_bp"):
             try:
                 _app.register_blueprint(_cms.cms_bp)
@@ -525,6 +576,7 @@ def create_app(config_obj=None):
 
     try:
         import forum as _forum
+
         if hasattr(_forum, "forum_bp"):
             try:
                 _app.register_blueprint(_forum.forum_bp)
@@ -549,12 +601,14 @@ def create_app(config_obj=None):
         bp_names = [main_bp.name]
         try:
             import cms as _cms
+
             if hasattr(_cms, "cms_bp"):
                 bp_names.append(_cms.cms_bp.name)
         except NameError:
             pass
         try:
             import forum as _forum
+
             if hasattr(_forum, "forum_bp"):
                 bp_names.append(_forum.forum_bp.name)
         except NameError:
@@ -569,11 +623,7 @@ def create_app(config_obj=None):
                         view = _app.view_functions.get(ep)
                         if view:
                             try:
-                                methods = [
-                                    m
-                                    for m in rule.methods
-                                    if m not in ("HEAD", "OPTIONS")
-                                ]
+                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
                                 _app.add_url_rule(
                                     rule.rule,
                                     endpoint=short,
@@ -591,9 +641,7 @@ def create_app(config_obj=None):
 
 # Note: SQLAlchemy will be bound to the app below via `db.init_app(app)`.
 
-# Configure rate limiting (optional - uncomment when needed)
-# from rate_limiting import setup_rate_limiting
-# limiter = setup_rate_limiting(app)
+# Rate limiting is now handled by security_hardening module
 
 # Track application startup time
 app.start_time = time.time()
@@ -694,9 +742,7 @@ def inject_user():
     # site-wide flag to allow client theme toggle (default on)
     theme_toggle_enabled = True
     try:
-        s_toggle = (
-            db.session.query(SiteSetting).filter_by(key="theme_toggle_enabled").first()
-        )
+        s_toggle = db.session.query(SiteSetting).filter_by(key="theme_toggle_enabled").first()
         if s_toggle and s_toggle.value is not None:
             theme_toggle_enabled = s_toggle.value.strip() == "1"
     except Exception:
@@ -723,6 +769,9 @@ def inject_user():
 
 # Bind the unbound SQLAlchemy instance to the module-level app
 db.init_app(app)
+
+# Import ServerMetrics after db is initialized to avoid circular import
+# from monitoring_system import ServerMetrics  # noqa: E402
 
 # Initialize Database Admin integration
 db_admin = DatabaseAdmin(app, db)
@@ -778,19 +827,19 @@ class User(db.Model):
 
     # Two-Factor Authentication
     totp_secret = db.Column(db.String(32), nullable=True)  # TOTP secret for 2FA
-    totp_enabled = db.Column(db.Boolean, default=False)   # Whether 2FA is enabled
-    backup_codes = db.Column(db.Text, nullable=True)      # JSON array of backup codes
+    totp_enabled = db.Column(db.Boolean, default=False)  # Whether 2FA is enabled
+    backup_codes = db.Column(db.Text, nullable=True)  # JSON array of backup codes
 
     # API Access
     api_token = db.Column(db.String(128), nullable=True, unique=True)  # API access token
-    api_token_created = db.Column(db.DateTime, nullable=True)          # When token was created
-    api_token_last_used = db.Column(db.DateTime, nullable=True)        # Last API usage
+    api_token_created = db.Column(db.DateTime, nullable=True)  # When token was created
+    api_token_last_used = db.Column(db.DateTime, nullable=True)  # Last API usage
 
     # Session management
     last_login = db.Column(db.DateTime, nullable=True)
     login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
-    
+
     # Profile
     bio = db.Column(db.Text, nullable=True)  # User biography
     avatar = db.Column(db.String(255), nullable=True)  # Avatar image filename
@@ -825,6 +874,7 @@ class User(db.Model):
 
         try:
             import pyotp
+
             totp = pyotp.TOTP(self.totp_secret)
             return totp.verify(code)
         except Exception:
@@ -833,6 +883,7 @@ class User(db.Model):
     def generate_backup_codes(self):
         """Generate new backup codes for account recovery."""
         import secrets
+
         codes = [secrets.token_hex(4).upper() for _ in range(10)]
         self.backup_codes = json.dumps(codes)
         return codes
@@ -873,6 +924,7 @@ class User(db.Model):
     def generate_api_token(self):
         """Generate a new API token for the user."""
         import secrets
+
         self.api_token = secrets.token_urlsafe(64)
         self.api_token_created = datetime.now(timezone.utc)
         return self.api_token
@@ -913,18 +965,14 @@ class Server(db.Model):
     game_type = db.Column(
         db.String(32), default="etlegacy", nullable=False
     )  # game type for configs
-    owner_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=True
-    )  # server owner
+    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # server owner
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    users = db.relationship(
-        "ServerUser", backref="server", cascade="all, delete-orphan"
-    )
+    users = db.relationship("ServerUser", backref="server", cascade="all, delete-orphan")
     owner = db.relationship("User", foreign_keys=[owner_id])
 
 
@@ -1086,12 +1134,15 @@ def ensure_csrf_for_templates():
 def index():
     # Import BlogPost here to avoid circular imports
     from cms import BlogPost
-    
+
     # Get recent published blog posts
-    recent_posts = BlogPost.query.filter_by(is_published=True).order_by(
-        BlogPost.created_at.desc()
-    ).limit(5).all()
-    
+    recent_posts = (
+        BlogPost.query.filter_by(is_published=True)
+        .order_by(BlogPost.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
     return render_template("index.html", recent_posts=recent_posts)
 
 
@@ -1104,23 +1155,27 @@ def register():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("register"))
-        first = request.form.get("first_name", "").strip()
-        last = request.form.get("last_name", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        dob_raw = request.form.get("dob", "")
-        password = request.form.get("password", "")
-        captcha = request.form.get("captcha", "")
+
+        # Validate input data
+        validated_data, validation_errors = validate_request(RegisterSchema, request.form)
+        if validation_errors:
+            for field, messages in validation_errors.items():
+                if isinstance(messages, list):
+                    flash(f"{field}: {'; '.join(messages)}", "error")
+                else:
+                    flash(f"{field}: {messages}", "error")
+            return redirect(url_for("register"))
+
+        first = validated_data["first_name"].strip()
+        last = validated_data["last_name"].strip()
+        email = validated_data["email"].strip().lower()
+        dob = validated_data["dob"]
+        password = validated_data["password"]
+        captcha = validated_data.get("captcha", "")
 
         # captcha verify
         if session.get("captcha_text") != captcha:
             flash("Invalid captcha", "error")
-            return redirect(url_for("register"))
-
-        # basic validation
-        try:
-            dob = datetime.strptime(dob_raw, "%Y-%m-%d").date()
-        except Exception:
-            flash("Invalid date of birth format", "error")
             return redirect(url_for("register"))
 
         # age check >= 16
@@ -1128,19 +1183,6 @@ def register():
         age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         if age < 16:
             flash("You must be at least 16 years old to register", "error")
-            return redirect(url_for("register"))
-
-        # password constraints (server-side)
-        import re
-
-        if (
-            len(password) < 8
-            or not re.search(r"[A-Z]", password)
-            or not re.search(r"[a-z]", password)
-            or not re.search(r"\d", password)
-            or not re.search(r"[^A-Za-z0-9]", password)
-        ):
-            flash("Password does not meet complexity requirements", "error")
             return redirect(url_for("register"))
 
         if User.query.filter_by(email=email).first():
@@ -1196,6 +1238,396 @@ def health_check():
     return jsonify(health_data), status_code
 
 
+@main_bp.route("/health/ready")
+def readiness_probe():
+    """Readiness probe for Kubernetes/load balancers - checks if app can serve requests."""
+    try:
+        # Check database connection
+        db.session.execute(text("SELECT 1"))
+        db_status = "healthy"
+    except Exception as e:
+        logger.error(f"Database readiness check failed: {e}")
+        db_status = "unhealthy"
+
+    # Check Redis connection
+    try:
+        redis_conn = _get_redis_conn()
+        if redis_conn and redis_conn.ping():
+            redis_status = "healthy"
+        else:
+            redis_status = "unavailable"
+    except Exception as e:
+        logger.error(f"Redis readiness check failed: {e}")
+        redis_status = "unhealthy"
+
+    # Readiness requires both database and Redis to be healthy
+    is_ready = db_status == "healthy" and redis_status == "healthy"
+
+    health_data = {
+        "status": "ready" if is_ready else "not ready",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": {
+            "database": db_status,
+            "redis": redis_status,
+        },
+    }
+
+    status_code = 200 if is_ready else 503
+    return jsonify(health_data), status_code
+
+
+@main_bp.route("/health/live")
+def liveness_probe():
+    """Liveness probe for Kubernetes - checks if app is running (basic check)."""
+    health_data = {
+        "status": "alive",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": int(time.time() - app.start_time),
+    }
+
+    return jsonify(health_data), 200
+
+
+@main_bp.route("/metrics")
+def prometheus_metrics():
+    """Prometheus-style metrics endpoint for monitoring."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        # Basic application metrics
+        uptime_seconds = int(time.time() - app.start_time)
+
+        # Database connection pool metrics
+        db_pool_size = getattr(db.engine.pool, 'size', 0)
+        db_checked_out = getattr(db.engine.pool, 'checkedout', 0)
+        db_invalid = getattr(db.engine.pool, 'invalid', 0)
+
+        # Redis metrics
+        redis_info = {}
+        try:
+            redis_conn = _get_redis_conn()
+            if redis_conn:
+                redis_info = redis_conn.info()
+        except Exception:
+            redis_info = {}
+
+        # User metrics
+        total_users = User.query.count()
+        active_users = User.query.filter_by(is_active=True).count()
+        admin_users = User.query.filter(
+            (User.role == "system_admin") | (User.role == "server_admin")
+        ).count()
+
+        # Server metrics
+        total_servers = Server.query.count()
+        online_servers = 0
+        try:
+            # This would need to be implemented based on actual server monitoring
+            online_servers = total_servers  # Placeholder
+        except Exception:
+            pass
+
+        # Request metrics (simplified - would need middleware for accurate tracking)
+        request_count = getattr(app, '_request_count', 0)
+        error_count = getattr(app, '_error_count', 0)
+
+        # Generate Prometheus format metrics
+        metrics = f"""# HELP panel_uptime_seconds Application uptime in seconds
+# TYPE panel_uptime_seconds gauge
+panel_uptime_seconds {uptime_seconds}
+
+# HELP panel_db_pool_size Database connection pool size
+# TYPE panel_db_pool_size gauge
+panel_db_pool_size {db_pool_size}
+
+# HELP panel_db_connections_checked_out Current checked out database connections
+# TYPE panel_db_connections_checked_out gauge
+panel_db_connections_checked_out {db_checked_out}
+
+# HELP panel_db_connections_invalid Invalid database connections
+# TYPE panel_db_connections_invalid gauge
+panel_db_connections_invalid {db_invalid}
+
+# HELP panel_redis_connected Redis connection status (1=connected, 0=disconnected)
+# TYPE panel_redis_connected gauge
+panel_redis_connected {1 if redis_info else 0}
+
+# HELP panel_redis_memory_used_bytes Redis memory usage in bytes
+# TYPE panel_redis_memory_used_bytes gauge
+panel_redis_memory_used_bytes {redis_info.get('used_memory', 0)}
+
+# HELP panel_users_total Total number of users
+# TYPE panel_users_total gauge
+panel_users_total {total_users}
+
+# HELP panel_users_active Number of active users
+# TYPE panel_users_active gauge
+panel_users_active {active_users}
+
+# HELP panel_users_admin Number of admin users
+# TYPE panel_users_admin gauge
+panel_users_admin {admin_users}
+
+# HELP panel_servers_total Total number of servers
+# TYPE panel_servers_total gauge
+panel_servers_total {total_servers}
+
+# HELP panel_servers_online Number of online servers
+# TYPE panel_servers_online gauge
+panel_servers_online {online_servers}
+
+# HELP panel_requests_total Total number of requests
+# TYPE panel_requests_total counter
+panel_requests_total {request_count}
+
+# HELP panel_errors_total Total number of errors
+# TYPE panel_errors_total counter
+panel_errors_total {error_count}
+"""
+
+        return Response(metrics, mimetype='text/plain; charset=utf-8')
+
+    except Exception as e:
+        logger.error(f"Metrics collection failed: {e}")
+        return Response(f"# Error collecting metrics: {str(e)}", mimetype='text/plain; charset=utf-8'), 500
+
+
+@main_bp.route("/health/system")
+def system_health_check():
+    """Comprehensive system health check with detailed diagnostics."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        import psutil
+        import platform
+
+        # System information
+        system_info = {
+            "hostname": platform.node(),
+            "platform": platform.platform(),
+            "python_version": platform.python_version(),
+            "cpu_count": psutil.cpu_count(),
+            "memory_total": psutil.virtual_memory().total,
+            "memory_available": psutil.virtual_memory().available,
+            "disk_total": psutil.disk_usage('/').total,
+            "disk_free": psutil.disk_usage('/').free,
+        }
+
+        # Process information
+        process = psutil.Process()
+        process_info = {
+            "pid": process.pid,
+            "cpu_percent": process.cpu_percent(interval=1.0),
+            "memory_percent": process.memory_percent(),
+            "memory_rss": process.memory_info().rss,
+            "threads": process.num_threads(),
+            "open_files": len(process.open_files()),
+            "connections": len(process.connections()),
+        }
+
+        # Database health
+        db_health = {"status": "unknown", "details": {}}
+        try:
+            # Test basic connectivity
+            db.session.execute(text("SELECT 1"))
+            db_health["status"] = "healthy"
+
+            # Get connection pool stats
+            pool = db.engine.pool
+            db_health["details"] = {
+                "pool_size": getattr(pool, 'size', 0),
+                "checked_out": getattr(pool, 'checkedout', 0),
+                "overflow": getattr(pool, 'overflow', 0),
+                "invalid": getattr(pool, 'invalid', 0),
+            }
+        except Exception as e:
+            db_health["status"] = "unhealthy"
+            db_health["details"]["error"] = str(e)
+
+        # Redis health
+        redis_health = {"status": "unknown", "details": {}}
+        try:
+            redis_conn = _get_redis_conn()
+            if redis_conn and redis_conn.ping():
+                redis_health["status"] = "healthy"
+                redis_info = redis_conn.info()
+                redis_health["details"] = {
+                    "version": redis_info.get('redis_version', 'unknown'),
+                    "connected_clients": redis_info.get('connected_clients', 0),
+                    "used_memory": redis_info.get('used_memory', 0),
+                    "total_connections_received": redis_info.get('total_connections_received', 0),
+                }
+        except Exception as e:
+            redis_health["status"] = "unhealthy"
+            redis_health["details"]["error"] = str(e)
+
+        # Application health
+        app_health = {
+            "uptime_seconds": int(time.time() - app.start_time),
+            "config_mode": app.config.get('ENV', 'production'),
+            "debug_mode": app.config.get('DEBUG', False),
+            "testing_mode": app.config.get('TESTING', False),
+        }
+
+        # Overall status determination
+        component_statuses = [db_health["status"], redis_health["status"]]
+        overall_status = "healthy"
+        if "unhealthy" in component_statuses:
+            overall_status = "unhealthy"
+        elif "degraded" in component_statuses or "unknown" in component_statuses:
+            overall_status = "degraded"
+
+        health_data = {
+            "status": overall_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "system": system_info,
+            "process": process_info,
+            "database": db_health,
+            "redis": redis_health,
+            "application": app_health,
+        }
+
+        status_code = 200 if overall_status == "healthy" else (503 if overall_status == "unhealthy" else 200)
+        return jsonify(health_data), status_code
+
+    except ImportError:
+        # psutil not available
+        return jsonify({
+            "status": "degraded",
+            "error": "psutil not available for system metrics",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
+    except Exception as e:
+        logger.error(f"System health check failed: {e}")
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 503
+
+
+@main_bp.route("/debug/profile", methods=["GET"])
+def performance_profile():
+    """Performance profiling endpoint for debugging."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        import cProfile
+        import pstats
+        import io as python_io
+
+        # Profile the next request
+        profiler = cProfile.Profile()
+
+        # Run a simple database query to profile
+        profiler.enable()
+        db.session.execute(text("SELECT 1"))
+        profiler.disable()
+
+        # Get profile stats
+        stats_stream = python_io.StringIO()
+        stats = pstats.Stats(profiler, stream=stats_stream)
+        stats.sort_stats('cumulative')
+        stats.print_stats(20)  # Top 20 functions
+
+        profile_data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "profile": stats_stream.getvalue(),
+            "note": "This profiles a simple SELECT 1 query. For more detailed profiling, use proper profiling tools.",
+        }
+
+        return jsonify(profile_data)
+
+    except ImportError:
+        return jsonify({
+            "error": "cProfile not available",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 503
+    except Exception as e:
+        logger.error(f"Performance profiling failed: {e}")
+        return jsonify({
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 500
+
+
+@main_bp.route("/debug/memory")
+def memory_usage():
+    """Memory usage debugging endpoint."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user or not user.is_system_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        import psutil
+        import gc
+
+        process = psutil.Process()
+        memory_info = process.memory_info()
+
+        # Force garbage collection and measure
+        gc.collect()
+        memory_after_gc = process.memory_info()
+
+        memory_data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "process_memory": {
+                "rss": memory_info.rss,  # Resident Set Size
+                "vms": memory_info.vms,  # Virtual Memory Size
+                "pss": getattr(memory_info, 'pss', None),  # Proportional Set Size (Linux only)
+            },
+            "memory_after_gc": {
+                "rss": memory_after_gc.rss,
+                "vms": memory_after_gc.vms,
+            },
+            "system_memory": {
+                "total": psutil.virtual_memory().total,
+                "available": psutil.virtual_memory().available,
+                "percent": psutil.virtual_memory().percent,
+            },
+            "gc_stats": {
+                "collections": gc.get_count(),
+                "objects": len(gc.get_objects()),
+            },
+        }
+
+        return jsonify(memory_data)
+
+    except ImportError:
+        return jsonify({
+            "error": "psutil not available",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 503
+    except Exception as e:
+        logger.error(f"Memory profiling failed: {e}")
+        return jsonify({
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 500
+
+
 @main_bp.route("/captcha.png")
 def captcha_image():
     # generate image and store the expected text in session
@@ -1231,13 +1663,36 @@ def login():
         except Exception:
             flash("Invalid CSRF token", "error")
             return redirect(url_for("login"))
+
+        # Validate input data
+        validated_data, validation_errors = validate_request(LoginSchema, request.form)
+        if validation_errors:
+            for field, messages in validation_errors.items():
+                if isinstance(messages, list):
+                    flash(f"{field}: {'; '.join(messages)}", "error")
+                else:
+                    flash(f"{field}: {messages}", "error")
+            return redirect(url_for("login"))
+
         # Rate limit login attempts per IP
         if not rate_limit("login_post", limit=10, window_seconds=300):
             flash("Too many login attempts. Please try again later.", "error")
             return redirect(url_for("login"))
-        email = request.form.get("email", "").lower().strip()
-        password = request.form.get("password", "")
-        captcha = request.form.get("captcha", "")
+
+        email = validated_data["email"].lower().strip()
+        password = validated_data["password"]
+        captcha = validated_data.get("captcha", "")
+
+        # captcha verify (if present and not in testing mode)
+        if not app.config.get("TESTING", False):
+            # captcha expiry: 3 minutes
+            ts = session.get("captcha_ts")
+            if not ts or (int(time.time()) - int(ts) > 180):
+                flash("Captcha expired. Please refresh and try again.", "error")
+                return redirect(url_for("login"))
+            if session.get("captcha_text") != captcha:
+                flash("Invalid captcha", "error")
+                return redirect(url_for("login"))
         # captcha verify (if present and not in testing mode)
         if not app.config.get("TESTING", False):
             # captcha expiry: 3 minutes
@@ -1252,7 +1707,11 @@ def login():
         if user and user.check_password(password):
             # Check if account is locked
             if user.is_account_locked():
-                flash("Account is temporarily locked due to too many failed login attempts. Please try again later.", "error")
+                flash(
+                    "Account is temporarily locked due to too many failed login attempts. "
+                    "Please try again later.",
+                    "error",
+                )
                 log_security_event(
                     event_type="login_blocked",
                     description=f"Login blocked for locked account: {email}",
@@ -1264,9 +1723,9 @@ def login():
             # Check if 2FA is enabled
             if user.totp_enabled:
                 # Store user ID in session temporarily and redirect to 2FA verification
-                session['pending_2fa_user_id'] = user.id
-                session['pending_2fa_email'] = email
-                return redirect(url_for('verify_2fa'))
+                session["pending_2fa_user_id"] = user.id
+                session["pending_2fa_email"] = email
+                return redirect(url_for("verify_2fa"))
 
             # No 2FA required, proceed with login
             session["user_id"] = user.id
@@ -1336,8 +1795,8 @@ def login():
 @main_bp.route("/verify-2fa", methods=["GET", "POST"])
 def verify_2fa():
     """Verify two-factor authentication code."""
-    user_id = session.get('pending_2fa_user_id')
-    email = session.get('pending_2fa_email')
+    user_id = session.get("pending_2fa_user_id")
+    email = session.get("pending_2fa_email")
 
     if not user_id or not email:
         flash("Session expired. Please log in again.", "error")
@@ -1345,8 +1804,8 @@ def verify_2fa():
 
     user = db.session.get(User, user_id)
     if not user or not user.totp_enabled:
-        session.pop('pending_2fa_user_id', None)
-        session.pop('pending_2fa_email', None)
+        session.pop("pending_2fa_user_id", None)
+        session.pop("pending_2fa_email", None)
         flash("Two-factor authentication not required.", "error")
         return redirect(url_for("login"))
 
@@ -1372,11 +1831,12 @@ def verify_2fa():
             # Complete login process
             session["user_id"] = user.id
             user.record_login_attempt(success=True)
-            session.pop('pending_2fa_user_id', None)
-            session.pop('pending_2fa_email', None)
+            session.pop("pending_2fa_user_id", None)
+            session.pop("pending_2fa_email", None)
 
             # Create session tracking record
             import secrets
+
             session_token = secrets.token_urlsafe(32)
             session["session_token"] = session_token
 
@@ -1398,7 +1858,9 @@ def verify_2fa():
                     activity_type="login_2fa",
                     ip_address=request.remote_addr,
                     user_agent=request.headers.get("User-Agent", ""),
-                    details=json.dumps({"email": email, "method": "backup_code" if backup_code else "totp"}),
+                    details=json.dumps(
+                        {"email": email, "method": "backup_code" if backup_code else "totp"}
+                    ),
                 )
             )
 
@@ -1575,7 +2037,7 @@ def profile():
     uid = session.get("user_id")
     if not uid:
         return redirect(url_for("login"))
-    
+
     user = db.session.get(User, uid)
     if not user:
         return redirect(url_for("login"))
@@ -1593,20 +2055,20 @@ def profile():
             file = request.files["avatar"]
             if file and file.filename:
                 # Validate file type
-                if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                if not file.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
                     flash("Invalid file type. Only PNG, JPG, JPEG, and GIF are allowed.", "error")
                     return redirect(url_for("profile"))
-                
+
                 # Process and save avatar
                 try:
                     # Create avatars directory if it doesn't exist
                     avatar_dir = os.path.join(app.root_path, "static", "avatars")
                     os.makedirs(avatar_dir, exist_ok=True)
-                    
+
                     # Generate secure filename
                     filename = secure_filename(f"{user.id}_{secrets.token_hex(8)}.png")
                     filepath = os.path.join(avatar_dir, filename)
-                    
+
                     # Process image with PIL
                     image = Image.open(file)
                     # Convert to RGB if necessary (for JPEG compatibility)
@@ -1615,19 +2077,19 @@ def profile():
                     # Resize to 200x200 max while maintaining aspect ratio
                     image.thumbnail((200, 200), Image.Resampling.LANCZOS)
                     # Create square image with white background
-                    square_image = ImageOps.pad(image, (200, 200), color='white')
+                    square_image = ImageOps.pad(image, (200, 200), color="white")
                     # Save as PNG
                     square_image.save(filepath, "PNG")
-                    
+
                     # Remove old avatar if exists
                     if user.avatar:
                         old_path = os.path.join(avatar_dir, user.avatar)
                         if os.path.exists(old_path):
                             os.remove(old_path)
-                    
+
                     # Update user avatar
                     user.avatar = filename
-                    
+
                 except Exception as e:
                     flash(f"Error processing avatar: {str(e)}", "error")
                     return redirect(url_for("profile"))
@@ -1636,20 +2098,20 @@ def profile():
         first_name = request.form.get("first_name", "").strip()
         last_name = request.form.get("last_name", "").strip()
         bio = request.form.get("bio", "").strip()[:500]  # Limit bio to 500 chars
-        
+
         if first_name:
             user.first_name = first_name
         if last_name:
             user.last_name = last_name
         user.bio = bio
-        
+
         try:
             db.session.commit()
             flash("Profile updated successfully", "success")
         except Exception as e:
             db.session.rollback()
             flash(f"Error updating profile: {str(e)}", "error")
-        
+
         return redirect(url_for("profile"))
 
     return render_template("profile.html", user=user)
@@ -1661,7 +2123,7 @@ def remove_avatar():
     uid = session.get("user_id")
     if not uid:
         return redirect(url_for("login"))
-    
+
     user = db.session.get(User, uid)
     if not user:
         return redirect(url_for("login"))
@@ -1681,7 +2143,7 @@ def remove_avatar():
                 os.remove(avatar_path)
             except Exception:
                 pass  # Ignore file removal errors
-        
+
         user.avatar = None
         try:
             db.session.commit()
@@ -1689,7 +2151,7 @@ def remove_avatar():
         except Exception as e:
             db.session.rollback()
             flash(f"Error removing avatar: {str(e)}", "error")
-    
+
     return redirect(url_for("profile"))
 
 
@@ -1705,6 +2167,7 @@ def analytics_dashboard():
 
     # Check RBAC permission for analytics access
     from rbac import has_permission
+
     if not has_permission(user, "monitor.view_system"):
         flash("Analytics access requires appropriate permissions", "error")
         return redirect(url_for("dashboard"))
@@ -1725,110 +2188,142 @@ def get_analytics_metrics():
 
     try:
         # Get time range (default last 24 hours)
-        hours = int(request.args.get('hours', 24))
+        hours = int(request.args.get("hours", 24))
+
+        # Try to get from cache first
+        cache_svc = get_cache_service()
+        cache_key = f"analytics_metrics:{hours}"
+
+        cached_data = cache_svc.get(cache_key)
+        if cached_data:
+            return jsonify(cached_data)
+
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-        # Server performance metrics
-        performance_data = db.session.query(
-            ServerMetrics.timestamp,
-            db.func.avg(ServerMetrics.cpu_usage).label('cpu_avg'),
-            db.func.avg(ServerMetrics.memory_percentage).label('memory_avg'),
-            db.func.avg(ServerMetrics.player_count).label('players_avg')
-        ).filter(ServerMetrics.timestamp >= since)\
-         .group_by(db.func.strftime('%Y-%m-%d %H', ServerMetrics.timestamp))\
-         .order_by(ServerMetrics.timestamp)\
-         .all()
+        from monitoring_system import ServerMetrics
+
+        # Server performance metrics (cache for 5 minutes)
+        performance_data = (
+            db.session.query(
+                ServerMetrics.timestamp,
+                db.func.avg(ServerMetrics.cpu_usage).label("cpu_avg"),
+                db.func.avg(ServerMetrics.memory_percentage).label("memory_avg"),
+                db.func.avg(ServerMetrics.player_count).label("players_avg"),
+            )
+            .filter(ServerMetrics.timestamp >= since)
+            .group_by(db.func.strftime("%Y-%m-%d %H", ServerMetrics.timestamp))
+            .order_by(ServerMetrics.timestamp)
+            .all()
+        )
 
         # Player activity over time
         player_activity = []
         for row in performance_data:
-            player_activity.append({
-                'time': row.timestamp.strftime('%H:00'),
-                'cpu': round(row.cpu_avg or 0, 1),
-                'memory': round(row.memory_avg or 0, 1),
-                'players': int(row.players_avg or 0)
-            })
+            player_activity.append(
+                {
+                    "time": row.timestamp.strftime("%H:00"),
+                    "cpu": round(row.cpu_avg or 0, 1),
+                    "memory": round(row.memory_avg or 0, 1),
+                    "players": int(row.players_avg or 0),
+                }
+            )
 
-        # Current server status
-        current_metrics = db.session.query(ServerMetrics)\
-            .filter(ServerMetrics.timestamp >= datetime.now(timezone.utc) - timedelta(minutes=5))\
-            .order_by(ServerMetrics.timestamp.desc())\
+        # Current server status (cache for 1 minute - more volatile)
+        current_metrics = (
+            db.session.query(ServerMetrics)
+            .filter(ServerMetrics.timestamp >= datetime.now(timezone.utc) - timedelta(minutes=5))
+            .order_by(ServerMetrics.timestamp.desc())
             .first()
+        )
 
         current_status = {
-            'cpu_usage': round(current_metrics.cpu_usage or 0, 1) if current_metrics else 0,
-            'memory_usage': round(current_metrics.memory_percentage or 0, 1) if current_metrics else 0,
-            'player_count': current_metrics.player_count or 0 if current_metrics else 0,
-            'active_servers': db.session.query(Server).count()
+            "cpu_usage": round(current_metrics.cpu_usage or 0, 1) if current_metrics else 0,
+            "memory_usage": round(current_metrics.memory_percentage or 0, 1)
+            if current_metrics
+            else 0,
+            "player_count": current_metrics.player_count or 0 if current_metrics else 0,
+            "active_servers": db.session.query(Server).count(),
         }
 
-        # Top maps by player count
-        top_maps = db.session.query(
-            ServerMetrics.map_name,
-            db.func.avg(ServerMetrics.player_count).label('avg_players')
-        ).filter(
-            ServerMetrics.timestamp >= since,
-            ServerMetrics.map_name.isnot(None)
-        ).group_by(ServerMetrics.map_name)\
-         .order_by(db.desc('avg_players'))\
-         .limit(10)\
-         .all()
+        # Top maps by player count (cache for 10 minutes)
+        top_maps = (
+            db.session.query(
+                ServerMetrics.map_name, db.func.avg(ServerMetrics.player_count).label("avg_players")
+            )
+            .filter(ServerMetrics.timestamp >= since, ServerMetrics.map_name.isnot(None))
+            .group_by(ServerMetrics.map_name)
+            .order_by(db.desc("avg_players"))
+            .limit(10)
+            .all()
+        )
 
-        map_data = [{'map': row.map_name, 'players': round(row.avg_players, 1)} for row in top_maps]
+        map_data = [{"map": row.map_name, "players": round(row.avg_players, 1)} for row in top_maps]
 
         # Geographic distribution (mock data for now - would need IP geolocation)
         geo_data = [
-            {'country': 'United States', 'players': 45},
-            {'country': 'Germany', 'players': 23},
-            {'country': 'United Kingdom', 'players': 18},
-            {'country': 'Canada', 'players': 12},
-            {'country': 'Australia', 'players': 8}
+            {"country": "United States", "players": 45},
+            {"country": "Germany", "players": 23},
+            {"country": "United Kingdom", "players": 18},
+            {"country": "Canada", "players": 12},
+            {"country": "Australia", "players": 8},
         ]
 
-        # Player retention analysis (simplified - tracks unique players over time)
+        # Player retention analysis (cache for 15 minutes - expensive calculation)
         retention_data = []
         for days_ago in range(7, 0, -1):
             date_start = (datetime.now(timezone.utc) - timedelta(days=days_ago)).date()
-            date_end = (datetime.now(timezone.utc) - timedelta(days=days_ago-1)).date()
-            
-            players_day1 = db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))\
-                .filter(db.func.date(ServerMetrics.timestamp) == date_start)\
-                .scalar() or 0
-            
-            players_day2 = db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))\
-                .filter(db.func.date(ServerMetrics.timestamp) == date_end)\
-                .scalar() or 0
-            
-            retention_rate = (players_day2 / players_day1 * 100) if players_day1 > 0 else 0
-            retention_data.append({
-                'date': date_start.strftime('%m/%d'),
-                'retention': round(retention_rate, 1)
-            })
+            date_end = (datetime.now(timezone.utc) - timedelta(days=days_ago - 1)).date()
 
-        # Server uptime tracking
+            players_day1 = (
+                db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))
+                .filter(db.func.date(ServerMetrics.timestamp) == date_start)
+                .scalar()
+                or 0
+            )
+
+            players_day2 = (
+                db.session.query(db.func.count(db.distinct(ServerMetrics.player_count)))
+                .filter(db.func.date(ServerMetrics.timestamp) == date_end)
+                .scalar()
+                or 0
+            )
+
+            retention_rate = (players_day2 / players_day1 * 100) if players_day1 > 0 else 0
+            retention_data.append(
+                {"date": date_start.strftime("%m/%d"), "retention": round(retention_rate, 1)}
+            )
+
+        # Server uptime tracking (cache for 15 minutes)
         uptime_data = []
         total_servers = db.session.query(Server).count()
         for days_ago in range(7, 0, -1):
             check_date = (datetime.now(timezone.utc) - timedelta(days=days_ago)).date()
-            online_servers = db.session.query(db.func.count(db.distinct(ServerMetrics.server_id)))\
-                .filter(db.func.date(ServerMetrics.timestamp) == check_date)\
-                .scalar() or 0
-            
-            uptime_percentage = (online_servers / total_servers * 100) if total_servers > 0 else 0
-            uptime_data.append({
-                'date': check_date.strftime('%m/%d'),
-                'uptime': round(uptime_percentage, 1)
-            })
+            online_servers = (
+                db.session.query(db.func.count(db.distinct(ServerMetrics.server_id)))
+                .filter(db.func.date(ServerMetrics.timestamp) == check_date)
+                .scalar()
+                or 0
+            )
 
-        return jsonify({
-            'performance': player_activity,
-            'current_status': current_status,
-            'top_maps': map_data,
-            'geographic': geo_data,
-            'retention': retention_data,
-            'uptime': uptime_data,
-            'time_range': f'Last {hours} hours'
-        })
+            uptime_percentage = (online_servers / total_servers * 100) if total_servers > 0 else 0
+            uptime_data.append(
+                {"date": check_date.strftime("%m/%d"), "uptime": round(uptime_percentage, 1)}
+            )
+
+        result_data = {
+            "performance": player_activity,
+            "current_status": current_status,
+            "top_maps": map_data,
+            "geographic": geo_data,
+            "retention": retention_data,
+            "uptime": uptime_data,
+            "time_range": f"Last {hours} hours",
+        }
+
+        # Cache the result for 5 minutes
+        cache_svc.set(cache_key, result_data, timeout=300)
+
+        return jsonify(result_data)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1846,38 +2341,45 @@ def export_analytics_csv():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        hours = int(request.args.get('hours', 24))
+        hours = int(request.args.get("hours", 24))
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
+        from monitoring_system import ServerMetrics
+
         # Get performance data
-        performance_data = db.session.query(
-            ServerMetrics.timestamp,
-            db.func.avg(ServerMetrics.cpu_usage).label('cpu_avg'),
-            db.func.avg(ServerMetrics.memory_percentage).label('memory_avg'),
-            db.func.avg(ServerMetrics.player_count).label('players_avg')
-        ).filter(ServerMetrics.timestamp >= since)\
-         .group_by(db.func.strftime('%Y-%m-%d %H', ServerMetrics.timestamp))\
-         .order_by(ServerMetrics.timestamp)\
-         .all()
+        performance_data = (
+            db.session.query(
+                ServerMetrics.timestamp,
+                db.func.avg(ServerMetrics.cpu_usage).label("cpu_avg"),
+                db.func.avg(ServerMetrics.memory_percentage).label("memory_avg"),
+                db.func.avg(ServerMetrics.player_count).label("players_avg"),
+            )
+            .filter(ServerMetrics.timestamp >= since)
+            .group_by(db.func.strftime("%Y-%m-%d %H", ServerMetrics.timestamp))
+            .order_by(ServerMetrics.timestamp)
+            .all()
+        )
 
         # Create CSV
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['Timestamp', 'CPU Usage (%)', 'Memory Usage (%)', 'Player Count'])
+        writer.writerow(["Timestamp", "CPU Usage (%)", "Memory Usage (%)", "Player Count"])
 
         for row in performance_data:
-            writer.writerow([
-                row.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                round(row.cpu_avg or 0, 1),
-                round(row.memory_avg or 0, 1),
-                int(row.players_avg or 0)
-            ])
+            writer.writerow(
+                [
+                    row.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    round(row.cpu_avg or 0, 1),
+                    round(row.memory_avg or 0, 1),
+                    int(row.players_avg or 0),
+                ]
+            )
 
         output.seek(0)
         return Response(
             output.getvalue(),
-            mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename=analytics_{hours}h.csv'}
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=analytics_{hours}h.csv"},
         )
 
     except Exception as e:
@@ -1887,6 +2389,7 @@ def export_analytics_csv():
 # ============================================================================
 # REST API ENDPOINTS
 # ============================================================================
+
 
 @main_bp.route("/api/servers", methods=["GET"])
 def api_get_servers():
@@ -1900,30 +2403,29 @@ def api_get_servers():
         return jsonify({"error": "User not found"}), 404
 
     # Get servers user can access
-    servers = Server.query.filter(
-        (Server.owner_id == uid) | (Server.users.any(user_id=uid))
-    ).all()
+    servers = Server.query.filter((Server.owner_id == uid) | (Server.users.any(user_id=uid))).all()
 
     server_data = []
     for server in servers:
-        server_data.append({
-            'id': server.id,
-            'name': server.name,
-            'host': server.host,
-            'port': server.port,
-            'game_type': server.game_type,
-            'status': 'online' if server.is_online() else 'offline',
-            'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
-            'max_players': server.max_players or 32,
-            'map': server.current_map,
-            'created_at': server.created_at.isoformat() if server.created_at else None,
-            'updated_at': server.updated_at.isoformat() if server.updated_at else None
-        })
+        server_data.append(
+            {
+                "id": server.id,
+                "name": server.name,
+                "host": server.host,
+                "port": server.port,
+                "game_type": server.game_type,
+                "status": "online" if server.is_online() else "offline",
+                "player_count": server.get_player_count()
+                if hasattr(server, "get_player_count")
+                else 0,
+                "max_players": server.max_players or 32,
+                "map": server.current_map,
+                "created_at": server.created_at.isoformat() if server.created_at else None,
+                "updated_at": server.updated_at.isoformat() if server.updated_at else None,
+            }
+        )
 
-    return jsonify({
-        'servers': server_data,
-        'total': len(server_data)
-    })
+    return jsonify({"servers": server_data, "total": len(server_data)})
 
 
 @main_bp.route("/api/servers/<int:server_id>", methods=["GET"])
@@ -1945,36 +2447,42 @@ def api_get_server(server_id):
     if server.owner_id != uid and not server.users.filter_by(user_id=uid).first():
         return jsonify({"error": "Access denied"}), 403
 
+    from monitoring_system import ServerMetrics
+
     # Get recent metrics
-    recent_metrics = ServerMetrics.query.filter_by(server_id=server_id)\
-        .order_by(ServerMetrics.timestamp.desc())\
-        .limit(10)\
+    recent_metrics = (
+        ServerMetrics.query.filter_by(server_id=server_id)
+        .order_by(ServerMetrics.timestamp.desc())
+        .limit(10)
         .all()
+    )
 
     metrics_data = []
     for metric in recent_metrics:
-        metrics_data.append({
-            'timestamp': metric.timestamp.isoformat(),
-            'cpu_usage': metric.cpu_usage,
-            'memory_percentage': metric.memory_percentage,
-            'player_count': metric.player_count,
-            'map_name': metric.map_name
-        })
+        metrics_data.append(
+            {
+                "timestamp": metric.timestamp.isoformat(),
+                "cpu_usage": metric.cpu_usage,
+                "memory_percentage": metric.memory_percentage,
+                "player_count": metric.player_count,
+                "map_name": metric.map_name,
+            }
+        )
 
     server_data = {
-        'id': server.id,
-        'name': server.name,
-        'host': server.host,
-        'port': server.port,
-        'game_type': server.game_type,
-        'status': 'online' if server.is_online() else 'offline',
-        'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
-        'max_players': server.max_players or 32,
-        'map': server.current_map,
-        'config': json.loads(server.raw_config) if server.raw_config else {},
-        'recent_metrics': metrics_data,
-        'created_at': server.created_at.isoformat() if server.created_at else None,
-        'updated_at': server.updated_at.isoformat() if server.updated_at else None
+        "id": server.id,
+        "name": server.name,
+        "host": server.host,
+        "port": server.port,
+        "game_type": server.game_type,
+        "status": "online" if server.is_online() else "offline",
+        "player_count": server.get_player_count() if hasattr(server, "get_player_count") else 0,
+        "max_players": server.max_players or 32,
+        "map": server.current_map,
+        "config": json.loads(server.raw_config) if server.raw_config else {},
+        "recent_metrics": metrics_data,
+        "created_at": server.created_at.isoformat() if server.created_at else None,
+        "updated_at": server.updated_at.isoformat() if server.updated_at else None,
     }
 
     return jsonify(server_data)
@@ -2001,16 +2509,16 @@ def api_get_server_status(server_id):
 
     try:
         # Get current status
-        is_online = server.is_online() if hasattr(server, 'is_online') else False
-        player_count = server.get_player_count() if hasattr(server, 'get_player_count') else 0
+        is_online = server.is_online() if hasattr(server, "is_online") else False
+        player_count = server.get_player_count() if hasattr(server, "get_player_count") else 0
 
         status_data = {
-            'server_id': server_id,
-            'online': is_online,
-            'player_count': player_count,
-            'max_players': server.max_players or 32,
-            'current_map': server.current_map,
-            'timestamp': datetime.now(timezone.utc).isoformat()
+            "server_id": server_id,
+            "online": is_online,
+            "player_count": player_count,
+            "max_players": server.max_players or 32,
+            "current_map": server.current_map,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         return jsonify(status_data)
@@ -2039,10 +2547,10 @@ def api_send_command(server_id):
         return jsonify({"error": "Access denied"}), 403
 
     data = request.get_json()
-    if not data or 'command' not in data:
+    if not data or "command" not in data:
         return jsonify({"error": "Command is required"}), 400
 
-    command = data['command'].strip()
+    command = data["command"].strip()
     if not command:
         return jsonify({"error": "Command cannot be empty"}), 400
 
@@ -2052,22 +2560,25 @@ def api_send_command(server_id):
         response = rcon.send_command(command)
 
         # Log the command
+        from models_extended import RconCommandHistory
         command_log = RconCommandHistory(
             server_id=server_id,
             user_id=uid,
             command=command,
             response=response,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
         )
         db.session.add(command_log)
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'command': command,
-            'response': response,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        return jsonify(
+            {
+                "success": True,
+                "command": command,
+                "response": response,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": f"Failed to send command: {str(e)}"}), 500
@@ -2094,23 +2605,27 @@ def api_get_server_players(server_id):
 
     try:
         # Get player list (this would need to be implemented in the server model)
-        players = server.get_players() if hasattr(server, 'get_players') else []
+        players = server.get_players() if hasattr(server, "get_players") else []
 
         player_data = []
         for player in players:
-            player_data.append({
-                'name': player.get('name', 'Unknown'),
-                'score': player.get('score', 0),
-                'ping': player.get('ping', 0),
-                'team': player.get('team', 'spectator')
-            })
+            player_data.append(
+                {
+                    "name": player.get("name", "Unknown"),
+                    "score": player.get("score", 0),
+                    "ping": player.get("ping", 0),
+                    "team": player.get("team", "spectator"),
+                }
+            )
 
-        return jsonify({
-            'server_id': server_id,
-            'players': player_data,
-            'count': len(player_data),
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        return jsonify(
+            {
+                "server_id": server_id,
+                "players": player_data,
+                "count": len(player_data),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": f"Failed to get player list: {str(e)}"}), 500
@@ -2129,12 +2644,12 @@ def api_webhook():
     print(f"Webhook received: {data}")
 
     # Process webhook based on type
-    webhook_type = data.get('type', 'unknown')
+    webhook_type = data.get("type", "unknown")
 
-    if webhook_type == 'server_status':
+    if webhook_type == "server_status":
         # Handle server status updates
-        server_id = data.get('server_id')
-        status = data.get('status')
+        server_id = data.get("server_id")
+        status = data.get("status")
 
         if server_id and status:
             # Update server status in database
@@ -2143,11 +2658,11 @@ def api_webhook():
                 # This could trigger notifications, etc.
                 print(f"Server {server_id} status update: {status}")
 
-    elif webhook_type == 'player_event':
+    elif webhook_type == "player_event":
         # Handle player join/leave events
-        server_id = data.get('server_id')
-        player_name = data.get('player_name')
-        event_type = data.get('event')  # 'join' or 'leave'
+        server_id = data.get("server_id")
+        player_name = data.get("player_name")
+        event_type = data.get("event")  # 'join' or 'leave'
 
         if server_id and player_name and event_type:
             print(f"Player {player_name} {event_type}ed server {server_id}")
@@ -2159,13 +2674,14 @@ def api_webhook():
 # API AUTHENTICATION
 # ============================================================================
 
+
 def authenticate_api_token():
     """Authenticate user via API token."""
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
 
-    token = auth_header.replace('Bearer ', '')
+    token = auth_header.replace("Bearer ", "")
 
     # Find user with this token
     user = User.query.filter_by(api_token=token).first()
@@ -2178,6 +2694,7 @@ def authenticate_api_token():
 
 def require_api_auth(f):
     """Decorator to require API authentication."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         user = authenticate_api_token()
@@ -2187,12 +2704,14 @@ def require_api_auth(f):
         # Add user to request context
         request.api_user = user
         return f(*args, **kwargs)
+
     return decorated_function
 
 
 # ============================================================================
 # API TOKEN MANAGEMENT ROUTES
 # ============================================================================
+
 
 @main_bp.route("/api/tokens", methods=["GET"])
 def api_get_tokens():
@@ -2207,11 +2726,17 @@ def api_get_tokens():
 
     tokens = []
     if user.api_token:
-        tokens.append({
-            'token': user.api_token[:20] + "...",  # Show only first 20 chars
-            'created_at': user.api_token_created.isoformat() if user.api_token_created else None,
-            'last_used': user.api_token_last_used.isoformat() if user.api_token_last_used else None
-        })
+        tokens.append(
+            {
+                "token": user.api_token[:20] + "...",  # Show only first 20 chars
+                "created_at": user.api_token_created.isoformat()
+                if user.api_token_created
+                else None,
+                "last_used": user.api_token_last_used.isoformat()
+                if user.api_token_last_used
+                else None,
+            }
+        )
 
     return render_template("api_tokens.html", user=user, tokens=tokens)
 
@@ -2231,7 +2756,7 @@ def api_generate_token():
     user.revoke_api_token()
 
     # Generate new token
-    token = user.generate_api_token()
+    user.generate_api_token()
     db.session.commit()
 
     flash("New API token generated successfully", "success")
@@ -2260,14 +2785,16 @@ def api_revoke_token():
 # RATE LIMITING
 # ============================================================================
 
-from functools import wraps
 import time
+from functools import wraps
 
 # Simple in-memory rate limiting (for production, use Redis)
 rate_limits = {}
 
+
 def rate_limit_decorator(max_calls=100, time_window=60):
     """Rate limiting decorator."""
+
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -2290,13 +2817,16 @@ def rate_limit_decorator(max_calls=100, time_window=60):
             rate_limits[key].append(current_time)
 
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
 
 
 # ============================================================================
 # REST API ENDPOINTS (Token Authenticated)
 # ============================================================================
+
 
 @main_bp.route("/api/v1/servers", methods=["GET"])
 @require_api_auth
@@ -2312,25 +2842,25 @@ def api_v1_get_servers():
 
     server_data = []
     for server in servers:
-        server_data.append({
-            'id': server.id,
-            'name': server.name,
-            'host': server.host,
-            'port': server.port,
-            'game_type': server.game_type,
-            'status': 'online' if server.is_online() else 'offline',
-            'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
-            'max_players': server.max_players or 32,
-            'map': server.current_map,
-            'created_at': server.created_at.isoformat() if server.created_at else None,
-            'updated_at': server.updated_at.isoformat() if server.updated_at else None
-        })
+        server_data.append(
+            {
+                "id": server.id,
+                "name": server.name,
+                "host": server.host,
+                "port": server.port,
+                "game_type": server.game_type,
+                "status": "online" if server.is_online() else "offline",
+                "player_count": server.get_player_count()
+                if hasattr(server, "get_player_count")
+                else 0,
+                "max_players": server.max_players or 32,
+                "map": server.current_map,
+                "created_at": server.created_at.isoformat() if server.created_at else None,
+                "updated_at": server.updated_at.isoformat() if server.updated_at else None,
+            }
+        )
 
-    return jsonify({
-        'servers': server_data,
-        'total': len(server_data),
-        'api_version': 'v1'
-    })
+    return jsonify({"servers": server_data, "total": len(server_data), "api_version": "v1"})
 
 
 @main_bp.route("/api/v1/servers/<int:server_id>", methods=["GET"])
@@ -2349,17 +2879,17 @@ def api_v1_get_server(server_id):
         return jsonify({"error": "Access denied"}), 403
 
     server_data = {
-        'id': server.id,
-        'name': server.name,
-        'host': server.host,
-        'port': server.port,
-        'game_type': server.game_type,
-        'status': 'online' if server.is_online() else 'offline',
-        'player_count': server.get_player_count() if hasattr(server, 'get_player_count') else 0,
-        'max_players': server.max_players or 32,
-        'map': server.current_map,
-        'created_at': server.created_at.isoformat() if server.created_at else None,
-        'updated_at': server.updated_at.isoformat() if server.updated_at else None
+        "id": server.id,
+        "name": server.name,
+        "host": server.host,
+        "port": server.port,
+        "game_type": server.game_type,
+        "status": "online" if server.is_online() else "offline",
+        "player_count": server.get_player_count() if hasattr(server, "get_player_count") else 0,
+        "max_players": server.max_players or 32,
+        "map": server.current_map,
+        "created_at": server.created_at.isoformat() if server.created_at else None,
+        "updated_at": server.updated_at.isoformat() if server.updated_at else None,
     }
 
     return jsonify(server_data)
@@ -2381,10 +2911,10 @@ def api_v1_send_command(server_id):
         return jsonify({"error": "Access denied"}), 403
 
     data = request.get_json()
-    if not data or 'command' not in data:
+    if not data or "command" not in data:
         return jsonify({"error": "Command is required"}), 400
 
-    command = data['command'].strip()
+    command = data["command"].strip()
     if not command:
         return jsonify({"error": "Command cannot be empty"}), 400
 
@@ -2394,22 +2924,25 @@ def api_v1_send_command(server_id):
         response = rcon.send_command(command)
 
         # Log the command
+        from models_extended import RconCommandHistory
         command_log = RconCommandHistory(
             server_id=server_id,
             user_id=user.id,
             command=command,
             response=response,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
         )
         db.session.add(command_log)
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'command': command,
-            'response': response,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        return jsonify(
+            {
+                "success": True,
+                "command": command,
+                "response": response,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": f"Failed to send command: {str(e)}"}), 500
@@ -2431,12 +2964,12 @@ def api_v1_webhook():
     print(f"Webhook received: {data}")
 
     # Process webhook based on type
-    webhook_type = data.get('type', 'unknown')
+    webhook_type = data.get("type", "unknown")
 
-    if webhook_type == 'server_status':
+    if webhook_type == "server_status":
         # Handle server status updates
-        server_id = data.get('server_id')
-        status = data.get('status')
+        server_id = data.get("server_id")
+        status = data.get("status")
 
         if server_id and status:
             # Update server status in database
@@ -2445,11 +2978,11 @@ def api_v1_webhook():
                 # This could trigger notifications, etc.
                 print(f"Server {server_id} status update: {status}")
 
-    elif webhook_type == 'player_event':
+    elif webhook_type == "player_event":
         # Handle player join/leave events
-        server_id = data.get('server_id')
-        player_name = data.get('player_name')
-        event_type = data.get('event')  # 'join' or 'leave'
+        server_id = data.get("server_id")
+        player_name = data.get("player_name")
+        event_type = data.get("event")  # 'join' or 'leave'
 
         if server_id and player_name and event_type:
             print(f"Player {player_name} {event_type}ed server {server_id}")
@@ -2461,12 +2994,14 @@ def api_v1_webhook():
 @rate_limit_decorator(max_calls=1000, time_window=60)  # High limit for health checks
 def api_v1_health_check():
     """API health check endpoint (API version)."""
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "1.0.0",
-        "api_version": "v1"
-    })
+    return jsonify(
+        {
+            "status": "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "version": "1.0.0",
+            "api_version": "v1",
+        }
+    )
 
 
 @main_bp.route("/api/docs", methods=["GET"])
@@ -2483,6 +3018,242 @@ def api_docs():
     return render_template("api_docs.html", user=user)
 
 
+@main_bp.route("/api/openapi.json", methods=["GET"])
+def api_openapi_spec():
+    """OpenAPI/Swagger specification for the API."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # OpenAPI 3.0 specification
+    openapi_spec = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Panel API",
+            "description": "REST API for the Panel game server management system",
+            "version": "1.0.0",
+            "contact": {
+                "name": "Panel Development Team"
+            }
+        },
+        "servers": [
+            {
+                "url": request.host_url.rstrip('/'),
+                "description": "Production server"
+            }
+        ],
+        "security": [
+            {
+                "bearerAuth": []
+            },
+            {
+                "sessionAuth": []
+            }
+        ],
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "description": "API token authentication"
+                },
+                "sessionAuth": {
+                    "type": "apiKey",
+                    "in": "cookie",
+                    "name": "session",
+                    "description": "Session-based authentication"
+                }
+            },
+            "schemas": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "type": "string",
+                            "description": "Error message"
+                        }
+                    }
+                },
+                "Server": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer", "description": "Server ID"},
+                        "name": {"type": "string", "description": "Server name"},
+                        "host": {"type": "string", "description": "Server host"},
+                        "port": {"type": "integer", "description": "Server port"},
+                        "game_type": {"type": "string", "description": "Game type"},
+                        "status": {"type": "string", "enum": ["online", "offline"]},
+                        "player_count": {"type": "integer", "description": "Current player count"},
+                        "max_players": {"type": "integer", "description": "Maximum players"},
+                        "map": {"type": "string", "description": "Current map"},
+                        "created_at": {"type": "string", "format": "date-time"},
+                        "updated_at": {"type": "string", "format": "date-time"}
+                    }
+                },
+                "AnalyticsMetrics": {
+                    "type": "object",
+                    "properties": {
+                        "performance": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "time": {"type": "string"},
+                                    "cpu": {"type": "number"},
+                                    "memory": {"type": "number"},
+                                    "players": {"type": "integer"}
+                                }
+                            }
+                        },
+                        "current_status": {
+                            "type": "object",
+                            "properties": {
+                                "cpu_usage": {"type": "number"},
+                                "memory_usage": {"type": "number"},
+                                "player_count": {"type": "integer"},
+                                "active_servers": {"type": "integer"}
+                            }
+                        },
+                        "top_maps": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "map": {"type": "string"},
+                                    "players": {"type": "number"}
+                                }
+                            }
+                        },
+                        "time_range": {"type": "string"}
+                    }
+                }
+            }
+        },
+        "paths": {
+            "/api/v1/servers": {
+                "get": {
+                    "summary": "Get servers",
+                    "description": "Retrieve list of servers accessible to the authenticated user",
+                    "security": [{"bearerAuth": []}, {"sessionAuth": []}],
+                    "responses": {
+                        "200": {
+                            "description": "List of servers",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "servers": {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/Server"}
+                                            },
+                                            "total": {"type": "integer"}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "401": {
+                            "description": "Authentication required",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/analytics/metrics": {
+                "get": {
+                    "summary": "Get analytics metrics",
+                    "description": "Retrieve analytics and performance metrics",
+                    "security": [{"sessionAuth": []}],
+                    "parameters": [
+                        {
+                            "name": "hours",
+                            "in": "query",
+                            "description": "Time range in hours (default: 24)",
+                            "schema": {"type": "integer", "default": 24}
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Analytics metrics",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/AnalyticsMetrics"}
+                                }
+                            }
+                        },
+                        "403": {
+                            "description": "Admin access required",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Error"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/health": {
+                "get": {
+                    "summary": "Health check",
+                    "description": "Basic health check for load balancers",
+                    "responses": {
+                        "200": {
+                            "description": "Service is healthy",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "status": {"type": "string"},
+                                            "timestamp": {"type": "string", "format": "date-time"},
+                                            "uptime_seconds": {"type": "integer"},
+                                            "checks": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "database": {"type": "string"},
+                                                    "redis": {"type": "string"}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/metrics": {
+                "get": {
+                    "summary": "Prometheus metrics",
+                    "description": "Prometheus-compatible metrics for monitoring",
+                    "security": [{"sessionAuth": []}],
+                    "responses": {
+                        "200": {
+                            "description": "Metrics in Prometheus format",
+                            "content": {
+                                "text/plain": {
+                                    "schema": {"type": "string"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return jsonify(openapi_spec)
+
+
 @main_bp.route("/admin/rbac/init", methods=["POST"])
 def admin_rbac_init():
     """Initialize the RBAC system with default permissions and roles."""
@@ -2497,6 +3268,7 @@ def admin_rbac_init():
 
     try:
         from rbac import initialize_rbac_system
+
         initialize_rbac_system()
         flash("RBAC system initialized successfully", "success")
     except Exception as e:
@@ -2514,6 +3286,7 @@ backup_manager = BackupManager(backup_dir="backups")
 # BACKUP MANAGEMENT ROUTES
 # ============================================================================
 
+
 @main_bp.route("/backups", methods=["GET"])
 def backup_dashboard():
     """Backup management dashboard."""
@@ -2527,6 +3300,7 @@ def backup_dashboard():
 
     # Check RBAC permission for backup access
     from rbac import has_permission
+
     if not has_permission(user, "admin.backup_restore"):
         flash("Backup access requires appropriate permissions", "error")
         return redirect(url_for("dashboard"))
@@ -2552,16 +3326,18 @@ def api_create_database_backup():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        name = request.form.get('name') or f"manual_db_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        name = request.form.get("name") or f"manual_db_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         backup_file = backup_manager.create_database_backup(name)
 
         if backup_file:
-            return jsonify({
-                "success": True,
-                "message": "Database backup created successfully",
-                "backup_file": backup_file,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Database backup created successfully",
+                    "backup_file": backup_file,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         else:
             return jsonify({"error": "Failed to create database backup"}), 500
 
@@ -2581,8 +3357,10 @@ def api_create_config_backup():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        name = request.form.get('name') or f"manual_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        config_files = request.form.get('files')
+        name = (
+            request.form.get("name") or f"manual_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        config_files = request.form.get("files")
         if config_files:
             config_files = json.loads(config_files)
         else:
@@ -2591,12 +3369,14 @@ def api_create_config_backup():
         backup_file = backup_manager.create_config_backup(config_files, name)
 
         if backup_file:
-            return jsonify({
-                "success": True,
-                "message": "Configuration backup created successfully",
-                "backup_file": backup_file,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Configuration backup created successfully",
+                    "backup_file": backup_file,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         else:
             return jsonify({"error": "Failed to create configuration backup"}), 500
 
@@ -2624,30 +3404,35 @@ def api_create_server_backup(server_id):
         return jsonify({"error": "Access denied"}), 403
 
     try:
-        name = request.form.get('name') or f"server_{server_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        name = (
+            request.form.get("name")
+            or f"server_{server_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
 
         # Get server data for backup
         server_data = {
-            'id': server.id,
-            'name': server.name,
-            'host': server.host,
-            'port': server.port,
-            'rcon_password': server.rcon_password,
-            'variables_json': server.variables_json,
-            'raw_config': server.raw_config,
-            'game_type': server.game_type,
-            'max_players': server.max_players
+            "id": server.id,
+            "name": server.name,
+            "host": server.host,
+            "port": server.port,
+            "rcon_password": server.rcon_password,
+            "variables_json": server.variables_json,
+            "raw_config": server.raw_config,
+            "game_type": server.game_type,
+            "max_players": server.max_players,
         }
 
         backup_file = backup_manager.create_server_backup(server_id, server_data, name)
 
         if backup_file:
-            return jsonify({
-                "success": True,
-                "message": "Server backup created successfully",
-                "backup_file": backup_file,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Server backup created successfully",
+                    "backup_file": backup_file,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         else:
             return jsonify({"error": "Failed to create server backup"}), 500
 
@@ -2667,7 +3452,7 @@ def api_list_backups():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        backup_type = request.args.get('type')
+        backup_type = request.args.get("type")
         backups = backup_manager.list_backups(backup_type)
         return jsonify(backups)
 
@@ -2687,18 +3472,20 @@ def api_restore_database():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        backup_file = request.form.get('backup_file')
+        backup_file = request.form.get("backup_file")
         if not backup_file:
             return jsonify({"error": "Backup file is required"}), 400
 
         success = backup_manager.restore_database(backup_file)
 
         if success:
-            return jsonify({
-                "success": True,
-                "message": "Database restored successfully",
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Database restored successfully",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         else:
             return jsonify({"error": "Failed to restore database"}), 500
 
@@ -2718,19 +3505,22 @@ def api_restore_config():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        backup_file = request.form.get('backup_file')
+        backup_file = request.form.get("backup_file")
         if not backup_file:
             return jsonify({"error": "Backup file is required"}), 400
 
         restored_files = backup_manager.restore_config(backup_file)
 
         if restored_files:
-            return jsonify({
-                "success": True,
-                "message": f"Configuration restored successfully. Files: {', '.join(restored_files)}",
-                "restored_files": restored_files,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Configuration restored successfully. "
+                    f"Files: {', '.join(restored_files)}",
+                    "restored_files": restored_files,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         else:
             return jsonify({"error": "Failed to restore configuration"}), 500
 
@@ -2750,15 +3540,17 @@ def api_cleanup_backups():
         return jsonify({"error": "Admin access required"}), 403
 
     try:
-        days_to_keep = int(request.form.get('days', 30))
+        days_to_keep = int(request.form.get("days", 30))
         deleted_files = backup_manager.cleanup_old_backups(days_to_keep)
 
-        return jsonify({
-            "success": True,
-            "message": f"Cleaned up {len(deleted_files)} old backup files",
-            "deleted_files": deleted_files,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Cleaned up {len(deleted_files)} old backup files",
+                "deleted_files": deleted_files,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -2799,14 +3591,12 @@ def rcon_console():
     user = db.session.get(User, uid)
 
     # Get all servers the user can access
-    servers = Server.query.filter(
-        (Server.owner_id == uid) | (Server.users.any(user_id=uid))
-    ).all()
+    servers = Server.query.filter((Server.owner_id == uid) | (Server.users.any(user_id=uid))).all()
 
     # If no server specified, redirect to first available server
-    server_id = request.args.get('server_id', type=int)
+    server_id = request.args.get("server_id", type=int)
     if not server_id and servers:
-        return redirect(url_for('rcon_console', server_id=servers[0].id))
+        return redirect(url_for("rcon_console", server_id=servers[0].id))
 
     server = None
     if server_id:
@@ -2828,7 +3618,9 @@ def rcon_console():
 
             # Check if server has connection details
             if not server.host or not server.port or not server.rcon_password:
-                output = "Error: Server connection details not configured (host, port, RCON password)"
+                output = (
+                    "Error: Server connection details not configured (host, port, RCON password)"
+                )
             else:
                 rc = ETLegacyRcon.from_server(server)
                 try:
@@ -2949,10 +3741,10 @@ def admin_tools():
     log_dir = config.LOG_DIR  # Already OS-aware from config.py
     mem_file = os.path.join(log_dir, "memwatch.log")
     auto_file = os.path.join(log_dir, "autodeploy.log")
-    
+
     # Check if journalctl is available
     has_journalctl = shutil.which("journalctl") is not None
-    
+
     try:
         if os.path.exists(mem_file):
             with open(mem_file, "r") as f:
@@ -2964,7 +3756,10 @@ def admin_tools():
                 text=True,
             ).stdout
         else:
-            memwatch_log = "Memwatch log not available. Log file not found and journalctl not available (development environment)."
+            memwatch_log = (
+                "Memwatch log not available. Log file not found and journalctl not available "
+                "(development environment)."
+            )
     except Exception as e:
         memwatch_log = f"Could not read memwatch log: {e}"
 
@@ -2979,7 +3774,10 @@ def admin_tools():
                 text=True,
             ).stdout
         else:
-            autodeploy_log = "Autodeploy log not available. Log file not found and journalctl not available (development environment)."
+            autodeploy_log = (
+                "Autodeploy log not available. Log file not found and journalctl not available "
+                "(development environment)."
+            )
     except Exception as e:
         autodeploy_log = f"Could not read autodeploy log: {e}"
 
@@ -3008,9 +3806,7 @@ def _migrate_theme_into_db():
             try:
                 with open(flag_path, "r", encoding="utf-8") as f:
                     v = f.read().strip()
-                s_flag = SiteSetting(
-                    key="theme_enabled", value=("1" if v == "1" else "0")
-                )
+                s_flag = SiteSetting(key="theme_enabled", value=("1" if v == "1" else "0"))
                 db.session.add(s_flag)
             except Exception:
                 pass
@@ -3193,9 +3989,7 @@ def admin_theme():
 
                         tb = traceback.format_exc()
                         try:
-                            app.logger.error(
-                                "Theme image processing error: %s\n%s", e, tb
-                            )
+                            app.logger.error("Theme image processing error: %s\n%s", e, tb)
                         except Exception:
                             logger.error(f"Theme image processing error: {e}")
                             logger.debug(tb)
@@ -3226,9 +4020,7 @@ def admin_theme():
                         db.session.add(sa)
                         db.session.commit()
                     else:
-                        assets_dir = os.path.join(
-                            app.root_path, "instance", "theme_assets"
-                        )
+                        assets_dir = os.path.join(app.root_path, "instance", "theme_assets")
                         os.makedirs(assets_dir, exist_ok=True)
                         save_path = os.path.join(assets_dir, filename)
                         with open(save_path, "wb") as wf:
@@ -3250,9 +4042,7 @@ def admin_theme():
                     sa = db.session.get(SiteAsset, aid)
                     if sa:
                         # remove filesystem copy if exists
-                        assets_dir = os.path.join(
-                            app.root_path, "instance", "theme_assets"
-                        )
+                        assets_dir = os.path.join(app.root_path, "instance", "theme_assets")
                         fs_path = os.path.join(assets_dir, sa.filename)
                         if os.path.exists(fs_path):
                             os.remove(fs_path)
@@ -3278,9 +4068,7 @@ def admin_theme():
                 sa = db.session.get(SiteAsset, aid)
                 try:
                     if sa:
-                        assets_dir = os.path.join(
-                            app.root_path, "instance", "theme_assets"
-                        )
+                        assets_dir = os.path.join(app.root_path, "instance", "theme_assets")
                         fs_path = os.path.join(assets_dir, sa.filename)
                         if os.path.exists(fs_path):
                             os.remove(fs_path)
@@ -3310,9 +4098,7 @@ def admin_theme():
                 s_css.value = css
             s_flag = SiteSetting.query.filter_by(key="theme_enabled").first()
             if not s_flag:
-                s_flag = SiteSetting(
-                    key="theme_enabled", value=("1" if enabled else "0")
-                )
+                s_flag = SiteSetting(key="theme_enabled", value=("1" if enabled else "0"))
             else:
                 s_flag.value = "1" if enabled else "0"
             s_toggle = SiteSetting.query.filter_by(key="theme_toggle_enabled").first()
@@ -3370,6 +4156,7 @@ def admin_set_role():
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(actor, "admin.user_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3386,9 +4173,7 @@ def admin_set_role():
         return redirect(url_for("admin_users"))
     old = u.role
     u.role = new_role
-    db.session.add(
-        AuditLog(actor_id=actor.id, action=f"changed_role:{u.email}:{old}->{new_role}")
-    )
+    db.session.add(AuditLog(actor_id=actor.id, action=f"changed_role:{u.email}:{old}->{new_role}"))
     db.session.commit()
     flash("Role updated", "success")
     return redirect(url_for("admin_users"))
@@ -3400,6 +4185,7 @@ def admin_servers():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(user, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3413,6 +4199,7 @@ def admin_create_server():
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3428,14 +4215,14 @@ def admin_create_server():
         host = request.form.get("host", "").strip()
         port_str = request.form.get("port", "").strip()
         rcon_password = request.form.get("rcon_password", "").strip()
-        
+
         if not name:
             flash("Name is required", "error")
             return redirect(url_for("admin_create_server"))
         if Server.query.filter_by(name=name).first():
             flash("Server name already exists", "error")
             return redirect(url_for("admin_create_server"))
-        
+
         # Validate port if provided
         port = None
         if port_str:
@@ -3447,13 +4234,12 @@ def admin_create_server():
             except ValueError:
                 flash("Invalid port number", "error")
                 return redirect(url_for("admin_create_server"))
-        
+
         # Load default config template for selected game type
         from config_manager import ConfigTemplate
-        template = ConfigTemplate.query.filter_by(
-            game_type=game_type, is_default=True
-        ).first()
-        
+
+        template = ConfigTemplate.query.filter_by(game_type=game_type, is_default=True).first()
+
         if template:
             # Load config from template
             template_data = json.loads(template.template_data)
@@ -3463,7 +4249,7 @@ def admin_create_server():
             # Fallback to basic config if no template
             default_vars = {"max_players": 16, "map": "default", "motd": "Welcome"}
             raw_config = "# default config\n"
-        
+
         # Create server with loaded config
         s = Server(
             name=name,
@@ -3477,21 +4263,22 @@ def admin_create_server():
         )
         db.session.add(s)
         db.session.commit()
-        
+
         # Assign creator as server_admin
         su = ServerUser(server_id=s.id, user_id=actor.id, role="server_admin")
         db.session.add(su)
         db.session.add(AuditLog(actor_id=actor.id, action=f"create_server:{name}:{game_type}"))
         db.session.commit()
-        
+
         flash(f"Server '{name}' created successfully with {game_type} configuration", "success")
         return redirect(url_for("admin_servers"))
-    
+
     # GET request - get available game types from templates
     from config_manager import ConfigTemplate
+
     game_types = db.session.query(ConfigTemplate.game_type).distinct().all()
     game_types = [gt[0] for gt in game_types] if game_types else ["etlegacy"]
-    
+
     return render_template("server_create.html", game_types=game_types)
 
 
@@ -3501,6 +4288,7 @@ def admin_delete_server(server_id):
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3527,6 +4315,7 @@ def admin_audit():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(user, "admin.audit_view"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3547,10 +4336,7 @@ def admin_audit():
         q = q.filter(AuditLog.action.contains(action_filter))
     total = q.count()
     entries = (
-        q.order_by(AuditLog.created_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
+        q.order_by(AuditLog.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     )
     resolved = []
     for e in entries:
@@ -3586,7 +4372,10 @@ def admin_audit_export():
     actor_filter = request.args.get("actor")
     action_filter = request.args.get("action")
     # Build raw SQL query with filters
-    sql = "SELECT audit_log.id, audit_log.created_at, user.email, audit_log.action FROM audit_log LEFT JOIN user ON audit_log.actor_id = user.id WHERE 1=1"
+    sql = (
+        "SELECT audit_log.id, audit_log.created_at, user.email, audit_log.action "
+        "FROM audit_log LEFT JOIN user ON audit_log.actor_id = user.id WHERE 1=1"
+    )
     params = []
     if actor_filter:
         # resolve actor email
@@ -3639,12 +4428,15 @@ def admin_users():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(user, "admin.user_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
     users = User.query.order_by(User.email).all()
     # csrf_token is available via context processor, but explicitly pass it for the template
-    return render_template("admin_users.html", users=users, csrf_token=lambda: session.get('csrf_token', ''))
+    return render_template(
+        "admin_users.html", users=users, csrf_token=lambda: session.get("csrf_token", "")
+    )
 
 
 @main_bp.route("/server/<int:server_id>", methods=["GET", "POST"])
@@ -3714,6 +4506,7 @@ def admin_server_manage_users(server_id):
     if not uid:
         return redirect(url_for("login"))
     actor = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(actor, "admin.server_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3760,6 +4553,7 @@ def admin_jobs():
     if not uid:
         return redirect(url_for("login"))
     user = db.session.get(User, uid)
+    from rbac import has_permission
     if not has_permission(user, "admin.job_management"):
         flash("Admin access required", "error")
         return redirect(url_for("dashboard"))
@@ -3778,11 +4572,7 @@ def admin_jobs():
         if status_filter:
             all_jobs = [j for j in all_jobs if j.get_status() == status_filter]
         if func_filter:
-            all_jobs = [
-                j
-                for j in all_jobs
-                if getattr(j, "func_name", "").find(func_filter) != -1
-            ]
+            all_jobs = [j for j in all_jobs if getattr(j, "func_name", "").find(func_filter) != -1]
         total = len(all_jobs)
         # pagination
         start = (page - 1) * per_page
@@ -3793,9 +4583,7 @@ def admin_jobs():
         jobs = []
         total = 0
 
-    return render_template(
-        "admin_jobs.html", jobs=jobs, page=page, per_page=per_page, total=total
-    )
+    return render_template("admin_jobs.html", jobs=jobs, page=page, per_page=per_page, total=total)
 
 
 @main_bp.route("/admin/trigger_autodeploy", methods=["POST"])
@@ -3841,9 +4629,7 @@ def run_memdump():
         flash("Invalid CSRF token", "error")
         return redirect(url_for("admin_tools"))
 
-    pid_file = (
-        request.form.get("pid_file") or config.ET_PID_FILE
-    )  # Already OS-aware from config.py
+    pid_file = request.form.get("pid_file") or config.ET_PID_FILE  # Already OS-aware from config.py
     # Enqueue memwatch task (background)
     try:
         redis_url = os.environ.get("PANEL_REDIS_URL", config.REDIS_URL)
@@ -3903,9 +4689,7 @@ if __name__ == "__main__":
     # Use basic logging for startup messages before app context
     import logging as startup_logging
 
-    startup_logging.basicConfig(
-        level=startup_logging.INFO, format="%(levelname)s: %(message)s"
-    )
+    startup_logging.basicConfig(level=startup_logging.INFO, format="%(levelname)s: %(message)s")
     startup_logger = startup_logging.getLogger(__name__)
 
     # create DB tables if not exist
@@ -3915,9 +4699,7 @@ if __name__ == "__main__":
         try:
             # import css file if present and DB empty
             s_css = SiteSetting.query.filter_by(key="custom_theme_css").first()
-            theme_path = os.path.join(
-                app.root_path, "static", "css", "custom_theme.css"
-            )
+            theme_path = os.path.join(app.root_path, "static", "css", "custom_theme.css")
             if not s_css and os.path.exists(theme_path):
                 with open(theme_path, "r", encoding="utf-8") as f:
                     css = f.read()
@@ -3931,9 +4713,7 @@ if __name__ == "__main__":
                 try:
                     with open(flag_path, "r", encoding="utf-8") as f:
                         v = f.read().strip()
-                    s_flag = SiteSetting(
-                        key="theme_enabled", value=("1" if v == "1" else "0")
-                    )
+                    s_flag = SiteSetting(key="theme_enabled", value=("1" if v == "1" else "0"))
                     db.session.add(s_flag)
                 except Exception:
                     pass
@@ -3946,14 +4726,15 @@ if __name__ == "__main__":
     # Import extended routes
     # Temporarily commented out to avoid circular imports during monitoring system integration
     # import routes_extended
-    import routes_rbac
+    # import routes_rbac
+    from monitoring_system import monitoring_bp, start_monitoring
+
     # Enterprise systems temporarily disabled to avoid SQLAlchemy context issues
     from routes_config import config_bp
-    from monitoring_system import monitoring_bp, start_monitoring
+
     # from api_monitoring import api_bp
     # from log_analytics import log_analytics_bp, start_log_analytics
     # from multi_server_management import multi_server_bp, start_multi_server_system
-
     # Register config blueprint for Ptero-Eggs management
     app.register_blueprint(config_bp)
     # Register other blueprints - Temporarily disabled
@@ -3961,7 +4742,9 @@ if __name__ == "__main__":
     # app.register_blueprint(api_bp)
     # app.register_blueprint(log_analytics_bp)
     # app.register_blueprint(multi_server_bp)
-    logger.info("Configuration management enabled, other enterprise systems disabled for clean operation")
+    logger.info(
+        "Configuration management enabled, other enterprise systems disabled for clean operation"
+    )
 
     # Initialize configuration templates after database is ready
     from config_manager import create_default_templates
@@ -4026,9 +4809,7 @@ def admin_db_table(table_name):
     result = db_admin.get_table_data(table_name, limit, offset)
 
     # Get total count for pagination (simplified)
-    total_result = db_admin.execute_query(
-        f"SELECT COUNT(*) as count FROM `{table_name}`"
-    )
+    total_result = db_admin.execute_query(f"SELECT COUNT(*) as count FROM `{table_name}`")
     total = total_result["data"][0]["count"] if total_result["success"] else 0
 
     return render_template_string(
@@ -4054,7 +4835,7 @@ def admin_db_table_structure(table_name):
         <div class="main-content">
             <h2>Table Structure: {{ table_name }}</h2>
             <a href="{{ url_for('admin_db_table', table_name=table_name) }}" class="btn">View Data</a>
-            
+
             {% if result.success %}
             <table>
                 <thead>
@@ -4112,7 +4893,8 @@ def admin_db_query():
             if any(keyword in query_upper for keyword in dangerous_keywords):
                 if not request.form.get("confirm_dangerous"):
                     flash(
-                        "This query contains potentially dangerous operations. Please confirm if you want to proceed.",
+                        "This query contains potentially dangerous operations. "
+                        "Please confirm if you want to proceed.",
                         "warning",
                     )
                     return render_template_string(
@@ -4152,11 +4934,11 @@ def admin_db_export():
         <div class="main-content">
             <h2>Export Database</h2>
             <p>Database export functionality will be implemented here.</p>
-            
+
             <h3>Quick Exports</h3>
             <a href="{{ url_for('admin_db_export_table', table_name='user') }}" class="btn">Export Users</a>
             <a href="{{ url_for('admin_db_export_table', table_name='game_server') }}" class="btn">Export Servers</a>
-            
+
             <h3>Export Options</h3>
             <form method="post">
                 <p><label><input type="checkbox" name="include_data" checked> Include Data</label></p>
@@ -4209,7 +4991,7 @@ def admin_db_import():
         <div class="main-content">
             <h2>Import Database</h2>
             <p>Database import functionality will be implemented here.</p>
-            
+
             <form method="post" enctype="multipart/form-data">
                 <p><label for="file">Select SQL file:</label></p>
                 <input type="file" name="file" accept=".sql,.csv" required>
@@ -4235,6 +5017,7 @@ except AssertionError:
 # Register optional feature blueprints on the module-level app
 try:
     import cms as _cms
+
     if hasattr(_cms, "cms_bp"):
         try:
             app.register_blueprint(_cms.cms_bp)
@@ -4245,6 +5028,7 @@ except Exception:
 
 try:
     import forum as _forum
+
     if hasattr(_forum, "forum_bp"):
         try:
             app.register_blueprint(_forum.forum_bp)
@@ -4266,12 +5050,8 @@ try:
                 view = app.view_functions.get(ep)
                 if view:
                     try:
-                        methods = [
-                            m for m in rule.methods if m not in ("HEAD", "OPTIONS")
-                        ]
-                        app.add_url_rule(
-                            rule.rule, endpoint=short, view_func=view, methods=methods
-                        )
+                        methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                        app.add_url_rule(rule.rule, endpoint=short, view_func=view, methods=methods)
                     except Exception:
                         # best-effort aliasing; ignore failures
                         pass
@@ -4280,83 +5060,87 @@ except Exception:
 
 
 # SocketIO Event Handlers for Real-Time Features
-@socketio.on('join_rcon')
+@socketio.on("join_rcon")
 def handle_join_rcon(data):
     """Join RCON room for a specific server."""
-    server_id = data.get('server_id')
-    user_id = session.get('user_id')
-    
+    server_id = data.get("server_id")
+    user_id = session.get("user_id")
+
     if not user_id or not server_id:
-        return {'error': 'Authentication required'}
-    
+        return {"error": "Authentication required"}
+
     # Check if user has access to this server
     user = db.session.get(User, user_id)
     server = db.session.get(Server, server_id)
-    
+
     if not server or not user_can_edit_server(user, server):
-        return {'error': 'Access denied'}
-    
-    room = f'rcon_{server_id}'
+        return {"error": "Access denied"}
+
+    room = f"rcon_{server_id}"
     join_room(room)
-    emit('joined_room', {'server_id': server_id, 'server_name': server.name})
+    emit("joined_room", {"server_id": server_id, "server_name": server.name})
 
 
-@socketio.on('leave_rcon')
+@socketio.on("leave_rcon")
 def handle_leave_rcon(data):
     """Leave RCON room."""
-    server_id = data.get('server_id')
+    server_id = data.get("server_id")
     if server_id:
-        room = f'rcon_{server_id}'
+        room = f"rcon_{server_id}"
         leave_room(room)
 
 
-@socketio.on('rcon_command')
+@socketio.on("rcon_command")
 def handle_rcon_command(data):
     """Execute RCON command and broadcast result."""
-    server_id = data.get('server_id')
-    command = data.get('command', '').strip()
-    user_id = session.get('user_id')
-    
+    server_id = data.get("server_id")
+    command = data.get("command", "").strip()
+    user_id = session.get("user_id")
+
     if not user_id or not server_id or not command:
-        emit('rcon_error', {'message': 'Invalid request'})
+        emit("rcon_error", {"message": "Invalid request"})
         return
-    
+
     # Check permissions
     user = db.session.get(User, user_id)
     server = db.session.get(Server, server_id)
-    
+
     if not server or not user_can_edit_server(user, server):
-        emit('rcon_error', {'message': 'Access denied'})
+        emit("rcon_error", {"message": "Access denied"})
         return
-    
+
     # Check server connection details
     if not server.host or not server.port or not server.rcon_password:
-        emit('rcon_error', {'message': 'Server connection not configured'})
+        emit("rcon_error", {"message": "Server connection not configured"})
         return
-    
+
     try:
         from rcon_client import ETLegacyRcon
+
         rc = ETLegacyRcon.from_server(server)
         result = rc.send(command)
-        
+
         # Broadcast to all users in this server's RCON room
-        room = f'rcon_{server_id}'
-        emit('rcon_output', {
-            'command': command,
-            'output': result,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'user': user.email
-        }, room=room)
-        
+        room = f"rcon_{server_id}"
+        emit(
+            "rcon_output",
+            {
+                "command": command,
+                "output": result,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user": user.email,
+            },
+            room=room,
+        )
+
         # Log the command
-        db.session.add(AuditLog(
-            actor_id=user.id, 
-            action=f"rcon_command:{server.name}:{command[:50]}"
-        ))
+        db.session.add(
+            AuditLog(actor_id=user.id, action=f"rcon_command:{server.name}:{command[:50]}")
+        )
         db.session.commit()
-        
+
     except Exception as e:
-        emit('rcon_error', {'message': f'Command failed: {str(e)}'})
+        emit("rcon_error", {"message": f"Command failed: {str(e)}"})
 
 
 # Register blueprints after all routes are defined
@@ -4369,6 +5153,7 @@ except (AssertionError, ValueError):
 # Register optional feature blueprints (import here to avoid circular imports)
 try:
     from routes_config import config_bp
+
     try:
         app.register_blueprint(config_bp)
     except (AssertionError, ValueError):
@@ -4378,6 +5163,7 @@ except Exception:
 
 try:
     import cms as _cms
+
     if hasattr(_cms, "cms_bp"):
         try:
             app.register_blueprint(_cms.cms_bp)
@@ -4388,6 +5174,7 @@ except Exception:
 
 try:
     import forum as _forum
+
     if hasattr(_forum, "forum_bp"):
         try:
             app.register_blueprint(_forum.forum_bp)
@@ -4398,6 +5185,7 @@ except Exception:
 
 try:
     from monitoring_system import monitoring_bp
+
     try:
         app.register_blueprint(monitoring_bp)
     except (AssertionError, ValueError):
@@ -4406,30 +5194,74 @@ except Exception:
     pass
 
 try:
-    from routes_rbac import rbac_bp
-    try:
-        app.register_blueprint(rbac_bp)
-    except (AssertionError, ValueError):
-        pass
+    from monitoring_dashboard import init_monitoring_dashboard
+
+    monitoring_dashboard_instance = init_monitoring_dashboard(app)
+except Exception:
+    pass
+
+try:
+    from api_versioning import init_api_versioning
+
+    init_api_versioning(app)
+except Exception:
+    pass
+
+try:
+    from advanced_caching import init_advanced_caching
+
+    init_advanced_caching(app)
+except Exception:
+    pass
+
+try:
+    from background_jobs import init_background_jobs
+
+    init_background_jobs(app)
+except Exception:
+    pass
+
+try:
+    from oauth_auth import init_oauth_auth
+
+    init_oauth_auth(app)
+except Exception:
+    pass
+
+try:
+    from request_tracing import init_request_tracing
+
+    init_request_tracing(app)
+except Exception:
+    pass
+
+try:
+    # from routes_rbac import rbac_bp
+
+    # try:
+    #     app.register_blueprint(rbac_bp)
+    # except (AssertionError, ValueError):
+    #     pass
+    pass
 except Exception:
     pass
 
 
-@socketio.on('connect')
+@socketio.on("connect")
 def handle_connect():
     """Handle client connection."""
-    print('Client connected')
+    print("Client connected")
 
 
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def handle_disconnect():
     """Handle client disconnection."""
-    print('Client disconnected')
+    print("Client disconnected")
 
 
 if __name__ == "__main__":
     # Start monitoring system
     start_monitoring(app)
-    
+
     # Run with SocketIO for real-time features
-    socketio.run(app, host='0.0.0.0', port=8080, debug=False)
+    socketio.run(app, host="0.0.0.0", port=8080, debug=False)

@@ -33,7 +33,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-success text-white">
                 <div class="card-body">
@@ -47,7 +47,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-info text-white">
                 <div class="card-body">
@@ -61,7 +61,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card bg-warning text-white">
                 <div class="card-body">
@@ -130,7 +130,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="cluster-features mb-3">
                                         <div class="row">
                                             <div class="col-6">
@@ -154,7 +154,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="cluster-health">
                                         <div class="progress mb-2" style="height: 8px;">
                                             <div class="progress-bar bg-success" style="width: {{ (item.stats.online_servers / item.stats.total_servers * 100) if item.stats.total_servers > 0 else 0 }}%"></div>
@@ -307,12 +307,12 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="clusterDescription" class="form-label">Description</label>
                         <textarea class="form-control" id="clusterDescription" rows="3"></textarea>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label for="minServers" class="form-label">Min Servers</label>
@@ -327,7 +327,7 @@
                             <input type="number" class="form-control" id="targetCpu" value="70" min="10" max="95">
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-4">
                             <div class="form-check">
@@ -409,7 +409,7 @@ function refreshDashboard() {
 function createCluster() {
     const form = document.getElementById('createClusterForm');
     const formData = new FormData(form);
-    
+
     // Implementation for creating cluster
     alert('Cluster creation functionality will be implemented.');
 }

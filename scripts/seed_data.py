@@ -20,8 +20,7 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from app import AuditLog, Server, User, app, db
-from models_extended import (Notification, ServerTemplate, UserActivity,
-                             UserGroup)
+from models_extended import Notification, ServerTemplate, UserActivity, UserGroup
 
 
 def create_admin_user():
@@ -181,8 +180,7 @@ def create_sample_activity():
                 user_id=user.id,
                 activity_type=random.choice(activities),
                 ip_address=f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
-                created_at=datetime.now(timezone.utc)
-                - timedelta(days=random.randint(0, 30)),
+                created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30)),
             )
             db.session.add(activity)
             created += 1

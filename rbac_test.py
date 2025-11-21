@@ -13,11 +13,12 @@ Requirements:
     - rbac.py in the same directory
 """
 
-import sys
 import os
+import sys
 
 # Add the panel directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 
 def test_rbac_logic():
     """Test RBAC permission logic without database dependencies."""
@@ -27,15 +28,19 @@ def test_rbac_logic():
 
     try:
         # Import RBAC functions (mock user objects for testing)
-        from rbac import Permission, Role, UserRole, UserPermissionOverride
+        from rbac import Permission, Role, UserPermissionOverride, UserRole
 
         print("✓ RBAC imports successful")
 
         # Create mock permission objects
         perm_user_view = Permission(name="user.view_own", description="View own profile")
-        perm_server_view = Permission(name="server.view_assigned", description="View assigned servers")
+        perm_server_view = Permission(
+            name="server.view_assigned", description="View assigned servers"
+        )
         perm_admin_users = Permission(name="admin.user_management", description="Manage users")
-        perm_admin_servers = Permission(name="admin.server_management", description="Manage servers")
+        perm_admin_servers = Permission(
+            name="admin.server_management", description="Manage servers"
+        )
         perm_admin_audit = Permission(name="admin.audit_view", description="View audit logs")
 
         # Create mock role objects
@@ -45,8 +50,19 @@ def test_rbac_logic():
 
         # Assign permissions to roles (simulated)
         role_user.permissions = [perm_user_view, perm_server_view]
-        role_admin.permissions = [perm_user_view, perm_server_view, perm_admin_users, perm_admin_servers]
-        role_super_admin.permissions = [perm_user_view, perm_server_view, perm_admin_users, perm_admin_servers, perm_admin_audit]
+        role_admin.permissions = [
+            perm_user_view,
+            perm_server_view,
+            perm_admin_users,
+            perm_admin_servers,
+        ]
+        role_super_admin.permissions = [
+            perm_user_view,
+            perm_server_view,
+            perm_admin_users,
+            perm_admin_servers,
+            perm_admin_audit,
+        ]
 
         print("✓ Mock RBAC objects created")
 
@@ -55,8 +71,19 @@ def test_rbac_logic():
             """Mock permission check logic."""
             role_permissions = {
                 "User": ["user.view_own", "server.view_assigned"],
-                "Administrator": ["user.view_own", "server.view_assigned", "admin.user_management", "admin.server_management"],
-                "Super Administrator": ["user.view_own", "server.view_assigned", "admin.user_management", "admin.server_management", "admin.audit_view"]
+                "Administrator": [
+                    "user.view_own",
+                    "server.view_assigned",
+                    "admin.user_management",
+                    "admin.server_management",
+                ],
+                "Super Administrator": [
+                    "user.view_own",
+                    "server.view_assigned",
+                    "admin.user_management",
+                    "admin.server_management",
+                    "admin.audit_view",
+                ],
             }
 
             return permission_name in role_permissions.get(user_role, [])
@@ -112,7 +139,7 @@ def test_route_integration():
         "admin_delete_server",
         "admin_jobs",
         "admin_set_role",
-        "admin_server_manage_users"
+        "admin_server_manage_users",
     ]
 
     rbac_permissions = {
@@ -123,7 +150,7 @@ def test_route_integration():
         "admin_delete_server": "admin.server_management",
         "admin_jobs": "admin.job_management",
         "admin_set_role": "admin.user_management",
-        "admin_server_manage_users": "admin.server_management"
+        "admin_server_manage_users": "admin.server_management",
     }
 
     try:
@@ -140,7 +167,9 @@ def test_route_integration():
                 route_content = content[route_start:route_end]
 
                 has_rbac = "has_permission(" in route_content
-                has_old_check = "is_system_admin_user(" in route_content or "is_admin_user(" in route_content
+                has_old_check = (
+                    "is_system_admin_user(" in route_content or "is_admin_user(" in route_content
+                )
 
                 if has_rbac and not has_old_check:
                     expected_perm = rbac_permissions.get(route, "unknown")

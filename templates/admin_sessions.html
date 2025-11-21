@@ -6,7 +6,7 @@
 <div class="container">
     <h1>All User Sessions</h1>
     <p class="text-muted">System administrator view of all user sessions.</p>
-    
+
     <div class="card mb-4">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -104,7 +104,7 @@
                         <td>
                             {% if session.is_active %}
                             <form method="post" action="{{ url_for('admin_revoke_session', session_id=session.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-danger btn-sm" 
+                                <button type="submit" class="btn btn-danger btn-sm"
                                         onclick="return confirm('Revoke this session for {{ session.user.email if session.user else 'unknown user' }}?')">
                                     <i class="fas fa-times"></i> Revoke
                                 </button>
@@ -123,7 +123,7 @@
                     {% endfor %}
                 </tbody>
             </table>
-            
+
             {% if pagination.pages > 1 %}
             <nav>
                 <ul class="pagination justify-content-center">
@@ -132,7 +132,7 @@
                         <a class="page-link" href="?page={{ pagination.prev_num }}&user={{ filters.user or '' }}&active_only={{ filters.active_only|int }}">Previous</a>
                     </li>
                     {% endif %}
-                    
+
                     {% for p in pagination.iter_pages() %}
                         {% if p %}
                             <li class="page-item {% if p == pagination.page %}active{% endif %}">
@@ -142,7 +142,7 @@
                             <li class="page-item disabled"><span class="page-link">...</span></li>
                         {% endif %}
                     {% endfor %}
-                    
+
                     {% if pagination.has_next %}
                     <li class="page-item">
                         <a class="page-link" href="?page={{ pagination.next_num }}&user={{ filters.user or '' }}&active_only={{ filters.active_only|int }}">Next</a>

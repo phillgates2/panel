@@ -19,7 +19,7 @@ def some_route():
     if not current_user.is_system_admin:
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard"))
-    
+
     # route logic using current_user.id
 ```
 
@@ -30,7 +30,7 @@ def some_route():
     redirect_response, user = require_admin()
     if redirect_response:
         return redirect_response
-    
+
     # route logic using user.id
 ```
 
@@ -41,7 +41,7 @@ def some_api_route():
     redirect_response, user = require_admin()
     if redirect_response:
         return jsonify({"success": False, "message": "Access denied"}), 403
-    
+
     # API logic using user.id
 ```
 
@@ -54,12 +54,12 @@ def require_admin():
     user_id = session.get("user_id")
     if not user_id:
         return redirect(url_for("login")), None
-    
+
     user = db.session.get(User, user_id)
     if not is_system_admin_user(user):
         flash("Access denied. Admin privileges required.", "error")
         return redirect(url_for("dashboard")), None
-    
+
     return None, user
 ```
 

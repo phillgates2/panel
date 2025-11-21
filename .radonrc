@@ -1,0 +1,29 @@
+[radon]
+# Radon configuration for Panel
+# Complexity analysis settings
+
+# Complexity thresholds
+cc_max = 10
+cc_min = 1
+
+# Exclude patterns
+exclude = tests/*,migrations/*,__pycache__/*,*.pyc
+
+# Include patterns
+include = *.py
+
+# Show complexity rank
+show_complexity = true
+
+# Show maintainability index
+show_mi = true
+
+# MI thresholds
+mi_max = 100
+mi_min = 0
+
+# Sort by complexity
+sort = -complexity
+
+# Output format
+format = text

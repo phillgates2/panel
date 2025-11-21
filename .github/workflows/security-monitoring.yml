@@ -1,0 +1,235 @@
+name: Security Monitoring
+
+on:
+  schedule:
+    # Run comprehensive security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'requirements*.txt'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.github/workflows/*'
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        pip install safety bandit pip-audit
+        npm install -g audit-ci
+
+    - name: Run Safety (Python vulnerabilities)
+      run: |
+        safety check --full-report --output safety-report.json || true
+        # Check for high/critical vulnerabilities
+        if jq -e '[.vulnerabilities[] | select(.vulnerability.severity == "high" or .vulnerability.severity == "critical")] | length > 0' safety-report.json 2>/dev/null; then
+          echo "🚨 High/Critical Python vulnerabilities found!"
+          jq '[.vulnerabilities[] | select(.vulnerability.severity == "high" or .vulnerability.severity == "critical")]' safety-report.json
+          echo "high_vulns=true" >> $GITHUB_ENV
+        else
+          echo "✅ No high/critical Python vulnerabilities found"
+        fi
+
+    - name: Run pip-audit
+      run: |
+        pip-audit --format json --output pip-audit-report.json || true
+        # Check for vulnerabilities
+        if jq -e '.[] | length > 0' pip-audit-report.json 2>/dev/null; then
+          echo "⚠️ pip-audit found issues"
+          cat pip-audit-report.json
+        fi
+
+    - name: Run Bandit (Python security)
+      run: |
+        bandit -r . -f json -o bandit-report.json --exclude ./tests,./venv,./.venv || true
+        # Check for high-severity issues
+        high_issues=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json)
+        if [ "$high_issues" -gt 0 ]; then
+          echo "🚨 High-severity security issues found in code!"
+          jq '.results[] | select(.issue_severity == "HIGH")' bandit-report.json
+          echo "bandit_high=true" >> $GITHUB_ENV
+        else
+          echo "✅ No high-severity code security issues found"
+        fi
+
+    - name: Run Trivy (container vulnerabilities)
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'json'
+        output: 'trivy-files-report.json'
+        exit-code: 0  # Don't fail, just report
+
+    - name: Analyze Trivy results
+      run: |
+        if [ -f trivy-files-report.json ]; then
+          high_vulns=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' trivy-files-report.json)
+          if [ "$high_vulns" -gt 0 ]; then
+            echo "🚨 High/Critical container vulnerabilities found!"
+            jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL") | {Package: .PkgName, Version: .InstalledVersion, Severity: .Severity, Description: .Description}]' trivy-files-report.json
+            echo "trivy_high=true" >> $GITHUB_ENV
+          else
+            echo "✅ No high/critical container vulnerabilities found"
+          fi
+        fi
+
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    - name: Check dependencies for known vulnerabilities
+      run: |
+        # Check if package-lock.json exists for npm audit
+        if [ -f "package-lock.json" ]; then
+          npm audit --audit-level high --json > npm-audit-report.json || true
+          if jq -e '.vulnerabilities | to_entries | map(select(.value.severity == "high" or .value.severity == "critical")) | length > 0' npm-audit-report.json 2>/dev/null; then
+            echo "🚨 High/Critical npm vulnerabilities found!"
+            jq '.vulnerabilities | to_entries | map(select(.value.severity == "high" or .value.severity == "critical"))' npm-audit-report.json
+            echo "npm_high=true" >> $GITHUB_ENV
+          fi
+        fi
+
+    - name: Generate security report
+      run: |
+        echo "# Security Audit Report" > security-summary.md
+        echo "" >> security-summary.md
+        echo "Generated on: $(date)" >> security-summary.md
+        echo "Commit: ${{ github.sha }}" >> security-summary.md
+        echo "" >> security-summary.md
+
+        if [ "${{ env.high_vulns }}" = "true" ] || [ "${{ env.bandit_high }}" = "true" ] || [ "${{ env.trivy_high }}" = "true" ] || [ "${{ env.npm_high }}" = "true" ]; then
+          echo "## 🚨 CRITICAL ISSUES FOUND" >> security-summary.md
+          echo "" >> security-summary.md
+          [ "${{ env.high_vulns }}" = "true" ] && echo "- High/Critical Python package vulnerabilities" >> security-summary.md
+          [ "${{ env.bandit_high }}" = "true" ] && echo "- High-severity code security issues" >> security-summary.md
+          [ "${{ env.trivy_high }}" = "true" ] && echo "- High/Critical container vulnerabilities" >> security-summary.md
+          [ "${{ env.npm_high }}" = "true" ] && echo "- High/Critical npm vulnerabilities" >> security-summary.md
+          echo "" >> security-summary.md
+        else
+          echo "## ✅ NO CRITICAL ISSUES" >> security-summary.md
+          echo "" >> security-summary.md
+        fi
+
+        echo "## Scan Results" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "### Safety (Python Dependencies)" >> security-summary.md
+        if [ -f safety-report.json ]; then
+          vuln_count=$(jq '.vulnerabilities | length' safety-report.json 2>/dev/null || echo "0")
+          echo "- Vulnerabilities found: $vuln_count" >> security-summary.md
+        fi
+
+        echo "" >> security-summary.md
+        echo "### Bandit (Code Security)" >> security-summary.md
+        if [ -f bandit-report.json ]; then
+          high_count=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo "0")
+          med_count=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo "0")
+          echo "- High severity: $high_count" >> security-summary.md
+          echo "- Medium severity: $med_count" >> security-summary.md
+        fi
+
+        echo "" >> security-summary.md
+        echo "### Trivy (Container Security)" >> security-summary.md
+        if [ -f trivy-files-report.json ]; then
+          high_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' trivy-files-report.json 2>/dev/null || echo "0")
+          echo "- High/Critical: $high_count" >> security-summary.md
+        fi
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-audit-reports
+        path: |
+          safety-report.json
+          pip-audit-report.json
+          bandit-report.json
+          trivy-files-report.json
+          npm-audit-report.json
+          security-summary.md
+        retention-days: 30
+
+    - name: Create security issue on failures
+      if: env.high_vulns == 'true' || env.bandit_high == 'true' || env.trivy_high == 'true' || env.npm_high == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let body = '## 🚨 Security Issues Detected\n\n';
+          body += 'Critical security issues were found during automated scanning:\n\n';
+
+          if (process.env.high_vulns === 'true') body += '- High/Critical Python package vulnerabilities\n';
+          if (process.env.bandit_high === 'true') body += '- High-severity code security issues\n';
+          if (process.env.trivy_high === 'true') body += '- High/Critical container vulnerabilities\n';
+          if (process.env.npm_high === 'true') body += '- High/Critical npm vulnerabilities\n';
+
+          body += '\n### Next Steps\n';
+          body += '1. Review the security reports in the workflow artifacts\n';
+          body += '2. Update vulnerable dependencies\n';
+          body += '3. Fix code security issues\n';
+          body += '4. Re-run security scans\n\n';
+          body += 'See workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Critical Security Issues Detected',
+            body: body,
+            labels: ['security', 'critical', 'automated']
+          });
+
+    - name: Notify Slack on security issues
+      if: env.high_vulns == 'true' || env.bandit_high == 'true' || env.trivy_high == 'true' || env.npm_high == 'true'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: custom
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        custom_payload: |
+          {
+            "attachments": [{
+              "color": "danger",
+              "title": "🚨 Security Issues Detected",
+              "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "text": "Critical security vulnerabilities found in ${{ github.repository }}",
+              "fields": [
+                {
+                  "title": "Repository",
+                  "value": "${{ github.repository }}",
+                  "short": true
+                },
+                {
+                  "title": "Branch",
+                  "value": "${{ github.ref_name }}",
+                  "short": true
+                },
+                {
+                  "title": "Commit",
+                  "value": "${{ github.sha }}",
+                  "short": true
+                }
+              ]
+            }]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}

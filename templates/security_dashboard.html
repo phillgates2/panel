@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-shield-alt"></i> Security Dashboard
+                    </h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-sm btn-info" onclick="refreshSecurityData()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <a href="{{ url_for('security_settings') }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-cogs"></i> Security Settings
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+
+                    <!-- Security Overview Cards -->
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-info">
+                                <div class="inner">
+                                    <h3 id="total-events">{{ security_report.total_events }}</h3>
+                                    <p>Security Events</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-warning">
+                                <div class="inner">
+                                    <h3 id="blocked-ips">{{ security_report.blocked_ips }}</h3>
+                                    <p>Blocked IPs</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-ban"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-danger">
+                                <div class="inner">
+                                    <h3 id="failed-logins">0</h3>
+                                    <p>Failed Logins (24h)</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-lock"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-6">
+                            <div class="small-box bg-success">
+                                <div class="inner">
+                                    <h3 id="active-sessions">0</h3>
+                                    <p>Active Sessions</p>
+                                </div>
+                                <div class="icon">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Status -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Security Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-check-circle text-success mr-2"></i>
+                                                <span>Rate Limiting: <strong>Enabled</strong></span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-check-circle text-success mr-2"></i>
+                                                <span>CSP: <strong>Enabled</strong></span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-check-circle text-success mr-2"></i>
+                                                <span>Security Headers: <strong>Enabled</strong></span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="fas fa-check-circle text-success mr-2"></i>
+                                                <span>Input Validation: <strong>Enabled</strong></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Security Events -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Recent Security Events</h5>
+                                </div>
+                                <div class="card-body table-responsive">
+                                    <table class="table table-bordered table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Timestamp</th>
+                                                <th>Event Type</th>
+                                                <th>User</th>
+                                                <th>Details</th>
+                                                <th>IP Address</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="security-events-table">
+                                            {% for event in recent_events %}
+                                            <tr>
+                                                <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                                <td>
+                                                    <span class="badge badge-{{ 'danger' if 'failed' in event.event_type or 'blocked' in event.event_type else 'warning' if 'suspicious' in event.event_type else 'info' }}">
+                                                        {{ event.event_type.replace('_', ' ').title() }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ event.user }}</td>
+                                                <td>{{ event.details or 'N/A' }}</td>
+                                                <td>{{ event.ip_address or 'N/A' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshSecurityData() {
+    // Refresh security metrics
+    fetch('/api/admin/security-report')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-events').textContent = data.total_events;
+            document.getElementById('blocked-ips').textContent = data.blocked_ips;
+            document.getElementById('failed-logins').textContent = data.failed_logins_24h || 0;
+            document.getElementById('active-sessions').textContent = data.active_sessions || 0;
+        })
+        .catch(error => console.error('Error refreshing security data:', error));
+
+    // Refresh security events table
+    fetch('/api/admin/security-events?limit=50')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('security-events-table');
+            tbody.innerHTML = '';
+
+            data.events.forEach(event => {
+                const row = document.createElement('tr');
+                const badgeClass = event.event_type.includes('failed') || event.event_type.includes('blocked')
+                    ? 'danger' : event.event_type.includes('suspicious') ? 'warning' : 'info';
+
+                row.innerHTML = `
+                    <td>${new Date(event.timestamp).toLocaleString()}</td>
+                    <td><span class="badge badge-${badgeClass}">${event.event_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></td>
+                    <td>${event.user}</td>
+                    <td>${event.details || 'N/A'}</td>
+                    <td>${event.ip_address || 'N/A'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => console.error('Error refreshing security events:', error));
+}
+
+// Auto-refresh every 30 seconds
+setInterval(refreshSecurityData, 30000);
+
+// Initial load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshSecurityData();
+});
+</script>
+{% endblock %}

@@ -113,7 +113,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-2 col-md-4 col-6 mb-3">
             <div class="card text-center">
                 <div class="card-body">
@@ -125,7 +125,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-2 col-md-4 col-6 mb-3">
             <div class="card text-center">
                 <div class="card-body">
@@ -137,7 +137,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-2 col-md-4 col-6 mb-3">
             <div class="card text-center">
                 <div class="card-body">
@@ -149,7 +149,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-2 col-md-4 col-6 mb-3">
             <div class="card text-center">
                 <div class="card-body">
@@ -161,7 +161,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-2 col-md-4 col-6 mb-3">
             <div class="card text-center">
                 <div class="card-body">
@@ -188,7 +188,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -213,7 +213,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6 mb-3">
             <div class="card">
                 <div class="card-header">
@@ -531,7 +531,7 @@ function loadServerMetrics() {
     const serverId = {{ server.id }};
     const urlParams = new URLSearchParams(window.location.search);
     const hours = urlParams.get('hours') || 24;
-    
+
     fetch(`/api/monitoring/server/${serverId}/metrics?hours=${hours}`)
     .then(response => response.json())
     .then(data => {
@@ -548,24 +548,24 @@ function loadServerMetrics() {
 
 function updateCharts(metrics) {
     const labels = metrics.map(m => new Date(m.timestamp));
-    
+
     // Performance Chart
     performanceChart.data.labels = labels;
     performanceChart.data.datasets[0].data = metrics.map(m => m.cpu_usage || 0);
     performanceChart.data.datasets[1].data = metrics.map(m => m.memory_percentage || 0);
     performanceChart.update('none');
-    
+
     // Player Chart
     playerChart.data.labels = labels;
     playerChart.data.datasets[0].data = metrics.map(m => m.player_count || 0);
     playerChart.update('none');
-    
+
     // Network Chart
     networkChart.data.labels = labels;
     networkChart.data.datasets[0].data = metrics.map(m => m.network_in_mb || 0);
     networkChart.data.datasets[1].data = metrics.map(m => m.network_out_mb || 0);
     networkChart.update('none');
-    
+
     // Disk & Ping Chart
     diskPingChart.data.labels = labels;
     diskPingChart.data.datasets[0].data = metrics.map(m => m.disk_usage || 0);
@@ -576,19 +576,19 @@ function updateCharts(metrics) {
 // Load server alerts
 function loadAlerts() {
     const serverId = {{ server.id }};
-    
+
     fetch(`/api/monitoring/server/${serverId}/alerts`)
     .then(response => response.json())
     .then(data => {
         const container = document.getElementById('alerts-container');
-        
+
         if (data.success && data.alerts.length > 0) {
             let alertsHtml = '';
-            
+
             data.alerts.forEach(alert => {
-                const alertClass = alert.severity === 'critical' ? 'alert-critical' : 
+                const alertClass = alert.severity === 'critical' ? 'alert-critical' :
                                  alert.severity === 'warning' ? 'alert-warning' : 'alert-info';
-                
+
                 alertsHtml += `
                     <div class="alert-item ${alertClass}">
                         <div class="d-flex justify-content-between align-items-start">
@@ -606,7 +606,7 @@ function loadAlerts() {
                     </div>
                 `;
             });
-            
+
             container.innerHTML = alertsHtml;
         } else {
             container.innerHTML = `
@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCharts();
     loadServerMetrics();
     loadAlerts();
-    
+
     // Auto-refresh every 30 seconds
     setInterval(refreshData, 30000);
 });

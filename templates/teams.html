@@ -129,7 +129,7 @@
 function showAddMemberModal(button) {
     const teamId = button.getAttribute('data-team-id');
     const teamName = button.getAttribute('data-team-name');
-    
+
     document.getElementById('modalTeamName').textContent = teamName;
     document.getElementById('addMemberForm').action = `/admin/teams/${teamId}/add_member`;
     new bootstrap.Modal(document.getElementById('addMemberModal')).show();
