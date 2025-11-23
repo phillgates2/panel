@@ -23,7 +23,7 @@ cryptography==46.0.3
 email-validator==2.1.0
 
 # Real-time Communication
-flask-socketio==5.3.6
+flask-socketio==5.5.1
 python-socketio==5.10.0
 
 # Monitoring and Metrics
