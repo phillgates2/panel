@@ -25,7 +25,7 @@ rq-dashboard==0.6.1
 redis==5.0.1
 
 # HTTP and Networking
-requests==2.31.0
+requests==2.32.5
 urllib3==2.1.0
 
 # Testing Framework (install separately for development)
