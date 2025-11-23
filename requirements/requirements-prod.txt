@@ -10,7 +10,7 @@ werkzeug==3.0.1
 
 # Task Queue and Caching
 rq==1.16.2
-redis==5.0.1
+redis==7.1.0
 
 # HTTP and Networking
 requests==2.31.0
