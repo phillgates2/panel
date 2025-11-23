@@ -79,7 +79,7 @@ Flask-CORS==4.0.0
 pywebpush==1.14.0
 
 # Real-time communication
-Flask-SocketIO==5.3.6
+Flask-SocketIO==5.5.1
 python-socketio==5.8.0
 
 # API documentation
