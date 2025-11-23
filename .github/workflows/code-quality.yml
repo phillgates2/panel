@@ -154,7 +154,7 @@ jobs:
         echo "- Classes: $classes" >> code-quality-report.md
 
     - name: Upload code quality reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: code-quality-reports
@@ -247,7 +247,7 @@ jobs:
         echo "\`\`\`" >> performance-report.md
 
     - name: Upload performance reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: performance-reports
