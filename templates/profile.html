@@ -121,6 +121,60 @@
                     </a>
                 </div>
             </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Social Login</h5>
+                </div>
+                <div class="card-body">
+                    {% if user.has_oauth_linked %}
+                    <p><strong>Connected Account:</strong> {{ user.oauth_provider.title() }}</p>
+                    <form method="POST" action="{{ url_for('oauth_unlink', provider=user.oauth_provider) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('Are you sure you want to unlink your {{ user.oauth_provider.title() }} account?')">
+                            🔗 Unlink {{ user.oauth_provider.title() }}
+                        </button>
+                    </form>
+                    {% else %}
+                    <p class="text-muted">No social account linked.</p>
+                    {% if config.OAUTH_ENABLED %}
+                    <div class="mt-2">
+                        {% if config.GOOGLE_CLIENT_ID %}
+                        <a href="{{ url_for('oauth_login', provider='google') }}" class="btn btn-outline-primary btn-sm me-1">
+                            <i class="fab fa-google"></i> Link Google
+                        </a>
+                        {% endif %}
+                        {% if config.GITHUB_CLIENT_ID %}
+                        <a href="{{ url_for('oauth_login', provider='github') }}" class="btn btn-outline-dark btn-sm me-1">
+                            <i class="fab fa-github"></i> Link GitHub
+                        </a>
+                        {% endif %}
+                        {% if config.DISCORD_CLIENT_ID %}
+                        <a href="{{ url_for('oauth_login', provider='discord') }}" class="btn btn-outline-info btn-sm">
+                            <i class="fab fa-discord"></i> Link Discord
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>🔔 Push Notifications</h5>
+                </div>
+                <div class="card-body">
+                    <p>Receive notifications about important updates and activities.</p>
+                    <div id="push-status">
+                        <p class="text-muted">Checking notification status...</p>
+                    </div>
+                    <button id="push-test-btn" class="btn btn-secondary btn-sm" onclick="testPushNotification()">
+                        🔔 Test Notification
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -159,5 +213,85 @@ function removeAvatar() {
         form.submit();
     }
 }
+
+// Push notification functions
+async function testPushNotification() {
+    const btn = document.getElementById('push-test-btn');
+    const originalText = btn.textContent;
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/push/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert('Test notification sent! Check your device.');
+        } else {
+            alert('Failed to send test notification: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error sending test notification: ' + error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function checkPushStatus() {
+    const statusEl = document.getElementById('push-status');
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in navigator)) {
+        statusEl.innerHTML = '<p class="text-warning">⚠️ Push notifications not supported in this browser</p>';
+        return;
+    }
+
+    if (!('Notification' in window)) {
+        statusEl.innerHTML = '<p class="text-warning">⚠️ Notifications not supported</p>';
+        return;
+    }
+
+    const permission = Notification.permission;
+    let statusHtml = '';
+
+    switch (permission) {
+        case 'granted':
+            statusHtml = '<p class="text-success">✅ Notifications enabled</p>';
+            break;
+        case 'denied':
+            statusHtml = '<p class="text-danger">❌ Notifications blocked</p>';
+            break;
+        case 'default':
+            statusHtml = '<p class="text-warning">⚠️ Notifications not requested yet</p>';
+            break;
+    }
+
+    // Check service worker registration
+    try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                statusHtml += '<p class="text-success">✅ Push subscription active</p>';
+            } else {
+                statusHtml += '<p class="text-muted">📱 Push subscription not active</p>';
+            }
+        } else {
+            statusHtml += '<p class="text-muted">⚙️ Service worker not registered</p>';
+        }
+    } catch (error) {
+        statusHtml += '<p class="text-danger">❌ Error checking push status</p>';
+    }
+
+    statusEl.innerHTML = statusHtml;
+}
+
+// Check push status on page load
+document.addEventListener('DOMContentLoaded', checkPushStatus);
 </script>
 {% endblock %}

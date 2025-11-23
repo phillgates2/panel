@@ -1,0 +1,450 @@
+#!/bin/bash
+# AWS Deployment Script for Panel Application
+# Handles infrastructure provisioning and application deployment
+
+set -e
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+INFRA_DIR="$PROJECT_ROOT/infrastructure/aws"
+ENV_FILE="$PROJECT_ROOT/.env.production"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check prerequisites
+check_prerequisites() {
+    log_info "Checking prerequisites..."
+
+    # Check AWS CLI
+    if ! command -v aws >/dev/null 2>&1; then
+        log_error "AWS CLI is not installed. Please install it first."
+        exit 1
+    fi
+
+    # Check Terraform
+    if ! command -v terraform >/dev/null 2>&1; then
+        log_error "Terraform is not installed. Please install it first."
+        exit 1
+    fi
+
+    # Check Docker
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed. Please install it first."
+        exit 1
+    fi
+
+    # Check AWS credentials
+    if ! aws sts get-caller-identity >/dev/null 2>&1; then
+        log_error "AWS credentials are not configured. Please run 'aws configure'."
+        exit 1
+    fi
+
+    log_success "Prerequisites check passed"
+}
+
+# Setup Terraform backend
+setup_terraform_backend() {
+    log_info "Setting up Terraform backend..."
+
+    # Create S3 bucket for Terraform state (if it doesn't exist)
+    aws s3 ls "s3://panel-terraform-state" >/dev/null 2>&1 || {
+        log_info "Creating Terraform state bucket..."
+        aws s3 mb "s3://panel-terraform-state" --region us-east-1
+        aws s3api put-bucket-versioning \
+            --bucket panel-terraform-state \
+            --versioning-configuration Status=Enabled
+    }
+
+    log_success "Terraform backend ready"
+}
+
+# Initialize infrastructure
+init_infrastructure() {
+    log_info "Initializing infrastructure..."
+
+    cd "$INFRA_DIR"
+
+    # Initialize Terraform
+    terraform init
+
+    # Validate configuration
+    terraform validate
+
+    log_success "Infrastructure initialized"
+}
+
+# Plan infrastructure changes
+plan_infrastructure() {
+    log_info "Planning infrastructure changes..."
+
+    cd "$INFRA_DIR"
+
+    terraform plan -var-file=production.tfvars -out=tfplan
+
+    log_success "Infrastructure plan created"
+}
+
+# Apply infrastructure changes
+apply_infrastructure() {
+    log_info "Applying infrastructure changes..."
+
+    cd "$INFRA_DIR"
+
+    terraform apply tfplan
+
+    log_success "Infrastructure deployed"
+}
+
+# Build and push Docker image
+build_and_push_image() {
+    log_info "Building and pushing Docker image..."
+
+    cd "$PROJECT_ROOT"
+
+    # Get ECR repository URL from Terraform output
+    ECR_REPO=$(cd "$INFRA_DIR" && terraform output -raw ecr_repository_url)
+
+    # Build Docker image
+    docker build -f Dockerfile.production -t panel:latest .
+
+    # Tag for ECR
+    docker tag panel:latest "$ECR_REPO:latest"
+
+    # Login to ECR
+    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$ECR_REPO"
+
+    # Push image
+    docker push "$ECR_REPO:latest"
+
+    log_success "Docker image built and pushed"
+}
+
+# Deploy application
+deploy_application() {
+    log_info "Deploying application..."
+
+    # Update ECS service to use new image
+    CLUSTER_NAME="panel-cluster"
+    SERVICE_NAME="panel-service"
+
+    aws ecs update-service \
+        --cluster "$CLUSTER_NAME" \
+        --service "$SERVICE_NAME" \
+        --force-new-deployment \
+        --region us-east-1
+
+    # Wait for deployment to complete
+    log_info "Waiting for deployment to complete..."
+    aws ecs wait services-stable \
+        --cluster "$CLUSTER_NAME" \
+        --services "$SERVICE_NAME" \
+        --region us-east-1
+
+    log_success "Application deployed"
+}
+
+# Setup monitoring
+setup_monitoring() {
+    log_info "Setting up monitoring..."
+
+    # Get CloudFront distribution ID
+    CLOUDFRONT_ID=$(cd "$INFRA_DIR" && terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+
+    if [ -n "$CLOUDFRONT_ID" ]; then
+        log_info "Setting up CloudFront monitoring..."
+
+        # Create CloudWatch alarms for CloudFront
+        aws cloudwatch put-metric-alarm \
+            --alarm-name "Panel-CloudFront-5xxErrors" \
+            --alarm-description "CloudFront 5xx error rate" \
+            --metric-name "5xxErrorRate" \
+            --namespace "AWS/CloudFront" \
+            --statistic "Average" \
+            --period 300 \
+            --threshold 5 \
+            --comparison-operator "GreaterThanThreshold" \
+            --dimensions Name=DistributionId,Value="$CLOUDFRONT_ID" \
+            --region us-east-1
+    fi
+
+    log_success "Monitoring setup completed"
+}
+
+# Run health checks
+run_health_checks() {
+    log_info "Running health checks..."
+
+    # Get ALB DNS name
+    ALB_DNS=$(cd "$INFRA_DIR" && terraform output -raw alb_dns_name)
+
+    # Wait for application to be ready
+    log_info "Waiting for application to be ready..."
+    for i in {1..30}; do
+        if curl -f -s "http://$ALB_DNS/api/health" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 10
+    done
+
+    # Run health checks
+    if curl -f -s "http://$ALB_DNS/api/health" >/dev/null 2>&1; then
+        log_success "Application health check passed"
+    else
+        log_error "Application health check failed"
+        exit 1
+    fi
+}
+
+# Create production environment file
+create_env_file() {
+    log_info "Creating production environment file..."
+
+    # Get infrastructure outputs
+    cd "$INFRA_DIR"
+    RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+    REDIS_ENDPOINT=$(terraform output -raw redis_endpoint)
+    S3_BUCKET=$(terraform output -raw s3_bucket_name)
+    CLOUDFRONT_URL=$(terraform output -raw cloudfront_domain_name)
+
+    # Create .env.production
+    cat > "$ENV_FILE" << EOF
+# Panel Production Environment Configuration
+# Generated by deployment script
+
+# Flask Configuration
+FLASK_ENV=production
+SECRET_KEY=${SECRET_KEY:-"change-this-in-secrets-manager"}
+DEBUG=false
+TESTING=false
+
+# Database Configuration
+DATABASE_URL=postgresql://panel:${DB_PASSWORD:-"change-this-in-secrets-manager"}@$RDS_ENDPOINT/panel
+
+# Redis Configuration
+REDIS_URL=redis://$REDIS_ENDPOINT:6379
+
+# AWS Configuration
+S3_BUCKET=$S3_BUCKET
+CLOUDFRONT_URL=https://$CLOUDFRONT_URL
+AWS_REGION=us-east-1
+
+# Email Configuration (configure in Secrets Manager)
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=true
+MAIL_USERNAME=
+MAIL_PASSWORD=
+
+# OAuth Configuration (configure in Secrets Manager)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# CDN Configuration
+CDN_ENABLED=true
+CDN_URL=https://$CLOUDFRONT_URL
+CDN_PROVIDER=cloudfront
+
+# Microservices Configuration
+MICROSERVICES_ENABLED=true
+API_GATEWAY_ENABLED=true
+
+# Security Settings
+SESSION_TIMEOUT=3600
+PASSWORD_MIN_LENGTH=12
+MAX_LOGIN_ATTEMPTS=3
+LOCKOUT_DURATION=1800
+
+# Feature Flags
+FORUM_ENABLED=true
+CMS_ENABLED=true
+ADMIN_ENABLED=true
+API_ENABLED=true
+OAUTH_ENABLED=true
+GDPR_ENABLED=true
+PWA_ENABLED=true
+REALTIME_ENABLED=true
+
+# Monitoring
+PERFORMANCE_MONITORING_ENABLED=true
+
+# Backup Configuration
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE=daily
+BACKUP_RETENTION_DAYS=30
+BACKUP_ENCRYPTION=true
+BACKUP_STORAGE_PATH=s3://panel-backups-production
+
+# Logging
+LOG_LEVEL=INFO
+EOF
+
+    log_success "Production environment file created: $ENV_FILE"
+}
+
+# Main deployment function
+deploy_full() {
+    log_info "Starting full AWS deployment..."
+
+    check_prerequisites
+    setup_terraform_backend
+    init_infrastructure
+    plan_infrastructure
+
+    echo
+    log_warn "About to apply infrastructure changes. This will create AWS resources and may incur costs."
+    read -p "Do you want to continue? (yes/no): " -r
+    echo
+
+    if [[ ! $REPLY =~ ^yes$ ]]; then
+        log_info "Deployment cancelled"
+        exit 0
+    fi
+
+    apply_infrastructure
+    create_env_file
+    build_and_push_image
+    deploy_application
+    setup_monitoring
+    run_health_checks
+
+    log_success "Full deployment completed!"
+    log_info "Your application should be available at: https://$(cd "$INFRA_DIR" && terraform output -raw cloudfront_domain_name)"
+}
+
+# Update deployment function
+deploy_update() {
+    log_info "Starting application update deployment..."
+
+    check_prerequisites
+    build_and_push_image
+    deploy_application
+    run_health_checks
+
+    log_success "Application update completed!"
+}
+
+# Destroy infrastructure
+destroy_infrastructure() {
+    log_warn "About to destroy all infrastructure. This will delete all AWS resources!"
+    read -p "Are you sure? Type 'destroy' to confirm: " -r
+    echo
+
+    if [[ $REPLY != "destroy" ]]; then
+        log_info "Destruction cancelled"
+        exit 0
+    fi
+
+    log_info "Destroying infrastructure..."
+
+    cd "$INFRA_DIR"
+    terraform destroy -var-file=production.tfvars
+
+    log_success "Infrastructure destroyed"
+}
+
+# Show status
+show_status() {
+    log_info "Checking deployment status..."
+
+    cd "$INFRA_DIR"
+
+    if [ -d ".terraform" ]; then
+        log_info "Terraform state:"
+        terraform state list 2>/dev/null || log_warn "No Terraform state found"
+
+        log_info "Infrastructure outputs:"
+        terraform output 2>/dev/null || log_warn "No outputs available"
+    else
+        log_warn "Infrastructure not initialized"
+    fi
+
+    # Check ECS service status
+    aws ecs describe-services \
+        --cluster panel-cluster \
+        --services panel-service \
+        --region us-east-1 \
+        --query 'services[0].{status:status,runningCount:runningCount,desiredCount:desiredCount}' \
+        2>/dev/null || log_warn "ECS service not found"
+}
+
+# Main function
+main() {
+    case "$1" in
+        "full")
+            deploy_full
+            ;;
+        "update")
+            deploy_update
+            ;;
+        "plan")
+            check_prerequisites
+            init_infrastructure
+            plan_infrastructure
+            ;;
+        "apply")
+            check_prerequisites
+            apply_infrastructure
+            ;;
+        "build")
+            check_prerequisites
+            build_and_push_image
+            ;;
+        "deploy")
+            check_prerequisites
+            deploy_application
+            ;;
+        "destroy")
+            destroy_infrastructure
+            ;;
+        "status")
+            show_status
+            ;;
+        "health")
+            run_health_checks
+            ;;
+        *)
+            echo "AWS Deployment Script for Panel Application"
+            echo ""
+            echo "Usage: $0 <command>"
+            echo ""
+            echo "Commands:"
+            echo "  full     - Complete infrastructure and application deployment"
+            echo "  update   - Update application (existing infrastructure)"
+            echo "  plan     - Plan infrastructure changes"
+            echo "  apply    - Apply infrastructure changes"
+            echo "  build    - Build and push Docker image"
+            echo "  deploy   - Deploy application to ECS"
+            echo "  destroy  - Destroy all infrastructure"
+            echo "  status   - Show deployment status"
+            echo "  health   - Run health checks"
+            echo ""
+            echo "Examples:"
+            echo "  $0 full          # Complete deployment"
+            echo "  $0 update        # Application update"
+            echo "  $0 status        # Check status"
+            exit 1
+            ;;

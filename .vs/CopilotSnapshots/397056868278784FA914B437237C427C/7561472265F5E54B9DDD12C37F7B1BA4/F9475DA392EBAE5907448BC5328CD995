@@ -1,0 +1,494 @@
+﻿"""
+Database Optimization and Profiling
+Provides query profiling, index recommendations, connection pooling, and query result caching
+"""
+
+import time
+import logging
+import hashlib
+from typing import Dict, List, Any, Optional, Callable
+from functools import wraps
+from contextlib import contextmanager
+
+from sqlalchemy import event, text, create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import QueuePool
+from flask import Flask, g, current_app
+
+from src.panel.services.cache_service import get_cache_service
+
+logger = logging.getLogger(__name__)
+
+
+class QueryResultCache:
+    """Cache for database query results using Redis"""
+
+    def __init__(self, cache_service):
+        self.cache = cache_service
+        self.default_ttl = 300  # 5 minutes
+
+    def _make_cache_key(self, query: str, params: tuple = None) -> str:
+        """Generate cache key from query and parameters"""
+        key_parts = [query]
+        if params:
+            key_parts.extend(str(p) for p in params)
+        key_string = "|".join(key_parts)
+        return f"db_query:{hashlib.md5(key_string.encode()).hexdigest()}"
+
+    def get(self, query: str, params: tuple = None) -> Optional[Any]:
+        """Get cached query result"""
+        cache_key = self._make_cache_key(query, params)
+        result = self.cache.get(cache_key)
+        if result is not None:
+            logger.debug(f"Cache hit for query: {query[:50]}...")
+            return result
+        logger.debug(f"Cache miss for query: {query[:50]}...")
+        return None
+
+    def set(self, query: str, result: Any, params: tuple = None, ttl: int = None) -> None:
+        """Cache query result"""
+        if ttl is None:
+            ttl = self.default_ttl
+        cache_key = self._make_cache_key(query, params)
+        self.cache.set(cache_key, result, timeout=ttl)
+        logger.debug(f"Cached result for query: {query[:50]}...")
+
+    def invalidate_pattern(self, pattern: str) -> None:
+        """Invalidate cache keys matching pattern"""
+        # This would require cache backend support for pattern deletion
+        # For Redis, we could use KEYS/DEL, but it's expensive
+        # For now, we'll skip implementation and rely on TTL
+        logger.info(f"Cache invalidation requested for pattern: {pattern}")
+
+    def clear_all(self) -> None:
+        """Clear all cached query results"""
+        # Implementation depends on cache backend
+        logger.info("Clearing all query result cache")
+
+
+class DatabaseConnectionPool:
+    """Enhanced database connection pooling"""
+
+    def __init__(self, app: Flask):
+        self.app = app
+        self.engine = None
+        self.session_factory = None
+
+    def init_pool(self) -> None:
+        """Initialize connection pool with optimized settings"""
+        db_uri = self.app.config['SQLALCHEMY_DATABASE_URI']
+
+        # Connection pool settings
+        pool_settings = {
+            'poolclass': QueuePool,
+            'pool_size': self.app.config.get('SQLALCHEMY_POOL_SIZE', 10),
+            'max_overflow': self.app.config.get('SQLALCHEMY_MAX_OVERFLOW', 20),
+            'pool_timeout': 30,  # seconds
+            'pool_recycle': 3600,  # recycle connections after 1 hour
+            'pool_pre_ping': True,  # test connections before use
+        }
+
+        # Create engine with pooling
+        self.engine = create_engine(
+            db_uri,
+            **pool_settings,
+            echo=self.app.config.get('SQLALCHEMY_ECHO', False)
+        )
+
+        # Create session factory
+        self.session_factory = scoped_session(
+            sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
+        )
+
+        # Update SQLAlchemy db instance
+        from src.panel import db
+        db.session = self.session_factory
+
+        logger.info("Database connection pool initialized with enhanced settings")
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get connection pool statistics"""
+        if not self.engine:
+            return {}
+
+        pool = self.engine.pool
+        return {
+            'pool_size': getattr(pool, 'size', 0),
+            'checkedin': getattr(pool, 'checkedin', 0),
+            'checkedout': getattr(pool, 'checkedout', 0),
+            'invalid': getattr(pool, 'invalid', 0),
+            'overflow': getattr(pool, 'overflow', 0),
+        }
+
+
+class QueryProfiler:
+    """Database query profiling and optimization recommendations"""
+
+    def __init__(self, app: Optional[Flask] = None, slow_query_threshold: float = 0.1):
+        self.app = app
+        self.slow_query_threshold = slow_query_threshold
+        self.query_stats: Dict[str, Dict[str, Any]] = {}
+        self.enabled = True
+        self.cache = None
+
+    def init_app(self, app: Flask) -> None:
+        """Initialize query profiling for Flask app"""
+        self.app = app
+        self.cache = QueryResultCache(get_cache_service())
+
+        # SQLAlchemy event listeners
+        from src.panel import db
+
+        @event.listens_for(db.engine, "before_cursor_execute")
+        def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+            if self.enabled:
+                g.query_start_time = time.time()
+                g.query_statement = statement
+                g.query_parameters = parameters
+
+        @event.listens_for(db.engine, "after_cursor_execute")
+        def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+            if self.enabled and hasattr(g, 'query_start_time'):
+                duration = time.time() - g.query_start_time
+                self.record_query(statement, duration, parameters)
+
+                # Log slow queries
+                if duration > self.slow_query_threshold:
+                    logger.warning(
+                        "Slow query detected",
+                        extra={
+                            "query": statement[:500] + "..." if len(statement) > 500 else statement,
+                            "duration": duration,
+                            "slow_threshold": self.slow_query_threshold
+                        }
+                    )
+
+    def record_query(self, statement: str, duration: float, parameters: tuple = None) -> None:
+        """Record query execution statistics"""
+        # Extract table name from query (simple heuristic)
+        table_name = self.extract_table_name(statement)
+
+        if table_name not in self.query_stats:
+            self.query_stats[table_name] = {
+                'count': 0,
+                'total_time': 0.0,
+                'avg_time': 0.0,
+                'max_time': 0.0,
+                'queries': []
+            }
+
+        stats = self.query_stats[table_name]
+        stats['count'] += 1
+        stats['total_time'] += duration
+        stats['avg_time'] = stats['total_time'] / stats['count']
+        stats['max_time'] = max(stats['max_time'], duration)
+
+        # Keep sample of recent queries
+        if len(stats['queries']) < 10:
+            stats['queries'].append({
+                'statement': statement[:200] + "..." if len(statement) > 200 else statement,
+                'duration': duration,
+                'timestamp': time.time()
+            })
+
+    def extract_table_name(self, statement: str) -> str:
+        """Extract table name from SQL statement"""
+        import re
+
+        # Common patterns for table names in SQL
+        patterns = [
+            r'FROM\s+(\w+)',
+            r'UPDATE\s+(\w+)',
+            r'INSERT\s+INTO\s+(\w+)',
+            r'DELETE\s+FROM\s+(\w+)',
+            r'ALTER\s+TABLE\s+(\w+)',
+            r'CREATE\s+TABLE\s+(\w+)'
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, statement, re.IGNORECASE)
+            if match:
+                return match.group(1).lower()
+
+        return 'unknown'
+
+    def get_query_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get current query statistics"""
+        return self.query_stats.copy()
+
+    def get_index_recommendations(self) -> List[Dict[str, Any]]:
+        """Generate index recommendations based on query patterns"""
+        recommendations = []
+
+        for table_name, stats in self.query_stats.items():
+            if table_name == 'unknown':
+                continue
+
+            # Analyze queries for potential indexes
+            for query_info in stats['queries']:
+                statement = query_info['statement'].upper()
+
+                # Look for WHERE clauses that might benefit from indexes
+                if 'WHERE' in statement:
+                    # Simple heuristic: recommend indexes on columns used in WHERE
+                    # In a real implementation, this would use query parsing
+                    if 'USER_ID' in statement and table_name != 'user':
+                        recommendations.append({
+                            'table': table_name,
+                            'column': 'user_id',
+                            'reason': 'Frequently queried by user_id',
+                            'estimated_impact': 'high'
+                        })
+
+                    if 'EMAIL' in statement:
+                        recommendations.append({
+                            'table': table_name,
+                            'column': 'email',
+                            'reason': 'Email lookups are common',
+                            'estimated_impact': 'medium'
+                        })
+
+                    if 'CREATED_AT' in statement and 'ORDER BY' in statement:
+                        recommendations.append({
+                            'table': table_name,
+                            'column': 'created_at',
+                            'reason': 'Time-based ordering queries',
+                            'estimated_impact': 'medium'
+                        })
+
+        # Remove duplicates
+        seen = set()
+        unique_recommendations = []
+        for rec in recommendations:
+            key = (rec['table'], rec['column'])
+            if key not in seen:
+                seen.add(key)
+                unique_recommendations.append(rec)
+
+        return unique_recommendations
+
+    def get_performance_report(self) -> Dict[str, Any]:
+        """Generate a comprehensive performance report"""
+        return {
+            'query_stats': self.get_query_stats(),
+            'index_recommendations': self.get_index_recommendations(),
+            'slow_queries': [
+                {
+                    'table': table,
+                    'count': stats['count'],
+                    'avg_time': stats['avg_time'],
+                    'max_time': stats['max_time']
+                }
+                for table, stats in self.query_stats.items()
+                if stats['avg_time'] > self.slow_query_threshold
+            ],
+            'total_queries': sum(stats['count'] for stats in self.query_stats.values()),
+            'profiling_enabled': self.enabled,
+            'cache_stats': self.get_cache_stats()
+        }
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get query cache statistics"""
+        if not self.cache:
+            return {}
+        # This would need to be implemented in the cache service
+        return {'cache_enabled': True}
+
+    def cached_query(self, ttl: int = None) -> Callable:
+        """Decorator for caching query results"""
+        def decorator(func: Callable) -> Callable:
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                # Generate cache key from function name and arguments
+                key_parts = [func.__name__] + [str(arg) for arg in args]
+                key_parts.extend(f"{k}:{v}" for k, v in kwargs.items())
+                cache_key = hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
+                # Try to get from cache
+                cached_result = self.cache.get(cache_key)
+                if cached_result is not None:
+                    return cached_result
+
+                # Execute query
+                result = func(*args, **kwargs)
+
+                # Cache result
+                self.cache.set(cache_key, result, ttl=ttl or self.cache.default_ttl)
+
+                return result
+            return wrapper
+        return decorator
+
+
+# Global instances
+query_profiler = QueryProfiler()
+query_cache = None
+connection_pool = None
+
+def init_db_optimization(app: Flask) -> None:
+    """Initialize database optimization and profiling"""
+    global query_cache, connection_pool
+
+    # Initialize components
+    query_profiler.init_app(app)
+    query_cache = QueryResultCache(get_cache_service())
+    connection_pool = DatabaseConnectionPool(app)
+    connection_pool.init_pool()
+
+    app.logger.info("Database optimization, profiling, and caching initialized")
+
+
+def get_query_profiler() -> QueryProfiler:
+    """Get the global query profiler instance"""
+    return query_profiler
+
+
+def get_query_cache() -> QueryResultCache:
+    """Get the global query cache instance"""
+    return query_cache
+
+
+def get_connection_pool() -> DatabaseConnectionPool:
+    """Get the global connection pool instance"""
+    return connection_pool
+
+
+# Database index recommendations based on common query patterns
+INDEX_RECOMMENDATIONS = [
+    {
+        'table': 'user',
+        'columns': ['email'],
+        'type': 'unique',
+        'reason': 'Email uniqueness and login lookups'
+    },
+    {
+        'table': 'user',
+        'columns': ['last_login'],
+        'type': 'btree',
+        'reason': 'Active user queries and session management'
+    },
+    {
+        'table': 'forum_thread',
+        'columns': ['is_pinned', 'created_at'],
+        'type': 'btree',
+        'reason': 'Thread listing with pinned threads first'
+    },
+    {
+        'table': 'forum_post',
+        'columns': ['thread_id', 'created_at'],
+        'type': 'btree',
+        'reason': 'Post retrieval within threads'
+    },
+    {
+        'table': 'server',
+        'columns': ['owner_id'],
+        'type': 'btree',
+        'reason': 'Server ownership queries'
+    },
+    {
+        'table': 'audit_log',
+        'columns': ['created_at'],
+        'type': 'btree',
+        'reason': 'Time-based audit log queries'
+    },
+    {
+        'table': 'site_setting',
+        'columns': ['key'],
+        'type': 'unique',
+        'reason': 'Setting key lookups'
+    }
+]
+
+
+def get_index_recommendations() -> List[Dict[str, Any]]:
+    """Get recommended database indexes"""
+    return INDEX_RECOMMENDATIONS.copy()
+
+
+def generate_index_sql() -> List[str]:
+    """Generate SQL statements for recommended indexes"""
+    sql_statements = []
+
+    for rec in INDEX_RECOMMENDATIONS:
+        table = rec['table']
+        columns = rec['columns']
+        index_type = rec.get('type', 'btree')
+
+        if len(columns) == 1:
+            index_name = f"idx_{table}_{columns[0]}"
+            if index_type == 'unique':
+                sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({columns[0]});"
+            else:
+                sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({columns[0]});"
+        else:
+            index_name = f"idx_{table}_{'_'.join(columns)}"
+            cols_str = ', '.join(columns)
+            if index_type == 'unique':
+                sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
+            else:
+                sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
+
+        sql_statements.append(sql)
+
+    return sql_statements
+
+
+def create_database_indexes() -> None:
+    """Create recommended database indexes"""
+    from flask import current_app
+    from src.panel import db
+
+    with current_app.app_context():
+        sql_statements = generate_index_sql()
+        for sql in sql_statements:
+            try:
+                db.session.execute(text(sql))
+                logger.info(f"Created index: {sql}")
+            except Exception as e:
+                logger.warning(f"Failed to create index: {sql} - {e}")
+
+        db.session.commit()
+        logger.info("Database index creation completed")
+
+
+# Migration helpers
+def create_migration_script(name: str, upgrade_sql: str, downgrade_sql: str = None) -> str:
+    """Create a new migration script"""
+    import os
+    from datetime import datetime
+
+    migrations_dir = os.path.join(os.getcwd(), 'migrations', 'versions')
+    os.makedirs(migrations_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"{timestamp}_{name}.py"
+
+    migration_content = f'''"""
+Migration: {name}
+Created: {datetime.now().isoformat()}
+"""
+
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers, used by Alembic.
+revision = '{timestamp}'
+down_revision = None  # Update this with the previous migration revision
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    """Upgrade database schema."""
+    {upgrade_sql}
+
+def downgrade():
+    """Downgrade database schema."""
+    {downgrade_sql or "pass  # Add downgrade logic here"}
+'''
+
+    filepath = os.path.join(migrations_dir, filename)
+    with open(filepath, 'w') as f:
+        f.write(migration_content)
+
+    logger.info(f"Created migration script: {filepath}")
+    return filepath

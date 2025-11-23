@@ -1,0 +1,43 @@
+{
+  "name": "development",
+  "debug": true,
+  "testing": false,
+  "database_url": "sqlite:///dev.db",
+  "redis_url": "redis://localhost:6379/0",
+  "mail_server": "localhost",
+  "mail_port": 587,
+  "mail_use_tls": true,
+  "cdn_enabled": false,
+  "microservices_enabled": false,
+  "api_gateway_enabled": false,
+  "performance_monitoring_enabled": true,
+  "realtime_enabled": true,
+  "pwa_enabled": true,
+  "gdpr_enabled": true,
+  "session_timeout": 3600,
+  "password_min_length": 8,
+  "max_login_attempts": 5,
+  "lockout_duration": 900,
+  "features": {
+    "forum": true,
+    "cms": true,
+    "admin": true,
+    "api": true,
+    "oauth": true,
+    "gdpr": true,
+    "pwa": true,
+    "realtime": true,
+    "microservices": false,
+    "cdn": false
+  },
+  "oauth_providers": {
+    "google": {
+      "client_id": "dev-google-client-id",
+      "client_secret": "dev-google-client-secret"
+    },
+    "github": {
+      "client_id": "dev-github-client-id",
+      "client_secret": "dev-github-client-secret"
+    }
+  }
+}

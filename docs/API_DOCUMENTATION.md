@@ -1,305 +1,361 @@
-# Panel API Documentation
+# Interactive API Documentation
 
-## Authentication
+This guide explains the interactive API documentation setup using Flask-RESTX for the Panel application.
 
-All API endpoints require authentication via session cookies or API tokens.
+## Overview
 
-### Session Authentication
+The Panel application includes comprehensive interactive API documentation with:
+
+- **Swagger UI**: Interactive API explorer with live testing
+- **ReDoc**: Clean, responsive documentation viewer
+- **OpenAPI Specification**: Machine-readable API specification
+- **Authentication Integration**: Token-based API testing
+- **Schema Validation**: Request/response validation
+- **Code Examples**: Multiple language examples
+
+## Prerequisites
+
+1. **Flask-RESTX**:
+   ```bash
+   pip install flask-restx
+   ```
+
+2. **API Endpoints**: RESTful API endpoints to document
+
+3. **Authentication System**: Token-based authentication for API access
+
+## API Structure
+
+### Namespaces
+
+The API is organized into logical namespaces:
+
+- **auth**: Authentication operations
+- **users**: User management
+- **forum**: Forum operations
+- **admin**: Administrative functions
+- **gdpr**: GDPR compliance
+- **health**: System health checks
+
+### Data Models
+
+API responses use consistent data models:
+
 ```python
-import requests
-
-session = requests.Session()
-response = session.post('http://localhost:8080/login', data={
-    'email': 'admin@localhost',
-    'password': 'admin123'
+user_model = api.model('User', {
+    'id': fields.Integer(readonly=True, description='User ID'),
+    'email': fields.String(required=True, description='Email address'),
+    'first_name': fields.String(required=True, description='First name'),
+    'last_name': fields.String(required=True, description='Last name'),
+    'role': fields.String(description='User role'),
+    'is_active': fields.Boolean(description='Account status')
 })
 ```
 
-## Database Management API
+## Interactive Documentation
 
-### Get Database Info
-```http
-GET /admin/database
+### Accessing Documentation
+
+```bash
+# Swagger UI
+http://localhost:8080/api/v1/docs
+
+# ReDoc
+# Available through the documentation page tabs
+
+# OpenAPI JSON
+http://localhost:8080/api/v1/swagger.json
 ```
 
-Returns database type, name, and list of tables.
+### Features
 
-**Response:**
-```json
-{
-  "type": "sqlite",
-  "database": "panel.db",
-  "tables": ["user", "server", "game_server", "session"]
-}
-```
+#### Swagger UI Features
+- **Try It Out**: Execute API calls directly from the browser
+- **Authentication**: Automatic token inclusion in requests
+- **Request Builder**: Interactive parameter input
+- **Response Viewer**: Formatted response display
+- **Schema Explorer**: Detailed model definitions
 
-### Execute SQL Query
-```http
-POST /admin/database/query
-Content-Type: application/json
+#### ReDoc Features
+- **Three-Panel Layout**: Request, Response, and Model views
+- **Search**: Full-text search across documentation
+- **Responsive**: Mobile-friendly design
+- **Print-Friendly**: Clean printing layout
 
-{
-  "query": "SELECT * FROM user LIMIT 10"
-}
-```
+## Authentication Integration
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "email": "admin@localhost",
-      "role": "system_admin"
+### Token Management
+
+The documentation includes client-side token management:
+
+```javascript
+// Save API token
+localStorage.setItem('api_token', token);
+
+// Include in requests
+requestInterceptor: function(req) {
+    const token = localStorage.getItem('api_token');
+    if (token) {
+        req.headers.Authorization = 'Bearer ' + token;
     }
-  ],
-  "execution_time_ms": 15.2
+    return req;
 }
 ```
 
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Table 'nonexistent' doesn't exist"
-}
+### Testing Authenticated Endpoints
+
+1. **Login**: Use the auth/login endpoint to get a token
+2. **Save Token**: Enter token in the documentation interface
+3. **Test Endpoints**: All subsequent requests include the token
+
+## API Endpoint Documentation
+
+### Authentication Endpoints
+
+```python
+@auth_ns.route('/login')
+class Login(Resource):
+    @auth_ns.expect(login_model)
+    @auth_ns.response(200, 'Success', user_model)
+    @auth_ns.response(401, 'Invalid credentials')
+    def post(self):
+        """Authenticate user"""
+        # Implementation
 ```
 
-### Get Table Data
-```http
-GET /admin/database/table/<table_name>?limit=50&offset=0
-```
+### Response Documentation
 
-**Parameters:**
-- `limit` (optional): Number of rows to return (default: 50, max: 1000)
-- `offset` (optional): Number of rows to skip (default: 0)
+All endpoints include detailed response documentation:
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [...],
-  "total": 156,
-  "limit": 50,
-  "offset": 0
-}
-```
+- **Success Responses**: Expected data structure
+- **Error Responses**: Error codes and messages
+- **Status Codes**: HTTP status code meanings
+- **Content Types**: Supported request/response formats
 
-### Export Table as CSV
-```http
-GET /admin/database/export/<table_name>
-```
+## Code Examples
 
-Returns CSV file download.
+### Python Example
 
-### Get Table Structure
-```http
-GET /admin/database/table/<table_name>/structure
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "columns": [
-    {
-      "name": "id",
-      "type": "INTEGER",
-      "nullable": false,
-      "primary_key": true
-    },
-    {
-      "name": "email",
-      "type": "VARCHAR(128)",
-      "nullable": false,
-      "unique": true
-    }
-  ]
-}
-```
-
-### Query Audit Log
-```http
-GET /admin/database/audit?limit=100&user_id=<id>
-```
-
-**Parameters:**
-- `limit` (optional): Number of entries (default: 100, max: 1000)
-- `user_id` (optional): Filter by user ID
-- `query_type` (optional): Filter by query type (SELECT, INSERT, etc.)
-
-**Response:**
-```json
-{
-  "success": true,
-  "entries": [
-    {
-      "timestamp": "2025-11-16T10:30:00Z",
-      "user_id": 1,
-      "user_email": "admin@localhost",
-      "query": "SELECT * FROM user",
-      "query_type": "SELECT",
-      "success": true,
-      "execution_time_ms": 12.5,
-      "ip_address": "127.0.0.1"
-    }
-  ]
-}
-```
-
-## Rate Limiting
-
-All database API endpoints are rate-limited:
-- **Queries**: 30 requests per minute per user
-- **Login attempts**: 5 failed attempts per 15 minutes
-
-**Rate Limit Headers:**
-```http
-X-RateLimit-Limit: 30
-X-RateLimit-Remaining: 25
-X-RateLimit-Reset: 1700140800
-```
-
-**Rate Limit Exceeded Response:**
-```json
-{
-  "error": "Rate limit exceeded. Maximum 30 queries per minute.",
-  "retry_after": 45
-}
-```
-
-## Security
-
-### SQL Injection Protection
-All queries are validated for dangerous patterns:
-- DROP DATABASE
-- DROP TABLE
-- TRUNCATE
-- DELETE without WHERE
-- UPDATE without WHERE
-
-**Warning Response:**
-```json
-{
-  "success": true,
-  "warnings": [
-    "DELETE without WHERE clause detected",
-    "This will delete ALL records"
-  ],
-  "confirm_required": true
-}
-```
-
-### Query Timeout
-Queries are limited to 30 seconds execution time.
-
-**Timeout Response:**
-```json
-{
-  "success": false,
-  "error": "Query execution timeout (30 seconds)",
-  "suggestion": "Try adding WHERE clause or LIMIT to reduce dataset"
-}
-```
-
-## Error Codes
-
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 400 | Bad Request (invalid query syntax) |
-| 401 | Unauthorized (not logged in) |
-| 403 | Forbidden (insufficient permissions) |
-| 429 | Too Many Requests (rate limited) |
-| 500 | Internal Server Error (query execution failed) |
-
-## Examples
-
-### Python
 ```python
 import requests
 
 # Login
-session = requests.Session()
-session.post('http://localhost:8080/login', data={
-    'email': 'admin@localhost',
-    'password': 'admin123'
+response = requests.post('http://localhost:8080/api/v1/auth/login', json={
+    'email': 'user@example.com',
+    'password': 'password123'
 })
+token = response.json()['token']
 
-# Execute query
-response = session.post('http://localhost:8080/admin/database/query', json={
-    'query': 'SELECT COUNT(*) as total FROM user'
-})
-data = response.json()
-print(f"Total users: {data['data'][0]['total']}")
-
-# Export table
-csv_response = session.get('http://localhost:8080/admin/database/export/user')
-with open('users.csv', 'wb') as f:
-    f.write(csv_response.content)
+# Use token for authenticated requests
+headers = {'Authorization': f'Bearer {token}'}
+response = requests.get('http://localhost:8080/api/v1/users/', headers=headers)
 ```
 
-### JavaScript
+### JavaScript Example
+
 ```javascript
-// Execute query
-fetch('/admin/database/query', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    query: 'SELECT * FROM user LIMIT 10'
-  })
-})
-.then(response => response.json())
-.then(data => {
-  if (data.success) {
-    console.log('Users:', data.data);
-  } else {
-    console.error('Error:', data.error);
-  }
+// Login
+const loginResponse = await fetch('/api/v1/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+        email: 'user@example.com',
+        password: 'password123'
+    })
 });
+const { token } = await loginResponse.json();
+
+// Use token
+const response = await fetch('/api/v1/users/', {
+    headers: {'Authorization': `Bearer ${token}`}
+});
+const users = await response.json();
 ```
 
-### cURL
+### cURL Example
+
 ```bash
 # Login
-curl -c cookies.txt -X POST http://localhost:8080/login \
-  -d "email=admin@localhost&password=admin123"
-
-# Execute query
-curl -b cookies.txt -X POST http://localhost:8080/admin/database/query \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"query":"SELECT * FROM user LIMIT 5"}'
+  -d '{"email":"user@example.com","password":"password123"}'
 
-# Export table
-curl -b cookies.txt http://localhost:8080/admin/database/export/user \
-  -o users.csv
+# Use token
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8080/api/v1/users/
 ```
 
-## Webhooks (Coming Soon)
+## Customization
 
-Subscribe to database events:
-- Table modifications (INSERT, UPDATE, DELETE)
-- Schema changes (CREATE, ALTER, DROP)
-- Query errors
-- Performance alerts
+### API Metadata
 
-## GraphQL API (Planned)
+```python
+api = Api(
+    app,
+    version='1.0',
+    title='Panel API',
+    description='Professional game server management API',
+    contact='Panel Team',
+    contact_email='api@panel.local'
+)
+```
 
-Future support for GraphQL queries:
-```graphql
-query {
-  users(limit: 10) {
-    id
-    email
-    role
-    servers {
-      id
-      name
-      status
-    }
-  }
+### Custom Styling
+
+The documentation includes custom CSS for consistent branding:
+
+```css
+.swagger-ui .topbar { display: none; }
+.swagger-ui .info .title { color: #1f6feb; }
+```
+
+### Error Handling
+
+Consistent error responses across all endpoints:
+
+```python
+@api.errorhandler(BadRequest)
+def handle_bad_request(error):
+    return {'message': 'Bad request', 'error': str(error)}, 400
+```
+
+## Integration with Development
+
+### Auto-Generation
+
+API documentation is automatically generated from:
+
+- **Route Decorators**: HTTP methods and paths
+- **Docstrings**: Endpoint descriptions
+- **Model Definitions**: Request/response schemas
+- **Status Codes**: Response documentation
+
+### Validation
+
+Request/response validation ensures:
+
+- **Type Safety**: Data type validation
+- **Required Fields**: Mandatory parameter checking
+- **Format Validation**: Email, URL, and custom formats
+- **Schema Compliance**: JSON schema validation
+
+## Deployment Considerations
+
+### Production Setup
+
+1. **API Versioning**: Include version in URL paths
+2. **Rate Limiting**: Implement request throttling
+3. **CORS**: Configure cross-origin policies
+4. **SSL/TLS**: Use HTTPS for all API calls
+
+### Documentation Hosting
+
+```nginx
+# Serve API docs
+location /api/docs {
+    proxy_pass http://api-server;
+    proxy_set_header Host $host;
+}
+
+# Serve OpenAPI spec
+location /api/v1/swagger.json {
+    proxy_pass http://api-server;
+    add_header Cache-Control "public, max-age=3600";
 }
 ```
+
+## Testing Integration
+
+### Automated Testing
+
+The API documentation integrates with testing:
+
+```bash
+# Generate test cases from OpenAPI spec
+openapi-generator-cli generate -i swagger.json -g python -o tests/
+
+# Validate API compliance
+swagger-cli validate swagger.json
+```
+
+### Contract Testing
+
+```python
+# Test API contracts
+import pytest
+from schemathesis import given
+from schemathesis.models import Case
+
+@given(case=Case.from_schema("swagger.json"))
+def test_api_contract(case):
+    response = case.call()
+    case.validate_response(response)
+```
+
+## Best Practices
+
+### Documentation Standards
+
+1. **Clear Descriptions**: Use descriptive endpoint names
+2. **Consistent Naming**: Follow RESTful conventions
+3. **Version Control**: Include API versioning
+4. **Deprecation Notices**: Mark deprecated endpoints
+5. **Change Logs**: Document API changes
+
+### Security Considerations
+
+1. **Token Handling**: Never expose tokens in documentation
+2. **Rate Limiting**: Implement request throttling
+3. **Input Validation**: Validate all inputs
+4. **Error Messages**: Avoid exposing sensitive information
+
+### Performance
+
+1. **Caching**: Cache documentation responses
+2. **Compression**: Enable gzip compression
+3. **CDN**: Use CDN for documentation assets
+4. **Lazy Loading**: Load documentation components on demand
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Documentation Not Loading**:
+   ```bash
+   # Check Flask-RESTX installation
+   pip list | grep flask-restx
+
+   # Verify blueprint registration
+   # Check app.py for api_bp registration
+   ```
+
+2. **Authentication Not Working**:
+   ```javascript
+   // Clear stored tokens
+   localStorage.removeItem('api_token');
+
+   // Check token format
+   console.log(localStorage.getItem('api_token'));
+   ```
+
+3. **Schema Validation Errors**:
+   ```python
+   # Check model definitions
+   # Verify field types and requirements
+   # Test with sample data
+   ```
+
+### Debug Tools
+
+```python
+# Enable debug mode
+app.config['DEBUG'] = True
+app.config['TESTING'] = True
+
+# Log API requests
+@app.before_request
+def log_request_info():
+    app.logger.debug(f'API Request: {request.method} {request.url}')
+```
+
+This interactive API documentation provides developers with a comprehensive, user-friendly interface for exploring and testing the Panel API, improving developer experience and API adoption.

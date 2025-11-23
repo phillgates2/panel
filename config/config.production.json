@@ -1,0 +1,45 @@
+{
+  "name": "production",
+  "debug": false,
+  "testing": false,
+  "database_url": "postgresql://panel:prod_password@prod-db:5432/panel",
+  "redis_url": "redis://prod-redis:6379/0",
+  "mail_server": "smtp.panel.com",
+  "mail_port": 587,
+  "mail_use_tls": true,
+  "cdn_enabled": true,
+  "cdn_url": "https://cdn.panel.com",
+  "cdn_provider": "cloudflare",
+  "microservices_enabled": true,
+  "api_gateway_enabled": true,
+  "performance_monitoring_enabled": true,
+  "realtime_enabled": true,
+  "pwa_enabled": true,
+  "gdpr_enabled": true,
+  "session_timeout": 3600,
+  "password_min_length": 12,
+  "max_login_attempts": 3,
+  "lockout_duration": 1800,
+  "features": {
+    "forum": true,
+    "cms": true,
+    "admin": true,
+    "api": true,
+    "oauth": true,
+    "gdpr": true,
+    "pwa": true,
+    "realtime": true,
+    "microservices": true,
+    "cdn": true
+  },
+  "oauth_providers": {
+    "google": {
+      "client_id": "prod-google-client-id",
+      "client_secret": "prod-google-client-secret"
+    },
+    "github": {
+      "client_id": "prod-github-client-id",
+      "client_secret": "prod-github-client-secret"
+    }
+  }
+}

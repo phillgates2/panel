@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <h1>?? Privacy Policy</h1>
+        <p class="text-secondary">Last updated: {{ current_date }}</p>
+
+        <div class="privacy-content">
+            <section>
+                <h2>1. Information We Collect</h2>
+                <p>We collect information you provide directly to us, such as when you create an account, post content, or contact us for support.</p>
+
+                <h3>Personal Information</h3>
+                <ul>
+                    <li>Name and email address</li>
+                    <li>Profile information (bio, avatar)</li>
+                    <li>Social login information (if applicable)</li>
+                    <li>IP address and device information</li>
+                </ul>
+
+                <h3>Usage Information</h3>
+                <ul>
+                    <li>Forum posts and comments</li>
+                    <li>Blog content (if applicable)</li>
+                    <li>Login times and activity patterns</li>
+                    <li>Server interaction logs</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>2. How We Use Your Information</h2>
+                <ul>
+                    <li>Provide and maintain our services</li>
+                    <li>Process transactions and send related information</li>
+                    <li>Send technical notices and support messages</li>
+                    <li>Communicate with you about products and services</li>
+                    <li>Monitor and analyze usage patterns</li>
+                    <li>Detect, investigate, and prevent fraudulent transactions</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>3. Information Sharing</h2>
+                <p>We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.</p>
+
+                <h3>Service Providers</h3>
+                <p>We may share information with third-party service providers who assist us in operating our services.</p>
+            </section>
+
+            <section>
+                <h2>4. Data Security</h2>
+                <p>We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.</p>
+            </section>
+
+            <section>
+                <h2>5. Your Rights (GDPR)</h2>
+                <p>If you are located in the European Economic Area, you have certain rights regarding your personal information:</p>
+
+                <ul>
+                    <li><strong>Access:</strong> Request a copy of your personal data</li>
+                    <li><strong>Rectification:</strong> Correct inaccurate data</li>
+                    <li><strong>Erasure:</strong> Delete your personal data</li>
+                    <li><strong>Portability:</strong> Transfer your data to another service</li>
+                    <li><strong>Restriction:</strong> Limit how we process your data</li>
+                    <li><strong>Objection:</strong> Object to certain processing activities</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>6. Cookies and Tracking</h2>
+                <p>We use cookies and similar technologies to enhance your experience and analyze usage patterns.</p>
+
+                <h3>Essential Cookies</h3>
+                <p>Required for basic site functionality. Cannot be disabled.</p>
+
+                <h3>Analytics Cookies</h3>
+                <p>Help us understand how visitors interact with our site.</p>
+
+                <h3>Marketing Cookies</h3>
+                <p>Used to deliver relevant advertisements.</p>
+            </section>
+
+            <section>
+                <h2>7. Data Retention</h2>
+                <p>We retain personal information for as long as necessary to provide our services and fulfill the purposes outlined in this policy.</p>
+
+                <ul>
+                    <li>Account data: Retained while account is active</li>
+                    <li>Audit logs: Retained for 7 years</li>
+                    <li>Usage data: Retained for 1 year</li>
+                    <li>Deleted user data: Anonymized immediately</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>8. Contact Us</h2>
+                <p>If you have questions about this Privacy Policy, please contact us:</p>
+                <ul>
+                    <li>Email: privacy@panel.local</li>
+                    <li>Subject: "GDPR Inquiry"</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>9. Changes to This Policy</h2>
+                <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page.</p>
+            </section>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('gdpr_tools') }}" class="btn btn-primary">??? GDPR Tools</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">? Back to Home</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.privacy-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.privacy-content section {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.privacy-content section:last-child {
+    border-bottom: none;
+}
+
+.privacy-content h2 {
+    color: var(--accent);
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.privacy-content h3 {
+    color: var(--text);
+    margin: 1.5rem 0 0.5rem 0;
+    font-size: 1.2rem;
+}
+
+.privacy-content ul {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+}
+
+.privacy-content li {
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}

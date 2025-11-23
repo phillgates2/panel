@@ -1,0 +1,172 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - MICROSERVICES_ENABLED=true
+      - API_GATEWAY_ENABLED=true
+    depends_on:
+      - redis
+    networks:
+      - panel-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Auth Service
+  auth-service:
+    build: ./services/auth
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://panel:password@postgres:5432/panel
+      - REDIS_URL=redis://redis:6379/0
+      - MICROSERVICES_ENABLED=true
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - panel-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Forum Service
+  forum-service:
+    build: ./services/forum
+    ports:
+      - "5002:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://panel:password@postgres:5432/panel
+      - REDIS_URL=redis://redis:6379/0
+      - MICROSERVICES_ENABLED=true
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - panel-network
+    volumes:
+      - ./logs:/app/logs
+
+  # CMS Service
+  cms-service:
+    build: ./services/cms
+    ports:
+      - "5003:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://panel:password@postgres:5432/panel
+      - REDIS_URL=redis://redis:6379/0
+      - MICROSERVICES_ENABLED=true
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - panel-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Admin Service
+  admin-service:
+    build: ./services/admin
+    ports:
+      - "5004:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://panel:password@postgres:5432/panel
+      - REDIS_URL=redis://redis:6379/0
+      - MICROSERVICES_ENABLED=true
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - panel-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - panel-network
+    command: redis-server --appendonly yes
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=panel
+      - POSTGRES_USER=panel
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - panel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panel"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx reverse proxy and load balancer
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/ssl/certs:ro
+    depends_on:
+      - api-gateway
+      - auth-service
+      - forum-service
+      - cms-service
+      - admin-service
+    networks:
+      - panel-network
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - panel-network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - panel-network
+
+volumes:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  panel-network:
+    driver: bridge

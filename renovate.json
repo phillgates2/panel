@@ -1,0 +1,102 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":semanticPrefixFixDepsChoreOthers",
+    ":ignoreUnstable",
+    "group:monorepos",
+    "group:recommended",
+    "workarounds:all"
+  ],
+  "timezone": "UTC",
+  "schedule": ["before 4am on Monday"],
+  "labels": ["dependencies"],
+  "assignees": ["phillgates2"],
+  "reviewers": ["phillgates2"],
+  "packageRules": [
+    {
+      "description": "Group Python dependencies",
+      "matchManagers": ["pip_requirements"],
+      "groupName": "Python dependencies",
+      "schedule": ["before 4am on Monday"]
+    },
+    {
+      "description": "Group GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "schedule": ["before 4am on Monday"]
+    },
+    {
+      "description": "Group Docker dependencies",
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker dependencies",
+      "schedule": ["before 4am on Monday"]
+    },
+    {
+      "description": "Security updates",
+      "matchUpdateTypes": ["patch"],
+      "matchDatasources": ["pypi", "npm"],
+      "groupName": "Security updates",
+      "schedule": ["at any time"],
+      "labels": ["security"]
+    },
+    {
+      "description": "Major updates require manual review",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Ignore unstable versions",
+      "matchCurrentVersion": "/(alpha|beta|rc|dev)/",
+      "enabled": false
+    },
+    {
+      "description": "Flask ecosystem - be careful with major updates",
+      "matchPackageNames": ["flask", "flask-*", "werkzeug", "jinja2"],
+      "schedule": ["before 4am on first day of month"],
+      "groupName": "Flask ecosystem"
+    },
+    {
+      "description": "Database libraries - careful updates",
+      "matchPackageNames": ["sqlalchemy", "psycopg2", "pymysql"],
+      "schedule": ["before 4am on first day of month"],
+      "groupName": "Database libraries"
+    },
+    {
+      "description": "Testing tools - frequent updates",
+      "matchPackageNames": ["pytest", "playwright", "locust", "coverage"],
+      "schedule": ["before 4am on Monday"],
+      "groupName": "Testing tools"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "labels": ["security", "vulnerability"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 4am on Monday"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 10,
+  "branchPrefix": "renovate/",
+  "commitMessagePrefix": "??",
+  "commitMessageTopic": "{{depName}}",
+  "separateMinorPatch": true,
+  "rangeStrategy": "bump",
+  "bumpVersion": "patch",
+  "ignoreDeps": [
+    "python",
+    "pip",
+    "setuptools",
+    "wheel"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy",
+    "npmDedupe",
+    "yarnDedupe"
+  ]
+}

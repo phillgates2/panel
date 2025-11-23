@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <div class="panel">
+        <h1>??? GDPR Tools</h1>
+        <p class="text-secondary">Manage your data and privacy rights under GDPR</p>
+
+        {% if current_user.is_authenticated %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>?? Data Export (Article 15)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Download a complete copy of all your personal data stored on our platform.</p>
+                        <form method="POST" action="{{ url_for('gdpr_export') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-primary">
+                                ?? Export My Data
+                            </button>
+                        </form>
+                        <small class="text-muted mt-2 d-block">
+                            Export includes profile data, posts, activity logs, and more.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>??? Data Deletion (Article 17)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Permanently delete all your personal data from our platform.</p>
+                        <div class="alert alert-warning">
+                            <strong>?? Warning:</strong> This action cannot be undone. Your account will be permanently deleted.
+                        </div>
+                        <form method="POST" action="{{ url_for('gdpr_delete') }}" id="deleteForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <div class="mb-3">
+                                <label for="confirmation" class="form-label">Confirmation Required</label>
+                                <input type="text" class="form-control" id="confirmation"
+                                       name="confirmation" required
+                                       placeholder="Type: DELETE {{ current_user.email }}">
+                                <small class="form-text text-muted">
+                                    Please type exactly: <code>DELETE {{ current_user.email }}</code>
+                                </small>
+                            </div>
+                            <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                                ??? Delete My Account
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>?? Cookie Preferences</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Manage your cookie consent preferences.</p>
+                        <div id="consentStatus">
+                            <p class="text-muted">Loading preferences...</p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="showConsentModal()">
+                            ?? Manage Cookies
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>?? Data Usage</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>View statistics about your data usage on our platform.</p>
+                        <div class="data-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Forum Posts:</span>
+                                <span class="stat-value">{{ forum_posts_count or 0 }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Blog Posts:</span>
+                                <span class="stat-value">{{ blog_posts_count or 0 }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Account Age:</span>
+                                <span class="stat-value">{{ account_age or 'Unknown' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="alert alert-info">
+            <h5>?? Authentication Required</h5>
+            <p>Please <a href="{{ url_for('login') }}">log in</a> to access GDPR tools and manage your data.</p>
+        </div>
+        {% endif %}
+
+        <div class="mt-4">
+            <a href="{{ url_for('privacy') }}" class="btn btn-outline-primary">?? Privacy Policy</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">? Back to Home</a>
+        </div>
+    </div>
+</div>
+
+<!-- Cookie Consent Modal -->
+<div class="modal fade" id="consentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">?? Cookie Preferences</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="consentForm">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="necessaryCookies" checked disabled>
+                            <label class="form-check-label" for="necessaryCookies">
+                                <strong>Essential Cookies</strong>
+                                <br><small class="text-muted">Required for basic site functionality. Cannot be disabled.</small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="analyticsCookies">
+                            <label class="form-check-label" for="analyticsCookies">
+                                <strong>Analytics Cookies</strong>
+                                <br><small class="text-muted">Help us understand how you use our site to improve your experience.</small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="marketingCookies">
+                            <label class="form-check-label" for="marketingCookies">
+                                <strong>Marketing Cookies</strong>
+                                <br><small class="text-muted">Used to deliver relevant advertisements and content.</small>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveConsent()">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.data-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: var(--panel-hover);
+    border-radius: 6px;
+}
+
+.stat-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+#deleteBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>
+
+<script>
+// Confirmation validation for account deletion
+document.getElementById('confirmation').addEventListener('input', function() {
+    const required = 'DELETE {{ current_user.email }}';
+    const btn = document.getElementById('deleteBtn');
+    btn.disabled = this.value !== required;
+});
+
+// Load consent preferences
+async function loadConsent() {
+    try {
+        const response = await fetch('/api/gdpr/consent', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const consent = await response.json();
+            document.getElementById('analyticsCookies').checked = consent.analytics_consent || false;
+            document.getElementById('marketingCookies').checked = consent.marketing_consent || false;
+
+            document.getElementById('consentStatus').innerHTML = `
+                <div class="consent-summary">
+                    <div class="consent-item">
+                        <span class="consent-label">Analytics:</span>
+                        <span class="consent-value ${consent.analytics_consent ? 'text-success' : 'text-muted'}">
+                            ${consent.analytics_consent ? '? Enabled' : '? Disabled'}
+                        </span>
+                    </div>
+                    <div class="consent-item">
+                        <span class="consent-label">Marketing:</span>
+                        <span class="consent-value ${consent.marketing_consent ? 'text-success' : 'text-muted'}">
+                            ${consent.marketing_consent ? '? Enabled' : '? Disabled'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to load consent:', error);
+        document.getElementById('consentStatus').innerHTML = '<p class="text-danger">Failed to load preferences</p>';
+    }
+}
+
+// Show consent modal
+function showConsentModal() {
+    loadConsent();
+    new bootstrap.Modal(document.getElementById('consentModal')).show();
+}
+
+// Save consent preferences
+async function saveConsent() {
+    const consentData = {
+        analytics_consent: document.getElementById('analyticsCookies').checked,
+        marketing_consent: document.getElementById('marketingCookies').checked,
+        necessary_cookies: true  // Always required
+    };
+
+    try {
+        const response = await fetch('/api/gdpr/consent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(consentData)
+        });
+
+        if (response.ok) {
+            alert('Cookie preferences saved successfully!');
+            location.reload();
+        } else {
+            alert('Failed to save preferences. Please try again.');
+        }
+    } catch (error) {
+        console.error('Failed to save consent:', error);
+        alert('Failed to save preferences. Please try again.');
+    }
+}
+
+// Load consent on page load
+document.addEventListener('DOMContentLoaded', loadConsent);
+</script>
+{% endblock %}

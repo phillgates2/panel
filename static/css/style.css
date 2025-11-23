@@ -1851,3 +1851,260 @@ select:focus-visible {
 .loading-overlay.hidden {
     display: none;
 }
+
+/* ===== SOCIAL LOGIN ===== */
+.social-login {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.divider {
+  position: relative;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider span {
+  background: var(--panel);
+  padding: 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.social-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+@media (min-width: 480px) {
+  .social-buttons {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .social-btn {
+    flex: 1;
+    max-width: 150px;
+  }
+}
+
+/* ===== PWA FEATURES ===== */
+.pwa-update-notification,
+.pwa-install-prompt {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 8px 25px var(--shadow-lg);
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+.pwa-update-content,
+.pwa-install-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  font-weight: 500;
+}
+
+.pwa-update-content span,
+.pwa-install-content span {
+  flex: 1;
+}
+
+.network-status {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.network-status.online {
+  background: rgba(35, 134, 54, 0.9);
+  color: white;
+  border: 1px solid var(--success);
+}
+
+.network-status.offline {
+  background: rgba(218, 54, 51, 0.9);
+  color: white;
+  border: 1px solid var(--danger);
+  animation: pulse 2s infinite;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.6; }
+}
+
+/* PWA install banner for mobile */
+.pwa-install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--gradient);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  z-index: 10000;
+  box-shadow: 0 -4px 15px var(--shadow);
+}
+
+.pwa-install-banner .banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.pwa-install-banner .banner-text {
+  flex: 1;
+  text-align: left;
+}
+
+.pwa-install-banner .banner-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .pwa-update-notification,
+  .pwa-install-prompt {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    right: auto;
+    width: auto;
+  }
+
+  .pwa-update-content,
+  .pwa-install-content {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .network-status {
+    top: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+  }
+}
+
+/* ===== REAL-TIME SERVER STATUS STYLING ===== */
+#server-status-container {
+    margin-bottom: 1.5rem;
+}
+
+.server-status-item {
+    background: var(--panel-hover);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.server-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.server-name {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.server-status {
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.status-online {
+    background: rgba(35, 134, 54, 0.2);
+    color: #238636;
+    border: 1px solid #238636;
+}
+
+.status-offline {
+    background: rgba(218, 54, 51, 0.2);
+    color: #da3633;
+    border: 1px solid #da3633;
+}
+
+.status-loading {
+    background: rgba(251, 133, 0, 0.2);
+    color: #fb8500;
+    border: 1px solid #fb8500;
+}
+
+.status-maintenance {
+    background: rgba(139, 69, 19, 0.2);
+    color: #8b4513;
+    border: 1px solid #8b4513;
+}
+
+.server-details {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.server-details span {
+    background: var(--panel);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+}

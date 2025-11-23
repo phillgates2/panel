@@ -11,7 +11,22 @@ logger = logging.getLogger(__name__)
 
 
 class BackupManager:
-    """Manages automated backups for the panel system."""
+    """Manages automated backups for the panel system.
+
+    This class provides functionality to create, restore, and manage backups
+    for databases, configuration files, and server data. It supports PostgreSQL
+    and SQLite databases, and can back up configuration files as tar.gz archives.
+    Server data is backed up as JSON files. The backups are organized in a
+    directory structure by type, and can be listed, cleaned up, and analyzed
+    for statistics.
+
+    Attributes:
+        backup_dir (Path): The root directory where backups are stored.
+        db_url (str): The database connection URL (for PostgreSQL).
+        db_backups (Path): The directory for database backups.
+        config_backups (Path): The directory for configuration file backups.
+        server_backups (Path): The directory for server data backups.
+    """
 
     def __init__(self, backup_dir="backups", db_url=None):
         self.backup_dir = Path(backup_dir)

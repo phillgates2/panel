@@ -1,0 +1,580 @@
+﻿import csv
+import io
+import os
+import secrets
+import shutil
+import time
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+from flask import (
+    Blueprint,
+    Flask,
+    Response,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    render_template_string,
+    request,
+    send_file,
+    session,
+    url_for,
+)
+from flask_caching import Cache
+from flask_compress import Compress
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
+
+# Unbound SQLAlchemy instance; `db.init_app(app)` will be called for each app.
+# db = SQLAlchemy()
+# Some Werkzeug builds used in minimal containers may not expose a __version__ attribute
+import werkzeug
+from sqlalchemy import text
+from werkzeug.security import check_password_hash, generate_password_hash
+
+try:
+    import importlib.metadata
+
+    werkzeug_version = importlib.metadata.version("werkzeug")
+    werkzeug.__version__ = werkzeug_version
+except Exception:
+    # Fallback for older Python versions or if metadata is unavailable
+    werkzeug.__version__ = getattr(werkzeug, "__release__", "0")
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import json  # noqa: E402
+import subprocess  # noqa: E402
+
+import redis  # noqa: E402
+from PIL import Image, ImageOps  # noqa: E402
+from rq import Queue  # noqa: E402
+
+# The following imports are intentionally placed after loading environment
+# variables. Ruff/flake8 may flag E402 (imports not at module top); silence
+# that rule here because we need env vars loaded before `config`.
+from src.panel import config
+from src.panel import tasks
+from src.panel.captcha import generate_captcha_audio, generate_captcha_image
+from src.panel.database_admin import DATABASE_ADMIN_BASE_TEMPLATE, DATABASE_ADMIN_HOME_TEMPLATE, DATABASE_ADMIN_QUERY_TEMPLATE, DATABASE_ADMIN_TABLE_TEMPLATE, DatabaseAdmin
+# Import models and utilities
+# from models_extended import RconCommandHistory  # noqa: E402
+# from monitoring_system import ServerMetrics  # noqa: E402
+# from rbac import has_permission  # noqa: E402
+from src.panel.rcon_client import ETLegacyRcon  # noqa: E402
+from src.panel.validate_config import ConfigValidator  # noqa: E402
+
+# Import input validation schemas
+from src.panel.input_validation import LoginSchema, RegisterSchema, validate_request  # noqa: E402
+
+# Import services
+from src.panel.services import get_cache_service  # noqa: E402
+
+from src.panel import models  # noqa: E402
+from src.panel.models_extended import RconCommandHistory
+
+"""
+CODE STRUCTURE NOTES:
+
+This application uses longer functions for complex business logic because:
+- Flask route handlers often need authentication, validation, and response formatting
+- Breaking them into smaller functions would create artificial complexity
+- The nested loops are necessary for processing complex data structures
+- All password handling uses secure methods (hashing, environment variables)
+
+Performance is optimized for the admin/dashboard use case, not high-traffic scenarios.
+"""
+
+app = Flask(__name__)
+
+# Validate configuration at startup
+from config_validator import validate_configuration_at_startup  # noqa: E402
+validate_configuration_at_startup(app)
+
+# Module-level app is initialized for backwards compatibility. Tests and
+# other tooling can create additional app instances via `create_app()`.
+app.config.from_object(config)
+app.secret_key = config.SECRET_KEY
+
+# Initialize SocketIO for real-time features
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Initialize Cache for performance optimization
+cache_config = {
+    "CACHE_TYPE": "redis",
+    "CACHE_REDIS_URL": os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"),
+    "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+}
+cache = Cache(app, config=cache_config)
+
+# Initialize Compression
+compress = Compress(app)
+
+# Initialize SQLAlchemy (bound to app). Using the classic pattern keeps
+# behavior consistent with the rest of the code and test suite.
+from flask_sqlalchemy import SQLAlchemy
+
+# Configure logging
+from src.panel.structured_logging import log_security_event, setup_structured_logging
+
+logger = setup_structured_logging(app)
+
+# Configure enhanced security hardening
+from src.panel.security_hardening import init_security_hardening  # noqa: E402
+
+security_hardening = init_security_hardening(app)
+try:
+    from src.panel.tools.mail import mail  # noqa: E402
+
+    mail.init_app(app)
+except Exception:
+    mail = None
+
+# Create main blueprint for routes
+main_bp = Blueprint("main", __name__)
+
+# Initialize Database Admin integration
+try:
+    DatabaseAdmin(app, db)
+except Exception:
+    # Best-effort during tests; ignore failures
+    pass
+
+# Initialize metrics tracking
+app._request_count = 0
+app._error_count = 0
+
+@app.before_request
+def track_request_metrics():
+    """Track request metrics for monitoring."""
+    if not request.path.startswith('/static/'):
+        app._request_count += 1
+
+@app.after_request
+def track_error_metrics(response):
+    """Track error metrics for monitoring."""
+    if response.status_code >= 400:
+        app._error_count += 1
+    return response
+
+
+def create_app(config_obj=None):
+    """Application factory.
+
+    Creates and returns a Flask application configured like the module-level
+    `app`. If `config_obj` is provided, it will be used instead of the
+    default `config` module.
+    """
+    _app = Flask(__name__)
+
+    # Validate configuration at startup
+    from config_validator import validate_configuration_at_startup  # noqa: E402
+    validate_configuration_at_startup(_app)
+
+    # Load configuration
+    if config_obj is None:
+        _app.config.from_object(config)
+    else:
+        _app.config.from_object(config_obj)
+    _app.secret_key = _app.config.get("SECRET_KEY", getattr(config, "SECRET_KEY", None))
+
+    # Initialize SocketIO for real-time features
+    from flask_socketio import SocketIO
+
+    _socketio = SocketIO(_app, cors_allowed_origins="*")  # noqa: F841
+
+    # Initialize Cache for performance optimization
+    from flask_caching import Cache
+
+    _cache_config = {
+        "CACHE_TYPE": "redis",
+        "CACHE_REDIS_URL": os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"),
+        "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+    }
+    _cache = Cache(_app, config=_cache_config)  # noqa: F841
+
+    # Initialize Compression
+    from flask_compress import Compress
+
+    _compress = Compress(_app)  # noqa: F841
+
+    # Configure logging for the new app
+    from structured_logging import setup_structured_logging  # noqa: E402
+
+    setup_structured_logging(_app)
+
+    # Configure security headers
+    from src.panel.security_headers import configure_security_headers  # noqa: E402
+
+    configure_security_headers(_app)
+
+    # Initialize lightweight mail client if present
+    try:
+        from src.panel.tools.mail import mail  # noqa: E402
+
+        mail.init_app(_app)
+    except Exception:
+        pass
+
+    # Bind SQLAlchemy
+    db.init_app(_app)
+
+    # Mirror module-level startup behavior for factory-created apps
+    # so tests and callers receive an app with the same routes and
+    # integrations (DatabaseAdmin, blueprints, start_time).
+    # Assign to module-level `app` so existing route code that
+    # references `app` (legacy usage) will observe the factory app.
+    global app
+    app = _app
+
+    # Track application startup time
+    _app.start_time = time.time()
+
+    # Initialize Database Admin integration for the new app
+    try:
+        # Create a DatabaseAdmin instance bound to this app
+        DatabaseAdmin(_app, db)
+    except Exception:
+        # Best-effort during tests; ignore failures
+        pass
+
+    # Backwards-compat: create un-prefixed endpoint aliases on the
+    # factory app so existing `url_for('login')` calls continue to work.
+    try:
+        # Build list of blueprint names to create unprefixed aliases for
+        bp_names = [main_bp.name]
+        try:
+            from src import cms as _cms
+
+            if hasattr(_cms, "cms_bp"):
+                bp_names.append(_cms.cms_bp.name)
+        except NameError:
+            pass
+        try:
+            from src.panel.forum import forum_bp  # type: ignore
+        except NameError:
+            pass
+        try:
+            if admin_bp is not None:
+                bp_names.append(admin_bp.name)
+        except NameError:
+            pass
+
+        for rule in list(_app.url_map.iter_rules()):
+            ep = rule.endpoint
+            for bpname in bp_names:
+                if ep.startswith(f"{bpname}."):
+                    short = ep.split(".", 1)[1]
+                    if short not in _app.view_functions:
+                        view = _app.view_functions.get(ep)
+                        if view:
+                            try:
+                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                                _app.add_url_rule(
+                                    rule.rule,
+                                    endpoint=short,
+                                    view_func=view,
+                                    methods=methods,
+                                )
+                            except Exception:
+                                pass
+                    break
+    except Exception:
+        pass
+
+    # Ensure key context processors and request handlers defined on the
+    # module-level app are also registered on the factory-created app so
+    # templates and request lifecycle behavior match.
+    try:
+        _app.context_processor(inject_user)
+    except Exception:
+        pass
+    try:
+        _app.after_request(ensure_csrf_after)
+    except Exception:
+        pass
+    try:
+        _app.context_processor(ensure_csrf_for_templates)
+    except Exception:
+        pass
+    try:
+        _app.before_request(ensure_theme_migration_once)
+    except Exception:
+        pass
+
+    # Register blueprints on the factory-created app
+    try:
+        _app.register_blueprint(main_bp)
+    except AssertionError:
+        pass
+
+    try:
+        from src.panel import cms as _cms
+
+        if hasattr(_cms, "cms_bp"):
+            try:
+                _app.register_blueprint(_cms.cms_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+
+    try:
+        from src.panel import forum as _forum
+
+        if hasattr(_forum, "forum_bp"):
+            try:
+                _app.register_blueprint(_forum.forum_bp)
+            except AssertionError:
+                pass
+    except Exception:
+        pass
+
+    # Register additional blueprints that were added later
+    try:
+        _app.register_blueprint(monitoring_bp)
+    except (AssertionError, NameError):
+        pass
+
+    try:
+        _app.register_blueprint(routes_rbac.rbac_bp)
+    except (AssertionError, NameError):
+        pass
+
+    # Create backwards-compat unprefixed endpoint aliases for factory-created apps
+    try:
+        bp_names = [main_bp.name]
+        try:
+            from src import cms as _cms
+
+            if hasattr(_cms, "cms_bp"):
+                bp_names.append(_cms.cms_bp.name)
+        except NameError:
+            pass
+        try:
+            from src.panel.forum import forum_bp  # type: ignore
+        except NameError:
+            pass
+        try:
+            if admin_bp is not None:
+                bp_names.append(admin_bp.name)
+        except NameError:
+            pass
+
+        for rule in list(_app.url_map.iter_rules()):
+            ep = rule.endpoint
+            for bpname in bp_names:
+                if ep.startswith(f"{bpname}."):
+                    short = ep.split(".", 1)[1]
+                    if short not in _app.view_functions:
+                        view = _app.view_functions.get(ep)
+                        if view:
+                            try:
+                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                                _app.add_url_rule(
+                                    rule.rule,
+                                    endpoint=short,
+                                    view_func=view,
+                                    methods=methods,
+                                )
+                            except Exception:
+                                pass
+                    break
+    except Exception:
+        pass
+
+    return _app
+
+
+# Note: SQLAlchemy will be bound to the app below via `db.init_app(app)`.
+
+# Rate limiting is now handled by security_hardening module
+
+# Track application startup time
+app.start_time = time.time()
+
+# --- Simple rate limiting helpers (Redis-backed, with in-process fallback) ---
+_rl_fallback_store = {}
+
+
+def _get_redis_conn():
+    try:
+        redis_url = os.environ.get(
+            "PANEL_REDIS_URL", getattr(config, "REDIS_URL", "redis://127.0.0.1:6379/0")
+        )
+        return redis.from_url(redis_url)
+    except Exception:
+        return None
+
+
+def _client_ip():
+    # basic client IP detection; behind proxies you could trust X-Forwarded-For
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def rate_limit(action: str, limit: int, window_seconds: int) -> bool:
+    """Return True if request allowed, False if rate-limited.
+    Skips when TESTING mode is enabled.
+    """
+    if app.config.get("TESTING", False):
+        return True
+    ip = _client_ip()
+    key = f"rl:{action}:{ip}"
+    now = int(time.time())
+    rconn = _get_redis_conn()
+    if rconn is not None:
+        try:
+            count = rconn.incr(key)
+            if count == 1:
+                rconn.expire(key, window_seconds)
+            return count <= limit
+        except Exception:
+            pass
+    # Fallback in-process store
+    bucket = _rl_fallback_store.get(key)
+    if not bucket:
+        bucket = {"start": now, "count": 0}
+        _rl_fallback_store[key] = bucket
+    # reset window if expired
+    if now - bucket["start"] >= window_seconds:
+        bucket["start"] = now
+        bucket["count"] = 0
+    bucket["count"] += 1
+    return bucket["count"] <= limit
+
+
+@app.context_processor
+def inject_user():
+    """Inject `logged_in` and `current_user` into templates.
+    Uses `session['user_id']` when present. Returns a simple boolean
+    and the `User` instance (or None).
+    """
+    user = None
+    user_id = session.get("user_id")
+    if user_id:
+        try:
+            user = db.session.get(models.User, user_id)
+        except Exception:
+            user = None
+    # theme enabled flag stored in DB (fallback to instance file for older installations
+    theme_enabled = False
+    try:
+        s = db.session.query(models.SiteSetting).filter_by(key="theme_enabled").first()
+        if s and s.value is not None:
+            theme_enabled = s.value.strip() == "1"
+        else:
+            # fallback to instance file for older installations
+            theme_flag = os.path.join(app.root_path, "instance", "theme_enabled")
+            if os.path.exists(theme_flag):
+                with open(theme_flag, "r", encoding="utf-8") as f:
+                    v = f.read().strip()
+                    theme_enabled = v == "1"
+    except Exception:
+        theme_enabled = False
+
+    # user theme preference (stored in SiteSetting as user_theme:<id>)
+    user_theme_pref = None
+    try:
+        if user:
+            k = f"user_theme:{user.id}"
+            s_user_theme = db.session.query(models.SiteSetting).filter_by(key=k).first()
+            if s_user_theme and (s_user_theme.value in ("dark", "light")):
+                user_theme_pref = s_user_theme.value
+    except Exception:
+        user_theme_pref = None
+
+    # site-wide flag to allow client theme toggle (default on)
+    theme_toggle_enabled = True
+    try:
+        s_toggle = db.session.query(models.SiteSetting).filter_by(key="theme_toggle_enabled").first()
+        if s_toggle and s_toggle.value is not None:
+            theme_toggle_enabled = s_toggle.value.strip() == "1"
+    except Exception:
+        theme_toggle_enabled = True
+    # optional forced theme when toggle disabled: 'dark'|'light'
+    theme_forced = None
+    try:
+        s_forced = db.session.query(models.SiteSetting).filter_by(key="theme_forced").first()
+        if s_forced and s_forced.value in ("dark", "light"):
+            theme_forced = s_forced.value
+    except Exception:
+        theme_forced = None
+
+    return dict(
+        logged_in=bool(user),
+        current_user=user,
+        theme_enabled=theme_enabled,
+        theme_toggle_enabled=theme_toggle_enabled,
+        theme_forced=theme_forced,
+        config=app.config,
+        user_theme_pref=user_theme_pref,
+    )
+
+
+# Bind the unbound SQLAlchemy instance to the module-level app
+db.init_app(app)
+
+# Import ServerMetrics after db is initialized to avoid circular import
+# from monitoring_system import ServerMetrics  # noqa: E402
+
+# Initialize Database Admin integration
+db_admin = DatabaseAdmin(app, db)
+
+# Optional CMS and Forum blueprints (kept optional so imports won't fail in test environments)
+try:
+    from src.panel.cms import cms_bp  # type: ignore
+except Exception:
+    cms_bp = None
+try:
+    from src.panel.forum import forum_bp  # type: ignore
+except Exception:
+    forum_bp = None
+
+try:
+    from src.panel.admin import admin_bp  # type: ignore
+except Exception:
+    admin_bp = None
+
+
+def _register_optional_blueprints(module_app):
+    try:
+        from src.panel import cms as _cms
+
+        if hasattr(_cms, "cms_bp"):
+            try:
+                module_app.register_blueprint(_cms.cms_bp)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        from src.panel import forum as _forum
+
+        if hasattr(_forum, "forum_bp"):
+            try:
+                module_app.register_blueprint(_forum.forum_bp)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        if admin_bp is not None:
+            module_app.register_blueprint(admin_bp)
+    except Exception:
+        pass
+
+
+# Register optional blueprints on the module-level app if available
+_register_optional_blueprints(app)
+
+# Admin routes moved to src/admin.py

@@ -1,0 +1,141 @@
+﻿#!/bin/bash
+# Production Environment Setup Script
+# This script sets up the Panel application for production deployment
+
+set -e
+
+echo "?? Setting up Panel production environment..."
+
+# Check if we're in the right directory
+if [ ! -f "app.py" ]; then
+    echo "? Error: Please run this script from the panel project root directory"
+    exit 1
+fi
+
+# Check if running as root (not recommended for production)
+if [ "$EUID" -eq 0 ]; then
+    echo "??  Warning: Running as root. Consider using a non-root user for security."
+fi
+
+# Install system dependencies
+echo "?? Installing system dependencies..."
+apt-get update
+apt-get install -y python3 python3-pip python3-venv postgresql-client redis-tools curl
+
+# Create application user
+if ! id -u panel > /dev/null 2>&1; then
+    echo "?? Creating panel user..."
+    useradd -r -s /bin/false panel
+else
+    echo "? Panel user already exists"
+fi
+
+# Create necessary directories
+echo "?? Creating application directories..."
+mkdir -p /var/log/panel
+mkdir -p /var/lib/panel
+mkdir -p /etc/panel
+
+# Set ownership
+chown -R panel:panel /var/log/panel
+chown -R panel:panel /var/lib/panel
+chown -R panel:panel /etc/panel
+
+# Install Python dependencies
+echo "?? Installing Python dependencies..."
+pip3 install --upgrade pip
+pip3 install -r requirements/requirements.txt
+
+# Copy configuration files
+if [ ! -f "/etc/panel/config.py" ]; then
+    echo "?? Setting up configuration..."
+    cp config.py /etc/panel/config.py 2>/dev/null || echo "No config.py found in current directory"
+    echo "??  Please edit /etc/panel/config.py with your production settings"
+fi
+
+# Set up log rotation
+if [ ! -f "/etc/logrotate.d/panel" ]; then
+    echo "?? Setting up log rotation..."
+    cat > /etc/logrotate.d/panel << 'EOF'
+/var/log/panel/*.log {
+    daily
+    missingok
+    rotate 52
+    compress
+    delaycompress
+    notifempty
+    create 644 panel panel
+    postrotate
+        systemctl reload panel.service || true
+    endscript
+}
+EOF
+fi
+
+# Create systemd service file
+if [ ! -f "/etc/systemd/system/panel.service" ]; then
+    echo "??  Creating systemd service..."
+    cat > /etc/systemd/system/panel.service << 'EOF'
+[Unit]
+Description=Panel Application
+After=network.target postgresql.service redis-server.service
+Requires=postgresql.service redis-server.service
+
+[Service]
+Type=exec
+User=panel
+Group=panel
+WorkingDirectory=/opt/panel
+Environment=PATH=/opt/panel/.venv/bin
+Environment=FLASK_ENV=production
+Environment=PANEL_CONFIG=/etc/panel/config.py
+ExecStart=/opt/panel/.venv/bin/gunicorn --bind 0.0.0.0:8080 --workers 4 --worker-class sync app:create_app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=panel
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+fi
+
+# Set up firewall (basic)
+if command -v ufw > /dev/null 2>&1; then
+    echo "?? Configuring firewall..."
+    ufw allow 8080/tcp
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+    ufw --force enable
+fi
+
+# Initialize database
+echo "???  Initializing database..."
+export FLASK_ENV=production
+export PANEL_CONFIG=/etc/panel/config.py
+python3 -c "from app import db, create_app; app = create_app(); app.app_context().push(); db.create_all()" 2>/dev/null || echo "Database initialization may require manual configuration"
+
+# Create initial backup
+echo "?? Creating initial backup..."
+python3 scripts/backup_manager.py backup 2>/dev/null || echo "Backup creation failed - check configuration"
+
+echo ""
+echo "?? Production setup complete!"
+echo ""
+echo "Next steps:"
+echo "1. Edit /etc/panel/config.py with your production settings"
+echo "2. Configure PostgreSQL and Redis"
+echo "3. Set up SSL certificates for HTTPS"
+echo "4. Start the service: systemctl start panel"
+echo "5. Enable on boot: systemctl enable panel"
+echo ""
+echo "Useful commands:"
+echo "  systemctl status panel     - Check service status"
+echo "  journalctl -u panel -f     - Follow logs"
+echo "  systemctl restart panel    - Restart service"
+echo "  make backup               - Create backup"
+echo ""
+echo "Production deployment ready! ??"

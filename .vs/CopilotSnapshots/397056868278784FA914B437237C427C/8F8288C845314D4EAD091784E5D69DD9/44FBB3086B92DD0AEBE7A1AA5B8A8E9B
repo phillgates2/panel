@@ -1,0 +1,186 @@
+﻿# Panel Application Environment Configuration
+# Copy this file to .env and update values for your environment
+
+# =============================================================================
+# Flask Configuration
+# =============================================================================
+
+# Flask environment (development, staging, production, testing)
+FLASK_ENV=development
+DEBUG=true
+TESTING=false
+SECRET_KEY=your-super-secret-key-here-change-this-in-production
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+
+# Database URL
+DATABASE_URL=sqlite:///dev.db
+# For PostgreSQL: postgresql://username:password@localhost:5432/database_name
+# For MySQL: mysql://username:password@localhost:3306/database_name
+
+# =============================================================================
+# Redis Configuration
+# =============================================================================
+
+# Redis URL for caching and sessions
+REDIS_URL=redis://localhost:6379/0
+
+# =============================================================================
+# Email Configuration
+# =============================================================================
+
+MAIL_SERVER=localhost
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_USE_TLS=true
+MAIL_USE_SSL=false
+
+# =============================================================================
+# OAuth Configuration
+# =============================================================================
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# =============================================================================
+# CDN Configuration
+# =============================================================================
+
+CDN_ENABLED=false
+CDN_URL=
+CDN_PROVIDER=cloudflare
+
+# Cloudflare CDN (if using Cloudflare)
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ZONE_ID=
+
+# AWS CloudFront CDN (if using CloudFront)
+AWS_CLOUDFRONT_DISTRIBUTION_ID=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=us-east-1
+
+# =============================================================================
+# Microservices Configuration
+# =============================================================================
+
+MICROSERVICES_ENABLED=false
+API_GATEWAY_ENABLED=false
+
+# =============================================================================
+# Performance Monitoring
+# =============================================================================
+
+PERFORMANCE_MONITORING_ENABLED=true
+
+# New Relic APM (optional)
+NEW_RELIC_API_KEY=
+NEW_RELIC_APP_NAME=Panel Application
+
+# DataDog APM (optional)
+DATADOG_API_KEY=
+DATADOG_APP_KEY=
+
+# =============================================================================
+# Load Testing Configuration
+# =============================================================================
+
+LOAD_TEST_USERS=100
+LOAD_TEST_SPAWN_RATE=10
+LOAD_TEST_DURATION=5m
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+
+SESSION_TIMEOUT=3600
+PASSWORD_MIN_LENGTH=8
+MAX_LOGIN_ATTEMPTS=5
+LOCKOUT_DURATION=900
+
+# =============================================================================
+# Feature Flags
+# =============================================================================
+
+FORUM_ENABLED=true
+CMS_ENABLED=true
+ADMIN_ENABLED=true
+API_ENABLED=true
+OAUTH_ENABLED=true
+GDPR_ENABLED=true
+PWA_ENABLED=true
+REALTIME_ENABLED=true
+
+# =============================================================================
+# Development Settings
+# =============================================================================
+
+LOG_LEVEL=INFO
+SQLALCHEMY_ECHO=false
+
+# =============================================================================
+# Game Server Configuration
+# =============================================================================
+
+ET_SERVER_HOST=127.0.0.1
+ET_SERVER_PORT=27960
+ET_SERVER_PASSWORD=
+
+# =============================================================================
+# Push Notifications
+# =============================================================================
+
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_EMAIL=
+
+# =============================================================================
+# File Upload Settings
+# =============================================================================
+
+MAX_CONTENT_LENGTH=16777216
+UPLOAD_FOLDER=static/uploads
+ALLOWED_EXTENSIONS=png,jpg,jpeg,gif,pdf,txt,zip
+
+# =============================================================================
+# Backup Configuration
+# =============================================================================
+
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE=daily
+BACKUP_RETENTION_DAYS=30
+
+# =============================================================================
+# Backup & Disaster Recovery Configuration
+# =============================================================================
+
+# Backup system settings
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE=daily
+BACKUP_RETENTION_DAYS=30
+BACKUP_COMPRESSION=gzip
+BACKUP_ENCRYPTION=false
+BACKUP_STORAGE_PATH=backups
+BACKUP_VERIFY=true
+BACKUP_NOTIFICATIONS=true
+
+# Backup monitoring
+BACKUP_EMAIL_ALERTS=true
+BACKUP_ALERT_EMAILS=admin@panel.local,ops@panel.local
+BACKUP_EMAIL_SENDER=noreply@panel.local
+
+# Disaster recovery
+RECOVERY_TEST_ENABLED=true
+RECOVERY_TEST_SCHEDULE=monthly
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+SENTRY_DSN=
+ROLLBAR_ACCESS_TOKEN=

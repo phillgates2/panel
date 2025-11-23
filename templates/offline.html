@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Offline - Panel{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="panel text-center">
+        <div class="offline-icon">
+            ??
+        </div>
+        <h1>You're Offline</h1>
+        <p class="text-secondary">It looks like you're not connected to the internet.</p>
+        <p>Don't worry! You can still access some features when you're back online.</p>
+
+        <div class="offline-actions">
+            <button onclick="window.location.reload()" class="btn btn-primary">
+                ?? Try Again
+            </button>
+            <button onclick="checkOnlineStatus()" class="btn btn-secondary">
+                ?? Check Connection
+            </button>
+        </div>
+
+        <div class="offline-features">
+            <h3>What you can do offline:</h3>
+            <ul class="text-left">
+                <li>?? View cached pages</li>
+                <li>?? Read forum posts (if cached)</li>
+                <li>?? View your profile</li>
+                <li>?? Access settings</li>
+            </ul>
+        </div>
+
+        <div class="connection-status">
+            <p id="status">Checking connection...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.offline-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.offline-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+
+.offline-features {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--panel-hover);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.offline-features ul {
+    margin: 1rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.offline-features li {
+    margin-bottom: 0.5rem;
+}
+
+.connection-status {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--panel-hover);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.connection-status p {
+    margin: 0;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .offline-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .offline-icon {
+        font-size: 3rem;
+    }
+}
+</style>
+
+<script>
+function checkOnlineStatus() {
+    const statusEl = document.getElementById('status');
+
+    if (navigator.onLine) {
+        statusEl.textContent = '? You are online!';
+        statusEl.style.color = 'var(--success)';
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    } else {
+        statusEl.textContent = '? You are still offline';
+        statusEl.style.color = 'var(--danger)';
+    }
+}
+
+// Check status on load
+checkOnlineStatus();
+
+// Listen for online/offline events
+window.addEventListener('online', () => {
+    checkOnlineStatus();
+});
+
+window.addEventListener('offline', () => {
+    checkOnlineStatus();
+});
+
+// Register service worker if not already done
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js')
+        .then(registration => {
+            console.log('SW registered from offline page');
+        })
+        .catch(error => {
+            console.error('SW registration failed:', error);
+        });
+}
+</script>
+{% endblock %}

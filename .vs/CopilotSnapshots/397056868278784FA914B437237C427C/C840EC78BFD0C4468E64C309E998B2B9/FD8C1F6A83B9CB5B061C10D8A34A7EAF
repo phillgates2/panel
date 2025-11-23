@@ -1,0 +1,488 @@
+﻿"""
+Enhanced Input Validation Schemas using Marshmallow
+Provides type-safe request validation for API endpoints with security hardening
+"""
+
+import re
+
+from marshmallow import Schema, ValidationError, fields, validate, validates, validates_schema
+
+
+class LoginSchema(Schema):
+    """Enhanced validation schema for login requests with security checks"""
+
+    email = fields.Email(
+        required=True,
+        error_messages={
+            "required": "Email is required",
+            "invalid": "Invalid email address format",
+        },
+    )
+    password = fields.Str(
+        required=True,
+        validate=validate.Length(min=1),
+        error_messages={"required": "Password is required"},
+    )
+    captcha = fields.Str(allow_none=True)
+    remember_me = fields.Bool(missing=False)
+
+    @validates("email")
+    def validate_email_security(self, value):
+        """Additional email security validation"""
+        from security_hardening import SecurityValidationSchemas
+
+        if not SecurityValidationSchemas.validate_email_domain(value):
+            raise ValidationError("Email domain not allowed")
+
+        # Check for suspicious patterns
+        suspicious_patterns = [r'<script', r'javascript:', r'on\w+\s*=']
+        for pattern in suspicious_patterns:
+            if re.search(pattern, value, re.IGNORECASE):
+                raise ValidationError("Invalid email format")
+
+    @validates("password")
+    def validate_password_basic(self, value):
+        """Basic password validation"""
+        if len(value) > 1000:  # Prevent extremely long passwords
+            raise ValidationError("Password too long")
+
+
+class RegisterSchema(Schema):
+    """Enhanced validation schema for user registration with security hardening"""
+
+    first_name = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=50),
+        error_messages={
+            "required": "First name is required",
+            "invalid": "First name contains invalid characters"
+        }
+    )
+    last_name = fields.Str(
+        required=True,
+        validate=validate.Length(min=1, max=50),
+        error_messages={
+            "required": "Last name is required",
+            "invalid": "Last name contains invalid characters"
+        }
+    )
+    email = fields.Email(required=True)
+    password = fields.Str(required=True, validate=validate.Length(min=8, max=128))
+    password_confirm = fields.Str(required=True)
+    dob = fields.Date(required=True)
+    captcha = fields.Str(allow_none=True)
+    accept_terms = fields.Bool(required=True, error_messages={"required": "You must accept the terms of service"})
+
+    @validates("first_name")
+    def validate_name_security(self, value):
+        """Validate name fields for security"""
+        # Allow only letters, spaces, hyphens, and apostrophes
+        if not re.match(r"^[a-zA-Z\s\-']+$", value):
+            raise ValidationError("Name contains invalid characters")
+
+        # Check for script injection attempts
+        suspicious_patterns = [r'<script', r'javascript:', r'on\w+\s*=', r'eval\s*\(']
+        for pattern in suspicious_patterns:
+            if re.search(pattern, value, re.IGNORECASE):
+                raise ValidationError("Invalid characters in name")
+
+    @validates("last_name")
+    def validate_last_name_security(self, value):
+        """Validate last name with same rules as first name"""
+        self.validate_name_security(value)
+
+    @validates("email")
+    def validate_email_security(self, value):
+        """Enhanced email security validation"""
+        from security_hardening import SecurityValidationSchemas
+
+        if not SecurityValidationSchemas.validate_email_domain(value):
+            raise ValidationError("Email domain not allowed")
+
+        # Check for suspicious patterns
+        suspicious_patterns = [r'<script', r'javascript:', r'on\w+\s*=', r'eval\s*\(']
+        for pattern in suspicious_patterns:
+            if re.search(pattern, value, re.IGNORECASE):
+                raise ValidationError("Invalid email format")
+
+    @validates("password")
+    def validate_password_strength(self, value):
+        """Enhanced password strength validation"""
+        from security_hardening import SecurityValidationSchemas
+
+        issues = SecurityValidationSchemas.validate_password_strength(value)
+        if issues:
+            raise ValidationError("Password does not meet security requirements: " + "; ".join(issues))
+
+    @validates_schema
+    def validate_password_confirmation(self, data, **kwargs):
+        """Ensure password and confirmation match"""
+        if data.get("password") != data.get("password_confirm"):
+            raise ValidationError("Password confirmation does not match", "password_confirm")
+
+    @validates_schema
+    def validate_age_requirement(self, data, **kwargs):
+        """Validate minimum age requirement"""
+        from datetime import datetime
+
+        if 'dob' in data:
+            today = datetime.now().date()
+            age = today.year - data['dob'].year - ((today.month, today.day) < (data['dob'].month, data['dob'].day))
+
+            if age < 13:
+                raise ValidationError("You must be at least 13 years old to register", "dob")
+
+
+class ServerCreateSchema(Schema):
+    """Enhanced validation schema for server creation with security checks"""
+
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    port = fields.Int(required=True, validate=validate.Range(min=1024, max=65535))
+    max_players = fields.Int(validate=validate.Range(min=1, max=64), missing=32)
+    map_name = fields.Str(validate=validate.Length(max=64), missing="oasis")
+    sv_hostname = fields.Str(validate=validate.Length(max=128))
+    rcon_password = fields.Str(validate=validate.Length(min=8, max=64))
+    enable_rcon = fields.Bool(missing=True)
+    motd = fields.Str(validate=validate.Length(max=500), allow_none=True)
+
+    @validates("name")
+    def validate_server_name(self, value):
+        """Validate server name for security"""
+        # Allow alphanumeric, spaces, hyphens, underscores
+        if not re.match(r"^[a-zA-Z0-9\s\-_]+$", value):
+            raise ValidationError("Server name contains invalid characters")
+
+        # Check for suspicious patterns
+        suspicious_patterns = [r'<script', r'javascript:', r'on\w+\s*=', r'eval\s*\(']
+        for pattern in suspicious_patterns:
+            if re.search(pattern, value, re.IGNORECASE):
+                raise ValidationError("Invalid characters in server name")
+
+    @validates("rcon_password")
+    def validate_rcon_password(self, value):
+        """Validate RCON password strength"""
+        if len(value) < 12:
+            raise ValidationError("RCON password must be at least 12 characters long")
+
+        if not re.search(r'[A-Z]', value):
+            raise ValidationError("RCON password must contain at least one uppercase letter")
+
+        if not re.search(r'[0-9]', value):
+            raise ValidationError("RCON password must contain at least one number")
+
+    @validates("motd")
+    def validate_motd_security(self, value):
+        """Validate message of the day for security"""
+        if value:
+            from security_hardening import SecurityValidationSchemas
+            value = SecurityValidationSchemas.sanitize_html_content(value)
+            # Additional length check after sanitization
+            if len(value) > 500:
+                raise ValidationError("MOTD too long after sanitization")
+
+
+class ServerUpdateSchema(Schema):
+    """Enhanced validation schema for server updates"""
+
+    name = fields.Str(validate=validate.Length(min=1, max=100))
+    port = fields.Int(validate=validate.Range(min=1024, max=65535))
+    max_players = fields.Int(validate=validate.Range(min=1, max=64))
+    map_name = fields.Str(validate=validate.Length(max=64))
+    sv_hostname = fields.Str(validate=validate.Length(max=128))
+    rcon_password = fields.Str(validate=validate.Length(min=8, max=64))
+    is_active = fields.Bool()
+    motd = fields.Str(validate=validate.Length(max=500), allow_none=True)
+
+    @validates("name")
+    def validate_server_name(self, value):
+        """Validate server name for security"""
+        if value:
+            # Allow alphanumeric, spaces, hyphens, underscores
+            if not re.match(r"^[a-zA-Z0-9\s\-_]+$", value):
+                raise ValidationError("Server name contains invalid characters")
+
+    @validates("rcon_password")
+    def validate_rcon_password(self, value):
+        """Validate RCON password strength"""
+        if value and len(value) < 12:
+            raise ValidationError("RCON password must be at least 12 characters long")
+
+    @validates("motd")
+    def validate_motd_security(self, value):
+        """Validate message of the day for security"""
+        if value:
+            from security_hardening import SecurityValidationSchemas
+            SecurityValidationSchemas.sanitize_html_content(value)
+
+
+class RconCommandSchema(Schema):
+    """Enhanced validation schema for RCON commands with security checks"""
+
+    command = fields.Str(required=True, validate=validate.Length(min=1, max=512))
+    server_id = fields.Int(required=True)
+    timeout = fields.Int(validate=validate.Range(min=1, max=30), missing=10)
+
+    @validates("command")
+    def validate_command_security(self, value):
+        """Validate RCON command for security"""
+        # Block dangerous commands
+        dangerous_commands = [
+            'exec', 'system', 'eval', 'import', 'open', 'file',
+            'subprocess', 'os.', 'shutil', 'rm ', 'del ', 'format',
+            'drop', 'delete from', 'truncate', 'alter table'
+        ]
+
+        command_lower = value.lower().strip()
+        for dangerous in dangerous_commands:
+            if dangerous in command_lower:
+                raise ValidationError(f"Command contains potentially dangerous operation: {dangerous}")
+
+        # Check for suspicious patterns
+        suspicious_patterns = [r'<script', r'javascript:', r'on\w+\s*=', r'eval\s*\(', r'\$\{', r'`']
+        for pattern in suspicious_patterns:
+            if re.search(pattern, value, re.IGNORECASE):
+                raise ValidationError("Command contains suspicious characters")
+
+
+class DatabaseQuerySchema(Schema):
+    """Enhanced validation schema for database queries with security"""
+
+    query = fields.Str(required=True, validate=validate.Length(min=1, max=10000))
+    database = fields.Str(validate=validate.OneOf(["sqlite", "postgresql"]), missing="sqlite")
+    readonly = fields.Bool(missing=True)
+
+    @validates("query")
+    def validate_query_security(self, value):
+        """Validate database query for security"""
+        query_lower = value.lower().strip()
+
+        # Block dangerous operations in non-readonly mode
+        if not self.context.get('readonly', True):
+            dangerous_operations = [
+                'drop ', 'delete ', 'truncate ', 'alter ', 'create ', 'insert ',
+                'update ', 'grant ', 'revoke ', 'execute '
+            ]
+
+            for operation in dangerous_operations:
+                if operation in query_lower:
+                    raise ValidationError(f"Query contains potentially dangerous operation: {operation}")
+
+        # Check for SQL injection patterns
+        injection_patterns = [
+            r';\s*--', r';\s*/\*', r'union\s+select', r'1=1\s*--',
+            r'or\s+1=1', r'and\s+1=1', r'exec\s*\(', r'xp_cmdshell'
+        ]
+
+        for pattern in injection_patterns:
+            if re.search(pattern, query_lower):
+                raise ValidationError("Query contains potential SQL injection patterns")
+
+
+class UserUpdateSchema(Schema):
+    """Enhanced validation schema for user profile updates"""
+
+    first_name = fields.Str(validate=validate.Length(min=1, max=50))
+    last_name = fields.Str(validate=validate.Length(min=1, max=50))
+    email = fields.Email()
+    dob = fields.Date()
+    current_password = fields.Str()
+    new_password = fields.Str(validate=validate.Length(min=8, max=128))
+    phone = fields.Str(validate=validate.Length(max=20), allow_none=True)
+
+    @validates("first_name")
+    def validate_name_security(self, value):
+        """Validate name fields for security"""
+        if value:
+            if not re.match(r"^[a-zA-Z\s\-']+$", value):
+                raise ValidationError("First name contains invalid characters")
+
+    @validates("last_name")
+    def validate_last_name_security(self, value):
+        """Validate last name with same rules"""
+        if value:
+            self.validate_name_security(value)
+
+    @validates("email")
+    def validate_email_security(self, value):
+        """Enhanced email security validation"""
+        if value:
+            from security_hardening import SecurityValidationSchemas
+            if not SecurityValidationSchemas.validate_email_domain(value):
+                raise ValidationError("Email domain not allowed")
+
+    @validates("new_password")
+    def validate_new_password_strength(self, value):
+        """Validate new password strength"""
+        if value:
+            from security_hardening import SecurityValidationSchemas
+            issues = SecurityValidationSchemas.validate_password_strength(value)
+            if issues:
+                raise ValidationError("New password does not meet security requirements: " + "; ".join(issues))
+
+    @validates("phone")
+    def validate_phone_security(self, value):
+        """Validate phone number for security"""
+        if value:
+            # Allow only digits, spaces, hyphens, parentheses, plus
+            if not re.match(r'^[\d\s\-\(\)\+]+$', value):
+                raise ValidationError("Phone number contains invalid characters")
+
+
+class ApiKeyCreateSchema(Schema):
+    """Enhanced validation schema for API key creation"""
+
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=128))
+    scopes = fields.List(fields.Str(), missing=[])
+    expires_days = fields.Int(validate=validate.Range(min=1, max=365), missing=30)
+    allowed_ips = fields.List(fields.Str(), missing=[])
+
+    @validates("name")
+    def validate_api_key_name(self, value):
+        """Validate API key name for security"""
+        if not re.match(r"^[a-zA-Z0-9\s\-_]+$", value):
+            raise ValidationError("API key name contains invalid characters")
+
+    @validates("scopes")
+    def validate_scopes(self, value):
+        """Validate API key scopes"""
+        allowed_scopes = [
+            'read', 'write', 'admin', 'servers', 'users', 'logs',
+            'monitoring', 'backup', 'config'
+        ]
+
+        for scope in value:
+            if scope not in allowed_scopes:
+                raise ValidationError(f"Invalid scope: {scope}")
+
+    @validates("allowed_ips")
+    def validate_allowed_ips(self, value):
+        """Validate allowed IP addresses"""
+        import ipaddress
+
+        for ip in value:
+            try:
+                # Try to parse as IP address or network
+                ipaddress.ip_network(ip, strict=False)
+            except ValueError:
+                raise ValidationError(f"Invalid IP address or network: {ip}")
+
+
+def validate_request(schema_class, data, **context):
+    """
+    Enhanced helper function to validate request data against a schema
+
+    Args:
+        schema_class: The marshmallow schema class to use
+        data: The data dictionary to validate
+        **context: Additional context for validation
+
+    Returns:
+        Tuple of (validated_data, errors)
+    """
+    schema = schema_class()
+    schema.context.update(context)
+
+    try:
+        validated_data = schema.load(data)
+        return validated_data, None
+    except ValidationError as err:
+        return None, err.messages
+
+
+# Example usage:
+# from input_validation import LoginSchema, validate_request
+# validated_data, errors = validate_request(LoginSchema, request.form)
+# if errors:
+#     flash(f'Validation error: {errors}', 'error')
+#     return redirect(url_for('login'))
+        if not re.search(r"[^A-Za-z0-9]", value):
+            raise ValidationError("Password must contain at least one special character")
+
+    @validates_schema
+    def validate_password_confirmation(self, data, **kwargs):
+        """Ensure password and confirmation match"""
+        if data.get("password") != data.get("password_confirm"):
+            raise ValidationError("Password confirmation does not match", "password_confirm")
+
+
+class ServerCreateSchema(Schema):
+    """Validation schema for server creation"""
+
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    port = fields.Int(required=True, validate=validate.Range(min=1024, max=65535))
+    max_players = fields.Int(validate=validate.Range(min=1, max=64), missing=32)
+    map_name = fields.Str(validate=validate.Length(max=64), missing="oasis")
+    sv_hostname = fields.Str(validate=validate.Length(max=128))
+    rcon_password = fields.Str(validate=validate.Length(min=8, max=64))
+
+
+class ServerUpdateSchema(Schema):
+    """Validation schema for server updates"""
+
+    name = fields.Str(validate=validate.Length(min=1, max=100))
+    port = fields.Int(validate=validate.Range(min=1024, max=65535))
+    max_players = fields.Int(validate=validate.Range(min=1, max=64))
+    map_name = fields.Str(validate=validate.Length(max=64))
+    sv_hostname = fields.Str(validate=validate.Length(max=128))
+    rcon_password = fields.Str(validate=validate.Length(min=8, max=64))
+    is_active = fields.Bool()
+
+
+class RconCommandSchema(Schema):
+    """Validation schema for RCON commands"""
+
+    command = fields.Str(required=True, validate=validate.Length(min=1, max=512))
+    server_id = fields.Int(required=True)
+
+
+class DatabaseQuerySchema(Schema):
+    """Validation schema for database queries"""
+
+    query = fields.Str(required=True, validate=validate.Length(min=1, max=10000))
+    database = fields.Str(validate=validate.OneOf(["sqlite", "postgresql"]))
+
+
+class UserUpdateSchema(Schema):
+    """Validation schema for user profile updates"""
+
+    first_name = fields.Str(validate=validate.Length(min=1, max=50))
+    last_name = fields.Str(validate=validate.Length(min=1, max=50))
+    email = fields.Email()
+    dob = fields.Date()
+    current_password = fields.Str()
+    new_password = fields.Str(validate=validate.Length(min=8, max=128))
+
+
+class ApiKeyCreateSchema(Schema):
+    """Validation schema for API key creation"""
+
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=128))
+    scopes = fields.List(fields.Str(), missing=[])
+    expires_days = fields.Int(validate=validate.Range(min=1, max=365), missing=30)
+
+
+def validate_request(schema_class, data):
+    """
+    Helper function to validate request data against a schema
+
+    Args:
+        schema_class: The marshmallow schema class to use
+        data: The data dictionary to validate
+
+    Returns:
+        Tuple of (validated_data, errors)
+    """
+    schema = schema_class()
+    try:
+        validated_data = schema.load(data)
+        return validated_data, None
+    except ValidationError as err:
+        return None, err.messages
+
+
+# Example usage:
+# from input_validation import LoginSchema, validate_request
+# validated_data, errors = validate_request(LoginSchema, request.form)
+# if errors:
+#     flash(f'Validation error: {errors}', 'error')
+#     return redirect(url_for('login'))

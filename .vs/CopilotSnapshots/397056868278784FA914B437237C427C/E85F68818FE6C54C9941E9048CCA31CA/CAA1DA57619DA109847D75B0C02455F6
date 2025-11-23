@@ -1,0 +1,305 @@
+﻿# Panel API Documentation
+
+## Authentication
+
+All API endpoints require authentication via session cookies or API tokens.
+
+### Session Authentication
+```python
+import requests
+
+session = requests.Session()
+response = session.post('http://localhost:8080/login', data={
+    'email': 'admin@localhost',
+    'password': 'admin123'
+})
+```
+
+## Database Management API
+
+### Get Database Info
+```http
+GET /admin/database
+```
+
+Returns database type, name, and list of tables.
+
+**Response:**
+```json
+{
+  "type": "sqlite",
+  "database": "panel.db",
+  "tables": ["user", "server", "game_server", "session"]
+}
+```
+
+### Execute SQL Query
+```http
+POST /admin/database/query
+Content-Type: application/json
+
+{
+  "query": "SELECT * FROM user LIMIT 10"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "email": "admin@localhost",
+      "role": "system_admin"
+    }
+  ],
+  "execution_time_ms": 15.2
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "Table 'nonexistent' doesn't exist"
+}
+```
+
+### Get Table Data
+```http
+GET /admin/database/table/<table_name>?limit=50&offset=0
+```
+
+**Parameters:**
+- `limit` (optional): Number of rows to return (default: 50, max: 1000)
+- `offset` (optional): Number of rows to skip (default: 0)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [...],
+  "total": 156,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Export Table as CSV
+```http
+GET /admin/database/export/<table_name>
+```
+
+Returns CSV file download.
+
+### Get Table Structure
+```http
+GET /admin/database/table/<table_name>/structure
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "columns": [
+    {
+      "name": "id",
+      "type": "INTEGER",
+      "nullable": false,
+      "primary_key": true
+    },
+    {
+      "name": "email",
+      "type": "VARCHAR(128)",
+      "nullable": false,
+      "unique": true
+    }
+  ]
+}
+```
+
+### Query Audit Log
+```http
+GET /admin/database/audit?limit=100&user_id=<id>
+```
+
+**Parameters:**
+- `limit` (optional): Number of entries (default: 100, max: 1000)
+- `user_id` (optional): Filter by user ID
+- `query_type` (optional): Filter by query type (SELECT, INSERT, etc.)
+
+**Response:**
+```json
+{
+  "success": true,
+  "entries": [
+    {
+      "timestamp": "2025-11-16T10:30:00Z",
+      "user_id": 1,
+      "user_email": "admin@localhost",
+      "query": "SELECT * FROM user",
+      "query_type": "SELECT",
+      "success": true,
+      "execution_time_ms": 12.5,
+      "ip_address": "127.0.0.1"
+    }
+  ]
+}
+```
+
+## Rate Limiting
+
+All database API endpoints are rate-limited:
+- **Queries**: 30 requests per minute per user
+- **Login attempts**: 5 failed attempts per 15 minutes
+
+**Rate Limit Headers:**
+```http
+X-RateLimit-Limit: 30
+X-RateLimit-Remaining: 25
+X-RateLimit-Reset: 1700140800
+```
+
+**Rate Limit Exceeded Response:**
+```json
+{
+  "error": "Rate limit exceeded. Maximum 30 queries per minute.",
+  "retry_after": 45
+}
+```
+
+## Security
+
+### SQL Injection Protection
+All queries are validated for dangerous patterns:
+- DROP DATABASE
+- DROP TABLE
+- TRUNCATE
+- DELETE without WHERE
+- UPDATE without WHERE
+
+**Warning Response:**
+```json
+{
+  "success": true,
+  "warnings": [
+    "DELETE without WHERE clause detected",
+    "This will delete ALL records"
+  ],
+  "confirm_required": true
+}
+```
+
+### Query Timeout
+Queries are limited to 30 seconds execution time.
+
+**Timeout Response:**
+```json
+{
+  "success": false,
+  "error": "Query execution timeout (30 seconds)",
+  "suggestion": "Try adding WHERE clause or LIMIT to reduce dataset"
+}
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 400 | Bad Request (invalid query syntax) |
+| 401 | Unauthorized (not logged in) |
+| 403 | Forbidden (insufficient permissions) |
+| 429 | Too Many Requests (rate limited) |
+| 500 | Internal Server Error (query execution failed) |
+
+## Examples
+
+### Python
+```python
+import requests
+
+# Login
+session = requests.Session()
+session.post('http://localhost:8080/login', data={
+    'email': 'admin@localhost',
+    'password': 'admin123'
+})
+
+# Execute query
+response = session.post('http://localhost:8080/admin/database/query', json={
+    'query': 'SELECT COUNT(*) as total FROM user'
+})
+data = response.json()
+print(f"Total users: {data['data'][0]['total']}")
+
+# Export table
+csv_response = session.get('http://localhost:8080/admin/database/export/user')
+with open('users.csv', 'wb') as f:
+    f.write(csv_response.content)
+```
+
+### JavaScript
+```javascript
+// Execute query
+fetch('/admin/database/query', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    query: 'SELECT * FROM user LIMIT 10'
+  })
+})
+.then(response => response.json())
+.then(data => {
+  if (data.success) {
+    console.log('Users:', data.data);
+  } else {
+    console.error('Error:', data.error);
+  }
+});
+```
+
+### cURL
+```bash
+# Login
+curl -c cookies.txt -X POST http://localhost:8080/login \
+  -d "email=admin@localhost&password=admin123"
+
+# Execute query
+curl -b cookies.txt -X POST http://localhost:8080/admin/database/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"SELECT * FROM user LIMIT 5"}'
+
+# Export table
+curl -b cookies.txt http://localhost:8080/admin/database/export/user \
+  -o users.csv
+```
+
+## Webhooks (Coming Soon)
+
+Subscribe to database events:
+- Table modifications (INSERT, UPDATE, DELETE)
+- Schema changes (CREATE, ALTER, DROP)
+- Query errors
+- Performance alerts
+
+## GraphQL API (Planned)
+
+Future support for GraphQL queries:
+```graphql
+query {
+  users(limit: 10) {
+    id
+    email
+    role
+    servers {
+      id
+      name
+      status
+    }
+  }
+}
+```

@@ -1,0 +1,124 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test (matrix)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          pytest -q
+
+  alembic-check:
+    name: Alembic autogenerate consistency check
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Autogenerate check (temp copy)
+        run: |
+          set -euo pipefail
+          TMPDIR=$(mktemp -d)
+          echo "Using tempdir $TMPDIR"
+          rsync -a --exclude='.git' --exclude='venv' --exclude='.venv' . "$TMPDIR/"
+          pushd "$TMPDIR"
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install alembic Flask SQLAlchemy Flask-SQLAlchemy python-dotenv || true
+          if ! alembic revision --autogenerate -m "ci-check"; then
+            echo "Autogenerate failed; installing full requirements and retrying"
+            pip install -r requirements.txt || true
+            alembic revision --autogenerate -m "ci-check" || true
+          fi
+          GEN_DIR="$TMPDIR/migrations/versions"
+          if [ -d "$GEN_DIR" ] && [ "$(ls -A "$GEN_DIR")" ]; then
+            echo "Generated migration files detected; comparing against committed files..."
+            for gf in "$GEN_DIR"/*; do
+              fname=$(basename "$gf")
+              if [ ! -f "$PWD/migrations/versions/$fname" ]; then
+                echo "ERROR: Autogenerate created new migration $fname";
+                exit 1
+              fi
+              if ! diff -q "$gf" "$PWD/migrations/versions/$fname" >/dev/null 2>&1; then
+                echo "ERROR: Generated migration $fname differs from committed version";
+                exit 1
+              fi
+            done
+          else
+            echo "No generated migration files detected in temp copy; OK."
+          fi
+          popd
+          rm -rf "$TMPDIR"
+
+  lint:
+    name: Lint (black + flake8)
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install linters
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install black flake8
+      - name: Run black and flake8 (strict)
+        run: |
+          source .venv/bin/activate
+          black --check . --exclude "migrations|.venv|venv"
+          flake8 . --exclude migrations,.venv,venv

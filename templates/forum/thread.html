@@ -28,9 +28,9 @@
         </div>
     </div>
 
-    <div class="posts-list">
+    <div class="posts-list" id="posts-list">
         {% for p in posts %}
-        <article class="post-card">
+        <article class="post-card" data-post-id="{{ p.id }}">
             <div class="post-author-section">
                 {% if p.author %}
                 <div class="author-avatar">{{ p.author.first_name[0] }}{{ p.author.last_name[0] }}</div>
@@ -76,6 +76,19 @@
             <p>📭 No posts in this thread yet.</p>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Real-time Activity Feed -->
+    <div class="activity-feed" id="activity-feed">
+        <h3>📊 Recent Activity</h3>
+        <div id="forum-activity" class="activity-list">
+            <!-- Activity items will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Typing Indicators -->
+    <div id="typing-indicators" class="typing-container">
+        <!-- Typing indicators will appear here -->
     </div>
 
     {% if current_user and not thread.is_locked %}
@@ -458,6 +471,80 @@
     margin: 0;
 }
 
+.activity-feed {
+    background: var(--panel);
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px var(--shadow);
+}
+
+.activity-feed h3 {
+    margin: 0 0 1rem 0;
+    color: var(--accent);
+    font-size: 1.4rem;
+}
+
+.activity-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-hover);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-item strong {
+    color: var(--accent);
+}
+
+.activity-item small {
+    color: #999;
+    font-size: 0.8rem;
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.typing-container {
+    margin-bottom: 1rem;
+    min-height: 24px;
+}
+
+.typing-indicator {
+    display: inline-block;
+    background: var(--panel-hover);
+    color: #999;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    margin-right: 0.5rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+.has-new-content {
+    animation: highlight 3s ease-out;
+}
+
+@keyframes highlight {
+    0% { background-color: rgba(31, 111, 235, 0.1); }
+    50% { background-color: rgba(31, 111, 235, 0.2); }
+    100% { background-color: transparent; }
+}
+
 @media (max-width: 768px) {
     .thread-header {
         flex-direction: column;
@@ -490,3 +577,105 @@
 }
 </style>
 {% endblock %}
+
+<script>
+// Forum-specific real-time features
+document.addEventListener('DOMContentLoaded', function() {
+    // Join forum thread room
+    if (window.socket && {{ thread.id }}) {
+        window.socket.emit('join_forum', {
+            user_id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+            thread_id: {{ thread.id }}
+        });
+    }
+
+    // Typing indicators
+    const replyTextarea = document.querySelector('#content');
+    let typingTimer;
+
+    if (replyTextarea) {
+        replyTextarea.addEventListener('input', function() {
+            if (window.socket) {
+                clearTimeout(typingTimer);
+                window.socket.emit('typing_start', {
+                    user_id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+                    thread_id: {{ thread.id }}
+                });
+
+                typingTimer = setTimeout(() => {
+                    window.socket.emit('typing_stop', {
+                        user_id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+                        thread_id: {{ thread.id }}
+                    });
+                }, 1000);
+            }
+        });
+
+        replyTextarea.addEventListener('blur', function() {
+            if (window.socket) {
+                window.socket.emit('typing_stop', {
+                    user_id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+                    thread_id: {{ thread.id }}
+                });
+            }
+        });
+    }
+
+    // Handle form submission with real-time update
+    const replyForm = document.querySelector('form[action*="{{ url_for("forum.reply_thread", thread_id=thread.id) }}"]');
+    if (replyForm) {
+        replyForm.addEventListener('submit', function(e) {
+            // Don't prevent default - let the form submit normally
+            // The real-time update will happen via the server response
+            const content = replyTextarea.value;
+            if (window.socket && content.trim()) {
+                window.socket.emit('forum_post', {
+                    user_id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+                    thread_id: {{ thread.id }},
+                    content: content
+                });
+            }
+        });
+    }
+});
+
+// Handle real-time forum updates
+function handleForumUpdate(data) {
+    if (data.thread_id != {{ thread.id }}) return;
+
+    // Add new post indicator
+    const postsList = document.getElementById('posts-list');
+    if (postsList) {
+        postsList.classList.add('has-new-content');
+        setTimeout(() => postsList.classList.remove('has-new-content'), 3000);
+    }
+
+    // Update activity feed
+    const activityList = document.getElementById('forum-activity');
+    if (activityList && data.data) {
+        const activityItem = document.createElement('div');
+        activityItem.className = 'activity-item';
+        activityItem.innerHTML = `
+            <strong>${data.data.author}</strong>: ${data.data.content}
+            <small class="text-muted">${new Date(data.timestamp).toLocaleString()}</small>
+        `;
+
+        // Add to top of activity list
+        activityList.insertBefore(activityItem, activityList.firstChild);
+
+        // Keep only last 10 items
+        while (activityList.children.length > 10) {
+            activityList.removeChild(activityList.lastChild);
+        }
+    }
+
+    // Show notification
+    if (data.type === 'new_reply') {
+        showNotification({
+            title: 'New Reply',
+            body: `${data.data.author} replied to this thread`,
+            url: window.location.href
+        });
+    }
+}
+</script>

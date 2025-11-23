@@ -1,0 +1,2335 @@
+﻿"""
+Configuration Management Routes
+
+Web interface for managing server configurations, templates, and deployments.
+"""
+
+import difflib
+import json
+from datetime import datetime, timedelta, timezone
+
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for, send_file, current_app
+
+from app import User, db
+from config_manager import ConfigDeployment, ConfigManager, ConfigTemplate, ConfigVersion
+
+config_bp = Blueprint("config", __name__)
+
+
+def is_system_admin_user(user):
+    """Check if user has system admin role."""
+    return user and user.role == "system_admin"
+
+
+def require_admin():
+    """Check if current user is admin, redirect if not."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login")), None
+
+    user = db.session.get(User, user_id)
+    if not is_system_admin_user(user):
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard")), None
+
+    return None, user
+
+
+@config_bp.route("/api/servers/list")
+def api_list_servers():
+    """API endpoint to list all servers for template application."""
+    from app import Server
+
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    servers = Server.query.order_by(Server.name).all()
+
+    return jsonify(
+        {
+            "success": True,
+            "servers": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "game_type": s.game_type,
+                    "status": getattr(s, "status", "unknown"),
+                }
+                for s in servers
+            ],
+        }
+    )
+
+
+@config_bp.route("/admin/config/templates")
+def config_templates():
+    """Manage configuration templates."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    templates = ConfigTemplate.query.order_by(ConfigTemplate.created_at.desc()).all()
+    return render_template("admin_config_templates.html", templates=templates)
+
+
+@config_bp.route("/admin/config/templates/create", methods=["GET", "POST"])
+def create_template():
+    """Create a new configuration template."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+
+    current_user = db.session.get(User, user_id)
+    if not current_user or not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+
+            template = ConfigTemplate(
+                name=data["name"],
+                description=data.get("description", ""),
+                game_type=data["game_type"],
+                template_data=json.dumps(data["template_data"]),
+                created_by=current_user.id,
+            )
+
+            db.session.add(template)
+            db.session.commit()
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Configuration template created successfully",
+                    "template_id": template.id,
+                }
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return (
+                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
+                500,
+            )
+
+    return render_template("admin_config_template_create.html")
+
+
+@config_bp.route("/admin/config/templates/<int:template_id>")
+def edit_template(template_id):
+    """Edit a configuration template."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    template = ConfigTemplate.query.get_or_404(template_id)
+    template_data = json.loads(template.template_data)
+
+    return render_template(
+        "admin_config_template_edit.html",
+        template=template,
+        template_data=template_data,
+    )
+
+
+@config_bp.route("/admin/config/templates/<int:template_id>/update", methods=["POST"])
+def update_template(template_id):
+    """Update a configuration template."""
+    if not current_user.is_system_admin():
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        template = ConfigTemplate.query.get_or_404(template_id)
+        data = request.get_json()
+
+        template.name = data["name"]
+        template.description = data.get("description", "")
+        template.game_type = data["game_type"]
+        template.template_data = json.dumps(data["template_data"])
+        template.updated_at = datetime.now(timezone.utc)
+
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Template updated successfully"})
+
+    except Exception as e:
+        db.session.rollback()
+        return (
+            jsonify({"success": False, "message": f"Error updating template: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/server/<int:server_id>/config")
+def server_config(server_id):
+    """Manage server configuration."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        flash("Access denied.", "error")
+        return redirect(url_for("dashboard"))
+
+    config_manager = ConfigManager(server_id)
+    current_config = config_manager.get_current_config()
+    version_history = config_manager.get_version_history(20)
+    templates = ConfigTemplate.query.filter_by(game_type=server.game_type).all()
+
+    return render_template(
+        "server_config.html",
+        server=server,
+        current_config=current_config,
+        version_history=version_history,
+        templates=templates,
+    )
+
+
+@config_bp.route("/server/<int:server_id>/config/create", methods=["POST"])
+def create_config_version(server_id):
+    """Create a new configuration version."""
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        data = request.get_json()
+        config_manager = ConfigManager(server_id)
+
+        # Validate configuration
+        validation = config_manager.validate_config(data["config_data"])
+        if validation["errors"]:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Configuration validation failed",
+                        "errors": validation["errors"],
+                        "warnings": validation["warnings"],
+                    }
+                ),
+                400,
+            )
+
+        version = config_manager.create_version(
+            config_data=data["config_data"],
+            user_id=current_user.id,
+            change_summary=data.get("change_summary", ""),
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Configuration version created successfully",
+                "version_id": version.id,
+                "version_number": version.version_number,
+                "warnings": validation["warnings"],
+            }
+        )
+
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": f"Error creating configuration version: {str(e)}",
+                }
+            ),
+            500,
+        )
+
+
+@config_bp.route("/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"])
+def deploy_config_version(server_id, version_id):
+    """Deploy a configuration version."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        config_manager = ConfigManager(server_id)
+        deployment = config_manager.deploy_version(version_id, current_user.id)
+
+        return jsonify(
+            {
+                "success": deployment.deployment_status == "success",
+                "message": deployment.deployment_log,
+                "deployment_id": deployment.id,
+                "status": deployment.deployment_status,
+            }
+        )
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": f"Error deploying configuration: {str(e)}",
+                }
+            ),
+            500,
+        )
+
+
+@config_bp.route("/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"])
+def rollback_config_version(server_id, version_id):
+    """Rollback to a previous configuration version."""
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        config_manager = ConfigManager(server_id)
+        deployment = config_manager.rollback_to_version(version_id, current_user.id)
+
+        return jsonify(
+            {
+                "success": deployment.deployment_status == "success",
+                "message": deployment.deployment_log,
+                "deployment_id": deployment.id,
+            }
+        )
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": f"Error rolling back configuration: {str(e)}",
+                }
+            ),
+            500,
+        )
+
+
+@config_bp.route("/server/<int:server_id>/config/compare")
+def compare_config_versions(server_id):
+    """Compare two configuration versions."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    version1_id = request.args.get("v1", type=int)
+    version2_id = request.args.get("v2", type=int)
+
+    if not version1_id or not version2_id:
+        return (
+            jsonify({"success": False, "message": "Both version IDs are required"}),
+            400,
+        )
+
+    try:
+        config_manager = ConfigManager(server_id)
+        differences = config_manager.compare_versions(version1_id, version2_id)
+
+        return jsonify({"success": True, "differences": differences})
+
+    except Exception as e:
+        return (
+            jsonify({"success": False, "message": f"Error comparing versions: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/server/<int:server_id>/config/<int:version_id>/details")
+def config_version_details(server_id, version_id):
+    """Get detailed information about a configuration version."""
+    from app import Server
+
+    server = Server.query.get_or_404(server_id)
+
+    # Check permissions
+    if not (current_user.is_system_admin() or server.owner_id == current_user.id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    version = ConfigVersion.query.filter_by(server_id=server_id, id=version_id).first_or_404()
+
+    deployments = (
+        ConfigDeployment.query.filter_by(config_version_id=version_id)
+        .order_by(ConfigDeployment.started_at.desc())
+        .all()
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "version": {
+                "id": version.id,
+                "version_number": version.version_number,
+                "config_data": json.loads(version.config_data),
+                "config_hash": version.config_hash,
+                "change_summary": version.change_summary,
+                "created_at": version.created_at.isoformat(),
+                "is_active": version.is_active,
+                "creator": version.creator.email if version.creator else "Unknown",
+            },
+            "deployments": [
+                {
+                    "id": d.id,
+                    "status": d.deployment_status,
+                    "log": d.deployment_log,
+                    "started_at": d.started_at.isoformat(),
+                    "completed_at": (d.completed_at.isoformat() if d.completed_at else None),
+                    "deployer": d.deployer.email if d.deployer else "Unknown",
+                }
+                for d in deployments
+            ],
+        }
+    )
+
+
+@config_bp.route("/api/config/templates/<int:template_id>/data")
+def get_template_data(template_id):
+    """Get template data for creating new configuration."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    template = ConfigTemplate.query.get_or_404(template_id)
+
+    return jsonify({"success": True, "template_data": json.loads(template.template_data)})
+
+
+@config_bp.route("/admin/config/deployments")
+def deployment_history():
+    """View deployment history across all servers."""
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    deployments = (
+        db.session.query(ConfigDeployment)
+        .join(ConfigVersion)
+        .order_by(ConfigDeployment.started_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    return render_template("admin_config_deployments.html", deployments=deployments)
+
+
+# ============================================================================
+# Ptero-Eggs Template Management Routes
+# ============================================================================
+
+
+@config_bp.route("/admin/ptero-eggs/browser")
+def ptero_eggs_browser():
+    """Browse Ptero-Eggs templates with search and filtering."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in", "error")
+        return redirect(url_for("login"))
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        flash("User not found", "error")
+        return redirect(url_for("login"))
+
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    # Get search and filter parameters
+    search_query = request.args.get("search", "").strip()
+    game_filter = request.args.get("game_type", "").strip()
+    sort_by = request.args.get("sort", "name")  # name, game_type, updated_at
+    page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    # Build query for Ptero-Eggs templates
+    query = ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+
+    # Apply search filter
+    if search_query:
+        query = query.filter(
+            db.or_(
+                ConfigTemplate.name.ilike(f"%{search_query}%"),
+                ConfigTemplate.description.ilike(f"%{search_query}%"),
+                ConfigTemplate.game_type.ilike(f"%{search_query}%"),
+            )
+        )
+
+    # Apply game type filter
+    if game_filter:
+        query = query.filter(ConfigTemplate.game_type == game_filter)
+
+    # Apply sorting
+    if sort_by == "game_type":
+        query = query.order_by(ConfigTemplate.game_type, ConfigTemplate.name)
+    elif sort_by == "updated_at":
+        query = query.order_by(ConfigTemplate.updated_at.desc())
+    else:  # default to name
+        query = query.order_by(ConfigTemplate.name)
+
+    # Paginate results
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Get available game types for filter dropdown
+    game_types = (
+        db.session.query(ConfigTemplate.game_type)
+        .filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+        .distinct()
+        .order_by(ConfigTemplate.game_type)
+        .all()
+    )
+    game_types = [gt[0] for gt in game_types]
+
+    # Get sync status
+    from ptero_eggs_updater import PteroEggsUpdater
+
+    updater = PteroEggsUpdater()
+    sync_status = updater.get_sync_status()
+
+    return render_template(
+        "admin_ptero_eggs_browser.html",
+        templates=pagination.items,
+        pagination=pagination,
+        game_types=game_types,
+        search_query=search_query,
+        game_filter=game_filter,
+        sort_by=sort_by,
+        sync_status=sync_status,
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/sync", methods=["POST"])
+def ptero_eggs_sync():
+    """Trigger a manual sync of Ptero-Eggs templates."""
+    if not current_user.is_system_admin():
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        from ptero_eggs_updater import PteroEggsUpdater
+
+        updater = PteroEggsUpdater()
+        stats = updater.sync_templates(current_user.id)
+
+        return jsonify(stats)
+
+    except Exception as e:
+        return (
+            jsonify({"success": False, "message": f"Sync failed: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/admin/ptero-eggs/template/<int:template_id>/preview")
+def ptero_eggs_template_preview(template_id):
+    """Preview a Ptero-Eggs template with full details."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not current_user.is_system_admin():
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    template = ConfigTemplate.query.get_or_404(template_id)
+
+    # Parse template data
+    template_data = json.loads(template.template_data)
+
+    # Get version history if available
+    from ptero_eggs_updater import PteroEggsTemplateVersion
+
+    versions = (
+        PteroEggsTemplateVersion.query.filter_by(template_id=template_id)
+        .order_by(PteroEggsTemplateVersion.version_number.desc())
+        .all()
+    )
+
+    version_history = [
+        {
+            "version_number": v.version_number,
+            "commit_hash": v.commit_hash,
+            "imported_at": v.imported_at.isoformat(),
+            "is_current": v.is_current,
+            "changes_summary": v.changes_summary,
+        }
+        for v in versions
+    ]
+
+    return jsonify(
+        {
+            "success": True,
+            "template": {
+                "id": template.id,
+                "name": template.name,
+                "description": template.description,
+                "game_type": template.game_type,
+                "created_at": template.created_at.isoformat(),
+                "updated_at": template.updated_at.isoformat(),
+                "is_default": template.is_default,
+            },
+            "template_data": template_data,
+            "version_history": version_history,
+        }
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/apply/<int:template_id>/<int:server_id>", methods=["POST"])
+def apply_ptero_eggs_template(template_id, server_id):
+    """Apply a Ptero-Eggs template to a server."""
+    from app import Server
+
+    if not current_user.is_system_admin():
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
+    try:
+        template = ConfigTemplate.query.get_or_404(template_id)
+        server = Server.query.get_or_404(server_id)
+
+        # Parse template data
+        template_data = json.loads(template.template_data)
+
+        # Update server game type
+        server.game_type = template.game_type
+
+        # Create a config version with the template
+        config_manager = ConfigManager(server_id)
+        version = config_manager.create_version(
+            config_data=template_data,
+            user_id=current_user.id,
+            change_summary=f"Applied Ptero-Eggs template: {template.name}",
+        )
+
+        # Store reference to the template
+        if hasattr(server, "config"):
+            server_config = json.loads(server.config) if server.config else {}
+            server_config["ptero_egg_template_id"] = template.id
+            server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
+            server.config = json.dumps(server_config)
+
+        db.session.commit()
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Template applied successfully",
+                "version_id": version.id,
+            }
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        return (
+            jsonify({"success": False, "message": f"Error applying template: {str(e)}"}),
+            500,
+        )
+
+
+@config_bp.route("/admin/ptero-eggs/compare")
+def compare_ptero_eggs_templates():
+    """Compare two Ptero-Eggs templates side by side."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    template1_id = request.args.get("t1", type=int)
+    template2_id = request.args.get("t2", type=int)
+
+    if not template1_id or not template2_id:
+        flash("Two template IDs are required for comparison", "error")
+        return redirect(url_for("config.ptero_eggs_browser"))
+
+    template1 = ConfigTemplate.query.get_or_404(template1_id)
+    template2 = ConfigTemplate.query.get_or_404(template2_id)
+
+    template1_data = json.loads(template1.template_data)
+    template2_data = json.loads(template2.template_data)
+
+    # Calculate differences
+    import difflib
+
+    def dict_to_lines(d):
+        return json.dumps(d, indent=2).splitlines()
+
+    diff = difflib.unified_diff(
+        dict_to_lines(template1_data),
+        dict_to_lines(template2_data),
+        fromfile=template1.name,
+        tofile=template2.name,
+        lineterm="",
+    )
+
+    return render_template(
+        "admin_ptero_eggs_compare.html",
+        template1=template1,
+        template2=template2,
+        template1_data=template1_data,
+        template2_data=template2_data,
+        diff=list(diff),
+    )
+
+
+@config_bp.route("/admin/ptero-eggs/create-custom", methods=["GET", "POST"])
+def create_custom_ptero_template():
+    """Create a custom template based on Ptero-Eggs format."""
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+
+            # Build template data in Ptero-Eggs format
+            template_data = {
+                "startup_command": data.get("startup_command", ""),
+                "stop_command": data.get("stop_command", ""),
+                "variables": data.get("variables", {}),
+                "docker_images": data.get("docker_images", {}),
+                "installation": data.get("installation", {}),
+                "features": data.get("features", []),
+                "egg_metadata": {
+                    "source": "Custom",
+                    "author": current_user.email,
+                    "original_name": data["name"],
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            }
+
+            template = ConfigTemplate(
+                name=data["name"],
+                description=data.get("description", ""),
+                game_type=data["game_type"],
+                template_data=json.dumps(template_data, indent=2),
+                is_default=data.get("is_default", False),
+                created_by=current_user.id,
+            )
+
+            db.session.add(template)
+            db.session.commit()
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Custom template created successfully",
+                    "template_id": template.id,
+                }
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return (
+                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
+                500,
+            )
+
+    # GET request - show form
+    return render_template("admin_ptero_eggs_create.html")
+
+
+@config_bp.route("/admin/ptero-eggs/migrate", methods=["GET", "POST"])
+def migrate_servers_to_ptero():
+    """Bulk migration tool for migrating servers to Ptero-Eggs templates."""
+    # Authentication check
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not current_user.is_system_admin():
+        flash("Access denied. Admin privileges required.", "error")
+        return redirect(url_for("dashboard"))
+
+    from app import Server
+
+    if request.method == "POST":
+        try:
+            data = request.get_json()
+            server_ids = data.get("server_ids", [])
+            template_id = data.get("template_id")
+
+            if not server_ids or not template_id:
+                return (
+                    jsonify(
+                        {"success": False, "message": "Server IDs and template ID are required"}
+                    ),
+                    400,
+                )
+
+            template = ConfigTemplate.query.get_or_404(template_id)
+            template_data = json.loads(template.template_data)
+
+            results = []
+            for server_id in server_ids:
+                try:
+                    server = Server.query.get(server_id)
+                    if not server:
+                        results.append(
+                            {
+                                "server_id": server_id,
+                                "success": False,
+                                "message": "Server not found",
+                            }
+                        )
+                        continue
+
+                    # Update server
+                    server.game_type = template.game_type
+
+                    # Create config version
+                    config_manager = ConfigManager(server_id)
+                    version = config_manager.create_version(
+                        config_data=template_data,
+                        user_id=current_user.id,
+                        change_summary=f"Migrated to Ptero-Eggs template: {template.name}",
+                    )
+
+                    # Store reference
+                    if hasattr(server, "config"):
+                        server_config = json.loads(server.config) if server.config else {}
+                        server_config["ptero_egg_template_id"] = template.id
+                        server_config["ptero_egg_applied_at"] = datetime.now(
+                            timezone.utc
+                        ).isoformat()
+                        server.config = json.dumps(server_config)
+
+                    results.append(
+                        {
+                            "server_id": server_id,
+                            "success": True,
+                            "message": "Migration successful",
+                            "version_id": version.id,
+                        }
+                    )
+
+                except Exception as e:
+                    results.append(
+                        {
+                            "server_id": server_id,
+                            "success": False,
+                            "message": str(e),
+                        }
+                    )
+
+            db.session.commit()
+
+            success_count = sum(1 for r in results if r["success"])
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Migrated {success_count}/{len(server_ids)} servers successfully",
+                    "results": results,
+                }
+            )
+
+        except Exception as e:
+            db.session.rollback()
+            return (
+                jsonify({"success": False, "message": f"Migration failed: {str(e)}"}),
+                500,
+            )
+
+    # GET request - show migration interface
+    servers = Server.query.order_by(Server.name).all()
+    templates = (
+        ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
+        .order_by(ConfigTemplate.game_type, ConfigTemplate.name)
+        .all()
+    )
+
+    return render_template(
+        "admin_ptero_eggs_migrate.html",
+        servers=servers,
+        templates=templates,
+    )
+
+
+@config_bp.route('/admin/db/optimize', methods=['POST'])
+def optimize_database():
+    """Optimize database with indexes and cleanup"""
+    try:
+        from src.panel.db_optimization import create_database_indexes
+
+        create_database_indexes()
+        flash("Database optimization completed", "success")
+    except Exception as e:
+        flash(f"Database optimization failed: {e}", "error")
+
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/api/users/stats')
+@login_required
+@cache.cached(timeout=300)  # Cache for 5 minutes
+def user_stats():
+    """Get user statistics with caching"""
+    from src.panel.models import User
+    from datetime import datetime, timedelta, timezone
+
+    # This query result will be cached
+    total_users = User.query.count()
+    active_users = User.query.filter(
+        User.last_login >= datetime.now(timezone.utc) - timedelta(days=7)
+    ).count()
+
+    return jsonify({
+        'total_users': total_users,
+        'active_users_7d': active_users
+    })
+
+@app.route('/test/rate-limit')
+def test_rate_limit():
+    """Test endpoint for rate limiting"""
+    from flask import jsonify
+    return jsonify({
+        "message": "Request allowed",
+        "ip": get_remote_address(),
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+
+# GDPR compliance endpoints
+@csrf.exempt
+@app.route('/api/gdpr/export', methods=['POST'])
+@login_required
+def gdpr_export():
+    """Export user data (GDPR Article 15)"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        from src.panel.gdpr_compliance import get_gdpr_compliance, DataExportService
+        gdpr = get_gdpr_compliance()
+
+        # Log data access
+        from src.panel.structured_logging import log_security_event
+        log_security_event(
+            "data_export",
+            f"User {user.email} requested data export",
+            user.id,
+            request.remote_addr,
+            resource_type="user_data"
+        )
+
+        # Export data
+        data = gdpr.export_user_data(user.id)
+
+        # Create ZIP file
+        zip_buffer = DataExportService.create_zip_export(data, user.email)
+
+        # Send email notification
+        send_email_task.delay(
+            to_email=user.email,
+            subject="Your Data Export is Ready",
+            body=f"""Your GDPR data export has been processed.
+
+The export includes all personal data associated with your account.
+You can download it from the link provided in your profile.
+
+If you have any questions, please contact our privacy officer.
+
+Best regards,
+Panel Team"""
+        )
+
+        # Return download
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'gdpr_export_{user.email}_{datetime.utcnow().strftime("%Y%m%d")}.zip'
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"GDPR export failed for user {user.id}: {e}")
+        return jsonify({"error": "Export failed", "message": str(e)}), 500
+
+
+@csrf.exempt
+@app.route('/api/gdpr/delete', methods=['POST'])
+@login_required
+def gdpr_delete():
+    """Delete user data (GDPR Article 17)"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    # Require confirmation
+    confirmation = request.json.get('confirmation', '').strip()
+    if confirmation != f"DELETE {user.email}":
+        return jsonify({"error": "Invalid confirmation", "message": "Please provide the exact confirmation text"}), 400
+
+    try:
+        from src.panel.gdpr_compliance import get_gdpr_compliance
+        gdpr = get_gdpr_compliance()
+
+        # Log data access
+        from src.panel.structured_logging import log_security_event
+        log_security_event(
+            "data_deletion",
+            f"User {user.email} requested data deletion",
+            user.id,
+            request.remote_addr,
+            resource_type="user_data",
+            confirmation=confirmation
+        )
+
+        # Delete data
+        result = gdpr.delete_user_data(user.id, "user_request")
+
+        # Log the deletion
+        from src.panel.structured_logging import log_security_event
+        log_security_event(
+            "gdpr_deletion",
+            f"User {user.email} requested data deletion",
+            user.id,
+            request.remote_addr,
+            result=result
+        )
+
+        # Send confirmation email
+        send_email_task.delay(
+            to_email=user.email,
+            subject="Account Deletion Confirmation",
+            body=f"""Your account and associated data have been deleted.
+
+Deletion summary:
+{chr(10).join(f"- {item}" for item in result.get('data_removed', []))}
+
+This action cannot be undone. If you wish to use our services again,
+you will need to create a new account.
+
+Best regards,
+Panel Team"""
+        )
+
+        # Log out the user
+        session.clear()
+
+        return jsonify({
+            "message": "Account deleted successfully",
+            "summary": result
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"GDPR deletion failed for user {user.id}: {e}")
+        return jsonify({"error": "Deletion failed", "message": str(e)}), 500
+
+
+@csrf.exempt
+@app.route('/api/gdpr/consent', methods=['GET', 'POST'])
+@login_required
+def gdpr_consent():
+    """Get or update consent preferences"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        from src.panel.gdpr_compliance import get_gdpr_compliance
+        gdpr = get_gdpr_compliance()
+
+        if request.method == 'GET':
+            consent = gdpr.get_consent_status(user.id)
+            return jsonify(consent)
+        else:
+            # Update consent
+            consent_data = request.json
+            if not consent_data:
+                return jsonify({"error": "No consent data provided"}), 400
+
+            success = gdpr.update_consent(user.id, consent_data)
+            return jsonify({"message": "Consent updated successfully"})
+
+    except Exception as e:
+        current_app.logger.error(f"GDPR consent operation failed for user {user.id}: {e}")
+        return jsonify({"error": "Operation failed", "message": str(e)}), 500
+
+
+@app.route('/privacy')
+def privacy():
+    """Privacy policy page"""
+    from datetime import datetime
+    return render_template('privacy.html', current_date=datetime.utcnow().strftime('%B %d, %Y'))
+
+
+@app.route('/gdpr')
+@login_required
+def gdpr_tools():
+    """GDPR tools and data management"""
+    user = get_current_user()
+
+    # Get some basic stats
+    from src.panel.forum import Post
+    from src.panel.cms import BlogPost
+
+    forum_posts_count = Post.query.filter_by(author_id=user.id).count()
+    blog_posts_count = BlogPost.query.filter_by(author_id=user.id).count()
+
+    # Account age
+    account_age = "Unknown"
+    if user.dob:
+        from datetime import datetime
+        age_days = (datetime.utcnow().date() - user.dob).days
+        if age_days < 365:
+            account_age = f"{age_days} days"
+        else:
+            years = age_days // 365
+            account_age = f"{years} year{'s' if years != 1 else ''}"
+
+    return render_template('gdpr_tools.html',
+                         forum_posts_count=forum_posts_count,
+                         blog_posts_count=blog_posts_count,
+                         account_age=account_age)
+
+
+@app.route('/offline')
+def offline():
+    """Offline page for PWA"""
+    return render_template('offline.html')
+
+
+# Push notification endpoints
+@csrf.exempt
+@app.route('/api/push/subscribe', methods=['POST'])
+@login_required
+def push_subscribe():
+    """Subscribe to push notifications"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        subscription_data = request.json
+        if not subscription_data or 'endpoint' not in subscription_data:
+            return jsonify({"error": "Invalid subscription data"}), 400
+
+        from src.panel.push_notifications import get_push_service
+        push_service = get_push_service()
+        if not push_service:
+            return jsonify({"error": "Push notifications not configured"}), 503
+
+        success = push_service.subscribe_user(user.id, subscription_data)
+        if success:
+            return jsonify({"message": "Successfully subscribed to push notifications"})
+        else:
+            return jsonify({"error": "Failed to subscribe"}), 500
+
+    except Exception as e:
+        current_app.logger.error(f"Push subscription failed for user {user.id}: {e}")
+        return jsonify({"error": "Subscription failed", "message": str(e)}), 500
+
+
+@csrf.exempt
+@app.route('/api/push/unsubscribe', methods=['POST'])
+@login_required
+def push_unsubscribe():
+    """Unsubscribe from push notifications"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        endpoint = request.json.get('endpoint')
+        if not endpoint:
+            return jsonify({"error": "Endpoint required"}), 400
+
+        from src.panel.push_notifications import get_push_service
+        push_service = get_push_service()
+        if not push_service:
+            return jsonify({"error": "Push notifications not configured"}), 503
+
+        success = push_service.unsubscribe_user(user.id, endpoint)
+        if success:
+            return jsonify({"message": "Successfully unsubscribed from push notifications"})
+        else:
+            return jsonify({"error": "Failed to unsubscribe"}), 500
+
+    except Exception as e:
+        current_app.logger.error(f"Push unsubscribe failed for user {user.id}: {e}")
+        return jsonify({"error": "Unsubscribe failed", "message": str(e)}), 500
+
+
+@csrf.exempt
+@app.route('/api/push/test', methods=['POST'])
+@login_required
+def push_test():
+    """Send a test push notification"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        from src.panel.push_notifications import get_push_service
+        push_service = get_push_service()
+        if not push_service:
+            return jsonify({"error": "Push notifications not configured"}), 503
+
+        success = push_service.send_notification(
+            user_id=user.id,
+            title="Test Notification",
+            body="This is a test push notification from Panel!",
+            url="/profile"
+        )
+
+        if success:
+            return jsonify({"message": "Test notification sent"})
+        else:
+            return jsonify({"error": "No active subscriptions found"}), 404
+
+    except Exception as e:
+        current_app.logger.error(f"Push test failed for user {user.id}: {e}")
+        return jsonify({"error": "Test failed", "message": str(e)}), 500
+
+
+@csrf.exempt
+@app.route('/api/push/vapid-public-key', methods=['GET'])
+def push_vapid_public_key():
+    """Get VAPID public key for push notifications"""
+    from src.panel.push_notifications import get_push_service
+    push_service = get_push_service()
+    if not push_service:
+        return jsonify({"error": "Push notifications not configured"}), 503
+
+    return jsonify({"publicKey": push_service.vapid_public_key})
+
+
+@app.route('/api/docs')
+def api_docs():
+    """API documentation page"""
+    return render_template('api_docs.html')
+
+
+@app.route('/api/admin/backup/status')
+@login_required
+@admin_required
+def backup_status():
+    """Get backup system status"""
+    from src.panel.backup_monitoring import check_backup_health, check_storage_health
+
+    try:
+        backup_health = check_backup_health()
+        storage_health = check_storage_health()
+
+        return jsonify({
+            'backup_health': backup_health,
+            'storage_health': storage_health,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/backup/create/<backup_type>', methods=['POST'])
+@login_required
+@admin_required
+def create_backup_api(backup_type):
+    """Create a backup via API"""
+    from src.panel.backup_recovery import create_backup
+
+    try:
+        name = request.json.get('name') if request.json else None
+        result = create_backup(backup_type, name)
+
+        return jsonify({
+            'success': True,
+            'backup': result,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/backup/list')
+@login_required
+@admin_required
+def list_backups_api():
+    """List all backups via API"""
+    from src.panel.backup_recovery import list_backups
+
+    try:
+        backup_type = request.args.get('type')
+        backups = list_backups(backup_type)
+
+        return jsonify({
+            'backups': backups,
+            'count': len(backups),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/backup/restore/<backup_type>', methods=['POST'])
+@login_required
+@admin_required
+def restore_backup_api(backup_type):
+    """Restore from backup via API"""
+    from src.panel.backup_recovery import restore_backup
+
+    try:
+        backup_file = request.json.get('file')
+        if not backup_file:
+            return jsonify({'error': 'Backup file path required'}), 400
+
+        result = restore_backup(backup_type, backup_file)
+
+        return jsonify({
+            'success': True,
+            'result': result,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/assistant', methods=['POST'])
+@login_required
+def ai_assistant():
+    """AI-powered assistant for user queries"""
+    from src.panel.ai_integration import get_ai_assistant
+
+    data = request.get_json()
+    message = data.get('message', '')
+    context = data.get('context', '')
+
+    if not message:
+        return jsonify({'error': 'Message is required'}), 400
+
+    ai_assistant = get_ai_assistant()
+    if not ai_assistant:
+        return jsonify({'error': 'AI assistant not available'}), 503
+
+    try:
+        # Run in background for better performance
+        from concurrent.futures import ThreadPoolExecutor
+        import asyncio
+
+        def get_response():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                ai_assistant.get_response(current_user.id, message, context)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(get_response)
+            response = future.result(timeout=30)  # 30 second timeout
+
+        return jsonify({
+            'response': response,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"AI assistant error: {e}")
+        return jsonify({'error': 'AI assistant temporarily unavailable'}), 503
+
+
+@app.route('/api/ai/moderate', methods=['POST'])
+@login_required
+def ai_moderate_content():
+    """AI-powered content moderation"""
+    from src.panel.ai_integration import get_content_moderator
+
+    data = request.get_json()
+    content = data.get('content', '')
+
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+
+    moderator = get_content_moderator()
+    if not moderator:
+        return jsonify({'approved': True, 'reason': 'AI moderation not available'})
+
+    try:
+        # Run moderation check
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def moderate():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                moderator.moderate_post(content, current_user.id)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(moderate)
+            result = future.result(timeout=10)  # 10 second timeout
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI moderation error: {e}")
+        return jsonify({'approved': True, 'reason': 'Moderation check failed'})
+
+
+@app.route('/api/ai/suggest-tags', methods=['POST'])
+@login_required
+def ai_suggest_tags():
+    """AI-powered tag suggestions for posts"""
+    from src.panel.ai_integration import get_ai_client
+
+    data = request.get_json()
+    content = data.get('content', '')
+    existing_tags = data.get('existing_tags', [])
+
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+
+    ai_client = get_ai_client()
+    if not ai_client:
+        return jsonify({'tags': []})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def suggest():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                ai_client.suggest_tags(content, existing_tags)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(suggest)
+            tags = future.result(timeout=10)
+
+        return jsonify({'tags': tags})
+
+    except Exception as e:
+        logger.error(f"AI tag suggestion error: {e}")
+        return jsonify({'tags': []})
+
+
+@app.route('/api/ai/analyze-sentiment', methods=['POST'])
+@login_required
+def ai_analyze_sentiment():
+    """AI-powered sentiment analysis"""
+    from src.panel.ai_integration import get_ai_client
+
+    data = request.get_json()
+    text = data.get('text', '')
+
+    if not text:
+        return jsonify({'error': 'Text is required'}), 400
+
+    ai_client = get_ai_client()
+    if not ai_client:
+        return jsonify({'sentiment': 'neutral', 'confidence': 0.0})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def analyze():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                ai_client.analyze_sentiment(text)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(analyze)
+            result = future.result(timeout=10)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI sentiment analysis error: {e}")
+        return jsonify({
+            'sentiment': 'neutral',
+            'confidence': 0.0,
+            'error': 'Analysis failed'
+        })
+
+
+@app.route('/api/ai/summarize', methods=['POST'])
+@login_required
+def ai_summarize_content():
+    """AI-powered content summarization"""
+    from src.panel.ai_integration import get_ai_client
+
+    data = request.get_json()
+    content = data.get('content', '')
+    max_length = data.get('max_length', 200)
+
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+
+    ai_client = get_ai_client()
+    if not ai_client:
+        # Fallback to simple truncation
+        summary = content[:max_length] + "..." if len(content) > max_length else content
+        return jsonify({'summary': summary})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def summarize():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                ai_client.summarize_content(content, max_length)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(summarize)
+            summary = future.result(timeout=15)
+
+        return jsonify({'summary': summary})
+
+    except Exception as e:
+        logger.error(f"AI summarization error: {e}")
+        # Fallback to simple truncation
+        summary = content[:max_length] + "..." if len(content) > max_length else content
+        return jsonify({'summary': summary})
+
+
+@app.route('/api/admin/ai/stats')
+@login_required
+@admin_required
+def ai_stats():
+    """Get AI system statistics"""
+    from src.panel.ai_integration import get_content_moderator
+
+    stats = {
+        'ai_enabled': bool(get_ai_client()),
+        'moderation_stats': {},
+        'timestamp': datetime.utcnow().isoformat()
+    }
+
+    moderator = get_content_moderator()
+    if moderator:
+        stats['moderation_stats'] = moderator.get_moderation_stats()
+
+    return jsonify(stats)
+
+
+@app.route('/api/forum/posts', methods=['POST'])
+@login_required
+def create_forum_post():
+    """Create a new forum post with AI-powered features"""
+    from src.panel.ai_integration import get_content_moderator, get_ai_client
+
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    content = data.get('content', '').strip()
+    category_id = data.get('category_id')
+
+    if not title or not content:
+        return jsonify({'error': 'Title and content are required'}), 400
+
+    # AI-powered content moderation
+    moderator = get_content_moderator()
+    if moderator:
+        try:
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+
+            def moderate():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(
+                    moderator.moderate_post(content, current_user.id)
+                )
+
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(moderate)
+                moderation_result = future.result(timeout=10)
+
+            if not moderation_result.get('approved', True):
+                return jsonify({
+                    'error': 'Content flagged by moderation',
+                    'reason': moderation_result.get('reason', 'Inappropriate content')
+                }), 400
+        except Exception as e:
+            logger.warning(f"AI moderation failed, proceeding without: {e}")
+
+    # AI-powered tag suggestions
+    ai_client = get_ai_client()
+    suggested_tags = []
+    if ai_client:
+        try:
+            def suggest():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(
+                    ai_client.suggest_tags(content)
+                )
+
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(suggest)
+                suggested_tags = future.result(timeout=5) or []
+        except Exception as e:
+            logger.warning(f"AI tag suggestion failed: {e}")
+
+    # Create the post
+    try:
+        post = ForumPost(
+            title=title,
+            content=content,
+            author_id=current_user.id,
+            category_id=category_id
+        )
+
+        # Add suggested tags if any
+        if suggested_tags:
+            # You would need to implement tag creation/storage logic here
+            # For now, we'll just store them in the post data
+            post.ai_suggested_tags = suggested_tags
+
+        db.session.add(post)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'post': {
+                'id': post.id,
+                'title': post.title,
+                'content': post.content,
+                'author': current_user.username,
+                'created_at': post.created_at.isoformat(),
+                'ai_suggested_tags': suggested_tags
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to create forum post: {e}")
+        return jsonify({'error': 'Failed to create post'}), 500
+
+
+@app.route('/api/ai/analyze-image', methods=['POST'])
+@login_required
+def ai_analyze_image():
+    """AI-powered image analysis"""
+    from src.panel.enhanced_ai import get_content_analyzer
+
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file provided'}), 400
+
+    file = request.files['image']
+    if not file.filename:
+        return jsonify({'error': 'No image selected'}), 400
+
+    analyzer = get_content_analyzer()
+    if not analyzer:
+        return jsonify({'approved': True, 'reason': 'AI analysis not available'})
+
+    try:
+        # Read image data
+        image_data = file.read()
+
+        # Run analysis in background
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def analyze():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                analyzer.analyze_image_upload(image_data, file.filename, current_user.id)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(analyze)
+            result = future.result(timeout=30)  # 30 second timeout
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI image analysis error: {e}")
+        return jsonify({'approved': True, 'error': 'Analysis temporarily unavailable'})
+
+
+@app.route('/api/ai/predict-behavior', methods=['POST'])
+@login_required
+def ai_predict_behavior():
+    """AI-powered user behavior prediction"""
+    from src.panel.enhanced_ai import get_behavior_predictor
+
+    predictor = get_behavior_predictor()
+    if not predictor:
+        return jsonify({'engagement_level': 'unknown', 'predictions': []})
+
+    try:
+        # Get user's recent activity (simplified - would need proper implementation)
+        # For now, return basic prediction
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Mock activity history - replace with actual user activity query
+        activity_history = [
+            {'action': 'login', 'timestamp': '2024-01-01T10:00:00Z'},
+            {'action': 'view_post', 'timestamp': '2024-01-01T10:05:00Z'},
+        ]
+
+        def predict():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                predictor.predict_user_engagement(current_user.id, activity_history)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(predict)
+            result = future.result(timeout=15)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI behavior prediction error: {e}")
+        return jsonify({
+            'engagement_level': 'unknown',
+            'predictions': [],
+            'error': 'Prediction temporarily unavailable'
+        })
+
+
+@app.route('/api/ai/personalize', methods=['POST'])
+@login_required
+def ai_personalize_content():
+    """Generate personalized content for user"""
+    from src.panel.enhanced_ai import get_content_generator
+
+    data = request.get_json()
+    content_type = data.get('type', 'recommendation')
+
+    generator = get_content_generator()
+    if not generator:
+        return jsonify({'content': 'Personalization not available'})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Get user profile/context
+        user_context = {
+            'username': current_user.username,
+            'join_date': current_user.created_at.isoformat() if hasattr(current_user, 'created_at') else None,
+            'preferences': []  # Would be populated from user preferences
+        }
+
+        def generate():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            if content_type == 'welcome':
+                return loop.run_until_complete(
+                    generator.generate_welcome_message(user_context)
+                )
+            elif content_type == 'recommendations':
+                return loop.run_until_complete(
+                    generator.generate_recommendations(current_user.id, [])
+                )
+            else:
+                return "Personalized content generation not available for this type"
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(generate)
+            content = future.result(timeout=15)
+
+        return jsonify({
+            'content': content,
+            'type': content_type,
+            'user_id': current_user.id
+        })
+
+    except Exception as e:
+        logger.error(f"AI personalization error: {e}")
+        return jsonify({'content': 'Personalization temporarily unavailable', 'error': str(e)})
+
+
+@app.route('/api/ai/detect-anomalies', methods=['POST'])
+@admin_required
+def ai_detect_anomalies():
+    """AI-powered anomaly detection in system metrics"""
+    from src.panel.enhanced_ai import get_anomaly_detector
+
+    data = request.get_json()
+    metrics_data = data.get('metrics', [])
+
+    detector = get_anomaly_detector()
+    if not detector:
+        return jsonify({'anomalies': [], 'severity': 'unknown'})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def detect():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                detector.detect_system_anomalies(metrics_data)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(detect)
+            result = future.result(timeout=20)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI anomaly detection error: {e}")
+        return jsonify({
+            'anomalies': [],
+            'severity': 'unknown',
+            'error': 'Anomaly detection temporarily unavailable'
+        })
+
+
+@app.route('/api/ai/analyze-trends', methods=['POST'])
+@admin_required
+def ai_analyze_trends():
+    """AI-powered trend analysis"""
+    from src.panel.enhanced_ai import get_enhanced_ai_agent
+
+    data = request.get_json()
+    analysis_data = data.get('data', [])
+    analysis_type = data.get('type', 'general')
+
+    ai_agent = get_enhanced_ai_agent()
+    if not ai_agent:
+        return jsonify({'trends': [], 'insights': 'Analysis not available'})
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def analyze():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                ai_agent.analyze_trends(analysis_data, analysis_type)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(analyze)
+            result = future.result(timeout=25)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI trend analysis error: {e}")
+        return jsonify({
+            'trends': [],
+            'insights': 'Analysis temporarily unavailable',
+            'error': str(e)
+        })
+
+
+@app.route('/api/admin/ai/enhanced-stats')
+@admin_required
+def ai_enhanced_stats():
+    """Get enhanced AI system statistics"""
+    from src.panel.enhanced_ai import (
+        get_content_analyzer, get_behavior_predictor,
+        get_content_generator, get_anomaly_detector
+    )
+
+    stats = {
+        'ai_enabled': bool(get_enhanced_ai_agent()),
+        'features': {
+            'content_analysis': bool(get_content_analyzer()),
+            'behavior_prediction': bool(get_behavior_predictor()),
+            'content_generation': bool(get_content_generator()),
+            'anomaly_detection': bool(get_anomaly_detector())
+        },
+        'timestamp': datetime.utcnow().isoformat()
+    }
+
+    return jsonify(stats)
+
+
+@app.route('/api/ai/voice/transcribe', methods=['POST'])
+@login_required
+def ai_transcribe_voice():
+    """AI-powered voice transcription"""
+    from src.panel.voice_analysis import get_voice_analyzer
+
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    file = request.files['audio']
+    if not file.filename:
+        return jsonify({'error': 'No audio selected'}), 400
+
+    language = request.form.get('language', 'en-US')
+
+    analyzer = get_voice_analyzer()
+    if not analyzer:
+        return jsonify({'error': 'Voice analyzer not available'}), 503
+
+    try:
+        # Read audio data
+        audio_data = file.read()
+
+        # Run transcription in background
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def transcribe():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                analyzer.speech_to_text(audio_data, language)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(transcribe)
+            result = future.result(timeout=30)  # 30 second timeout
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI voice transcription error: {e}")
+        return jsonify({'error': 'Transcription temporarily unavailable'})
+
+
+@app.route('/api/ai/voice/analyze', methods=['POST'])
+@login_required
+def ai_analyze_voice():
+    """AI-powered voice emotion and quality analysis"""
+    from src.panel.voice_analysis import get_voice_analyzer
+
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    file = request.files['audio']
+    if not file.filename:
+        return jsonify({'error': 'No audio selected'}), 400
+
+    analyzer = get_voice_analyzer()
+    if not analyzer:
+        return jsonify({'error': 'Voice analyzer not available'}), 503
+
+    try:
+        # Read audio data
+        audio_data = file.read()
+
+        # Run analysis in background
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def analyze():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                asyncio.gather(
+                    analyzer.analyze_voice_emotion(audio_data),
+                    analyzer.analyze_speech_quality(audio_data),
+                    analyzer.detect_language(audio_data)
+                )
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(analyze)
+            results = future.result(timeout=20)
+
+        emotion_analysis, quality_analysis, language_detection = results
+
+        return jsonify({
+            'emotion': emotion_analysis,
+            'quality': quality_analysis,
+            'language': language_detection
+        })
+
+    except Exception as e:
+        logger.error(f"AI voice analysis error: {e}")
+        return jsonify({'error': 'Voice analysis temporarily unavailable'})
+
+
+@app.route('/api/ai/video/analyze', methods=['POST'])
+@login_required
+def ai_analyze_video():
+    """AI-powered video analysis"""
+    from src.panel.video_processing import get_video_processor
+
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video file provided'}), 400
+
+    file = request.files['video']
+    if not file.filename:
+        return jsonify({'error': 'No video selected'}), 400
+
+    processor = get_video_processor()
+    if not processor:
+        return jsonify({'error': 'Video processor not available'}), 503
+
+    try:
+        # Read video data
+        video_data = file.read()
+
+        # Run analysis in background
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def analyze():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                processor.analyze_video(video_data, file.filename)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(analyze)
+            result = future.result(timeout=60)  # 60 second timeout for video
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI video analysis error: {e}")
+        return jsonify({'error': 'Video analysis temporarily unavailable'})
+
+
+@app.route('/api/ai/video/moderate', methods=['POST'])
+@login_required
+def ai_moderate_video():
+    """AI-powered video content moderation"""
+    from src.panel.video_processing import get_video_processor
+
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video file provided'}), 400
+
+    file = request.files['video']
+    if not file.filename:
+        return jsonify({'error': 'No video selected'}), 400
+
+    processor = get_video_processor()
+    if not processor:
+        return jsonify({'approved': True, 'reason': 'Video moderation not available'})
+
+    try:
+        # Read video data
+        video_data = file.read()
+
+        # Run moderation in background
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def moderate():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                processor.moderate_video_content(video_data, file.filename)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(moderate)
+            result = future.result(timeout=45)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI video moderation error: {e}")
+        return jsonify({'approved': False, 'error': 'Moderation temporarily unavailable'})
+
+
+@app.route('/api/ai/training/start', methods=['POST'])
+@admin_required
+def ai_start_training():
+    """Start AI model fine-tuning"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    data = request.get_json()
+    base_model = data.get('base_model', 'gpt-3.5-turbo')
+    training_data = data.get('training_data', [])
+    parameters = data.get('parameters', {})
+
+    if not training_data:
+        return jsonify({'error': 'Training data is required'}), 400
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def start_training():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                trainer.create_fine_tuning_job(base_model, training_data, parameters)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(start_training)
+            result = future.result(timeout=30)
+
+        if 'error' in result:
+            return jsonify(result), 400
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI training start error: {e}")
+        return jsonify({'error': 'Training initialization failed'})
+
+
+@app.route('/api/ai/training/status/<job_id>', methods=['GET'])
+@admin_required
+def ai_training_status(job_id):
+    """Get AI training job status"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def get_status():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                trainer.get_training_status(job_id)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(get_status)
+            result = future.result(timeout=10)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI training status error: {e}")
+        return jsonify({'error': 'Status check failed'})
+
+
+@app.route('/api/ai/training/jobs', methods=['GET'])
+@admin_required
+def ai_training_jobs():
+    """List AI training jobs"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    status_filter = request.args.get('status')
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def list_jobs():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                trainer.list_training_jobs(status_filter)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(list_jobs)
+            jobs = future.result(timeout=10)
+
+        return jsonify({'jobs': jobs})
+
+    except Exception as e:
+        logger.error(f"AI training jobs list error: {e}")
+        return jsonify({'error': 'Failed to list jobs'})
+
+
+@app.route('/api/ai/training/cancel/<job_id>', methods=['POST'])
+@admin_required
+def ai_cancel_training(job_id):
+    """Cancel AI training job"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def cancel_job():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                trainer.cancel_training_job(job_id)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(cancel_job)
+            result = future.result(timeout=10)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI training cancel error: {e}")
+        return jsonify({'error': 'Cancellation failed'})
+
+
+@app.route('/api/ai/models/deploy/<job_id>', methods=['POST'])
+@admin_required
+def ai_deploy_model(job_id):
+    """Deploy completed AI model"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    data = request.get_json()
+    model_name = data.get('model_name')
+
+    if not model_name:
+        return jsonify({'error': 'Model name is required'}), 400
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        def deploy_model():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(
+                trainer.deploy_fine_tuned_model(job_id, model_name)
+            )
+
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(deploy_model)
+            result = future.result(timeout=15)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"AI model deployment error: {e}")
+        return jsonify({'error': 'Model deployment failed'})
+
+
+@app.route('/api/ai/models', methods=['GET'])
+@admin_required
+def ai_list_models():
+    """List deployed custom AI models"""
+    from src.panel.custom_ai_training import get_model_trainer
+
+    trainer = get_model_trainer()
+    if not trainer:
+        return jsonify({'error': 'Model trainer not available'}), 503
+
+    try:
+        models = []
+        for model_id, model in trainer.fine_tuned_models.items():
+            models.append({
+                'model_id': model_id,
+                'name': model['name'],
+                'base_model': model['base_model'],
+                'created_at': model['created_at'],
+                'status': model['status']
+            })
+
+        return jsonify({'models': models})
+
+    except Exception as e:
+        logger.error(f"AI models list error: {e}")
+        return jsonify({'error': 'Failed to list models'})

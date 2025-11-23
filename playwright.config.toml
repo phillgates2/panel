@@ -1,0 +1,44 @@
+# Playwright configuration for E2E testing
+[tool.playwright]
+# Browser settings
+browser = "chromium"
+headed = false
+slow_mo = 0
+
+# Test settings
+workers = 4
+timeout = 30000
+expect_timeout = 10000
+retries = 2
+
+# Screenshot and video settings
+screenshot = "only-on-failure"
+video = "retain-on-failure"
+trace = "retain-on-failure"
+
+# Output settings
+output_dir = "test-results/"
+update_snapshots = false
+
+# Global setup
+global_setup = "tests/e2e/conftest.py"
+
+# Project configurations
+[tool.playwright.project.chromium]
+browser_name = "chromium"
+viewport_size = { width: 1280, height: 720 }
+
+[tool.playwright.project.firefox]
+browser_name = "firefox"
+viewport_size = { width: 1280, height: 720 }
+
+[tool.playwright.project.webkit]
+browser_name = "webkit"
+viewport_size = { width: 1280, height: 720 }
+
+[tool.playwright.project.mobile]
+browser_name = "chromium"
+viewport_size = { width: 375, height: 667 }
+device_scale_factor = 2
+is_mobile = true
+has_touch = true

@@ -1,0 +1,45 @@
+{
+  "name": "staging",
+  "debug": false,
+  "testing": false,
+  "database_url": "postgresql://panel:staging_password@staging-db:5432/panel",
+  "redis_url": "redis://staging-redis:6379/0",
+  "mail_server": "smtp.staging.panel.com",
+  "mail_port": 587,
+  "mail_use_tls": true,
+  "cdn_enabled": true,
+  "cdn_url": "https://cdn-staging.panel.com",
+  "cdn_provider": "cloudflare",
+  "microservices_enabled": false,
+  "api_gateway_enabled": false,
+  "performance_monitoring_enabled": true,
+  "realtime_enabled": true,
+  "pwa_enabled": true,
+  "gdpr_enabled": true,
+  "session_timeout": 3600,
+  "password_min_length": 8,
+  "max_login_attempts": 5,
+  "lockout_duration": 900,
+  "features": {
+    "forum": true,
+    "cms": true,
+    "admin": true,
+    "api": true,
+    "oauth": true,
+    "gdpr": true,
+    "pwa": true,
+    "realtime": true,
+    "microservices": false,
+    "cdn": true
+  },
+  "oauth_providers": {
+    "google": {
+      "client_id": "staging-google-client-id",
+      "client_secret": "staging-google-client-secret"
+    },
+    "github": {
+      "client_id": "staging-github-client-id",
+      "client_secret": "staging-github-client-secret"
+    }
+  }
+}
