@@ -292,7 +292,7 @@ jobs:
 
     - name: Send email notification
       if: failure() && github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-      uses: dawidd6/action-send-mail@v3
+      uses: dawidd6/action-send-mail@v6
       with:
         server_address: smtp.gmail.com
         server_port: 587
