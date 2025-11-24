@@ -39,7 +39,7 @@ flask-debugtoolbar==0.14.1
 sphinx==7.2.6
 sphinx-rtd-theme==2.0.0
 mkdocs==1.6.1
-mkdocs-material==9.5.3
+mkdocs-material==9.7.0
 
 # Security scanning
 safety==2.3.5
