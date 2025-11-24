@@ -27,7 +27,7 @@ flask-socketio==5.5.1
 python-socketio==5.10.0
 
 # Monitoring and Metrics
-prometheus-flask-exporter==0.23.0
+prometheus-flask-exporter==0.23.2
 
 # Enterprise Dependencies - Optimized Versions
 psutil==7.1.3

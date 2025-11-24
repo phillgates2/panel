@@ -51,7 +51,7 @@ Flask-Caching==2.1.0
 Flask-Compress==1.13
 
 # Monitoring and Metrics
-prometheus-flask-exporter==0.23.0
+prometheus-flask-exporter==0.23.2
 
 # Enterprise Dependencies - Optimized Versions
 # psutil==5.9.6  # Commented out due to build issues in Alpine
