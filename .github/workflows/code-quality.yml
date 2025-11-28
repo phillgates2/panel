@@ -34,8 +34,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
-        pip install -r requirements-test.txt
+        pip install -r requirements.txt
 
     - name: Install additional linting tools
       run: |
@@ -56,7 +55,7 @@ jobs:
 
     - name: Run mypy (type checking)
       run: |
-        mypy app/ services/ input_validation.py feature_flags.py \
+        mypy src/panel/ \
           --ignore-missing-imports \
           --no-strict-optional \
           --show-error-codes \
@@ -64,26 +63,26 @@ jobs:
 
     - name: Run pydocstyle (documentation linting)
       run: |
-        pydocstyle app/ services/ \
+        pydocstyle src/panel/ \
           --convention=google \
           --add-ignore=D100,D104,D105,D107 || true
 
     - name: Run radon (complexity analysis)
       run: |
         echo "=== Cyclomatic Complexity ==="
-        radon cc app/ services/ -a -i A,B,C || true
+        radon cc src/panel/ -a -i A,B,C || true
 
         echo "=== Maintainability Index ==="
-        radon mi app/ services/ || true
+        radon mi src/panel/ || true
 
         echo "=== Raw Metrics ==="
-        radon raw app/ services/ || true
+        radon raw src/panel/ || true
 
         # Check for functions with high complexity
         echo "=== High Complexity Functions ==="
-        if radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "; then
+        if radon cc src/panel/ -i A,B | grep -E " [1-9][0-9]+ "; then
           echo "❌ Functions with complexity > 15 found:"
-          radon cc app/ services/ -i A,B | grep -E " [1-9][0-9]+ "
+          radon cc src/panel/ -i A,B | grep -E " [1-9][0-9]+ "
           echo "complexity_issues=true" >> $GITHUB_ENV
         else
           echo "✅ No functions with high complexity"
@@ -91,11 +90,11 @@ jobs:
 
     - name: Run vulture (dead code detection)
       run: |
-        vulture app/ services/ || true
+        vulture src/panel/ || true
 
     - name: Run flake8 with additional plugins
       run: |
-        flake8 app/ services/ \
+        flake8 src/panel/ \
           --max-line-length=100 \
           --extend-ignore=E203,W503 \
           --docstring-convention=google \
@@ -103,7 +102,7 @@ jobs:
 
     - name: Run bandit (security linting)
       run: |
-        bandit -r app/ services/ \
+        bandit -r src/panel/ \
           -f json \
           -o bandit-lint-report.json \
           --exclude-dir tests \
@@ -222,12 +221,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-prod.txt
-        pip install -r requirements-test.txt
+        pip install -r requirements.txt
 
     - name: Run performance tests
       run: |
-        pytest tests/test_performance.py \
+        pytest tests/ \
           -v \
           --tb=short \
           --durations=10 \
@@ -253,4 +251,4 @@ jobs:
         name: performance-reports
         path: |
           performance-report.md
-        retention-days: 30
+        retention-days: 30               retention-days: 30        retention-days: 30

@@ -26,11 +26,10 @@ jobs:
     - name: Install pip-tools
       run: pip install pip-tools
 
-    - name: Update production dependencies
+    - name: Update dependencies
       run: |
-        pip-compile --upgrade requirements-prod.in
-        pip-compile --upgrade requirements-dev.in
-        pip-compile --upgrade requirements-test.in
+        pip install --upgrade pip
+        pip install -r requirements.txt --upgrade
 
     - name: Check for changes
       id: verify-changed-files
@@ -44,9 +43,7 @@ jobs:
     - name: Run tests with updated dependencies
       if: steps.verify-changed-files.outputs.changed == 'true'
       run: |
-        pip install -r requirements-prod.txt
-        pip install -r requirements-dev.txt
-        pip install -r requirements-test.txt
+        pip install -r requirements.txt
         pytest tests/ -x --tb=short
 
     - name: Create Pull Request
@@ -57,9 +54,7 @@ jobs:
         commit-message: |
           chore: update dependencies
 
-          - Updated production dependencies
-          - Updated development dependencies
-          - Updated test dependencies
+          - Updated dependencies
         title: "⬆️ Update Dependencies"
         body: |
           ## Dependency Updates
@@ -67,9 +62,7 @@ jobs:
           This PR updates the project dependencies to their latest compatible versions.
 
           ### Changes
-          - Production dependencies in `requirements-prod.txt`
-          - Development dependencies in `requirements-dev.txt`
-          - Test dependencies in `requirements-test.txt`
+          - Dependencies in `requirements.txt`
 
           ### Testing
           - All tests pass with updated dependencies
