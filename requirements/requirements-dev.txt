@@ -76,7 +76,7 @@ Authlib==1.2.1
 Flask-CORS==4.0.0
 
 # Push notifications
-pywebpush==1.14.0
+pywebpush==2.1.2
 
 # Real-time communication
 Flask-SocketIO==5.5.1
