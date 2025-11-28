@@ -5,35 +5,35 @@ Welcome to the Panel documentation! This directory contains comprehensive guides
 ## 📚 Documentation Index
 
 ### User Guides
-- **[Database Management Guide](DATABASE_MANAGEMENT.md)** - Complete guide to using the integrated database manager
-- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues and problems
+- **[Database Management Guide](docs/DATABASE_MANAGEMENT.md)** - Complete guide to using the integrated database manager
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Solutions to common issues and problems
 
 ### Developer Documentation
-- **[API Documentation](API_DOCUMENTATION.md)** - REST API reference and examples
+- **[API Documentation](docs/API_DOCUMENTATION.md)** - REST API reference and examples
 - **[Development Guide](../README_DEV.md)** - Development setup and contributing guidelines
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Panel
 
 ### System Administration
 - **[README](../README.md)** - Main documentation with installation and configuration
-- **[Changelog](../CHANGELOG.md)** - Version history and changes
+- **[Changelog](CHANGELOG.md)** - Version history and release notes
 
 ## 🚀 Quick Start
 
 ### For Users
 1. [Install Panel](../README.md#quick-start)
-2. [Access Database Manager](DATABASE_MANAGEMENT.md#accessing-the-database-manager)
-3. [Learn SQL Basics](DATABASE_MANAGEMENT.md#common-tasks)
+2. [Access Database Manager](docs/DATABASE_MANAGEMENT.md#accessing-the-database-manager)
+3. [Learn SQL Basics](docs/DATABASE_MANAGEMENT.md#common-tasks)
 
 ### For Developers
 1. [Setup Development Environment](../README_DEV.md)
-2. [Read API Documentation](API_DOCUMENTATION.md)
+2. [Read API Documentation](docs/API_DOCUMENTATION.md)
 3. [Run Tests](../README_DEV.md#testing)
 4. [Submit Pull Request](../CONTRIBUTING.md)
 
 ### For Administrators
 1. [Production Installation](../README.md#production-installation)
-2. [Security Configuration](DATABASE_MANAGEMENT.md#security-features)
-3. [Backup Procedures](TROUBLESHOOTING.md#backup-and-recovery)
+2. [Security Configuration](docs/DATABASE_MANAGEMENT.md#security-features)
+3. [Backup Procedures](docs/TROUBLESHOOTING.md#backup-and-recovery)
 4. [Monitoring Setup](../README.md#monitoring)
 
 ## 📖 Learning Path
@@ -69,9 +69,9 @@ Welcome to the Panel documentation! This directory contains comprehensive guides
 | Topic | Document | Section |
 |-------|----------|---------|
 | Installation | README.md | Quick Start |
-| Database Queries | DATABASE_MANAGEMENT.md | SQL Query Interface |
-| API Usage | API_DOCUMENTATION.md | Examples |
-| Error Messages | TROUBLESHOOTING.md | Common Issues |
+| Database Queries | docs/DATABASE_MANAGEMENT.md | SQL Query Interface |
+| API Usage | docs/API_DOCUMENTATION.md | Examples |
+| Error Messages | docs/TROUBLESHOOTING.md | Common Issues |
 | Development Setup | README_DEV.md | Installation |
 | Contributing | CONTRIBUTING.md | Pull Requests |
 
@@ -107,7 +107,7 @@ docker-compose -f docker-compose.dev.yml up
 ## 🆘 Getting Help
 
 ### Troubleshooting Steps
-1. Check [Troubleshooting Guide](TROUBLESHOOTING.md)
+1. Check [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 2. Search [GitHub Issues](https://github.com/phillgates2/panel/issues)
 3. Review application logs
 4. Ask in GitHub Discussions
@@ -156,11 +156,35 @@ Documentation is updated with each release. Check:
 
 ## 🎯 Next Steps
 
-- **New Users**: Start with [Database Management Guide](DATABASE_MANAGEMENT.md)
-- **Developers**: Read [API Documentation](API_DOCUMENTATION.md)
-- **Admins**: Review [Troubleshooting Guide](TROUBLESHOOTING.md)
+- **New Users**: Start with [Database Management Guide](docs/DATABASE_MANAGEMENT.md)
+- **Developers**: Read [API Documentation](docs/API_DOCUMENTATION.md)
+- **Admins**: Review [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 - **Contributors**: See [Contributing Guide](../CONTRIBUTING.md)
 
 ---
 
 **Need help?** Open an issue on [GitHub](https://github.com/phillgates2/panel/issues)
+
+### One-Line Installation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+```
+
+### Advanced Installation Options
+
+```bash
+# Custom domain with SSL
+PANEL_DOMAIN=mypanel.com PANEL_ENABLE_SSL=true \\
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+
+# Enterprise setup with monitoring
+PANEL_ENABLE_MONITORING=true PANEL_ENABLE_BACKUPS=true \\
+PANEL_SETUP_SYSTEMD=true \\
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+
+# Non-interactive mode
+PANEL_NON_INTERACTIVE=true \\
+PANEL_ADMIN_EMAIL=admin@company.com \\
+PANEL_DB_PASS=secure_password \\
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
