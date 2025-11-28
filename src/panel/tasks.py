@@ -6,9 +6,10 @@ Asynchronous task processing using Celery
 import os
 import subprocess
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from src.panel.celery_app import celery_app
+from src.panel.models import db
 
 # Determine LOG_DIR with fallback to writable temp directory if configured dir is not accessible
 try:
@@ -202,4 +203,62 @@ def run_autodeploy_task(download_url=None):
             _discord_post(payload)
             return {"ok": False, "out": proc.stdout, "err": proc.stderr}
 
-    excep
+    except Exception as e:
+        _log("autodeploy", f"Autodeploy exception: {e}")
+        return {"ok": False, "err": str(e)}
+
+
+@celery_app.task(name='panel.train_ai_model')
+def train_ai_model_task(model_name, data_path):
+    """Train AI model asynchronously"""
+    try:
+        # Example: Call AI training function
+        from src.panel.ai_integration import train_model
+        result = train_model(model_name, data_path)
+        _log("ai", f"AI model trained: {model_name}")
+        return {"status": "trained", "model": model_name, "result": result}
+    except Exception as e:
+        _log("ai", f"AI training failed for {model_name}: {e}")
+        return {"status": "failed", "model": model_name, "error": str(e)}
+
+
+@celery_app.task(name='panel.gdpr_export')
+def gdpr_export_task(user_id):
+    """Export user data for GDPR"""
+    try:
+        from src.panel import models
+        user = models.User.query.get(user_id)
+        if user:
+            data = {
+                'user': user.display_name,
+                'email': user.email,
+                'posts': [p.content for p in user.forum_posts],
+                # Add more
+            }
+            # Save to file or email
+            _log("gdpr", f"Data exported for user {user_id}")
+            return {"status": "exported", "data": data}
+        return {"status": "user_not_found"}
+    except Exception as e:
+        _log("gdpr", f"GDPR export failed for {user_id}: {e}")
+        return {"status": "failed", "error": str(e)}
+
+
+@celery_app.task(name='panel.data_retention')
+def data_retention_task():
+    """Clean up old data for retention compliance"""
+    try:
+        from src.panel import models
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=365)  # 1 year
+
+        # Delete old audit logs
+        old_audits = models.AuditLog.query.filter(models.AuditLog.created_at < cutoff).delete()
+        db.session.commit()
+
+        _log("retention", f"Deleted {old_audits} old audit logs")
+
+        return {"status": "completed", "deleted_audits": old_audits}
+    except Exception as e:
+        _log("retention", f"Data retention failed: {e}")
+        return {"status": "failed", "error": str(e)}

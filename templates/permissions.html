@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="permissions-page" role="main" aria-labelledby="permissions-title">
+    <h1 id="permissions-title">?? Permission Management</h1>
+
+    <div class="permissions-grid">
+        <section class="permissions-section" aria-labelledby="roles-title">
+            <h2 id="roles-title">User Roles</h2>
+            <div class="roles-list">
+                {% for role, level in [('user', 1), ('premium', 2), ('moderator', 3), ('admin', 4), ('system_admin', 5)] %}
+                <div class="role-card">
+                    <h3>{{ role|title }}</h3>
+                    <p>Level: {{ level }}</p>
+                    <div class="permissions-list">
+                        {% for perm in user.get_available_permissions() if role == user.role %}
+                        <span class="permission-tag">{{ perm }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="permissions-section" aria-labelledby="user-permissions-title">
+            <h2 id="user-permissions-title">Your Permissions</h2>
+            <div class="user-permissions">
+                <p><strong>Role:</strong> {{ user.role|title }}</p>
+                <p><strong>Level:</strong> {{ user.get_role_level() }}</p>
+                <div class="permissions-list">
+                    {% for perm in user.get_available_permissions() %}
+                    <span class="permission-tag">{{ perm }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        {% if user.is_system_admin() %}
+        <section class="permissions-section" aria-labelledby="manage-permissions-title">
+            <h2 id="manage-permissions-title">Manage User Permissions</h2>
+            <form method="post" aria-label="Update user permissions">
+                <div class="form-group">
+                    <label for="user_select">Select User</label>
+                    <select id="user_select" name="user_id" required>
+                        <option value="">Choose a user...</option>
+                        <!-- Populate with users -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="role_select">Assign Role</label>
+                    <select id="role_select" name="role" required>
+                        <option value="user">User</option>
+                        <option value="premium">Premium</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="admin">Admin</option>
+                        {% if user.is_system_admin() %}
+                        <option value="system_admin">System Admin</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Permissions</button>
+            </form>
+        </section>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.permissions-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.permissions-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.permissions-section h2 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.roles-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.role-card {
+    background: var(--header-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.role-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-color);
+}
+
+.permissions-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.permission-tag {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.user-permissions {
+    background: var(--header-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+.btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+</style>
+{% endblock %}

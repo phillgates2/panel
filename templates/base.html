@@ -25,7 +25,7 @@
           if (!toggleEnabled && forced) {
             root.setAttribute('data-theme', forced);
           } else {
-            var serverPref = '{{ "light" if (user_theme_pref == "light") else ("dark" if (user_theme_pref == "dark") else "") }}';
+            var serverPref = '{{ user_theme_pref if user_theme_pref in ["light", "dark"] else "" }}';
             var local = localStorage.getItem('theme');
             var theme = local || serverPref;
             if (!theme) {
@@ -38,22 +38,36 @@
       })();
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dark-mode.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     {% if theme_enabled %}
     <link rel="stylesheet" href="/theme.css" />
     {% endif %}
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'GA_TRACKING_ID');
+    </script>
   </head>
   <body class="fade-in">
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <header>
+    <header role="banner">
       <div class="container">
-        <nav>
+        <nav aria-label="Main navigation">
           <div class="nav-brand">
-            <a href="/" class="brand-link">
+            <a href="/" class="brand-link" aria-label="Panel home">
               <h3 style="margin: 0; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">⚡ Panel</h3>
             </a>
           </div>
           <div class="nav-links">
+            <form action="{{ url_for('search') }}" method="get" class="search-form" role="search">
+              <input type="search" name="q" placeholder="Search..." aria-label="Search site">
+              <button type="submit" aria-label="Submit search">🔍</button>
+            </form>
             <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">🏠 Home</a>
             <a href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a>
             <a href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'blog' in request.endpoint }}">📰 Blog</a>
@@ -76,9 +90,9 @@
               <a href="{{ url_for('logout') }}">🚪 Logout</a>
             {% endif %}
             <div class="footer-links">
-              <a href="{{ url_for('privacy') }}">📋 Privacy</a>
+              <a href="{{ url_for('privacy') ">📋 Privacy</a>
               {% if logged_in %}
-              <a href="{{ url_for('gdpr_tools') }}">🛡️ GDPR Tools</a>
+              <a href="{{ url_for('gdpr_tools') ">🛡️ GDPR Tools</a>
               {% endif %}
             </div>
             {% if theme_toggle_enabled %}
@@ -95,6 +109,22 @@
 
     <main>
       <div class="container slide-in">
+        {% if breadcrumbs %}
+        <nav aria-label="breadcrumb" class="breadcrumb-nav">
+          <ol class="breadcrumb">
+            {% for crumb in breadcrumbs %}
+            <li class="breadcrumb-item{% if loop.last %} active{% endif %}">
+              {% if not loop.last %}
+              <a href="{{ crumb.url }}">{{ crumb.name }}</a>
+              {% else %}
+              {{ crumb.name }}
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+        </nav>
+        {% endif %}
+
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             <div class="alerts-container">
@@ -116,9 +146,9 @@
           {% endif %}
         {% endwith %}
 
-        <main id="main-content">
+        <div id="main-content">
             {% block content %}{% endblock %}
-        </main>
+        </div>
       </div>
     </main>
 
@@ -249,8 +279,8 @@
       }
     </script>
     <script src="{{ url_for('static', filename='js/loading.js') }}"></script>
-  </body>
-</html>
+    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
 
 <script>
 // PWA Service Worker Registration
@@ -399,8 +429,8 @@ socket.on('connect', () => {
   console.log('Connected to server');
 
   // Authenticate user if logged in
-  {% if current_user.is_authenticated %}
-  socket.emit('authenticate', { user_id: {{ current_user.id }} });
+  {% if user %}
+  socket.emit('authenticate', { user_id: {{ user.id }} });
   {% endif %}
 });
 
@@ -570,3 +600,34 @@ function updateServerStatus(data) {
 
 // Export socket for use in other scripts
 window.socket = socket;
+<footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h4>Panel</h4>
+            <p>Professional game server management and community platform.</p>
+          </div>
+          <div class="footer-section">
+            <h4>Quick Links</h4>
+            <ul>
+              <li><a href="{{ url_for('help') }}">Help</a></li>
+              <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
+              <li><a href="/api/docs">API Documentation</a></li>
+            </ul>
+          </div>
+          <div class="footer-section">
+            <h4>Community</h4>
+            <ul>
+              <li><a href="{{ url_for('forum.index') }}">Forum</a></li>
+              <li><a href="{{ url_for('cms.blog_index') }}">Blog</a></li>
+              <li><a href="{{ url_for('status') }}">Status</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2024 Panel. All rights reserved. | Version {{ app.config.get('VERSION', '1.0') }}</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="donate-page" role="main" aria-labelledby="donate-title">
+    <h1 id="donate-title">?? Support Panel</h1>
+    <p>Help us maintain and improve Panel by making a donation.</p>
+
+    <div class="donate-options">
+        <div class="donate-option" data-amount="500">
+            <h3>$5</h3>
+            <p>One-time support</p>
+            <button onclick="selectAmount(500)">Select</button>
+        </div>
+        <div class="donate-option" data-amount="1000">
+            <h3>$10</h3>
+            <p>Monthly support</p>
+            <button onclick="selectAmount(1000, true)">Select</button>
+        </div>
+    </div>
+
+    <div id="payment-form" style="display: none;">
+        <h3>Payment Details</h3>
+        <div class="form-group">
+            <label for="donor-email">Email (for receipt)</label>
+            <input type="email" id="donor-email" required>
+        </div>
+        <div id="card-element"></div>
+        <button id="submit-payment">Donate</button>
+        <div id="payment-result"></div>
+    </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+let stripe = Stripe('pk_test_...');  // Replace with your publishable key
+let elements = stripe.elements();
+let cardElement = elements.create('card');
+let selectedAmount = 0;
+let isMonthly = false;
+
+function selectAmount(amount, monthly = false) {
+    selectedAmount = amount;
+    isMonthly = monthly;
+    document.getElementById('payment-form').style.display = 'block';
+    cardElement.mount('#card-element');
+}
+
+document.getElementById('submit-payment').addEventListener('click', async function() {
+    const email = document.getElementById('donor-email').value;
+    if (!email) {
+        document.getElementById('payment-result').textContent = 'Please enter your email.';
+        return;
+    }
+
+    const {error, paymentMethod} = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+    });
+
+    if (error) {
+        document.getElementById('payment-result').textContent = error.message;
+    } else {
+        // Create payment intent
+        const response = await fetch('/create-payment-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: selectedAmount, email: email })
+        });
+        const {clientSecret, error: serverError} = await response.json();
+
+        if (serverError) {
+            document.getElementById('payment-result').textContent = serverError;
+        } else {
+            const {error: confirmError} = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: paymentMethod.id
+            });
+
+            if (confirmError) {
+                document.getElementById('payment-result').textContent = confirmError.message;
+            } else {
+                document.getElementById('payment-result').textContent = 'Thank you for your donation! A receipt has been sent to your email.';
+            }
+        }
+    }
+});
+</script>
+
+<style>
+.donate-page {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.donate-options {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.donate-option {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    flex: 1;
+    cursor: pointer;
+}
+
+.donate-option:hover {
+    border-color: var(--primary-color);
+}
+
+.donate-option button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+#payment-form {
+    margin-top: 2rem;
+    text-align: left;
+}
+
+#card-element {
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

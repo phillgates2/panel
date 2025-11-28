@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="notifications-page" role="main" aria-labelledby="notifications-title">
+    <h1 id="notifications-title">?? Notifications</h1>
+
+    <div class="notifications-container">
+        <div id="notifications-list" aria-live="polite" aria-label="Notifications list">
+            <!-- Notifications will be loaded here via JavaScript -->
+            <div class="notification-item">
+                <div class="notification-content">
+                    <h3>Welcome to Panel!</h3>
+                    <p>Thanks for joining our community.</p>
+                    <small>2 hours ago</small>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="markAsRead(this)">Mark as Read</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotifications();
+});
+
+function loadNotifications() {
+    fetch('/api/notifications')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('notifications-list');
+            if (data.notifications && data.notifications.length > 0) {
+                container.innerHTML = data.notifications.map(notification => `
+                    <div class="notification-item ${notification.read ? 'read' : 'unread'}">
+                        <div class="notification-content">
+                            <h3>${notification.title}</h3>
+                            <p>${notification.message}</p>
+                            <small>${new Date(notification.created_at).toLocaleString()}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="markAsRead('${notification.id}', this)">Mark as Read</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p>No notifications yet.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading notifications:', error);
+            document.getElementById('notifications-list').innerHTML = '<p>Error loading notifications.</p>';
+        });
+}
+
+function markAsRead(notificationId, button) {
+    fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                const item = button.closest('.notification-item');
+                item.classList.add('read');
+                item.classList.remove('unread');
+                button.remove();
+            }
+        })
+        .catch(error => console.error('Error marking as read:', error));
+}
+</script>
+
+<style>
+.notifications-page {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.notifications-container {
+    margin-top: 2rem;
+}
+
+.notification-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    transition: background-color 0.3s;
+}
+
+.notification-item.unread {
+    border-left: 4px solid var(--primary-color);
+    background: var(--header-bg);
+}
+
+.notification-item.read {
+    opacity: 0.7;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-color);
+}
+
+.notification-content p {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-color);
+}
+
+.notification-content small {
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

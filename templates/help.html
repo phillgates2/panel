@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="help-page" role="main" aria-labelledby="help-title">
+    <h1 id="help-title">?? Help & Support</h1>
+
+    <div class="help-grid">
+        <section class="help-section" aria-labelledby="getting-started-title">
+            <h2 id="getting-started-title">?? Getting Started</h2>
+            <div class="help-content">
+                <h3>Welcome to Panel!</h3>
+                <p>Panel is a comprehensive game server management and community platform. Here's how to get started:</p>
+                <ol>
+                    <li><strong>Complete your profile:</strong> Go to <a href="{{ url_for('profile') }}">Profile</a> to update your information.</li>
+                    <li><strong>Explore the dashboard:</strong> Visit your <a href="{{ url_for('dashboard') }}">Dashboard</a> for server status and quick actions.</li>
+                    <li><strong>Join the community:</strong> Check out the <a href="{{ url_for('forum.index') }}">Forum</a> to connect with other users.</li>
+                    <li><strong>Customize your experience:</strong> Use the theme toggle in the navigation to switch between light and dark modes.</li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="help-section" aria-labelledby="features-title">
+            <h2 id="features-title">? Key Features</h2>
+            <div class="help-content">
+                <ul>
+                    <li><strong>Server Management:</strong> Monitor and control your game servers with real-time status updates.</li>
+                    <li><strong>Community Forum:</strong> Engage with other users, share experiences, and get help.</li>
+                    <li><strong>API Access:</strong> Integrate with external tools using our comprehensive API.</li>
+                    <li><strong>Admin Tools:</strong> Powerful administration features for system management.</li>
+                    <li><strong>Real-time Updates:</strong> Live notifications and status changes.</li>
+                    <li><strong>PWA Support:</strong> Install as a desktop/mobile app for offline access.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="help-section" aria-labelledby="faq-title">
+            <h2 id="faq-title">? Frequently Asked Questions</h2>
+            <div class="help-content">
+                <details>
+                    <summary>How do I change my theme?</summary>
+                    <p>Use the theme toggle button in the top navigation bar to switch between light and dark modes. Your preference is saved automatically.</p>
+                </details>
+                <details>
+                    <summary>How do I manage my API keys?</summary>
+                    <p>Go to your <a href="{{ url_for('account_api_keys') }}">API Keys</a> page to create, view, and revoke API access tokens.</p>
+                </details>
+                <details>
+                    <summary>How do I enable two-factor authentication?</summary>
+                    <p>Visit your <a href="{{ url_for('account_2fa') }}">Two-Factor Auth</a> page to set up 2FA for enhanced security.</p>
+                </details>
+                <details>
+                    <summary>How do I report a bug or request a feature?</summary>
+                    <p>Use the forum to discuss issues or suggestions with the community, or contact support if available.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="help-section" aria-labelledby="contact-title">
+            <h2 id="contact-title">?? Contact & Support</h2>
+            <div class="help-content">
+                <p>If you need further assistance:</p>
+                <ul>
+                    <li><strong>Forum:</strong> <a href="{{ url_for('forum.index') }}">Ask the community</a></li>
+                    <li><strong>Documentation:</strong> <a href="/api/docs">API Documentation</a></li>
+                    <li><strong>Status:</strong> <a href="{{ url_for('status') }}">System Status</a></li>
+                </ul>
+                <p>For urgent issues, check the <a href="{{ url_for('status') }}">status page</a> for any ongoing incidents.</p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<style>
+.help-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.help-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.help-section h2 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.help-content h3 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.help-content p, .help-content li {
+    line-height: 1.6;
+}
+
+.help-content a {
+    color: var(--link-color);
+}
+
+.help-content details {
+    margin-bottom: 1rem;
+}
+
+.help-content summary {
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.help-content summary:hover {
+    color: var(--primary-color);
+}
+</style>
+{% endblock %}

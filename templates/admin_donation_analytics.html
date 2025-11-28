@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="analytics-page" role="main" aria-labelledby="analytics-title">
+    <h1 id="analytics-title">?? Donation Analytics</h1>
+
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <h3>Total Donations</h3>
+            <div class="metric" id="total-amount">$0.00</div>
+        </div>
+        <div class="analytics-card">
+            <h3>Monthly Donations</h3>
+            <canvas id="monthly-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/donation-analytics')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-amount').textContent = `$${data.total.toFixed(2)}`;
+
+            const ctx = document.getElementById('monthly-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.monthly.map(d => d.month),
+                    datasets: [{
+                        label: 'Donations ($)',
+                        data: data.monthly.map(d => d.amount),
+                        borderColor: 'var(--primary-color)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+});
+</script>
+
+<style>
+.analytics-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.analytics-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.analytics-card h3 {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.metric {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+#monthly-chart {
+    max-height: 300px;
+}
+</style>
+{% endblock %}

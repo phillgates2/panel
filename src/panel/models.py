@@ -1,7 +1,7 @@
 """Database models for the Panel application."""
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Optional, List
+from typing import List
 
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -30,11 +30,40 @@ ROLE_HIERARCHY = {
 }
 
 ROLE_PERMISSIONS = {
-    "user": ["view_forum", "create_posts", "view_blog"],
-    "premium": ["view_forum", "create_posts", "view_blog", "premium_features"],
-    "moderator": ["view_forum", "create_posts", "view_blog", "moderate_forum", "edit_posts"],
-    "admin": ["view_forum", "create_posts", "view_blog", "moderate_forum", "edit_posts", "manage_servers", "view_admin"],
-    "system_admin": ["view_forum", "create_posts", "view_blog", "moderate_forum", "edit_posts", "manage_servers", "view_admin", "system_config", "user_management"]
+    "user": [
+        "view_forum", "create_posts", "view_blog", "view_profile",
+        "edit_own_profile", "use_api_basic", "view_public_content"
+    ],
+    "premium": [
+        "view_forum", "create_posts", "view_blog", "view_profile",
+        "edit_own_profile", "use_api_basic", "view_public_content",
+        "premium_features", "create_blog_posts", "upload_files",
+        "advanced_search", "priority_support"
+    ],
+    "moderator": [
+        "view_forum", "create_posts", "view_blog", "view_profile",
+        "edit_own_profile", "use_api_basic", "view_public_content",
+        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
+        "view_user_activity", "manage_categories", "moderate_chat"
+    ],
+    "admin": [
+        "view_forum", "create_posts", "view_blog", "view_profile",
+        "edit_own_profile", "use_api_basic", "view_public_content",
+        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
+        "view_user_activity", "manage_categories", "moderate_chat",
+        "manage_servers", "view_admin", "manage_users", "view_analytics",
+        "manage_backups", "configure_system", "manage_api_keys"
+    ],
+    "system_admin": [
+        "view_forum", "create_posts", "view_blog", "view_profile",
+        "edit_own_profile", "use_api_basic", "view_public_content",
+        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
+        "view_user_activity", "manage_categories", "moderate_chat",
+        "manage_servers", "view_admin", "manage_users", "view_analytics",
+        "manage_backups", "configure_system", "manage_api_keys",
+        "system_config", "user_management", "audit_logs", "security_settings",
+        "database_admin", "system_monitoring", "emergency_shutdown"
+    ]
 }
 
 
@@ -75,6 +104,12 @@ class User(db.Model):
     oauth_token = db.Column(db.Text, nullable=True)  # Access token (encrypted)
     oauth_refresh_token = db.Column(db.Text, nullable=True)  # Refresh token (encrypted)
     oauth_token_expires = db.Column(db.DateTime, nullable=True)  # Token expiration
+
+    __table_args__ = (
+        db.Index('idx_user_email', 'email'),
+        db.Index('idx_user_role', 'role'),
+        db.Index('idx_user_oauth', 'oauth_provider', 'oauth_id'),
+    )
 
     def set_password(self, password: str) -> None:
         """Set user password with complexity validation."""
@@ -197,6 +232,54 @@ class User(db.Model):
         required_level = ROLE_HIERARCHY.get(required_role, 1)
         return self.get_role_level() >= required_level
 
+    def can_perform_action(self, action: str, resource: str = None) -> bool:
+        """Check if user can perform a specific action, optionally on a resource"""
+        base_permission = self.has_permission(action)
+        if not base_permission:
+            return False
+
+        # Additional checks based on resource
+        if resource:
+            if action == "edit_posts" and resource == "own":
+                return True  # Users can edit their own posts
+            elif action == "manage_servers" and resource:
+                # Check if user owns or is assigned to the server
+                return self.is_server_admin() or self.is_server_mod()
+            elif action == "view_user_activity" and resource:
+                # Admins can view anyone's activity, mods can view non-admin activity
+                if self.is_system_admin():
+                    return True
+                elif self.is_server_admin() and not User.query.get(int(resource)).is_system_admin():
+                    return True
+                return False
+
+        return True
+
+    def get_available_permissions(self) -> List[str]:
+        """Get all permissions available to the user's role"""
+        return ROLE_PERMISSIONS.get(self.role, [])
+
+    def can_grant_role(self, target_role: str) -> bool:
+        """Check if user can grant a specific role to others"""
+        user_level = self.get_role_level()
+        target_level = ROLE_HIERARCHY.get(target_role, 1)
+        return user_level > target_level and self.has_permission("user_management")
+
+    def can_revoke_role(self, target_user_role: str) -> bool:
+        """Check if user can revoke a specific role from others"""
+        return self.can_grant_role(target_user_role)  # Same logic as granting
+
+    def get_max_grantable_role(self) -> str:
+        """Get the highest role this user can grant"""
+        user_level = self.get_role_level()
+        if user_level <= 1:
+            return None
+        # Can grant roles one level below
+        for role, level in ROLE_HIERARCHY.items():
+            if level == user_level - 1:
+                return role
+        return None
+
     def generate_api_token(self) -> str:
         """Generate a new API token for the user."""
         import secrets
@@ -274,6 +357,10 @@ class ServerUser(db.Model):
     role = db.Column(db.String(32), nullable=False)  # 'server_admin' or 'server_mod'
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    __table_args__ = (
+        db.Index('idx_server_user_server_user', 'server_id', 'user_id'),
+    )
+
 
 class Server(db.Model):
     """Server model representing game servers."""
@@ -298,13 +385,25 @@ class Server(db.Model):
     users = db.relationship("ServerUser", backref="server", cascade="all, delete-orphan")
     owner = db.relationship("User", foreign_keys=[owner_id])
 
+    __table_args__ = (
+        db.Index('idx_server_name', 'name'),
+        db.Index('idx_server_owner', 'owner_id'),
+    )
+
 
 class AuditLog(db.Model):
     """Audit log for tracking user actions and system events."""
     id = db.Column(db.Integer, primary_key=True)
     actor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     action = db.Column(db.String(1024), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.Index('idx_audit_actor', 'actor_id'),
+        db.Index('idx_audit_created', 'created_at'),
+    )
 
 
 class SiteSetting(db.Model):
@@ -318,6 +417,10 @@ class SiteSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(128), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=True)
+
+    __table_args__ = (
+        db.Index('idx_site_setting_key', 'key'),
+    )
 
 
 class SiteAsset(db.Model):
@@ -396,4 +499,87 @@ class NotificationSubscription(db.Model):
     user = db.relationship('User', backref=db.backref('notification_subscriptions', lazy=True))
 
     def __repr__(self):
-        return f'<NotificationSubscription user={self.user_id} endpoint={self.endpoint[:50]}...>'
+        return f'<NotificationSubscription user={self.user_id} endpoint={self.endpoint[:50]}>'
+
+
+class Notification(db.Model):
+    """User notifications"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), default='info')  # info, success, warning, error
+    read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship("User", backref="notifications")
+
+    __table_args__ = (
+        db.Index('idx_notification_user', 'user_id'),
+        db.Index('idx_notification_read', 'read'),
+    )
+
+
+class Achievement(db.Model):
+    """User achievements for engagement"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    unlocked_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship("User", backref="achievements")
+
+
+class ChatMessage(db.Model):
+    """Chat messages for persistence"""
+    id = db.Column(db.Integer, primary_key=True)
+    room = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    username = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    moderated = db.Column(db.Boolean, default=True)  # True if approved
+    flagged = db.Column(db.Boolean, default=False)
+
+    user = db.relationship("User")
+
+    __table_args__ = (
+        db.Index('idx_chat_room_timestamp', 'room', 'timestamp'),
+        db.Index('idx_chat_moderated', 'moderated'),
+    )
+
+
+class Donation(db.Model):
+    """Donation records for analytics"""
+    id = db.Column(db.Integer, primary_key=True)
+    stripe_payment_id = db.Column(db.String(100), unique=True, nullable=False)
+    amount = db.Column(db.Integer, nullable=False)  # In cents
+    currency = db.Column(db.String(3), default='usd')
+    donor_email = db.Column(db.String(120), nullable=True)
+    status = db.Column(db.String(20), default='completed')  # completed, failed, refunded
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.Index('idx_donation_timestamp', 'timestamp'),
+        db.Index('idx_donation_email', 'donor_email'),
+    )
+
+
+class Badge(db.Model):
+    """User badges for gamification"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    icon = db.Column(db.String(100), nullable=True)
+
+
+class UserBadge(db.Model):
+    """User earned badges"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    badge_id = db.Column(db.Integer, db.ForeignKey("badge.id"), nullable=False)
+    earned_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship("User")
+    badge = db.relationship("Badge")

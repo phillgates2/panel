@@ -1,20 +1,20 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="dashboard-page">
+<div class="dashboard-page" role="main" aria-labelledby="dashboard-title">
     <div class="dashboard-header">
         <div class="welcome-section">
-            <h1>📊 Dashboard</h1>
+            <h1 id="dashboard-title">📊 Dashboard</h1>
             <p class="text-secondary">Welcome back, <strong>{{ user.first_name }} {{ user.last_name }}</strong></p>
             <p class="text-muted">{{ user.email }}</p>
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="dashboard-card primary-card">
+    <div class="dashboard-grid" role="region" aria-label="Dashboard widgets">
+        <div class="dashboard-card primary-card" role="article" aria-labelledby="server-info-title">
             <div class="card-header">
-                <div class="card-icon">🎮</div>
+                <div class="card-icon" aria-hidden="true">🎮</div>
                 <div class="card-info">
-                    <h3>Server Information</h3>
+                    <h3 id="server-info-title">Server Information</h3>
                     <p class="text-muted">Manage your game servers</p>
                 </div>
             </div>
@@ -26,29 +26,29 @@
                     </div>
                     <div class="info-row">
                         <span class="label">🔧 Status:</span>
-                        <span class="value status-online">🟢 Online</span>
+                        <span class="value status-online" aria-live="polite">🟢 Online</span>
                     </div>
                 </div>
                 <div class="card-actions">
-                    <a href="{{ url_for('rcon_console') }}" class="btn btn-primary">🖥️ RCON Console</a>
+                    <a href="{{ url_for('rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-card primary-card">
+        <div class="dashboard-card primary-card" role="article" aria-labelledby="server-status-title">
             <div class="card-header">
-                <div class="card-icon">🎮</div>
+                <div class="card-icon" aria-hidden="true">🎮</div>
                 <div class="card-info">
-                    <h3>Server Status</h3>
+                    <h3 id="server-status-title">Server Status</h3>
                     <p class="text-muted">Real-time server monitoring</p>
                 </div>
             </div>
             <div class="card-body">
-                <div id="server-status-container">
-                    <div class="server-status-item" data-server-id="main">
+                <div id="server-status-container" aria-live="polite" aria-label="Server status updates">
+                    <div class="server-status-item" data-server-id="main" aria-label="Main server status">
                         <div class="server-info">
                             <span class="server-name">Main Server</span>
-                            <span class="server-status status-loading">⏳ Loading...</span>
+                            <span class="server-status status-loading" aria-live="polite">⏳ Loading...</span>
                         </div>
                         <div class="server-details">
                             <span class="server-players">Players: --/--</span>
@@ -58,66 +58,66 @@
                     </div>
                 </div>
                 <div class="card-actions">
-                    <a href="{{ url_for('rcon_console') }}" class="btn btn-primary">🖥️ RCON Console</a>
-                    <button onclick="refreshServerStatus()" class="btn btn-secondary">🔄 Refresh</button>
+                    <a href="{{ url_for('rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
+                    <button onclick="refreshServerStatus()" class="btn btn-secondary" aria-label="Refresh server status">🔄 Refresh</button>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-card">
+        <div class="dashboard-card" role="article" aria-labelledby="account-mgmt-title">
             <div class="card-header">
-                <div class="card-icon">👤</div>
+                <div class="card-icon" aria-hidden="true">👤</div>
                 <div class="card-info">
-                    <h3>Account Management</h3>
+                    <h3 id="account-mgmt-title">Account Management</h3>
                     <p class="text-muted">Manage your account settings</p>
                 </div>
             </div>
             <div class="card-body">
-                <div class="action-list">
+                <nav class="action-list" aria-label="Account management options">
                     <a href="{{ url_for('account_sessions') }}" class="action-item">
                         <span>💻 Active Sessions</span>
-                        <span class="arrow">→</span>
+                        <span class="arrow" aria-hidden="true">→</span>
                     </a>
-                    <div class="button-group">
-                        <a href="{{ url_for('account_api_keys') }}" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-key"></i> API Keys
+                    <div class="button-group" role="group" aria-label="Account tools">
+                        <a href="{{ url_for('account_api_keys') }}" class="btn btn-outline-primary btn-sm" aria-label="Manage API keys">
+                            <i class="fas fa-key" aria-hidden="true"></i> API Keys
                         </a>
-                        <a href="{{ url_for('account_2fa') }}" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-shield-alt"></i> Two-Factor Auth
+                        <a href="{{ url_for('account_2fa') }}" class="btn btn-outline-primary btn-sm" aria-label="Configure two-factor authentication">
+                            <i class="fas fa-shield-alt" aria-hidden="true"></i> Two-Factor Auth
                         </a>
                     </div>
-                </div>
+                </nav>
 
                 {% if user.is_system_admin() %}
-                <div class="admin-section mt-3">
-                    <h4>Admin Tools</h4>
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('admin_users') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-users"></i> User Management
+                <section class="admin-section mt-3" aria-labelledby="admin-tools-title">
+                    <h4 id="admin-tools-title">Admin Tools</h4>
+                    <div class="d-grid gap-2" role="group" aria-label="Administrative tools">
+                        <a href="{{ url_for('admin_users') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage users">
+                            <i class="fas fa-users" aria-hidden="true"></i> User Management
                         </a>
-                        <a href="{{ url_for('admin_servers') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-server"></i> Server Management
+                        <a href="{{ url_for('admin_servers') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage servers">
+                            <i class="fas fa-server" aria-hidden="true"></i> Server Management
                         </a>
-                        <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-blog"></i> Blog Management
+                        <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage blog posts">
+                            <i class="fas fa-blog" aria-hidden="true"></i> Blog Management
                         </a>
-                        <a href="{{ url_for('admin_audit') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-history"></i> Audit Log
+                        <a href="{{ url_for('admin_audit') }}" class="btn btn-outline-danger btn-sm" aria-label="View audit logs">
+                            <i class="fas fa-history" aria-hidden="true"></i> Audit Log
                         </a>
-                        <a href="{{ url_for('admin_jobs') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-tasks"></i> Background Jobs
+                        <a href="{{ url_for('admin_jobs') }}" class="btn btn-outline-danger btn-sm" aria-label="Monitor background jobs">
+                            <i class="fas fa-tasks" aria-hidden="true"></i> Background Jobs
                         </a>
-                        <a href="{{ url_for('admin_theme') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-palette"></i> Theme Customization
+                        <a href="{{ url_for('admin_theme') }}" class="btn btn-outline-danger btn-sm" aria-label="Customize theme">
+                            <i class="fas fa-palette" aria-hidden="true"></i> Theme Customization
                         </a>
-                        <a href="{{ url_for('admin_database') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-database"></i> Database Admin
+                        <a href="{{ url_for('admin_database') }}" class="btn btn-outline-danger btn-sm" aria-label="Database administration">
+                            <i class="fas fa-database" aria-hidden="true"></i> Database Admin
                         </a>
-                        <a href="{{ url_for('admin_tools') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-tools"></i> System Tools
+                        <a href="{{ url_for('admin_tools') }}" class="btn btn-outline-danger btn-sm" aria-label="System tools">
+                            <i class="fas fa-tools" aria-hidden="true"></i> System Tools
                         </a>
                     </div>
-                </div>
+                </section>
                 {% endif %}
             </div>
         </div>

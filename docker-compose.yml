@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - PANEL_REDIS_URL=redis://redis:6379/0
+      - PANEL_SQLITE_URI=sqlite:///panel_dev.db
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+
+  # Microservice: Authentication
+  auth-service:
+    build: .
+    ports:
+      - "5001:5000"
+    environment:
+      - SERVICE_NAME=auth
+      - PANEL_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+
+  # Microservice: Chat
+  chat-service:
+    build: .
+    ports:
+      - "5002:5000"
+    environment:
+      - SERVICE_NAME=chat
+      - PANEL_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+
+  # Microservice: Payment
+  payment-service:
+    build: .
+    ports:
+      - "5003:5000"
+    environment:
+      - SERVICE_NAME=payment
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: paneldb
+      POSTGRES_USER: paneluser
+      POSTGRES_PASSWORD: panelpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  celery:
+    build: .
+    command: celery -A src.panel.celery_app worker --loglevel=info
+    environment:
+      - PANEL_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - app
+      - auth-service
+      - chat-service
+      - payment-service
+
+volumes:
+  db_data:

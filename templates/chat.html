@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="chat-page" role="main" aria-labelledby="chat-title">
+    <h1 id="chat-title">?? Chat</h1>
+
+    <div class="chat-layout">
+        <div class="chat-sidebar">
+            <h3>Rooms</h3>
+            <ul id="room-list" class="room-list">
+                <li class="room-item active" data-room="general">General</li>
+                <li class="room-item" data-room="support">Support</li>
+                <li class="room-item" data-room="random">Random</li>
+            </ul>
+
+            <h3>Online Users</h3>
+            <ul id="user-list" class="user-list">
+                <!-- Users will be populated -->
+            </ul>
+        </div>
+
+        <div class="chat-main">
+            <div class="chat-header">
+                <h2 id="current-room">General</h2>
+            </div>
+
+            <div id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Chat messages">
+                <!-- Messages will be loaded here -->
+            </div>
+
+            <form id="chat-form" class="chat-form" aria-label="Send message">
+                <input type="text" id="message-input" placeholder="Type a message..." required>
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messagesContainer = document.getElementById('chat-messages');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('message-input');
+    const roomList = document.getElementById('room-list');
+    const userList = document.getElementById('user-list');
+    const currentRoomEl = document.getElementById('current-room');
+
+    let currentRoom = 'general';
+
+    // Load initial messages
+    loadMessages(currentRoom);
+
+    // Room switching
+    roomList.addEventListener('click', function(e) {
+        if (e.target.classList.contains('room-item')) {
+            const room = e.target.dataset.room;
+            switchRoom(room);
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = input.value.trim();
+        if (message) {
+            sendMessage(message, currentRoom);
+            input.value = '';
+        }
+    });
+
+    function switchRoom(room) {
+        currentRoom = room;
+        currentRoomEl.textContent = room.charAt(0).toUpperCase() + room.slice(1);
+        document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
+        document.querySelector(`[data-room="${room}"]`).classList.add('active');
+        loadMessages(room);
+    }
+
+    function loadMessages(room) {
+        fetch(`/api/chat/messages/${room}`)
+            .then(response => response.json())
+            .then(data => {
+                displayMessages(data.messages);
+            })
+            .catch(error => console.error('Error loading messages:', error));
+    }
+
+    function sendMessage(text, room) {
+        const messageData = {
+            username: '{{ user.display_name if user else "Guest" }}',
+            message: text
+        };
+
+        fetch(`/api/chat/messages/${room}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(messageData)
+        })
+        .then(response => response.json())
+        .then(() => {
+            input.value = '';
+            loadMessages(room);  // Reload messages
+        })
+        .catch(error => console.error('Error sending message:', error));
+    }
+
+    function displayMessages(messages) {
+        messagesContainer.innerHTML = '';
+        messages.forEach(msg => {
+            const msgEl = document.createElement('div');
+            msgEl.className = 'chat-message';
+            const time = new Date(msg.timestamp).toLocaleTimeString();
+            msgEl.innerHTML = `<strong>${msg.username}:</strong> ${msg.message} <small>${time}</small>`;
+            messagesContainer.appendChild(msgEl);
+        });
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Update online users
+    function updateOnlineUsers(users) {
+        userList.innerHTML = users.map(user => `<li class="user-item">${user.name}</li>`).join('');
+    }
+
+    // SocketIO listeners
+    if (window.socket) {
+        window.socket.on('chat_message', function(data) {
+            if (data.room === currentRoom) {
+                displayMessages([data]);
+            }
+        });
+
+        window.socket.on('online_users_list', function(data) {
+            updateOnlineUsers(data.users);
+        });
+    }
+});
+</script>
+
+<style>
+.chat-page {
+    height: calc(100vh - 200px);
+}
+
+.chat-layout {
+    display: flex;
+    height: 100%;
+    gap: 1rem;
+}
+
+.chat-sidebar {
+    width: 250px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.room-list, .user-list {
+    list-style: none;
+    padding: 0;
+}
+
+.room-item, .user-item {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.room-item:hover, .user-item:hover {
+    background: var(--header-bg);
+}
+
+.room-item.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.chat-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--header-bg);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.chat-message {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: var(--header-bg);
+    border-radius: 4px;
+}
+
+.chat-form {
+    display: flex;
+    padding: 1rem;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-form input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-right: 0.5rem;
+}
+
+.chat-form button {
+    padding: 0.5rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+</style>
+{% endblock %}

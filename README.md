@@ -110,28 +110,28 @@ Panel is a **complete enterprise-grade control system** for game server manageme
 ### One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 ```
 
-The installer features **interactive mode selection**, automatic service orchestration, and comprehensive health checks. Choose between Development, Production, or Custom installation modes.
+The installer features **interactive prompts**, automatic service orchestration, and comprehensive health checks. Choose between Development, Production, or Custom installation modes with purple-themed logging.
 
 ### **Advanced Installation Options**
 
 ```bash
 # Custom domain with SSL
 PANEL_DOMAIN=mypanel.com PANEL_ENABLE_SSL=true \\
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 
 # Enterprise setup with monitoring
 PANEL_ENABLE_MONITORING=true PANEL_ENABLE_BACKUPS=true \\
 PANEL_SETUP_SYSTEMD=true \\
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 
-# Non-interactive installation
+# Non-interactive mode
 PANEL_NON_INTERACTIVE=true \\
 PANEL_ADMIN_EMAIL=admin@company.com \\
 PANEL_DB_PASS=secure_password \\
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 ```
 
 ### **Kubernetes Deployment**
@@ -420,6 +420,7 @@ PANEL_BACKUP_SCHEDULE=daily
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Security Guide](docs/SECURITY_HARDENING_README.md)** - Security best practices
 - **[Migration Guide](docs/README_DEV.md)** - Upgrading from older versions
+- **[Changelog](CHANGELOG.md)** - Version history and release notes
 
 ---
 
@@ -1111,10 +1112,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 ### One-Line Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 ```
 
-The installer features **interactive mode selection**, automatic service orchestration, and comprehensive health checks. Choose between Development, Production, or Custom installation modes.
+The installer features **interactive prompts**, automatic service orchestration, and comprehensive health checks. Choose between Development, Production, or Custom installation modes with purple-themed logging.
 
 ### Installation Modes
 
@@ -1146,28 +1147,28 @@ Mix and match components to suit your needs:
 
 ```bash
 # Show all options and available functions
-bash scripts/install.sh --help
+bash scripts/install-interactive.sh --help
 
 # Custom installation directory
-bash scripts/install.sh --dir /opt/panel
+bash scripts/install-interactive.sh --dir /opt/panel
 
 # Force PostgreSQL (production - recommended)
-bash scripts/install.sh --postgresql
+bash scripts/install-interactive.sh --postgresql
 
 # Non-interactive mode
-bash scripts/install.sh --non-interactive
+bash scripts/install-interactive.sh --non-interactive
 
 # Skip dependency installation
-bash scripts/install.sh --skip-deps
+bash scripts/install-interactive.sh --skip-deps
 
 # Use specific branch
-bash scripts/install.sh --branch develop
+bash scripts/install-interactive.sh --branch develop
 
 # Verify existing installation
-bash scripts/install.sh --verify-only
+bash scripts/install-interactive.sh --verify-only
 
 # Update existing installation (git pull + pip upgrade)
-bash scripts/install.sh --update
+bash scripts/install-interactive.sh --update
 ```
 
 ### Non-Interactive Installation
@@ -1178,7 +1179,7 @@ PANEL_NON_INTERACTIVE=true \
 PANEL_DEBUG=true \
 PANEL_DB_PASS=devpass \
 PANEL_ADMIN_PASS=admin123 \
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 ```
 
 **Production Deployment:**
@@ -1190,7 +1191,7 @@ PANEL_DOMAIN=panel.example.com \
 PANEL_ADMIN_EMAIL=admin@example.com \
 PANEL_DB_PASS=$(openssl rand -base64 24) \
 PANEL_ADMIN_PASS=$(openssl rand -base64 16) \
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
 ```
 
 **Available Environment Variables:**
@@ -1372,5 +1373,3 @@ To integrate Panel with CI/CD pipelines:
         kubectl apply -f k8s/deployment.yml
         kubectl rollout status deployment/panel
     ```
-
----
