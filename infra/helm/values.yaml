@@ -1,0 +1,45 @@
+# Default values for panel.
+replicaCount: 3
+
+image:
+  repository: phillgates2/panel
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: panel.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: panel-tls
+      hosts:
+        - panel.example.com
+
+postgresql:
+  enabled: true
+  auth:
+    database: paneldb
+    username: paneluser
+    password: "changeme"
+  architecture: replication
+
+redis:
+  enabled: true
+
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+istio:
+  enabled: false
