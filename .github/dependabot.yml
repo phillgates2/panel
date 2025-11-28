@@ -28,6 +28,11 @@ updates:
       # Ignore specific vulnerable versions
       - dependency-name: "requests"
         versions: ["< 2.20.0"]
+      # Add more ignores for stability
+      - dependency-name: "jinja2"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "click"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -46,7 +51,7 @@ updates:
       - "dependencies"
       - "github-actions"
 
-  # Docker
+  # Docker (if Dockerfile exists)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -63,7 +68,7 @@ updates:
       - "dependencies"
       - "docker"
 
-  # NPM (for testing tools)
+  # NPM (for any frontend tools)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
