@@ -42,7 +42,7 @@ mkdocs==1.6.1
 mkdocs-material==9.7.0
 
 # Security scanning
-safety==2.3.5
+safety==3.7.0
 pip-audit==2.6.3
 
 # Performance profiling
