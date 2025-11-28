@@ -33,7 +33,7 @@ prometheus-flask-exporter==0.23.2
 psutil==7.1.3
 paramiko==3.4.0
 PyYAML==6.0.1
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 
 # Development and Deployment
 setuptools==69.0.2

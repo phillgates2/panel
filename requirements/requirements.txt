@@ -57,7 +57,7 @@ prometheus-flask-exporter==0.23.2
 # psutil==5.9.6  # Commented out due to build issues in Alpine
 paramiko==3.4.0
 PyYAML==6.0.1
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 
 # Optional ML/Analytics Dependencies (install only if needed)
 # numpy==1.25.2
