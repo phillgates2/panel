@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, current_app
 from flask_login import current_user
+from typing import Dict, Any
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
 
@@ -7,12 +8,12 @@ main_bp = Blueprint("main", __name__)
 
 
 @main_bp.route("/")
-def index():
+def index() -> str:
     return render_template("index.html")
 
 
 @main_bp.route("/status")
-def status():
+def status() -> Dict[str, Any]:
     import time
 
     return {
@@ -24,7 +25,7 @@ def status():
 
 
 @main_bp.route("/health")
-def health():
+def health() -> Dict[str, Any]:
     import time
     # Check external services
     health_status = {"status": "healthy", "checks": {}, "timestamp": time.time()}
@@ -47,12 +48,12 @@ def health():
 
 
 @main_bp.route("/api/v2/status")
-def api_v2_status():
+def api_v2_status() -> Dict[str, Any]:
     return {"version": "v2", "status": "ok"}
 
 
 @main_bp.route("/webhooks", methods=["POST"])
-def webhooks():
+def webhooks() -> Dict[str, Any]:
     data = request.json
     # Process webhook, e.g., Discord/Slack
     return {"received": True}
@@ -63,7 +64,7 @@ from graphene import ObjectType, String, Schema as GraphQLSchema
 
 
 @main_bp.route("/graphql", methods=["GET", "POST"])
-def graphql_view():
+def graphql_view() -> Any:
     return GraphQLView.as_view("graphql", schema=extensions["schema"], graphiql=True)()
 
 
@@ -72,22 +73,22 @@ feature_flags = {"dark_mode": True, "new_ui": False, "gdpr_auto_export": True}
 
 
 @main_bp.route("/profile")
-def profile():
+def profile() -> str:
     return render_template("profile.html")
 
 
 @main_bp.route("/settings")
-def settings():
+def settings() -> str:
     return render_template("settings.html")
 
 
 @main_bp.route("/notifications")
-def notifications():
+def notifications() -> str:
     return render_template("notifications.html")
 
 
 @main_bp.route("/api/user/theme", methods=["POST"])
-def update_theme():
+def update_theme() -> Dict[str, Any]:
     data = request.json
     theme = data.get("theme")
     # Save to user settings
@@ -95,20 +96,20 @@ def update_theme():
 
 
 @main_bp.route("/api/notifications")
-def get_notifications():
+def get_notifications() -> Dict[str, Any]:
     # Get user notifications
     notifications = []  # Query from DB
     return {"notifications": notifications}
 
 
 @main_bp.route("/api/notifications/<int:notif_id>/read", methods=["POST"])
-def mark_notification_read(notif_id):
+def mark_notification_read(notif_id: int) -> Dict[str, Any]:
     # Mark as read
     return {"success": True}
 
 
 @main_bp.context_processor
-def inject_breadcrumbs():
+def inject_breadcrumbs() -> Dict[str, Any]:
     # Simple breadcrumb logic - customize based on routes
     path = request.path
     breadcrumbs = []
@@ -120,7 +121,7 @@ def inject_breadcrumbs():
 
 
 @main_bp.route("/search")
-def search():
+def search() -> str:
     query = request.args.get("q", "")
     # Implement search logic
     results = []
@@ -131,15 +132,15 @@ def search():
 
 
 @main_bp.route("/help")
-def help_page():
+def help_page() -> str:
     return render_template("help.html")
 
 
 @main_bp.route("/permissions")
-def permissions():
+def permissions() -> str:
     return render_template("permissions.html")
 
 
 @main_bp.route("/chat")
-def chat():
+def chat() -> str:
     return render_template("chat.html")

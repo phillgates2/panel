@@ -1,3 +1,4 @@
+from typing import Optional
 import time
 import os
 from flask import Flask, Blueprint, request, session, render_template, jsonify, redirect, url_for
@@ -52,7 +53,7 @@ try:
 except Exception:
     admin_bp = None
 
-def _register_optional_blueprints(module_app):
+def _register_optional_blueprints(module_app: Flask) -> None:
     try:
         from src.panel import cms as _cms
         if hasattr(_cms, "cms_bp"):
@@ -103,7 +104,7 @@ SERVICE_NAME = os.environ.get('SERVICE_NAME', 'main')
 if SERVICE_NAME == 'auth':
     # Auth service routes
     @app.route('/auth/login')
-    def auth_login():
+    def auth_login() -> str:
         return "Auth service login"
 elif SERVICE_NAME == 'chat':
     # Chat service routes

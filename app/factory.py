@@ -1,5 +1,3 @@
-import time
-from typing import Optional
 from flask import Flask, Blueprint
 from flask_caching import Cache
 from flask_compress import Compress
