@@ -76,23 +76,21 @@ class DatabaseConnectionPool:
 
     def init_pool(self) -> None:
         """Initialize connection pool with optimized settings"""
-        db_uri = self.app.config['SQLALCHEMY_DATABASE_URI']
+        db_uri = self.app.config["SQLALCHEMY_DATABASE_URI"]
 
         # Connection pool settings
         pool_settings = {
-            'poolclass': QueuePool,
-            'pool_size': self.app.config.get('SQLALCHEMY_POOL_SIZE', 10),
-            'max_overflow': self.app.config.get('SQLALCHEMY_MAX_OVERFLOW', 20),
-            'pool_timeout': 30,  # seconds
-            'pool_recycle': 3600,  # recycle connections after 1 hour
-            'pool_pre_ping': True,  # test connections before use
+            "poolclass": QueuePool,
+            "pool_size": self.app.config.get("SQLALCHEMY_POOL_SIZE", 10),
+            "max_overflow": self.app.config.get("SQLALCHEMY_MAX_OVERFLOW", 20),
+            "pool_timeout": 30,  # seconds
+            "pool_recycle": 3600,  # recycle connections after 1 hour
+            "pool_pre_ping": True,  # test connections before use
         }
 
         # Create engine with pooling
         self.engine = create_engine(
-            db_uri,
-            **pool_settings,
-            echo=self.app.config.get('SQLALCHEMY_ECHO', False)
+            db_uri, **pool_settings, echo=self.app.config.get("SQLALCHEMY_ECHO", False)
         )
 
         # Create session factory
@@ -102,6 +100,7 @@ class DatabaseConnectionPool:
 
         # Update SQLAlchemy db instance
         from src.panel import db
+
         db.session = self.session_factory
 
         logger.info("Database connection pool initialized with enhanced settings")
@@ -113,11 +112,11 @@ class DatabaseConnectionPool:
 
         pool = self.engine.pool
         return {
-            'pool_size': getattr(pool, 'size', 0),
-            'checkedin': getattr(pool, 'checkedin', 0),
-            'checkedout': getattr(pool, 'checkedout', 0),
-            'invalid': getattr(pool, 'invalid', 0),
-            'overflow': getattr(pool, 'overflow', 0),
+            "pool_size": getattr(pool, "size", 0),
+            "checkedin": getattr(pool, "checkedin", 0),
+            "checkedout": getattr(pool, "checkedout", 0),
+            "invalid": getattr(pool, "invalid", 0),
+            "overflow": getattr(pool, "overflow", 0),
         }
 
 
@@ -148,7 +147,7 @@ class QueryProfiler:
 
         @event.listens_for(db.engine, "after_cursor_execute")
         def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-            if self.enabled and hasattr(g, 'query_start_time'):
+            if self.enabled and hasattr(g, "query_start_time"):
                 duration = time.time() - g.query_start_time
                 self.record_query(statement, duration, parameters)
 
@@ -159,8 +158,8 @@ class QueryProfiler:
                         extra={
                             "query": statement[:500] + "..." if len(statement) > 500 else statement,
                             "duration": duration,
-                            "slow_threshold": self.slow_query_threshold
-                        }
+                            "slow_threshold": self.slow_query_threshold,
+                        },
                     )
 
     def record_query(self, statement: str, duration: float, parameters: tuple = None) -> None:
@@ -170,26 +169,28 @@ class QueryProfiler:
 
         if table_name not in self.query_stats:
             self.query_stats[table_name] = {
-                'count': 0,
-                'total_time': 0.0,
-                'avg_time': 0.0,
-                'max_time': 0.0,
-                'queries': []
+                "count": 0,
+                "total_time": 0.0,
+                "avg_time": 0.0,
+                "max_time": 0.0,
+                "queries": [],
             }
 
         stats = self.query_stats[table_name]
-        stats['count'] += 1
-        stats['total_time'] += duration
-        stats['avg_time'] = stats['total_time'] / stats['count']
-        stats['max_time'] = max(stats['max_time'], duration)
+        stats["count"] += 1
+        stats["total_time"] += duration
+        stats["avg_time"] = stats["total_time"] / stats["count"]
+        stats["max_time"] = max(stats["max_time"], duration)
 
         # Keep sample of recent queries
-        if len(stats['queries']) < 10:
-            stats['queries'].append({
-                'statement': statement[:200] + "..." if len(statement) > 200 else statement,
-                'duration': duration,
-                'timestamp': time.time()
-            })
+        if len(stats["queries"]) < 10:
+            stats["queries"].append(
+                {
+                    "statement": statement[:200] + "..." if len(statement) > 200 else statement,
+                    "duration": duration,
+                    "timestamp": time.time(),
+                }
+            )
 
     def extract_table_name(self, statement: str) -> str:
         """Extract table name from SQL statement"""
@@ -197,12 +198,12 @@ class QueryProfiler:
 
         # Common patterns for table names in SQL
         patterns = [
-            r'FROM\s+(\w+)',
-            r'UPDATE\s+(\w+)',
-            r'INSERT\s+INTO\s+(\w+)',
-            r'DELETE\s+FROM\s+(\w+)',
-            r'ALTER\s+TABLE\s+(\w+)',
-            r'CREATE\s+TABLE\s+(\w+)'
+            r"FROM\s+(\w+)",
+            r"UPDATE\s+(\w+)",
+            r"INSERT\s+INTO\s+(\w+)",
+            r"DELETE\s+FROM\s+(\w+)",
+            r"ALTER\s+TABLE\s+(\w+)",
+            r"CREATE\s+TABLE\s+(\w+)",
         ]
 
         for pattern in patterns:
@@ -210,7 +211,7 @@ class QueryProfiler:
             if match:
                 return match.group(1).lower()
 
-        return 'unknown'
+        return "unknown"
 
     def get_query_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get current query statistics"""
@@ -221,46 +222,52 @@ class QueryProfiler:
         recommendations = []
 
         for table_name, stats in self.query_stats.items():
-            if table_name == 'unknown':
+            if table_name == "unknown":
                 continue
 
             # Analyze queries for potential indexes
-            for query_info in stats['queries']:
-                statement = query_info['statement'].upper()
+            for query_info in stats["queries"]:
+                statement = query_info["statement"].upper()
 
                 # Look for WHERE clauses that might benefit from indexes
-                if 'WHERE' in statement:
+                if "WHERE" in statement:
                     # Simple heuristic: recommend indexes on columns used in WHERE
                     # In a real implementation, this would use query parsing
-                    if 'USER_ID' in statement and table_name != 'user':
-                        recommendations.append({
-                            'table': table_name,
-                            'column': 'user_id',
-                            'reason': 'Frequently queried by user_id',
-                            'estimated_impact': 'high'
-                        })
+                    if "USER_ID" in statement and table_name != "user":
+                        recommendations.append(
+                            {
+                                "table": table_name,
+                                "column": "user_id",
+                                "reason": "Frequently queried by user_id",
+                                "estimated_impact": "high",
+                            }
+                        )
 
-                    if 'EMAIL' in statement:
-                        recommendations.append({
-                            'table': table_name,
-                            'column': 'email',
-                            'reason': 'Email lookups are common',
-                            'estimated_impact': 'medium'
-                        })
+                    if "EMAIL" in statement:
+                        recommendations.append(
+                            {
+                                "table": table_name,
+                                "column": "email",
+                                "reason": "Email lookups are common",
+                                "estimated_impact": "medium",
+                            }
+                        )
 
-                    if 'CREATED_AT' in statement and 'ORDER BY' in statement:
-                        recommendations.append({
-                            'table': table_name,
-                            'column': 'created_at',
-                            'reason': 'Time-based ordering queries',
-                            'estimated_impact': 'medium'
-                        })
+                    if "CREATED_AT" in statement and "ORDER BY" in statement:
+                        recommendations.append(
+                            {
+                                "table": table_name,
+                                "column": "created_at",
+                                "reason": "Time-based ordering queries",
+                                "estimated_impact": "medium",
+                            }
+                        )
 
         # Remove duplicates
         seen = set()
         unique_recommendations = []
         for rec in recommendations:
-            key = (rec['table'], rec['column'])
+            key = (rec["table"], rec["column"])
             if key not in seen:
                 seen.add(key)
                 unique_recommendations.append(rec)
@@ -270,21 +277,21 @@ class QueryProfiler:
     def get_performance_report(self) -> Dict[str, Any]:
         """Generate a comprehensive performance report"""
         return {
-            'query_stats': self.get_query_stats(),
-            'index_recommendations': self.get_index_recommendations(),
-            'slow_queries': [
+            "query_stats": self.get_query_stats(),
+            "index_recommendations": self.get_index_recommendations(),
+            "slow_queries": [
                 {
-                    'table': table,
-                    'count': stats['count'],
-                    'avg_time': stats['avg_time'],
-                    'max_time': stats['max_time']
+                    "table": table,
+                    "count": stats["count"],
+                    "avg_time": stats["avg_time"],
+                    "max_time": stats["max_time"],
                 }
                 for table, stats in self.query_stats.items()
-                if stats['avg_time'] > self.slow_query_threshold
+                if stats["avg_time"] > self.slow_query_threshold
             ],
-            'total_queries': sum(stats['count'] for stats in self.query_stats.values()),
-            'profiling_enabled': self.enabled,
-            'cache_stats': self.get_cache_stats()
+            "total_queries": sum(stats["count"] for stats in self.query_stats.values()),
+            "profiling_enabled": self.enabled,
+            "cache_stats": self.get_cache_stats(),
         }
 
     def get_cache_stats(self) -> Dict[str, Any]:
@@ -292,10 +299,11 @@ class QueryProfiler:
         if not self.cache:
             return {}
         # This would need to be implemented in the cache service
-        return {'cache_enabled': True}
+        return {"cache_enabled": True}
 
     def cached_query(self, ttl: int = None) -> Callable:
         """Decorator for caching query results"""
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -316,7 +324,9 @@ class QueryProfiler:
                 self.cache.set(cache_key, result, ttl=ttl or self.cache.default_ttl)
 
                 return result
+
             return wrapper
+
         return decorator
 
 
@@ -324,6 +334,7 @@ class QueryProfiler:
 query_profiler = QueryProfiler()
 query_cache = None
 connection_pool = None
+
 
 def init_db_optimization(app: Flask) -> None:
     """Initialize database optimization and profiling"""
@@ -356,47 +367,47 @@ def get_connection_pool() -> DatabaseConnectionPool:
 # Database index recommendations based on common query patterns
 INDEX_RECOMMENDATIONS = [
     {
-        'table': 'user',
-        'columns': ['email'],
-        'type': 'unique',
-        'reason': 'Email uniqueness and login lookups'
+        "table": "user",
+        "columns": ["email"],
+        "type": "unique",
+        "reason": "Email uniqueness and login lookups",
     },
     {
-        'table': 'user',
-        'columns': ['last_login'],
-        'type': 'btree',
-        'reason': 'Active user queries and session management'
+        "table": "user",
+        "columns": ["last_login"],
+        "type": "btree",
+        "reason": "Active user queries and session management",
     },
     {
-        'table': 'forum_thread',
-        'columns': ['is_pinned', 'created_at'],
-        'type': 'btree',
-        'reason': 'Thread listing with pinned threads first'
+        "table": "forum_thread",
+        "columns": ["is_pinned", "created_at"],
+        "type": "btree",
+        "reason": "Thread listing with pinned threads first",
     },
     {
-        'table': 'forum_post',
-        'columns': ['thread_id', 'created_at'],
-        'type': 'btree',
-        'reason': 'Post retrieval within threads'
+        "table": "forum_post",
+        "columns": ["thread_id", "created_at"],
+        "type": "btree",
+        "reason": "Post retrieval within threads",
     },
     {
-        'table': 'server',
-        'columns': ['owner_id'],
-        'type': 'btree',
-        'reason': 'Server ownership queries'
+        "table": "server",
+        "columns": ["owner_id"],
+        "type": "btree",
+        "reason": "Server ownership queries",
     },
     {
-        'table': 'audit_log',
-        'columns': ['created_at'],
-        'type': 'btree',
-        'reason': 'Time-based audit log queries'
+        "table": "audit_log",
+        "columns": ["created_at"],
+        "type": "btree",
+        "reason": "Time-based audit log queries",
     },
     {
-        'table': 'site_setting',
-        'columns': ['key'],
-        'type': 'unique',
-        'reason': 'Setting key lookups'
-    }
+        "table": "site_setting",
+        "columns": ["key"],
+        "type": "unique",
+        "reason": "Setting key lookups",
+    },
 ]
 
 
@@ -410,20 +421,20 @@ def generate_index_sql() -> List[str]:
     sql_statements = []
 
     for rec in INDEX_RECOMMENDATIONS:
-        table = rec['table']
-        columns = rec['columns']
-        index_type = rec.get('type', 'btree')
+        table = rec["table"]
+        columns = rec["columns"]
+        index_type = rec.get("type", "btree")
 
         if len(columns) == 1:
             index_name = f"idx_{table}_{columns[0]}"
-            if index_type == 'unique':
+            if index_type == "unique":
                 sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({columns[0]});"
             else:
                 sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({columns[0]});"
         else:
             index_name = f"idx_{table}_{'_'.join(columns)}"
-            cols_str = ', '.join(columns)
-            if index_type == 'unique':
+            cols_str = ", ".join(columns)
+            if index_type == "unique":
                 sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
             else:
                 sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
@@ -457,10 +468,10 @@ def create_migration_script(name: str, upgrade_sql: str, downgrade_sql: str = No
     import os
     from datetime import datetime
 
-    migrations_dir = os.path.join(os.getcwd(), 'migrations', 'versions')
+    migrations_dir = os.path.join(os.getcwd(), "migrations", "versions")
     os.makedirs(migrations_dir, exist_ok=True)
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{name}.py"
 
     migration_content = f'''"""
@@ -487,7 +498,7 @@ def downgrade():
 '''
 
     filepath = os.path.join(migrations_dir, filename)
-    with open(filepath, 'w') as f:
+    with open(filepath, "w") as f:
         f.write(migration_content)
 
     logger.info(f"Created migration script: {filepath}")

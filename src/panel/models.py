@@ -1,4 +1,5 @@
 """Database models for the Panel application."""
+
 import json
 from datetime import datetime, timezone, timedelta
 from typing import List
@@ -14,6 +15,7 @@ try:
 
     def get_config():
         return current_app.config
+
 except ImportError:
     # Fallback if Flask not available
     def get_config():
@@ -22,53 +24,112 @@ except ImportError:
 
 # Role hierarchy definitions (5-tier system)
 ROLE_HIERARCHY = {
-    "user": 1,          # Basic user
-    "premium": 2,       # Premium user with extra features
-    "moderator": 3,     # Forum moderator
-    "admin": 4,         # Server administrator
-    "system_admin": 5   # System administrator (full access)
+    "user": 1,  # Basic user
+    "premium": 2,  # Premium user with extra features
+    "moderator": 3,  # Forum moderator
+    "admin": 4,  # Server administrator
+    "system_admin": 5,  # System administrator (full access)
 }
 
 ROLE_PERMISSIONS = {
     "user": [
-        "view_forum", "create_posts", "view_blog", "view_profile",
-        "edit_own_profile", "use_api_basic", "view_public_content"
+        "view_forum",
+        "create_posts",
+        "view_blog",
+        "view_profile",
+        "edit_own_profile",
+        "use_api_basic",
+        "view_public_content",
     ],
     "premium": [
-        "view_forum", "create_posts", "view_blog", "view_profile",
-        "edit_own_profile", "use_api_basic", "view_public_content",
-        "premium_features", "create_blog_posts", "upload_files",
-        "advanced_search", "priority_support"
+        "view_forum",
+        "create_posts",
+        "view_blog",
+        "view_profile",
+        "edit_own_profile",
+        "use_api_basic",
+        "view_public_content",
+        "premium_features",
+        "create_blog_posts",
+        "upload_files",
+        "advanced_search",
+        "priority_support",
     ],
     "moderator": [
-        "view_forum", "create_posts", "view_blog", "view_profile",
-        "edit_own_profile", "use_api_basic", "view_public_content",
-        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
-        "view_user_activity", "manage_categories", "moderate_chat"
+        "view_forum",
+        "create_posts",
+        "view_blog",
+        "view_profile",
+        "edit_own_profile",
+        "use_api_basic",
+        "view_public_content",
+        "moderate_forum",
+        "edit_posts",
+        "delete_posts",
+        "ban_users",
+        "view_user_activity",
+        "manage_categories",
+        "moderate_chat",
     ],
     "admin": [
-        "view_forum", "create_posts", "view_blog", "view_profile",
-        "edit_own_profile", "use_api_basic", "view_public_content",
-        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
-        "view_user_activity", "manage_categories", "moderate_chat",
-        "manage_servers", "view_admin", "manage_users", "view_analytics",
-        "manage_backups", "configure_system", "manage_api_keys"
+        "view_forum",
+        "create_posts",
+        "view_blog",
+        "view_profile",
+        "edit_own_profile",
+        "use_api_basic",
+        "view_public_content",
+        "moderate_forum",
+        "edit_posts",
+        "delete_posts",
+        "ban_users",
+        "view_user_activity",
+        "manage_categories",
+        "moderate_chat",
+        "manage_servers",
+        "view_admin",
+        "manage_users",
+        "view_analytics",
+        "manage_backups",
+        "configure_system",
+        "manage_api_keys",
     ],
     "system_admin": [
-        "view_forum", "create_posts", "view_blog", "view_profile",
-        "edit_own_profile", "use_api_basic", "view_public_content",
-        "moderate_forum", "edit_posts", "delete_posts", "ban_users",
-        "view_user_activity", "manage_categories", "moderate_chat",
-        "manage_servers", "view_admin", "manage_users", "view_analytics",
-        "manage_backups", "configure_system", "manage_api_keys",
-        "system_config", "user_management", "audit_logs", "security_settings",
-        "database_admin", "system_monitoring", "emergency_shutdown"
-    ]
+        "view_forum",
+        "create_posts",
+        "view_blog",
+        "view_profile",
+        "edit_own_profile",
+        "use_api_basic",
+        "view_public_content",
+        "moderate_forum",
+        "edit_posts",
+        "delete_posts",
+        "ban_users",
+        "view_user_activity",
+        "manage_categories",
+        "moderate_chat",
+        "manage_servers",
+        "view_admin",
+        "manage_users",
+        "view_analytics",
+        "manage_backups",
+        "configure_system",
+        "manage_api_keys",
+        "system_config",
+        "user_management",
+        "audit_logs",
+        "security_settings",
+        "database_admin",
+        "system_monitoring",
+        "emergency_shutdown",
+    ],
 }
 
 
 class User(db.Model):
     """User model representing application users with authentication and authorization."""
+
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
@@ -106,9 +167,9 @@ class User(db.Model):
     oauth_token_expires = db.Column(db.DateTime, nullable=True)  # Token expiration
 
     __table_args__ = (
-        db.Index('idx_user_email', 'email'),
-        db.Index('idx_user_role', 'role'),
-        db.Index('idx_user_oauth', 'oauth_provider', 'oauth_id'),
+        db.Index("idx_user_email", "email"),
+        db.Index("idx_user_role", "role"),
+        db.Index("idx_user_oauth", "oauth_provider", "oauth_id"),
     )
 
     def set_password(self, password: str) -> None:
@@ -315,8 +376,14 @@ class User(db.Model):
             return True
         return False
 
-    def link_oauth_account(self, provider: str, provider_id: str, access_token: str = None,
-                          refresh_token: str = None, expires_at: datetime = None) -> None:
+    def link_oauth_account(
+        self,
+        provider: str,
+        provider_id: str,
+        access_token: str = None,
+        refresh_token: str = None,
+        expires_at: datetime = None,
+    ) -> None:
         """Link OAuth account to user"""
         self.oauth_provider = provider
         self.oauth_id = provider_id
@@ -350,6 +417,7 @@ class User(db.Model):
 # Association table: server-specific roles for users (server_admin/server_mod)
 class ServerUser(db.Model):
     """Association table for server-specific roles for users."""
+
     __tablename__ = "server_user"
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
@@ -357,13 +425,12 @@ class ServerUser(db.Model):
     role = db.Column(db.String(32), nullable=False)  # 'server_admin' or 'server_mod'
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    __table_args__ = (
-        db.Index('idx_server_user_server_user', 'server_id', 'user_id'),
-    )
+    __table_args__ = (db.Index("idx_server_user_server_user", "server_id", "user_id"),)
 
 
 class Server(db.Model):
     """Server model representing game servers."""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     description = db.Column(db.String(512), nullable=True)
@@ -386,13 +453,14 @@ class Server(db.Model):
     owner = db.relationship("User", foreign_keys=[owner_id])
 
     __table_args__ = (
-        db.Index('idx_server_name', 'name'),
-        db.Index('idx_server_owner', 'owner_id'),
+        db.Index("idx_server_name", "name"),
+        db.Index("idx_server_owner", "owner_id"),
     )
 
 
 class AuditLog(db.Model):
     """Audit log for tracking user actions and system events."""
+
     id = db.Column(db.Integer, primary_key=True)
     actor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     action = db.Column(db.String(1024), nullable=False)
@@ -401,8 +469,8 @@ class AuditLog(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        db.Index('idx_audit_actor', 'actor_id'),
-        db.Index('idx_audit_created', 'created_at'),
+        db.Index("idx_audit_actor", "actor_id"),
+        db.Index("idx_audit_created", "created_at"),
     )
 
 
@@ -418,9 +486,7 @@ class SiteSetting(db.Model):
     key = db.Column(db.String(128), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=True)
 
-    __table_args__ = (
-        db.Index('idx_site_setting_key', 'key'),
-    )
+    __table_args__ = (db.Index("idx_site_setting_key", "key"),)
 
 
 class SiteAsset(db.Model):
@@ -442,6 +508,7 @@ class SiteAsset(db.Model):
 
 class IPWhitelist(db.Model):
     """IP addresses allowed to access the system."""
+
     __tablename__ = "ip_whitelist"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -456,6 +523,7 @@ class IPWhitelist(db.Model):
 
 class IPBlacklist(db.Model):
     """IP addresses blocked from accessing the system."""
+
     __tablename__ = "ip_blacklist"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -470,6 +538,7 @@ class IPBlacklist(db.Model):
 
 class SecurityEvent(db.Model):
     """Log security-related events."""
+
     __tablename__ = "security_event"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -486,42 +555,45 @@ class SecurityEvent(db.Model):
 
 class NotificationSubscription(db.Model):
     """Push notification subscriptions"""
-    __tablename__ = 'notification_subscription'
+
+    __tablename__ = "notification_subscription"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     endpoint = db.Column(db.Text, nullable=False)
     subscription_data = db.Column(db.Text, nullable=False)  # JSON data
     user_agent = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('notification_subscriptions', lazy=True))
+    user = db.relationship("User", backref=db.backref("notification_subscriptions", lazy=True))
 
     def __repr__(self):
-        return f'<NotificationSubscription user={self.user_id} endpoint={self.endpoint[:50]}>'
+        return f"<NotificationSubscription user={self.user_id} endpoint={self.endpoint[:50]}>"
 
 
 class Notification(db.Model):
     """User notifications"""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(50), default='info')  # info, success, warning, error
+    type = db.Column(db.String(50), default="info")  # info, success, warning, error
     read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship("User", backref="notifications")
 
     __table_args__ = (
-        db.Index('idx_notification_user', 'user_id'),
-        db.Index('idx_notification_read', 'read'),
+        db.Index("idx_notification_user", "user_id"),
+        db.Index("idx_notification_read", "read"),
     )
 
 
 class Achievement(db.Model):
     """User achievements for engagement"""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -533,6 +605,7 @@ class Achievement(db.Model):
 
 class ChatMessage(db.Model):
     """Chat messages for persistence"""
+
     id = db.Column(db.Integer, primary_key=True)
     room = db.Column(db.String(50), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
@@ -545,29 +618,31 @@ class ChatMessage(db.Model):
     user = db.relationship("User")
 
     __table_args__ = (
-        db.Index('idx_chat_room_timestamp', 'room', 'timestamp'),
-        db.Index('idx_chat_moderated', 'moderated'),
+        db.Index("idx_chat_room_timestamp", "room", "timestamp"),
+        db.Index("idx_chat_moderated", "moderated"),
     )
 
 
 class Donation(db.Model):
     """Donation records for analytics"""
+
     id = db.Column(db.Integer, primary_key=True)
     stripe_payment_id = db.Column(db.String(100), unique=True, nullable=False)
     amount = db.Column(db.Integer, nullable=False)  # In cents
-    currency = db.Column(db.String(3), default='usd')
+    currency = db.Column(db.String(3), default="usd")
     donor_email = db.Column(db.String(120), nullable=True)
-    status = db.Column(db.String(20), default='completed')  # completed, failed, refunded
+    status = db.Column(db.String(20), default="completed")  # completed, failed, refunded
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        db.Index('idx_donation_timestamp', 'timestamp'),
-        db.Index('idx_donation_email', 'donor_email'),
+        db.Index("idx_donation_timestamp", "timestamp"),
+        db.Index("idx_donation_email", "donor_email"),
     )
 
 
 class Badge(db.Model):
     """User badges for gamification"""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
@@ -576,6 +651,7 @@ class Badge(db.Model):
 
 class UserBadge(db.Model):
     """User earned badges"""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     badge_id = db.Column(db.Integer, db.ForeignKey("badge.id"), nullable=False)

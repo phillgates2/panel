@@ -24,7 +24,7 @@ class HealthChecker:
             "status": "healthy",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "uptime_seconds": time.time() - self.start_time,
-            "version": "1.0.0"  # Would be dynamic in real implementation
+            "version": "1.0.0",  # Would be dynamic in real implementation
         }
 
     def get_detailed_health(self) -> Dict[str, Any]:
@@ -47,8 +47,12 @@ class HealthChecker:
         health_data["application"] = self.check_application_metrics()
 
         # Overall status
-        components = [health_data["database"], health_data["cache"],
-                     health_data["filesystem"], health_data["system"]]
+        components = [
+            health_data["database"],
+            health_data["cache"],
+            health_data["filesystem"],
+            health_data["system"],
+        ]
         if all(comp.get("status") == "healthy" for comp in components):
             health_data["status"] = "healthy"
         else:
@@ -71,7 +75,7 @@ class HealthChecker:
                 connection_info = {
                     "status": "healthy",
                     "response_time_ms": round(db_time * 1000, 2),
-                    "type": "postgresql" if "postgresql" in str(db.engine.url) else "sqlite"
+                    "type": "postgresql" if "postgresql" in str(db.engine.url) else "sqlite",
                 }
 
                 # Additional checks for PostgreSQL
@@ -85,16 +89,14 @@ class HealthChecker:
                 return connection_info
 
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     def check_cache(self) -> Dict[str, Any]:
         """Check Redis/cache connectivity"""
         try:
             from flask_caching import Cache
-            cache = self.app.extensions.get('cache')
+
+            cache = self.app.extensions.get("cache")
 
             if cache:
                 # Test cache operations
@@ -112,24 +114,15 @@ class HealthChecker:
                     return {
                         "status": "healthy",
                         "response_time_ms": round(cache_time * 1000, 2),
-                        "type": "redis"
+                        "type": "redis",
                     }
                 else:
-                    return {
-                        "status": "unhealthy",
-                        "error": "Cache read/write test failed"
-                    }
+                    return {"status": "unhealthy", "error": "Cache read/write test failed"}
             else:
-                return {
-                    "status": "unknown",
-                    "error": "Cache not configured"
-                }
+                return {"status": "unknown", "error": "Cache not configured"}
 
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     def check_filesystem(self) -> Dict[str, Any]:
         """Check filesystem health"""
@@ -138,7 +131,7 @@ class HealthChecker:
             critical_paths = [
                 self.app.root_path,
                 os.path.join(self.app.root_path, "instance"),
-                os.path.join(self.app.root_path, "logs")
+                os.path.join(self.app.root_path, "logs"),
             ]
 
             filesystem_status = {"status": "healthy", "paths": {}}
@@ -148,12 +141,12 @@ class HealthChecker:
                     try:
                         # Check write permissions
                         test_file = os.path.join(path, ".health_test")
-                        with open(test_file, 'w') as f:
+                        with open(test_file, "w") as f:
                             f.write("test")
                         os.remove(test_file)
 
                         # Get disk usage
-                        stat = os.statvfs(path) if hasattr(os, 'statvfs') else None
+                        stat = os.statvfs(path) if hasattr(os, "statvfs") else None
                         if stat:
                             free_space = stat.f_bavail * stat.f_frsize
                             total_space = stat.f_blocks * stat.f_frsize
@@ -162,33 +155,24 @@ class HealthChecker:
                             filesystem_status["paths"][path] = {
                                 "writable": True,
                                 "free_space_gb": round(free_space / (1024**3), 2),
-                                "usage_percent": round(usage_percent, 1)
+                                "usage_percent": round(usage_percent, 1),
                             }
                         else:
                             filesystem_status["paths"][path] = {
                                 "writable": True,
-                                "free_space_gb": "unknown"
+                                "free_space_gb": "unknown",
                             }
                     except Exception as e:
-                        filesystem_status["paths"][path] = {
-                            "writable": False,
-                            "error": str(e)
-                        }
+                        filesystem_status["paths"][path] = {"writable": False, "error": str(e)}
                         filesystem_status["status"] = "degraded"
                 else:
-                    filesystem_status["paths"][path] = {
-                        "exists": False,
-                        "writable": False
-                    }
+                    filesystem_status["paths"][path] = {"exists": False, "writable": False}
                     filesystem_status["status"] = "degraded"
 
             return filesystem_status
 
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     def check_system_resources(self) -> Dict[str, Any]:
         """Check system resource usage"""
@@ -209,18 +193,13 @@ class HealthChecker:
 
             system_status = {
                 "status": "healthy",
-                "cpu": {
-                    "usage_percent": cpu_percent
-                },
+                "cpu": {"usage_percent": cpu_percent},
                 "memory": {
                     "usage_percent": memory_percent,
                     "used_gb": memory_used_gb,
-                    "total_gb": memory_total_gb
+                    "total_gb": memory_total_gb,
                 },
-                "disk": {
-                    "usage_percent": disk_percent,
-                    "free_gb": disk_free_gb
-                }
+                "disk": {"usage_percent": disk_percent, "free_gb": disk_free_gb},
             }
 
             # Set status based on thresholds
@@ -232,10 +211,7 @@ class HealthChecker:
             return system_status
 
         except Exception as e:
-            return {
-                "status": "unknown",
-                "error": str(e)
-            }
+            return {"status": "unknown", "error": str(e)}
 
     def check_application_metrics(self) -> Dict[str, Any]:
         """Check application-specific metrics"""
@@ -247,7 +223,8 @@ class HealthChecker:
                 # User counts
                 total_users = User.query.count()
                 active_users = User.query.filter(
-                    User.last_login >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                    User.last_login
+                    >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
                 ).count()
 
                 # Server counts
@@ -255,9 +232,9 @@ class HealthChecker:
 
                 # Recent activity (last 24 hours)
                 recent_logins = User.query.filter(
-                    User.last_login >= datetime.now(timezone.utc).replace(
-                        hour=datetime.now(timezone.utc).hour - 24,
-                        minute=0, second=0, microsecond=0
+                    User.last_login
+                    >= datetime.now(timezone.utc).replace(
+                        hour=datetime.now(timezone.utc).hour - 24, minute=0, second=0, microsecond=0
                     )
                 ).count()
 
@@ -267,15 +244,12 @@ class HealthChecker:
                         "total_users": total_users,
                         "active_users_today": active_users,
                         "total_servers": total_servers,
-                        "recent_logins_24h": recent_logins
-                    }
+                        "recent_logins_24h": recent_logins,
+                    },
                 }
 
         except Exception as e:
-            return {
-                "status": "unknown",
-                "error": str(e)
-            }
+            return {"status": "unknown", "error": str(e)}
 
 
 # Global health checker instance
@@ -287,12 +261,12 @@ def init_health_checks(app: Flask) -> None:
 
     checker = HealthChecker(app)
 
-    @app.route('/health')
+    @app.route("/health")
     def health():
         """Basic health check endpoint"""
         return jsonify(checker.get_basic_health())
 
-    @app.route('/health/detailed')
+    @app.route("/health/detailed")
     def health_detailed():
         """Detailed health check endpoint"""
         return jsonify(checker.get_detailed_health())

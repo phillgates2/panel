@@ -3,11 +3,12 @@ API Integration Tests
 """
 
 import json
-import pytest
 from unittest.mock import patch
 
-from app import create_app, db
+import pytest
 from models import User
+
+from app import create_app, db
 
 
 class TestAPIIntegration:
@@ -15,7 +16,7 @@ class TestAPIIntegration:
 
     def setup_method(self):
         """Set up test client and database"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
         db.create_all()
@@ -35,12 +36,12 @@ class TestAPIIntegration:
             "email": "john@example.com",
             "password": "Password123!",
             "password_confirm": "Password123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
 
-        response = self.client.post('/register',
-                                  data=json.dumps(data),
-                                  content_type='application/json')
+        response = self.client.post(
+            "/register", data=json.dumps(data), content_type="application/json"
+        )
 
         assert response.status_code == 201
         response_data = json.loads(response.data)
@@ -55,12 +56,12 @@ class TestAPIIntegration:
             "email": "invalid-email",
             "password": "weak",
             "password_confirm": "different",
-            "dob": "invalid-date"
+            "dob": "invalid-date",
         }
 
-        response = self.client.post('/register',
-                                  data=json.dumps(data),
-                                  content_type='application/json')
+        response = self.client.post(
+            "/register", data=json.dumps(data), content_type="application/json"
+        )
 
         assert response.status_code == 400
         response_data = json.loads(response.data)
@@ -75,21 +76,16 @@ class TestAPIIntegration:
             "email": "jane@example.com",
             "password": "Password123!",
             "password_confirm": "Password123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
-        self.client.post('/register',
-                        data=json.dumps(data),
-                        content_type='application/json')
+        self.client.post("/register", data=json.dumps(data), content_type="application/json")
 
         # Now login
-        login_data = {
-            "email": "jane@example.com",
-            "password": "Password123!"
-        }
+        login_data = {"email": "jane@example.com", "password": "Password123!"}
 
-        response = self.client.post('/login',
-                                  data=json.dumps(login_data),
-                                  content_type='application/json')
+        response = self.client.post(
+            "/login", data=json.dumps(login_data), content_type="application/json"
+        )
 
         assert response.status_code == 200
         response_data = json.loads(response.data)
@@ -98,14 +94,11 @@ class TestAPIIntegration:
 
     def test_login_endpoint_invalid_credentials(self):
         """Test login with invalid credentials"""
-        login_data = {
-            "email": "nonexistent@example.com",
-            "password": "wrongpassword"
-        }
+        login_data = {"email": "nonexistent@example.com", "password": "wrongpassword"}
 
-        response = self.client.post('/login',
-                                  data=json.dumps(login_data),
-                                  content_type='application/json')
+        response = self.client.post(
+            "/login", data=json.dumps(login_data), content_type="application/json"
+        )
 
         assert response.status_code == 401
         response_data = json.loads(response.data)
@@ -113,12 +106,12 @@ class TestAPIIntegration:
 
     def test_protected_endpoint_requires_auth(self):
         """Test that protected endpoints require authentication"""
-        response = self.client.get('/api/user/profile')
+        response = self.client.get("/api/user/profile")
         assert response.status_code == 401
 
     def test_health_endpoints_integration(self):
         """Test all health endpoints work together"""
-        endpoints = ['/health', '/health/ready', '/health/live', '/health/system']
+        endpoints = ["/health", "/health/ready", "/health/live", "/health/system"]
 
         for endpoint in endpoints:
             response = self.client.get(endpoint)
@@ -130,7 +123,7 @@ class TestAPIIntegration:
 
     def test_openapi_spec_endpoint(self):
         """Test OpenAPI specification endpoint"""
-        response = self.client.get('/api/openapi.json')
+        response = self.client.get("/api/openapi.json")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -142,13 +135,14 @@ class TestAPIIntegration:
     def test_analytics_endpoint_with_caching(self):
         """Test analytics endpoint with caching"""
         # First request should cache the result
-        response1 = self.client.get('/api/analytics/summary')
+        response1 = self.client.get("/api/analytics/summary")
         assert response1.status_code == 200
 
         # Second request should use cached result (faster)
         import time
+
         start_time = time.time()
-        response2 = self.client.get('/api/analytics/summary')
+        response2 = self.client.get("/api/analytics/summary")
         end_time = time.time()
 
         assert response2.status_code == 200
@@ -163,12 +157,11 @@ class TestAPIIntegration:
         """Test rate limiting on endpoints"""
         # Make multiple requests to a rate-limited endpoint
         for i in range(15):  # Exceed typical rate limit
-            response = self.client.post('/login',
-                                      data=json.dumps({
-                                          "email": "test@example.com",
-                                          "password": "password"
-                                      }),
-                                      content_type='application/json')
+            response = self.client.post(
+                "/login",
+                data=json.dumps({"email": "test@example.com", "password": "password"}),
+                content_type="application/json",
+            )
 
         # Last request should be rate limited
         assert response.status_code == 429
@@ -176,8 +169,8 @@ class TestAPIIntegration:
     def test_metrics_endpoint_integration(self):
         """Test metrics endpoint integration"""
         # Make some requests to generate metrics
-        self.client.get('/health')
-        self.client.get('/api/openapi.json')
+        self.client.get("/health")
+        self.client.get("/api/openapi.json")
 
         # This would require authentication in real implementation
         # For testing, we'll mock the authentication
@@ -187,7 +180,7 @@ class TestAPIIntegration:
 
     def test_feature_flags_endpoint(self):
         """Test feature flags endpoint"""
-        response = self.client.get('/api/features')
+        response = self.client.get("/api/features")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -196,14 +189,14 @@ class TestAPIIntegration:
     def test_error_handling_integration(self):
         """Test error handling across endpoints"""
         # Test 404 error
-        response = self.client.get('/nonexistent-endpoint')
+        response = self.client.get("/nonexistent-endpoint")
         assert response.status_code == 404
 
         data = json.loads(response.data)
         assert "error" in data
 
         # Test method not allowed
-        response = self.client.post('/health')
+        response = self.client.post("/health")
         assert response.status_code == 405
 
         data = json.loads(response.data)
@@ -215,7 +208,7 @@ class TestDatabaseIntegration:
 
     def setup_method(self):
         """Set up test database"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
         db.create_all()
@@ -236,7 +229,7 @@ class TestDatabaseIntegration:
             "last_name": "Test",
             "email": "crud@example.com",
             "password": "Password123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
         user, error = UserService.create_user(**user_data)
         assert user is not None
@@ -274,11 +267,12 @@ class TestCachingIntegration:
 
     def setup_method(self):
         """Set up test environment with caching"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
 
         from flask_caching import Cache
+
         self.cache = Cache(self.app, config={"CACHE_TYPE": "simple"})
 
     def teardown_method(self):

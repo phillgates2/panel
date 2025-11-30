@@ -1,9 +1,10 @@
-import pytest
 import json
 from unittest.mock import Mock
 
+import pytest
+
 from app import create_app, db
-from models import User
+from src.panel.models import User
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ def test_user(db_session):
         last_name="User",
         email="test@example.com",
         password_hash="hashed_password",
-        dob="1990-01-01"
+        dob="1990-01-01",
     )
     db_session.session.add(user)
     db_session.session.commit()
@@ -94,17 +95,14 @@ def sample_user_data():
         "email": "john@example.com",
         "password": "Password123!",
         "password_confirm": "Password123!",
-        "dob": "1990-01-01"
+        "dob": "1990-01-01",
     }
 
 
 @pytest.fixture
 def sample_login_data():
     """Sample login data for testing."""
-    return {
-        "email": "test@example.com",
-        "password": "Password123!"
-    }
+    return {"email": "test@example.com", "password": "Password123!"}
 
 
 @pytest.fixture(autouse=True)
@@ -132,7 +130,7 @@ def create_test_user(db_session, **kwargs):
         "last_name": "User",
         "email": "test@example.com",
         "password_hash": "hashed_password",
-        "dob": "1990-01-01"
+        "dob": "1990-01-01",
     }
     defaults.update(kwargs)
 
@@ -144,18 +142,20 @@ def create_test_user(db_session, **kwargs):
 
 def login_test_user(client, email="test@example.com", password="Password123!"):
     """Helper function to login a test user."""
-    response = client.post('/login',
-                          data=json.dumps({"email": email, "password": password}),
-                          content_type='application/json')
+    response = client.post(
+        "/login",
+        data=json.dumps({"email": email, "password": password}),
+        content_type="application/json",
+    )
     if response.status_code == 200:
         data = json.loads(response.data)
-        return data.get('access_token')
+        return data.get("access_token")
     return None
 
 
 def make_authenticated_request(client, method, url, token, **kwargs):
     """Helper function to make authenticated requests."""
-    headers = kwargs.get('headers', {})
-    headers['Authorization'] = f'Bearer {token}'
-    kwargs['headers'] = headers
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = f"Bearer {token}"
+    kwargs["headers"] = headers
     return getattr(client, method.lower())(url, **kwargs)

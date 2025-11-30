@@ -20,7 +20,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy requirements and install Python dependencies
-COPY requirements-prod.txt .
+COPY requirements/requirements-prod.txt ./requirements-prod.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements-prod.txt
 
@@ -111,7 +111,7 @@ CMD ["gunicorn", \
 FROM builder AS development
 
 # Install development dependencies
-COPY requirements-dev.txt .
+COPY requirements/requirements-dev.txt ./requirements-dev.txt
 RUN pip install --no-cache-dir -r requirements-dev.txt
 
 # Create app user

@@ -49,6 +49,7 @@ class CacheService:
             timeout: Cache timeout in seconds
             key_prefix: Prefix for cache keys
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -66,6 +67,7 @@ class CacheService:
                 return result
 
             return wrapper
+
         return decorator
 
     def cached_view(self, timeout: Optional[int] = None, key_prefix: str = "view") -> Callable:
@@ -76,6 +78,7 @@ class CacheService:
             timeout: Cache timeout in seconds
             key_prefix: Prefix for cache keys
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -84,12 +87,13 @@ class CacheService:
                     request.path,
                     request.method,
                     str(sorted(request.args.items())),
-                    str(request.headers.get('Accept-Language', '')),
+                    str(request.headers.get("Accept-Language", "")),
                 ]
 
                 # Include user ID if authenticated
                 from flask import session
-                user_id = session.get('user_id')
+
+                user_id = session.get("user_id")
                 if user_id:
                     key_parts.append(f"user:{user_id}")
 
@@ -104,15 +108,18 @@ class CacheService:
                 response = func(*args, **kwargs)
 
                 # Only cache successful responses
-                if hasattr(response, 'status_code') and response.status_code == 200:
+                if hasattr(response, "status_code") and response.status_code == 200:
                     self.cache.set(cache_key, response, timeout=timeout)
 
                 return response
 
             return wrapper
+
         return decorator
 
-    def cache_user_data(self, user_id: int, key: str, data: Any, timeout: Optional[int] = None) -> bool:
+    def cache_user_data(
+        self, user_id: int, key: str, data: Any, timeout: Optional[int] = None
+    ) -> bool:
         """Cache user-specific data"""
         cache_key = f"user:{user_id}:{key}"
         return self.cache.set(cache_key, data, timeout=timeout)
@@ -132,7 +139,9 @@ class CacheService:
             # In production, you might want to use cache tags or patterns
             return True
 
-    def cache_api_response(self, endpoint: str, params: dict, data: Any, timeout: Optional[int] = None) -> bool:
+    def cache_api_response(
+        self, endpoint: str, params: dict, data: Any, timeout: Optional[int] = None
+    ) -> bool:
         """Cache API responses"""
         # Sort params for consistent keys
         sorted_params = json.dumps(params, sort_keys=True)
@@ -145,7 +154,9 @@ class CacheService:
         cache_key = f"api:{endpoint}:{hashlib.md5(sorted_params.encode()).hexdigest()}"
         return self.cache.get(cache_key, default)
 
-    def cache_database_query(self, query_hash: str, results: Any, timeout: Optional[int] = None) -> bool:
+    def cache_database_query(
+        self, query_hash: str, results: Any, timeout: Optional[int] = None
+    ) -> bool:
         """Cache database query results"""
         cache_key = f"db:{query_hash}"
         return self.cache.set(cache_key, results, timeout=timeout)
@@ -188,11 +199,13 @@ class CacheService:
 # Global cache service instance
 cache_service = None
 
+
 def get_cache_service() -> CacheService:
     """Get the global cache service instance"""
     global cache_service
     if cache_service is None:
         from app import cache
+
         cache_service = CacheService(cache)
     return cache_service
 
@@ -205,7 +218,9 @@ def cached(timeout: Optional[int] = None, key_prefix: str = "") -> Callable:
         timeout: Cache timeout in seconds
         key_prefix: Prefix for cache keys
     """
+
     def decorator(func: Callable) -> Callable:
         cache_svc = get_cache_service()
         return cache_svc.memoize(timeout=timeout, key_prefix=key_prefix)(func)
+
     return decorator

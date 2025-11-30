@@ -12,7 +12,7 @@ from flask import current_app, session
 from app import db
 from input_validation import LoginSchema, validate_request
 from logging_config import log_security_event
-from services.user_service import UserService
+from src.panel.services.user_service import UserService
 
 
 class AuthService:
@@ -64,9 +64,12 @@ class AuthService:
                 # Record failed attempt
                 if user:  # user might be None here, but let's check
                     from app import User
+
                     temp_user = User.query.filter_by(email=email.lower()).first()
                     if temp_user:
-                        UserService.record_login_attempt(temp_user, success=False, ip_address=ip_address)
+                        UserService.record_login_attempt(
+                            temp_user, success=False, ip_address=ip_address
+                        )
                 return False, None, auth_error
 
             # Check if 2FA is required
@@ -149,10 +152,9 @@ class AuthService:
             # Deactivate session in database
             if session_token:
                 from models_extended import UserSession
+
                 user_session = UserSession.query.filter_by(
-                    user_id=user_id,
-                    session_token=session_token,
-                    is_active=True
+                    user_id=user_id, session_token=session_token, is_active=True
                 ).first()
 
                 if user_session:
@@ -161,6 +163,7 @@ class AuthService:
 
             # Log logout activity
             from models_extended import UserActivity
+
             db.session.add(
                 UserActivity(
                     user_id=user_id,
@@ -192,10 +195,9 @@ class AuthService:
         """
         try:
             from models_extended import UserSession
+
             user_session = UserSession.query.filter_by(
-                user_id=user_id,
-                session_token=session_token,
-                is_active=True
+                user_id=user_id, session_token=session_token, is_active=True
             ).first()
 
             if not user_session:
@@ -232,6 +234,7 @@ class AuthService:
                 return None
 
             from app import User
+
             user = db.session.get(User, user_id)
             return user
 

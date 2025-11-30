@@ -14,19 +14,20 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 
+
 class AzureOpenAIClient:
     """Azure OpenAI client for AI-powered features"""
 
     def __init__(self):
         # Initialize Azure OpenAI client
         self.client = openai.AsyncAzureOpenAI(
-            api_key=os.getenv('AZURE_OPENAI_API_KEY'),
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             api_version="2023-12-01-preview",
-            azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT')
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         )
 
-        self.deployment_gpt4 = os.getenv('AZURE_OPENAI_DEPLOYMENT_GPT4', 'gpt-4')
-        self.deployment_gpt35 = os.getenv('AZURE_OPENAI_DEPLOYMENT_GPT35', 'gpt-35-turbo')
+        self.deployment_gpt4 = os.getenv("AZURE_OPENAI_DEPLOYMENT_GPT4", "gpt-4")
+        self.deployment_gpt35 = os.getenv("AZURE_OPENAI_DEPLOYMENT_GPT35", "gpt-35-turbo")
 
         # Rate limiting
         self.request_count = 0
@@ -52,26 +53,26 @@ class AzureOpenAIClient:
         try:
             await self._check_rate_limit()
 
-            response = await self.client.moderations.create(
-                input=content
-            )
+            response = await self.client.moderations.create(input=content)
 
             result = response.results[0]
             return {
-                'flagged': result.flagged,
-                'categories': result.categories.model_dump(),
-                'category_scores': result.category_scores.model_dump(),
-                'moderated_at': datetime.utcnow().isoformat()
+                "flagged": result.flagged,
+                "categories": result.categories.model_dump(),
+                "category_scores": result.category_scores.model_dump(),
+                "moderated_at": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"Content moderation failed: {e}")
             return {
-                'flagged': False,
-                'error': str(e),
-                'moderated_at': datetime.utcnow().isoformat()
+                "flagged": False,
+                "error": str(e),
+                "moderated_at": datetime.utcnow().isoformat(),
             }
 
-    async def generate_response(self, prompt: str, context: str = "", user_history: List[Dict] = None) -> str:
+    async def generate_response(
+        self, prompt: str, context: str = "", user_history: List[Dict] = None
+    ) -> str:
         """Generate AI-powered responses for user queries"""
         system_prompt = """You are a helpful assistant for a gaming community platform called Panel.
         You help users with gaming, server management, community guidelines, and technical issues.
@@ -86,10 +87,9 @@ class AzureOpenAIClient:
             # Add user history for context
             if user_history:
                 for msg in user_history[-5:]:  # Last 5 messages for context
-                    messages.append({
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content", "")
-                    })
+                    messages.append(
+                        {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                    )
 
             # Add current context
             if context:
@@ -103,7 +103,7 @@ class AzureOpenAIClient:
                 max_tokens=500,
                 temperature=0.7,
                 presence_penalty=0.1,
-                frequency_penalty=0.1
+                frequency_penalty=0.1,
             )
 
             return response.choices[0].message.content.strip()
@@ -130,7 +130,7 @@ Format your response as JSON with keys: sentiment, confidence, emotions, explana
                 model=self.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
-                temperature=0.3
+                temperature=0.3,
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -141,24 +141,24 @@ Format your response as JSON with keys: sentiment, confidence, emotions, explana
             except json.JSONDecodeError:
                 # Fallback parsing
                 result = {
-                    'sentiment': 'neutral',
-                    'confidence': 0.5,
-                    'emotions': [],
-                    'explanation': result_text
+                    "sentiment": "neutral",
+                    "confidence": 0.5,
+                    "emotions": [],
+                    "explanation": result_text,
                 }
 
-            result['analyzed_at'] = datetime.utcnow().isoformat()
+            result["analyzed_at"] = datetime.utcnow().isoformat()
             return result
 
         except Exception as e:
             logger.error(f"Sentiment analysis failed: {e}")
             return {
-                'sentiment': 'neutral',
-                'confidence': 0.0,
-                'emotions': [],
-                'explanation': 'Analysis failed',
-                'error': str(e),
-                'analyzed_at': datetime.utcnow().isoformat()
+                "sentiment": "neutral",
+                "confidence": 0.0,
+                "emotions": [],
+                "explanation": "Analysis failed",
+                "error": str(e),
+                "analyzed_at": datetime.utcnow().isoformat(),
             }
 
     async def suggest_tags(self, content: str, existing_tags: List[str] = None) -> List[str]:
@@ -178,11 +178,11 @@ Content: {content}"""
                 model=self.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
-                temperature=0.5
+                temperature=0.5,
             )
 
             tags_str = response.choices[0].message.content.strip()
-            tags = [tag.strip().lower() for tag in tags_str.split(',') if tag.strip()]
+            tags = [tag.strip().lower() for tag in tags_str.split(",") if tag.strip()]
 
             # Remove duplicates and limit to 5
             tags = list(set(tags))[:5]
@@ -210,7 +210,7 @@ Text: {text}"""
                 model=self.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
-                temperature=0.1
+                temperature=0.1,
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -218,23 +218,19 @@ Text: {text}"""
             try:
                 result = json.loads(result_text)
             except json.JSONDecodeError:
-                result = {
-                    'language': 'unknown',
-                    'confidence': 0.0,
-                    'code': 'unknown'
-                }
+                result = {"language": "unknown", "confidence": 0.0, "code": "unknown"}
 
-            result['detected_at'] = datetime.utcnow().isoformat()
+            result["detected_at"] = datetime.utcnow().isoformat()
             return result
 
         except Exception as e:
             logger.error(f"Language detection failed: {e}")
             return {
-                'language': 'unknown',
-                'confidence': 0.0,
-                'code': 'unknown',
-                'error': str(e),
-                'detected_at': datetime.utcnow().isoformat()
+                "language": "unknown",
+                "confidence": 0.0,
+                "code": "unknown",
+                "error": str(e),
+                "detected_at": datetime.utcnow().isoformat(),
             }
 
     async def summarize_content(self, content: str, max_length: int = 200) -> str:
@@ -251,14 +247,14 @@ Content: {content}"""
                 model=self.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_length // 4,  # Rough token estimate
-                temperature=0.3
+                temperature=0.3,
             )
 
             summary = response.choices[0].message.content.strip()
 
             # Ensure it's within limits
             if len(summary) > max_length:
-                summary = summary[:max_length-3] + "..."
+                summary = summary[: max_length - 3] + "..."
 
             return summary
 
@@ -285,7 +281,7 @@ Content: {content}"""
                 model=self.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=150,
-                temperature=0.2
+                temperature=0.2,
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -294,43 +290,48 @@ Content: {content}"""
                 result = json.loads(result_text)
             except json.JSONDecodeError:
                 result = {
-                    'category': categories[0] if categories else 'unknown',
-                    'confidence': 0.0,
-                    'explanation': 'Classification failed'
+                    "category": categories[0] if categories else "unknown",
+                    "confidence": 0.0,
+                    "explanation": "Classification failed",
                 }
 
-            result['classified_at'] = datetime.utcnow().isoformat()
+            result["classified_at"] = datetime.utcnow().isoformat()
             return result
 
         except Exception as e:
             logger.error(f"Content classification failed: {e}")
             return {
-                'category': categories[0] if categories else 'unknown',
-                'confidence': 0.0,
-                'explanation': 'Classification failed',
-                'error': str(e),
-                'classified_at': datetime.utcnow().isoformat()
+                "category": categories[0] if categories else "unknown",
+                "confidence": 0.0,
+                "explanation": "Classification failed",
+                "error": str(e),
+                "classified_at": datetime.utcnow().isoformat(),
             }
+
 
 # Global AI client instance
 ai_client = None
 
+
 def init_ai_client():
     """Initialize the AI client"""
     global ai_client
-    if os.getenv('AZURE_OPENAI_API_KEY') and os.getenv('AZURE_OPENAI_ENDPOINT'):
+    if os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT"):
         ai_client = AzureOpenAIClient()
         logger.info("Azure OpenAI client initialized")
     else:
         logger.warning("Azure OpenAI not configured - AI features disabled")
 
+
 def get_ai_client() -> Optional[AzureOpenAIClient]:
     """Get the AI client instance"""
     return ai_client
 
+
 # Decorators for AI features
 def with_content_moderation(f):
     """Decorator to add content moderation to functions"""
+
     @wraps(f)
     async def wrapper(*args, **kwargs):
         # Extract content from arguments (assuming first string argument is content)
@@ -344,16 +345,19 @@ def with_content_moderation(f):
             ai_client = get_ai_client()
             if ai_client:
                 moderation = await ai_client.moderate_content(content)
-                if moderation.get('flagged'):
+                if moderation.get("flagged"):
                     # Handle flagged content (log, reject, etc.)
                     logger.warning(f"Content flagged by AI moderation: {moderation}")
                     # You could raise an exception or return an error response
 
         return await f(*args, **kwargs)
+
     return wrapper
+
 
 def with_sentiment_analysis(f):
     """Decorator to add sentiment analysis to functions"""
+
     @wraps(f)
     async def wrapper(*args, **kwargs):
         result = await f(*args, **kwargs)
@@ -367,7 +371,9 @@ def with_sentiment_analysis(f):
                 logger.info(f"Response sentiment: {sentiment}")
 
         return result
+
     return wrapper
+
 
 # Utility functions
 async def moderate_text(text: str) -> bool:
@@ -375,8 +381,9 @@ async def moderate_text(text: str) -> bool:
     ai_client = get_ai_client()
     if ai_client:
         result = await ai_client.moderate_content(text)
-        return not result.get('flagged', False)
+        return not result.get("flagged", False)
     return True  # Default to allowed if AI not available
+
 
 async def generate_ai_response(prompt: str, context: str = None) -> str:
     """Generate an AI response for user queries"""
@@ -385,12 +392,14 @@ async def generate_ai_response(prompt: str, context: str = None) -> str:
         return await ai_client.generate_response(prompt, context)
     return "AI features are currently unavailable."
 
+
 async def analyze_user_feedback(text: str) -> Dict[str, Any]:
     """Analyze user feedback or reviews"""
     ai_client = get_ai_client()
     if ai_client:
         return await ai_client.analyze_sentiment(text)
-    return {'sentiment': 'neutral', 'confidence': 0.0}
+    return {"sentiment": "neutral", "confidence": 0.0}
+
 
 async def suggest_post_tags(content: str) -> List[str]:
     """Suggest tags for forum posts"""
@@ -399,54 +408,53 @@ async def suggest_post_tags(content: str) -> List[str]:
         return await ai_client.suggest_tags(content)
     return []
 
+
 # AI-powered features for the application
 class AIContentModerator:
     """AI-powered content moderation system"""
 
     def __init__(self):
         self.ai_client = get_ai_client()
-        self.moderation_stats = {
-            'total_checked': 0,
-            'flagged': 0,
-            'categories': {}
-        }
+        self.moderation_stats = {"total_checked": 0, "flagged": 0, "categories": {}}
 
     async def moderate_post(self, content: str, user_id: int = None) -> Dict[str, Any]:
         """Moderate a forum post"""
         if not self.ai_client:
-            return {'approved': True, 'reason': 'AI not available'}
+            return {"approved": True, "reason": "AI not available"}
 
-        self.moderation_stats['total_checked'] += 1
+        self.moderation_stats["total_checked"] += 1
 
         result = await self.ai_client.moderate_content(content)
 
-        if result.get('flagged'):
-            self.moderation_stats['flagged'] += 1
+        if result.get("flagged"):
+            self.moderation_stats["flagged"] += 1
 
             # Update category stats
-            for category, flagged in result.get('categories', {}).items():
+            for category, flagged in result.get("categories", {}).items():
                 if flagged:
-                    self.moderation_stats['categories'][category] = \
-                        self.moderation_stats['categories'].get(category, 0) + 1
+                    self.moderation_stats["categories"][category] = (
+                        self.moderation_stats["categories"].get(category, 0) + 1
+                    )
 
             return {
-                'approved': False,
-                'reason': 'Content flagged by AI moderation',
-                'categories': result.get('categories', {}),
-                'moderated_at': result.get('moderated_at')
+                "approved": False,
+                "reason": "Content flagged by AI moderation",
+                "categories": result.get("categories", {}),
+                "moderated_at": result.get("moderated_at"),
             }
 
-        return {
-            'approved': True,
-            'moderated_at': result.get('moderated_at')
-        }
+        return {"approved": True, "moderated_at": result.get("moderated_at")}
 
     def get_moderation_stats(self) -> Dict[str, Any]:
         """Get moderation statistics"""
         return {
             **self.moderation_stats,
-            'flagged_percentage': (self.moderation_stats['flagged'] / max(self.moderation_stats['total_checked'], 1)) * 100
+            "flagged_percentage": (
+                self.moderation_stats["flagged"] / max(self.moderation_stats["total_checked"], 1)
+            )
+            * 100,
         }
+
 
 class AIAssistant:
     """AI-powered assistant for user support"""
@@ -481,6 +489,7 @@ class AIAssistant:
         """Clear conversation history for user"""
         self.conversation_history.pop(user_id, None)
 
+
 class AIContentAnalyzer:
     """AI-powered content analysis for insights"""
 
@@ -490,10 +499,10 @@ class AIContentAnalyzer:
     async def analyze_forum_trends(self, posts: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze forum posts for trends and insights"""
         if not self.ai_client or not posts:
-            return {'error': 'AI not available or no posts to analyze'}
+            return {"error": "AI not available or no posts to analyze"}
 
         # Combine post content for analysis
-        combined_content = "\n".join([post.get('content', '') for post in posts[:10]])
+        combined_content = "\n".join([post.get("content", "") for post in posts[:10]])
 
         prompt = f"""Analyze these forum posts and provide insights:
 
@@ -512,7 +521,7 @@ Provide a JSON response with keys: topics, sentiment, themes, suggestions"""
                 model=self.ai_client.deployment_gpt35,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=500,
-                temperature=0.3
+                temperature=0.3,
             )
 
             result_text = response.choices[0].message.content.strip()
@@ -520,16 +529,18 @@ Provide a JSON response with keys: topics, sentiment, themes, suggestions"""
             try:
                 return json.loads(result_text)
             except json.JSONDecodeError:
-                return {'error': 'Failed to parse AI response'}
+                return {"error": "Failed to parse AI response"}
 
         except Exception as e:
             logger.error(f"Forum trend analysis failed: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
+
 
 # Global instances
 content_moderator = None
 ai_assistant = None
 content_analyzer = None
+
 
 def init_ai_features():
     """Initialize all AI features"""
@@ -545,13 +556,16 @@ def init_ai_features():
     else:
         logger.warning("AI features not available - Azure OpenAI not configured")
 
+
 def get_content_moderator() -> Optional[AIContentModerator]:
     """Get the content moderator instance"""
     return content_moderator
 
+
 def get_ai_assistant() -> Optional[AIAssistant]:
     """Get the AI assistant instance"""
     return ai_assistant
+
 
 def get_content_analyzer() -> Optional[AIContentAnalyzer]:
     """Get the content analyzer instance"""

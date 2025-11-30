@@ -31,10 +31,13 @@ def test_create_team(client, system_admin):
     """Test creating a new team."""
     with client:
         client.post("/login", data={"email": system_admin.email, "password": "password"})
-        response = client.post("/admin/teams/create", data={"name": "Test Team", "description": "A test team"})
+        response = client.post(
+            "/admin/teams/create", data={"name": "Test Team", "description": "A test team"}
+        )
         assert response.status_code == 302  # Redirect back
         # Check if team was created
         from src.panel.models_extended import UserGroup
+
         team = UserGroup.query.filter_by(name="Test Team").first()
         assert team is not None
         assert team.description == "A test team"
@@ -48,9 +51,14 @@ def test_add_team_member(client, system_admin, regular_user):
         client.post("/admin/teams/create", data={"name": "Test Team", "description": "A test team"})
         team = models.UserGroup.query.filter_by(name="Test Team").first()
         # Add member
-        response = client.post(f"/admin/teams/{team.id}/add_member", data={"email": regular_user.email})
+        response = client.post(
+            f"/admin/teams/{team.id}/add_member", data={"email": regular_user.email}
+        )
         assert response.status_code == 302
         # Check membership
         from src.panel.models_extended import UserGroupMembership
-        membership = UserGroupMembership.query.filter_by(user_id=regular_user.id, group_id=team.id).first()
+
+        membership = UserGroupMembership.query.filter_by(
+            user_id=regular_user.id, group_id=team.id
+        ).first()
         assert membership is not None

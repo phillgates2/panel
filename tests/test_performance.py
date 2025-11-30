@@ -3,11 +3,12 @@ Performance Tests for Caching and Database Operations
 """
 
 import time
-import pytest
 from unittest.mock import patch
 
-from app import create_app, db
+import pytest
 from services.cache_service import CacheService
+
+from app import create_app, db
 
 
 class TestCachePerformance:
@@ -15,11 +16,12 @@ class TestCachePerformance:
 
     def setup_method(self):
         """Set up test environment"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
 
         from flask_caching import Cache
+
         self.cache = Cache(self.app, config={"CACHE_TYPE": "simple"})
         self.cache_svc = CacheService(self.cache)
 
@@ -135,7 +137,7 @@ class TestDatabasePerformance:
 
     def setup_method(self):
         """Set up test database"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
         db.create_all()
@@ -152,13 +154,15 @@ class TestDatabasePerformance:
 
         user_data_list = []
         for i in range(100):
-            user_data_list.append({
-                "first_name": f"User{i}",
-                "last_name": "Test",
-                "email": f"user{i}@example.com",
-                "password": "Password123!",
-                "dob": "1990-01-01"
-            })
+            user_data_list.append(
+                {
+                    "first_name": f"User{i}",
+                    "last_name": "Test",
+                    "email": f"user{i}@example.com",
+                    "password": "Password123!",
+                    "dob": "1990-01-01",
+                }
+            )
 
         start_time = time.time()
         created_users = []
@@ -173,8 +177,8 @@ class TestDatabasePerformance:
 
     def test_user_query_performance(self):
         """Test user query performance"""
-        from services.user_service import UserService
         from models import User
+        from services.user_service import UserService
 
         # Create test users
         for i in range(100):
@@ -183,7 +187,7 @@ class TestDatabasePerformance:
                 "last_name": "Test",
                 "email": f"user{i}@example.com",
                 "password": "Password123!",
-                "dob": "1990-01-01"
+                "dob": "1990-01-01",
             }
             UserService.create_user(**user_data)
 
@@ -205,7 +209,7 @@ class TestDatabasePerformance:
             "last_name": "User",
             "email": "authtest@example.com",
             "password": "Password123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
         UserService.create_user(**user_data)
 
@@ -224,11 +228,12 @@ class TestConcurrentOperations:
 
     def setup_method(self):
         """Set up test environment"""
-        self.app = create_app('testing')
+        self.app = create_app("testing")
         self.app_context = self.app.app_context()
         self.app_context.push()
 
         from flask_caching import Cache
+
         self.cache = Cache(self.app, config={"CACHE_TYPE": "simple"})
         self.cache_svc = CacheService(self.cache)
 
@@ -238,8 +243,8 @@ class TestConcurrentOperations:
 
     def test_concurrent_cache_operations(self):
         """Test concurrent cache read/write operations"""
-        import threading
         import queue
+        import threading
 
         results = queue.Queue()
         num_threads = 10
@@ -295,8 +300,9 @@ class TestConcurrentOperations:
 
     def test_memory_usage_under_load(self):
         """Test memory usage during high load operations"""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB

@@ -19,14 +19,14 @@ class PerformanceMonitor:
     def __init__(self, app: Flask):
         self.app = app
         self.metrics = {
-            'requests': [],
-            'response_times': [],
-            'errors': [],
-            'memory_usage': [],
-            'cpu_usage': [],
-            'database_queries': [],
-            'cache_hits': [],
-            'cache_misses': []
+            "requests": [],
+            "response_times": [],
+            "errors": [],
+            "memory_usage": [],
+            "cpu_usage": [],
+            "database_queries": [],
+            "cache_hits": [],
+            "cache_misses": [],
         }
         self.monitoring_thread = None
         self.monitoring_active = False
@@ -59,19 +59,20 @@ class PerformanceMonitor:
             try:
                 # Memory usage
                 memory = psutil.virtual_memory()
-                self.metrics['memory_usage'].append({
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'percentage': memory.percent,
-                    'used_mb': memory.used / 1024 / 1024,
-                    'available_mb': memory.available / 1024 / 1024
-                })
+                self.metrics["memory_usage"].append(
+                    {
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "percentage": memory.percent,
+                        "used_mb": memory.used / 1024 / 1024,
+                        "available_mb": memory.available / 1024 / 1024,
+                    }
+                )
 
                 # CPU usage
                 cpu_percent = psutil.cpu_percent(interval=1)
-                self.metrics['cpu_usage'].append({
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'percentage': cpu_percent
-                })
+                self.metrics["cpu_usage"].append(
+                    {"timestamp": datetime.utcnow().isoformat(), "percentage": cpu_percent}
+                )
 
                 # Keep only last 1000 entries to prevent memory issues
                 for metric_list in self.metrics.values():
@@ -87,48 +88,50 @@ class PerformanceMonitor:
         """Hook called before each request"""
         g.start_time = time.time()
         g.request_metrics = {
-            'method': request.method,
-            'endpoint': request.endpoint,
-            'path': request.path,
-            'user_agent': request.headers.get('User-Agent', ''),
-            'ip': request.remote_addr
+            "method": request.method,
+            "endpoint": request.endpoint,
+            "path": request.path,
+            "user_agent": request.headers.get("User-Agent", ""),
+            "ip": request.remote_addr,
         }
 
     def _after_request(self, response):
         """Hook called after each request"""
-        if hasattr(g, 'start_time'):
+        if hasattr(g, "start_time"):
             response_time = (time.time() - g.start_time) * 1000  # Convert to milliseconds
 
             request_metric = {
-                'timestamp': datetime.utcnow().isoformat(),
-                'method': g.request_metrics['method'],
-                'endpoint': g.request_metrics['endpoint'],
-                'path': g.request_metrics['path'],
-                'status_code': response.status_code,
-                'response_time': response_time,
-                'content_length': len(response.get_data()) if response.get_data() else 0,
-                'user_agent': g.request_metrics['user_agent'],
-                'ip': g.request_metrics['ip']
+                "timestamp": datetime.utcnow().isoformat(),
+                "method": g.request_metrics["method"],
+                "endpoint": g.request_metrics["endpoint"],
+                "path": g.request_metrics["path"],
+                "status_code": response.status_code,
+                "response_time": response_time,
+                "content_length": len(response.get_data()) if response.get_data() else 0,
+                "user_agent": g.request_metrics["user_agent"],
+                "ip": g.request_metrics["ip"],
             }
 
-            self.metrics['requests'].append(request_metric)
-            self.metrics['response_times'].append(response_time)
+            self.metrics["requests"].append(request_metric)
+            self.metrics["response_times"].append(response_time)
 
             # Log slow requests
             if response_time > 1000:  # More than 1 second
-                self.app.logger.warning(f"Slow request: {request.method} {request.path} - {response_time:.2f}ms")
+                self.app.logger.warning(
+                    f"Slow request: {request.method} {request.path} - {response_time:.2f}ms"
+                )
 
             # Log errors
             if response.status_code >= 400:
                 error_metric = {
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'status_code': response.status_code,
-                    'method': g.request_metrics['method'],
-                    'path': g.request_metrics['path'],
-                    'error_message': getattr(response, 'error_message', ''),
-                    'ip': g.request_metrics['ip']
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "status_code": response.status_code,
+                    "method": g.request_metrics["method"],
+                    "path": g.request_metrics["path"],
+                    "error_message": getattr(response, "error_message", ""),
+                    "ip": g.request_metrics["ip"],
                 }
-                self.metrics['errors'].append(error_metric)
+                self.metrics["errors"].append(error_metric)
 
         return response
 
@@ -136,73 +139,79 @@ class PerformanceMonitor:
         """Hook called when request is torn down"""
         if exception:
             error_metric = {
-                'timestamp': datetime.utcnow().isoformat(),
-                'exception': str(exception),
-                'exception_type': type(exception).__name__,
-                'path': getattr(g, 'request_metrics', {}).get('path', 'unknown'),
-                'method': getattr(g, 'request_metrics', {}).get('method', 'unknown')
+                "timestamp": datetime.utcnow().isoformat(),
+                "exception": str(exception),
+                "exception_type": type(exception).__name__,
+                "path": getattr(g, "request_metrics", {}).get("path", "unknown"),
+                "method": getattr(g, "request_metrics", {}).get("method", "unknown"),
             }
-            self.metrics['errors'].append(error_metric)
+            self.metrics["errors"].append(error_metric)
 
     def record_database_query(self, query, execution_time):
         """Record database query metrics"""
-        self.metrics['database_queries'].append({
-            'timestamp': datetime.utcnow().isoformat(),
-            'query': query[:200] + '...' if len(query) > 200 else query,  # Truncate long queries
-            'execution_time': execution_time
-        })
+        self.metrics["database_queries"].append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "query": (
+                    query[:200] + "..." if len(query) > 200 else query
+                ),  # Truncate long queries
+                "execution_time": execution_time,
+            }
+        )
 
     def record_cache_operation(self, operation, hit=True):
         """Record cache operation metrics"""
         if hit:
-            self.metrics['cache_hits'].append({
-                'timestamp': datetime.utcnow().isoformat(),
-                'operation': operation
-            })
+            self.metrics["cache_hits"].append(
+                {"timestamp": datetime.utcnow().isoformat(), "operation": operation}
+            )
         else:
-            self.metrics['cache_misses'].append({
-                'timestamp': datetime.utcnow().isoformat(),
-                'operation': operation
-            })
+            self.metrics["cache_misses"].append(
+                {"timestamp": datetime.utcnow().isoformat(), "operation": operation}
+            )
 
     def get_metrics_summary(self):
         """Get summary of performance metrics"""
         summary = {
-            'total_requests': len(self.metrics['requests']),
-            'total_errors': len(self.metrics['errors']),
-            'avg_response_time': 0,
-            '95th_percentile_response_time': 0,
-            '99th_percentile_response_time': 0,
-            'error_rate': 0,
-            'memory_usage_avg': 0,
-            'cpu_usage_avg': 0,
-            'cache_hit_rate': 0
+            "total_requests": len(self.metrics["requests"]),
+            "total_errors": len(self.metrics["errors"]),
+            "avg_response_time": 0,
+            "95th_percentile_response_time": 0,
+            "99th_percentile_response_time": 0,
+            "error_rate": 0,
+            "memory_usage_avg": 0,
+            "cpu_usage_avg": 0,
+            "cache_hit_rate": 0,
         }
 
         # Calculate response time statistics
-        if self.metrics['response_times']:
-            response_times = sorted(self.metrics['response_times'])
-            summary['avg_response_time'] = sum(response_times) / len(response_times)
-            summary['95th_percentile_response_time'] = response_times[int(len(response_times) * 0.95)]
-            summary['99th_percentile_response_time'] = response_times[int(len(response_times) * 0.99)]
+        if self.metrics["response_times"]:
+            response_times = sorted(self.metrics["response_times"])
+            summary["avg_response_time"] = sum(response_times) / len(response_times)
+            summary["95th_percentile_response_time"] = response_times[
+                int(len(response_times) * 0.95)
+            ]
+            summary["99th_percentile_response_time"] = response_times[
+                int(len(response_times) * 0.99)
+            ]
 
         # Calculate error rate
-        if summary['total_requests'] > 0:
-            summary['error_rate'] = summary['total_errors'] / summary['total_requests']
+        if summary["total_requests"] > 0:
+            summary["error_rate"] = summary["total_errors"] / summary["total_requests"]
 
         # Calculate resource usage
-        if self.metrics['memory_usage']:
-            memory_usage = [m['percentage'] for m in self.metrics['memory_usage']]
-            summary['memory_usage_avg'] = sum(memory_usage) / len(memory_usage)
+        if self.metrics["memory_usage"]:
+            memory_usage = [m["percentage"] for m in self.metrics["memory_usage"]]
+            summary["memory_usage_avg"] = sum(memory_usage) / len(memory_usage)
 
-        if self.metrics['cpu_usage']:
-            cpu_usage = [c['percentage'] for c in self.metrics['cpu_usage']]
-            summary['cpu_usage_avg'] = sum(cpu_usage) / len(cpu_usage)
+        if self.metrics["cpu_usage"]:
+            cpu_usage = [c["percentage"] for c in self.metrics["cpu_usage"]]
+            summary["cpu_usage_avg"] = sum(cpu_usage) / len(cpu_usage)
 
         # Calculate cache hit rate
-        total_cache_ops = len(self.metrics['cache_hits']) + len(self.metrics['cache_misses'])
+        total_cache_ops = len(self.metrics["cache_hits"]) + len(self.metrics["cache_misses"])
         if total_cache_ops > 0:
-            summary['cache_hit_rate'] = len(self.metrics['cache_hits']) / total_cache_ops
+            summary["cache_hit_rate"] = len(self.metrics["cache_hits"]) / total_cache_ops
 
         return summary
 
@@ -211,29 +220,34 @@ class PerformanceMonitor:
         cutoff_time = datetime.utcnow() - timedelta(minutes=minutes)
 
         recent_metrics = {
-            'requests': [],
-            'errors': [],
-            'response_times': [],
-            'memory_usage': [],
-            'cpu_usage': []
+            "requests": [],
+            "errors": [],
+            "response_times": [],
+            "memory_usage": [],
+            "cpu_usage": [],
         }
 
-        for metric_list in ['requests', 'errors']:
+        for metric_list in ["requests", "errors"]:
             recent_metrics[metric_list] = [
-                m for m in self.metrics[metric_list]
-                if datetime.fromisoformat(m['timestamp']) > cutoff_time
+                m
+                for m in self.metrics[metric_list]
+                if datetime.fromisoformat(m["timestamp"]) > cutoff_time
             ]
 
         # Response times are stored separately
-        recent_metrics['response_times'] = [
-            rt for rt in self.metrics['response_times']
+        recent_metrics["response_times"] = [
+            rt
+            for rt in self.metrics["response_times"]
             if rt > 0  # Only include actual response times
-        ][:100]  # Limit to last 100
+        ][
+            :100
+        ]  # Limit to last 100
 
-        for metric_list in ['memory_usage', 'cpu_usage']:
+        for metric_list in ["memory_usage", "cpu_usage"]:
             recent_metrics[metric_list] = [
-                m for m in self.metrics[metric_list]
-                if datetime.fromisoformat(m['timestamp']) > cutoff_time
+                m
+                for m in self.metrics[metric_list]
+                if datetime.fromisoformat(m["timestamp"]) > cutoff_time
             ]
 
         return recent_metrics
@@ -245,8 +259,8 @@ class NewRelicMonitor:
 
     def __init__(self, app: Flask):
         self.app = app
-        self.api_key = app.config.get('NEW_RELIC_API_KEY')
-        self.app_name = app.config.get('NEW_RELIC_APP_NAME', 'Panel Application')
+        self.api_key = app.config.get("NEW_RELIC_API_KEY")
+        self.app_name = app.config.get("NEW_RELIC_APP_NAME", "Panel Application")
 
         if self.api_key:
             self._setup_new_relic()
@@ -258,16 +272,11 @@ class NewRelicMonitor:
 
             # Initialize New Relic
             newrelic.agent.initialize(
-                config_file=None,
-                environment='production',
-                ignore_errors=False
+                config_file=None, environment="production", ignore_errors=False
             )
 
             # Set application name
-            newrelic.agent.register_application(
-                name=self.app_name,
-                timeout=10.0
-            )
+            newrelic.agent.register_application(name=self.app_name, timeout=10.0)
 
             self.app.logger.info("New Relic monitoring initialized")
 
@@ -283,6 +292,7 @@ class NewRelicMonitor:
 
         try:
             import newrelic.agent
+
             newrelic.agent.record_custom_metric(name, value, tags or {})
         except:
             pass
@@ -294,6 +304,7 @@ class NewRelicMonitor:
 
         try:
             import newrelic.agent
+
             newrelic.agent.record_custom_event(event_type, params)
         except:
             pass
@@ -305,8 +316,8 @@ class DataDogMonitor:
 
     def __init__(self, app: Flask):
         self.app = app
-        self.api_key = app.config.get('DATADOG_API_KEY')
-        self.app_key = app.config.get('DATADOG_APP_KEY')
+        self.api_key = app.config.get("DATADOG_API_KEY")
+        self.app_key = app.config.get("DATADOG_APP_KEY")
 
         if self.api_key and self.app_key:
             self._setup_datadog()
@@ -319,8 +330,8 @@ class DataDogMonitor:
             initialize(
                 api_key=self.api_key,
                 app_key=self.app_key,
-                statsd_host='localhost',
-                statsd_port=8125
+                statsd_host="localhost",
+                statsd_port=8125,
             )
 
             self.app.logger.info("DataDog monitoring initialized")
@@ -337,6 +348,7 @@ class DataDogMonitor:
 
         try:
             from datadog import statsd
+
             statsd.increment(metric_name, value, tags=tags or [])
         except:
             pass
@@ -348,6 +360,7 @@ class DataDogMonitor:
 
         try:
             from datadog import statsd
+
             statsd.gauge(metric_name, value, tags=tags or [])
         except:
             pass
@@ -356,6 +369,7 @@ class DataDogMonitor:
 # Performance monitoring decorators
 def monitor_performance(name=None):
     """Decorator to monitor function performance"""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -367,8 +381,7 @@ def monitor_performance(name=None):
                 # Record metric
                 metric_name = name or f"{func.__module__}.{func.__name__}"
                 performance_monitor.record_custom_metric(
-                    f"Custom/Function/{metric_name}",
-                    execution_time
+                    f"Custom/Function/{metric_name}", execution_time
                 )
 
                 return result
@@ -376,16 +389,18 @@ def monitor_performance(name=None):
                 execution_time = (time.time() - start_time) * 1000
                 # Record error metric
                 performance_monitor.record_custom_metric(
-                    f"Custom/Error/{func.__module__}.{func.__name__}",
-                    execution_time
+                    f"Custom/Error/{func.__module__}.{func.__name__}", execution_time
                 )
                 raise
+
         return wrapper
+
     return decorator
 
 
 def monitor_database_query():
     """Decorator to monitor database queries"""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -396,19 +411,17 @@ def monitor_database_query():
 
                 # Record database query metric
                 performance_monitor.record_database_query(
-                    str(args) if args else "query",
-                    execution_time
+                    str(args) if args else "query", execution_time
                 )
 
                 return result
             except Exception as e:
                 execution_time = (time.time() - start_time) * 1000
-                performance_monitor.record_database_query(
-                    f"ERROR: {str(e)}",
-                    execution_time
-                )
+                performance_monitor.record_database_query(f"ERROR: {str(e)}", execution_time)
                 raise
+
         return wrapper
+
     return decorator
 
 
@@ -416,6 +429,7 @@ def monitor_database_query():
 performance_monitor = None
 new_relic_monitor = None
 datadog_monitor = None
+
 
 def init_performance_monitoring(app: Flask):
     """Initialize performance monitoring"""
@@ -438,49 +452,45 @@ def init_performance_monitoring(app: Flask):
 def _add_monitoring_routes(app: Flask):
     """Add monitoring routes"""
 
-    @app.route('/api/monitoring/metrics')
+    @app.route("/api/monitoring/metrics")
     def get_metrics():
         """Get current performance metrics"""
         if not performance_monitor:
-            return {'error': 'Monitoring not initialized'}, 503
+            return {"error": "Monitoring not initialized"}, 503
 
         return {
-            'summary': performance_monitor.get_metrics_summary(),
-            'recent': performance_monitor.get_recent_metrics(minutes=5)
+            "summary": performance_monitor.get_metrics_summary(),
+            "recent": performance_monitor.get_recent_metrics(minutes=5),
         }
 
-    @app.route('/api/monitoring/health')
+    @app.route("/api/monitoring/health")
     def health_check():
         """Health check endpoint"""
-        return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'version': '1.0.0'
-        }
+        return {"status": "healthy", "timestamp": datetime.utcnow().isoformat(), "version": "1.0.0"}
 
-    @app.route('/api/monitoring/system')
+    @app.route("/api/monitoring/system")
     def system_info():
         """Get system information"""
         try:
             import psutil
 
             return {
-                'cpu_percent': psutil.cpu_percent(),
-                'memory_percent': psutil.virtual_memory().percent,
-                'disk_usage': psutil.disk_usage('/').percent,
-                'network_connections': len(psutil.net_connections()),
-                'load_average': psutil.getloadavg() if hasattr(psutil, 'getloadavg') else None
+                "cpu_percent": psutil.cpu_percent(),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_usage": psutil.disk_usage("/").percent,
+                "network_connections": len(psutil.net_connections()),
+                "load_average": psutil.getloadavg() if hasattr(psutil, "getloadavg") else None,
             }
         except Exception as e:
-            return {'error': str(e)}, 500
+            return {"error": str(e)}, 500
 
 
 # Export for external use
 __all__ = [
-    'PerformanceMonitor',
-    'NewRelicMonitor',
-    'DataDogMonitor',
-    'monitor_performance',
-    'monitor_database_query',
-    'init_performance_monitoring'
+    "PerformanceMonitor",
+    "NewRelicMonitor",
+    "DataDogMonitor",
+    "monitor_performance",
+    "monitor_database_query",
+    "init_performance_monitoring",
 ]

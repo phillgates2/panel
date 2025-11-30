@@ -51,17 +51,40 @@ class StructuredJSONFormatter(logging.Formatter):
             log_record["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else "Unknown",
                 "message": str(record.exc_info[1]) if record.exc_info[1] else "",
-                "traceback": self.formatException(record.exc_info)
+                "traceback": self.formatException(record.exc_info),
             }
 
         # Add extra fields from record
         if hasattr(record, "__dict__"):
-            extra = {k: v for k, v in record.__dict__.items()
-                     if k not in ['name', 'msg', 'args', 'levelname', 'levelno', 'pathname',
-                                  'filename', 'module', 'exc_info', 'exc_text', 'stack_info',
-                                  'lineno', 'funcName', 'created', 'msecs', 'relativeCreated',
-                                  'thread', 'threadName', 'processName', 'process', 'message',
-                                  'correlation_id']}
+            extra = {
+                k: v
+                for k, v in record.__dict__.items()
+                if k
+                not in [
+                    "name",
+                    "msg",
+                    "args",
+                    "levelname",
+                    "levelno",
+                    "pathname",
+                    "filename",
+                    "module",
+                    "exc_info",
+                    "exc_text",
+                    "stack_info",
+                    "lineno",
+                    "funcName",
+                    "created",
+                    "msecs",
+                    "relativeCreated",
+                    "thread",
+                    "threadName",
+                    "processName",
+                    "process",
+                    "message",
+                    "correlation_id",
+                ]
+            }
             if extra:
                 log_record["extra"] = extra
 
@@ -89,7 +112,7 @@ class PerformanceMiddleware:
             duration_ms = round(duration * 1000, 2)
 
             # Add timing header
-            response.headers['X-Response-Time'] = f"{duration_ms}ms"
+            response.headers["X-Response-Time"] = f"{duration_ms}ms"
 
             # Log slow requests
             if duration_ms > self.performance_threshold:
@@ -103,8 +126,8 @@ class PerformanceMiddleware:
                         "path": request.path,
                         "user_agent": request.headers.get("User-Agent", ""),
                         "ip_address": request.remote_addr,
-                        "request_id": getattr(g, "request_id", None)
-                    }
+                        "request_id": getattr(g, "request_id", None),
+                    },
                 )
 
             # Log all requests in debug mode
@@ -116,8 +139,8 @@ class PerformanceMiddleware:
                         "endpoint": getattr(request, "endpoint", "unknown"),
                         "method": request.method,
                         "status_code": response.status_code,
-                        "request_id": getattr(g, "request_id", None)
-                    }
+                        "request_id": getattr(g, "request_id", None),
+                    },
                 )
 
         return response
@@ -135,9 +158,9 @@ class CorrelationIdMiddleware:
         """Generate or extract correlation ID"""
         # Check for correlation ID in headers
         correlation_id = (
-            request.headers.get("X-Correlation-ID") or
-            request.headers.get("x-correlation-id") or
-            str(uuid.uuid4())
+            request.headers.get("X-Correlation-ID")
+            or request.headers.get("x-correlation-id")
+            or str(uuid.uuid4())
         )
         g.correlation_id = correlation_id
 
@@ -169,8 +192,7 @@ def setup_structured_logging(app: Flask) -> logging.Logger:
         formatter = StructuredJSONFormatter()
     else:
         formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
 
     # Console handler
@@ -216,8 +238,7 @@ def setup_structured_logging(app: Flask) -> logging.Logger:
         )
         audit_handler.setLevel(logging.INFO)
         audit_formatter = logging.Formatter(
-            "%(asctime)s [AUDIT] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s [AUDIT] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
         audit_handler.setFormatter(audit_formatter)
 
@@ -274,8 +295,8 @@ def setup_structured_logging(app: Flask) -> logging.Logger:
             "log_format": log_format,
             "log_directory": str(log_dir),
             "correlation_ids_enabled": True,
-            "performance_monitoring_enabled": True
-        }
+            "performance_monitoring_enabled": True,
+        },
     )
 
     return app.logger
@@ -296,7 +317,7 @@ def log_security_event(
     message: str,
     user_id: Optional[str] = None,
     ip_address: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Log a security event to the audit log"""
     audit_logger = get_audit_logger()
@@ -308,25 +329,19 @@ def log_security_event(
         **kwargs,
     }
 
-    log_message = f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
+    log_message = (
+        f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
+    )
     audit_logger.info(log_message)
 
 
 def log_performance_metric(
-    operation: str,
-    duration_ms: float,
-    success: bool = True,
-    **kwargs
+    operation: str, duration_ms: float, success: bool = True, **kwargs
 ) -> None:
     """Log a performance metric"""
     performance_logger = get_performance_logger()
 
-    extra = {
-        "operation": operation,
-        "duration_ms": duration_ms,
-        "success": success,
-        **kwargs
-    }
+    extra = {"operation": operation, "duration_ms": duration_ms, "success": success, **kwargs}
 
     if success:
         performance_logger.info(f"Performance metric: {operation}", extra=extra)

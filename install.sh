@@ -8,8 +8,8 @@
 # the Panel application with support for multiple deployment scenarios.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
-#   wget -qO- https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/tools/scripts/install.sh | bash
+#   wget -qO- https://raw.githubusercontent.com/phillgates2/panel/main/tools/scripts/install.sh | bash
 #
 # WARNING: Always review scripts before piping to bash for security!
 #
@@ -913,17 +913,17 @@ EOF
 
     case $DB_TYPE in
         postgresql)
-        cat >> config/config.py << EOF
+    cat >> config/config.py << EOF
 SQLALCHEMY_DATABASE_URI = f"postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
 EOF
         ;;
         mysql)
-        cat >> config/config.py << EOF
+    cat >> config/config.py << EOF
 SQLALCHEMY_DATABASE_URI = f"mysql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
 EOF
         ;;
         sqlite)
-        cat >> config/config.py << EOF
+    cat >> config/config.py << EOF
 SQLALCHEMY_DATABASE_URI = f"sqlite:///$DATA_DIR/panel.db"
 EOF
         ;;

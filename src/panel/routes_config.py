@@ -8,7 +8,18 @@ import difflib
 import json
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for, send_file, current_app
+from flask import (
+    Blueprint,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+    send_file,
+    current_app,
+)
 
 from app import User, db
 from config_manager import ConfigDeployment, ConfigManager, ConfigTemplate, ConfigVersion
@@ -726,9 +737,7 @@ def apply_ptero_eggs_template(template_id, server_id):
         if hasattr(server, "config"):
             server_config = json.loads(server.config) if server.config else {}
             server_config["ptero_egg_template_id"] = template.id
-            server_config["ptero_egg_applied_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
+            server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
             server.config = json.dumps(server_config)
 
         db.session.commit()
@@ -980,7 +989,7 @@ def migrate_servers_to_ptero():
     )
 
 
-@config_bp.route('/admin/db/optimize', methods=['POST'])
+@config_bp.route("/admin/db/optimize", methods=["POST"])
 def optimize_database():
     """Optimize database with indexes and cleanup"""
     # Authentication check
@@ -1003,10 +1012,10 @@ def optimize_database():
     except Exception as e:
         flash(f"Database optimization failed: {e}", "error")
 
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for("admin_dashboard"))
 
 
-@app.route('/api/users/stats')
+@app.route("/api/users/stats")
 @login_required
 @cache.cached(timeout=300)  # Cache for 5 minutes
 def user_stats():
@@ -1020,25 +1029,26 @@ def user_stats():
         User.last_login >= datetime.now(timezone.utc) - timedelta(days=7)
     ).count()
 
-    return jsonify({
-        'total_users': total_users,
-        'active_users_7d': active_users
-    })
+    return jsonify({"total_users": total_users, "active_users_7d": active_users})
 
-@app.route('/test/rate-limit')
+
+@app.route("/test/rate-limit")
 def test_rate_limit():
     """Test endpoint for rate limiting"""
     from flask import jsonify
-    return jsonify({
-        "message": "Request allowed",
-        "ip": get_remote_address(),
-        "timestamp": datetime.utcnow().isoformat()
-    })
+
+    return jsonify(
+        {
+            "message": "Request allowed",
+            "ip": get_remote_address(),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    )
 
 
 # GDPR compliance endpoints
 @csrf.exempt
-@app.route('/api/gdpr/export', methods=['POST'])
+@app.route("/api/gdpr/export", methods=["POST"])
 @login_required
 def gdpr_export():
     """Export user data (GDPR Article 15)"""
@@ -1048,16 +1058,18 @@ def gdpr_export():
 
     try:
         from src.panel.gdpr_compliance import get_gdpr_compliance, DataExportService
+
         gdpr = get_gdpr_compliance()
 
         # Log data access
         from src.panel.structured_logging import log_security_event
+
         log_security_event(
             "data_export",
             f"User {user.email} requested data export",
             user.id,
             request.remote_addr,
-            resource_type="user_data"
+            resource_type="user_data",
         )
 
         # Export data
@@ -1078,15 +1090,15 @@ You can download it from the link provided in your profile.
 If you have any questions, please contact our privacy officer.
 
 Best regards,
-Panel Team"""
+Panel Team""",
         )
 
         # Return download
         return send_file(
             zip_buffer,
-            mimetype='application/zip',
+            mimetype="application/zip",
             as_attachment=True,
-            download_name=f'gdpr_export_{user.email}_{datetime.now(timezone.utc).strftime("%Y%m%d")}.zip'
+            download_name=f'gdpr_export_{user.email}_{datetime.now(timezone.utc).strftime("%Y%m%d")}.zip',
         )
 
     except Exception as e:
@@ -1095,7 +1107,7 @@ Panel Team"""
 
 
 @csrf.exempt
-@app.route('/api/gdpr/delete', methods=['POST'])
+@app.route("/api/gdpr/delete", methods=["POST"])
 @login_required
 def gdpr_delete():
     """Delete user data (GDPR Article 17)"""
@@ -1104,23 +1116,33 @@ def gdpr_delete():
         return jsonify({"error": "Authentication required"}), 401
 
     # Require confirmation
-    confirmation = request.json.get('confirmation', '').strip()
+    confirmation = request.json.get("confirmation", "").strip()
     if confirmation != f"DELETE {user.email}":
-        return jsonify({"error": "Invalid confirmation", "message": "Please provide the exact confirmation text"}), 400
+        return (
+            jsonify(
+                {
+                    "error": "Invalid confirmation",
+                    "message": "Please provide the exact confirmation text",
+                }
+            ),
+            400,
+        )
 
     try:
         from src.panel.gdpr_compliance import get_gdpr_compliance
+
         gdpr = get_gdpr_compliance()
 
         # Log data access
         from src.panel.structured_logging import log_security_event
+
         log_security_event(
             "data_deletion",
             f"User {user.email} requested data deletion",
             user.id,
             request.remote_addr,
             resource_type="user_data",
-            confirmation=confirmation
+            confirmation=confirmation,
         )
 
         # Delete data
@@ -1128,12 +1150,13 @@ def gdpr_delete():
 
         # Log the deletion
         from src.panel.structured_logging import log_security_event
+
         log_security_event(
             "gdpr_deletion",
             f"User {user.email} requested data deletion",
             user.id,
             request.remote_addr,
-            result=result
+            result=result,
         )
 
         # Send confirmation email
@@ -1149,16 +1172,13 @@ This action cannot be undone. If you wish to use our services again,
 you will need to create a new account.
 
 Best regards,
-Panel Team"""
+Panel Team""",
         )
 
         # Log out the user
         session.clear()
 
-        return jsonify({
-            "message": "Account deleted successfully",
-            "summary": result
-        })
+        return jsonify({"message": "Account deleted successfully", "summary": result})
 
     except Exception as e:
         current_app.logger.error(f"GDPR deletion failed for user {user.id}: {e}")
@@ -1166,7 +1186,7 @@ Panel Team"""
 
 
 @csrf.exempt
-@app.route('/api/gdpr/consent', methods=['GET', 'POST'])
+@app.route("/api/gdpr/consent", methods=["GET", "POST"])
 @login_required
 def gdpr_consent():
     """Get or update consent preferences"""
@@ -1176,9 +1196,10 @@ def gdpr_consent():
 
     try:
         from src.panel.gdpr_compliance import get_gdpr_compliance
+
         gdpr = get_gdpr_compliance()
 
-        if request.method == 'GET':
+        if request.method == "GET":
             consent = gdpr.get_consent_status(user.id)
             return jsonify(consent)
         else:
@@ -1195,14 +1216,17 @@ def gdpr_consent():
         return jsonify({"error": "Operation failed", "message": str(e)}), 500
 
 
-@app.route('/privacy')
+@app.route("/privacy")
 def privacy():
     """Privacy policy page"""
     from datetime import datetime
-    return render_template('privacy.html', current_date=datetime.now(timezone.utc).strftime('%B %d, %Y'))
+
+    return render_template(
+        "privacy.html", current_date=datetime.now(timezone.utc).strftime("%B %d, %Y")
+    )
 
 
-@app.route('/gdpr')
+@app.route("/gdpr")
 @login_required
 def gdpr_tools():
     """GDPR tools and data management"""
@@ -1219,6 +1243,7 @@ def gdpr_tools():
     account_age = "Unknown"
     if user.dob:
         from datetime import datetime
+
         age_days = (datetime.utcnow().date() - user.dob).days
         if age_days < 365:
             account_age = f"{age_days} days"
@@ -1226,21 +1251,23 @@ def gdpr_tools():
             years = age_days // 365
             account_age = f"{years} year{'s' if years != 1 else ''}"
 
-    return render_template('gdpr_tools.html',
-                         forum_posts_count=forum_posts_count,
-                         blog_posts_count=blog_posts_count,
-                         account_age=account_age)
+    return render_template(
+        "gdpr_tools.html",
+        forum_posts_count=forum_posts_count,
+        blog_posts_count=blog_posts_count,
+        account_age=account_age,
+    )
 
 
-@app.route('/offline')
+@app.route("/offline")
 def offline():
     """Offline page for PWA"""
-    return render_template('offline.html')
+    return render_template("offline.html")
 
 
 # Push notification endpoints
 @csrf.exempt
-@app.route('/api/push/subscribe', methods=['POST'])
+@app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
     """Subscribe to push notifications"""
@@ -1250,10 +1277,11 @@ def push_subscribe():
 
     try:
         subscription_data = request.json
-        if not subscription_data or 'endpoint' not in subscription_data:
+        if not subscription_data or "endpoint" not in subscription_data:
             return jsonify({"error": "Invalid subscription data"}), 400
 
         from src.panel.push_notifications import get_push_service
+
         push_service = get_push_service()
         if not push_service:
             return jsonify({"error": "Push notifications not configured"}), 503
@@ -1270,7 +1298,7 @@ def push_subscribe():
 
 
 @csrf.exempt
-@app.route('/api/push/unsubscribe', methods=['POST'])
+@app.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
     """Unsubscribe from push notifications"""
@@ -1279,11 +1307,12 @@ def push_unsubscribe():
         return jsonify({"error": "Authentication required"}), 401
 
     try:
-        endpoint = request.json.get('endpoint')
+        endpoint = request.json.get("endpoint")
         if not endpoint:
             return jsonify({"error": "Endpoint required"}), 400
 
         from src.panel.push_notifications import get_push_service
+
         push_service = get_push_service()
         if not push_service:
             return jsonify({"error": "Push notifications not configured"}), 503
@@ -1300,7 +1329,7 @@ def push_unsubscribe():
 
 
 @csrf.exempt
-@app.route('/api/push/test', methods=['POST'])
+@app.route("/api/push/test", methods=["POST"])
 @login_required
 def push_test():
     """Send a test push notification"""
@@ -1310,6 +1339,7 @@ def push_test():
 
     try:
         from src.panel.push_notifications import get_push_service
+
         push_service = get_push_service()
         if not push_service:
             return jsonify({"error": "Push notifications not configured"}), 503
@@ -1318,7 +1348,7 @@ def push_test():
             user_id=user.id,
             title="Test Notification",
             body="This is a test push notification from Panel!",
-            url="/profile"
+            url="/profile",
         )
 
         if success:
@@ -1332,10 +1362,11 @@ def push_test():
 
 
 @csrf.exempt
-@app.route('/api/push/vapid-public-key', methods=['GET'])
+@app.route("/api/push/vapid-public-key", methods=["GET"])
 def push_vapid_public_key():
     """Get VAPID public key for push notifications"""
     from src.panel.push_notifications import get_push_service
+
     push_service = get_push_service()
     if not push_service:
         return jsonify({"error": "Push notifications not configured"}), 503
@@ -1343,13 +1374,13 @@ def push_vapid_public_key():
     return jsonify({"publicKey": push_service.vapid_public_key})
 
 
-@app.route('/api/docs')
+@app.route("/api/docs")
 def api_docs():
     """API documentation page"""
-    return render_template('api_docs.html')
+    return render_template("api_docs.html")
 
 
-@app.route('/api/admin/backup/status')
+@app.route("/api/admin/backup/status")
 @login_required
 @admin_required
 def backup_status():
@@ -1360,16 +1391,18 @@ def backup_status():
         backup_health = check_backup_health()
         storage_health = check_storage_health()
 
-        return jsonify({
-            'backup_health': backup_health,
-            'storage_health': storage_health,
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        return jsonify(
+            {
+                "backup_health": backup_health,
+                "storage_health": storage_health,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/admin/backup/create/<backup_type>', methods=['POST'])
+@app.route("/api/admin/backup/create/<backup_type>", methods=["POST"])
 @login_required
 @admin_required
 def create_backup_api(backup_type):
@@ -1377,19 +1410,17 @@ def create_backup_api(backup_type):
     from src.panel.backup_recovery import create_backup
 
     try:
-        name = request.json.get('name') if request.json else None
+        name = request.json.get("name") if request.json else None
         result = create_backup(backup_type, name)
 
-        return jsonify({
-            'success': True,
-            'backup': result,
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        return jsonify(
+            {"success": True, "backup": result, "timestamp": datetime.utcnow().isoformat()}
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/admin/backup/list')
+@app.route("/api/admin/backup/list")
 @login_required
 @admin_required
 def list_backups_api():
@@ -1397,19 +1428,17 @@ def list_backups_api():
     from src.panel.backup_recovery import list_backups
 
     try:
-        backup_type = request.args.get('type')
+        backup_type = request.args.get("type")
         backups = list_backups(backup_type)
 
-        return jsonify({
-            'backups': backups,
-            'count': len(backups),
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        return jsonify(
+            {"backups": backups, "count": len(backups), "timestamp": datetime.utcnow().isoformat()}
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/admin/backup/restore/<backup_type>', methods=['POST'])
+@app.route("/api/admin/backup/restore/<backup_type>", methods=["POST"])
 @login_required
 @admin_required
 def restore_backup_api(backup_type):
@@ -1417,37 +1446,35 @@ def restore_backup_api(backup_type):
     from src.panel.backup_recovery import restore_backup
 
     try:
-        backup_file = request.json.get('file')
+        backup_file = request.json.get("file")
         if not backup_file:
-            return jsonify({'error': 'Backup file path required'}), 400
+            return jsonify({"error": "Backup file path required"}), 400
 
         result = restore_backup(backup_type, backup_file)
 
-        return jsonify({
-            'success': True,
-            'result': result,
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        return jsonify(
+            {"success": True, "result": result, "timestamp": datetime.utcnow().isoformat()}
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/ai/assistant', methods=['POST'])
+@app.route("/api/ai/assistant", methods=["POST"])
 @login_required
 def ai_assistant():
     """AI-powered assistant for user queries"""
     from src.panel.ai_integration import get_ai_assistant
 
     data = request.get_json()
-    message = data.get('message', '')
-    context = data.get('context', '')
+    message = data.get("message", "")
+    context = data.get("context", "")
 
     if not message:
-        return jsonify({'error': 'Message is required'}), 400
+        return jsonify({"error": "Message is required"}), 400
 
     ai_assistant = get_ai_assistant()
     if not ai_assistant:
-        return jsonify({'error': 'AI assistant not available'}), 503
+        return jsonify({"error": "AI assistant not available"}), 503
 
     try:
         # Run in background for better performance
@@ -1465,31 +1492,28 @@ def ai_assistant():
             future = executor.submit(get_response)
             response = future.result(timeout=30)  # 30 second timeout
 
-        return jsonify({
-            'response': response,
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        return jsonify({"response": response, "timestamp": datetime.utcnow().isoformat()})
 
     except Exception as e:
         logger.error(f"AI assistant error: {e}")
-        return jsonify({'error': 'AI assistant temporarily unavailable'}), 503
+        return jsonify({"error": "AI assistant temporarily unavailable"}), 503
 
 
-@app.route('/api/ai/moderate', methods=['POST'])
+@app.route("/api/ai/moderate", methods=["POST"])
 @login_required
 def ai_moderate_content():
     """AI-powered content moderation"""
     from src.panel.ai_integration import get_content_moderator
 
     data = request.get_json()
-    content = data.get('content', '')
+    content = data.get("content", "")
 
     if not content:
-        return jsonify({'error': 'Content is required'}), 400
+        return jsonify({"error": "Content is required"}), 400
 
     moderator = get_content_moderator()
     if not moderator:
-        return jsonify({'approved': True, 'reason': 'AI moderation not available'})
+        return jsonify({"approved": True, "reason": "AI moderation not available"})
 
     try:
         # Run moderation check
@@ -1499,9 +1523,7 @@ def ai_moderate_content():
         def moderate():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                moderator.moderate_post(content, current_user.id)
-            )
+            return loop.run_until_complete(moderator.moderate_post(content, current_user.id))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(moderate)
@@ -1511,25 +1533,25 @@ def ai_moderate_content():
 
     except Exception as e:
         logger.error(f"AI moderation error: {e}")
-        return jsonify({'approved': True, 'reason': 'Moderation check failed'})
+        return jsonify({"approved": True, "reason": "Moderation check failed"})
 
 
-@app.route('/api/ai/suggest-tags', methods=['POST'])
+@app.route("/api/ai/suggest-tags", methods=["POST"])
 @login_required
 def ai_suggest_tags():
     """AI-powered tag suggestions for posts"""
     from src.panel.ai_integration import get_ai_client
 
     data = request.get_json()
-    content = data.get('content', '')
-    existing_tags = data.get('existing_tags', [])
+    content = data.get("content", "")
+    existing_tags = data.get("existing_tags", [])
 
     if not content:
-        return jsonify({'error': 'Content is required'}), 400
+        return jsonify({"error": "Content is required"}), 400
 
     ai_client = get_ai_client()
     if not ai_client:
-        return jsonify({'tags': []})
+        return jsonify({"tags": []})
 
     try:
         import asyncio
@@ -1538,36 +1560,34 @@ def ai_suggest_tags():
         def suggest():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                ai_client.suggest_tags(content, existing_tags)
-            )
+            return loop.run_until_complete(ai_client.suggest_tags(content, existing_tags))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(suggest)
             tags = future.result(timeout=10)
 
-        return jsonify({'tags': tags})
+        return jsonify({"tags": tags})
 
     except Exception as e:
         logger.error(f"AI tag suggestion error: {e}")
-        return jsonify({'tags': []})
+        return jsonify({"tags": []})
 
 
-@app.route('/api/ai/analyze-sentiment', methods=['POST'])
+@app.route("/api/ai/analyze-sentiment", methods=["POST"])
 @login_required
 def ai_analyze_sentiment():
     """AI-powered sentiment analysis"""
     from src.panel.ai_integration import get_ai_client
 
     data = request.get_json()
-    text = data.get('text', '')
+    text = data.get("text", "")
 
     if not text:
-        return jsonify({'error': 'Text is required'}), 400
+        return jsonify({"error": "Text is required"}), 400
 
     ai_client = get_ai_client()
     if not ai_client:
-        return jsonify({'sentiment': 'neutral', 'confidence': 0.0})
+        return jsonify({"sentiment": "neutral", "confidence": 0.0})
 
     try:
         import asyncio
@@ -1576,9 +1596,7 @@ def ai_analyze_sentiment():
         def analyze():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                ai_client.analyze_sentiment(text)
-            )
+            return loop.run_until_complete(ai_client.analyze_sentiment(text))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(analyze)
@@ -1588,31 +1606,27 @@ def ai_analyze_sentiment():
 
     except Exception as e:
         logger.error(f"AI sentiment analysis error: {e}")
-        return jsonify({
-            'sentiment': 'neutral',
-            'confidence': 0.0,
-            'error': 'Analysis failed'
-        })
+        return jsonify({"sentiment": "neutral", "confidence": 0.0, "error": "Analysis failed"})
 
 
-@app.route('/api/ai/summarize', methods=['POST'])
+@app.route("/api/ai/summarize", methods=["POST"])
 @login_required
 def ai_summarize_content():
     """AI-powered content summarization"""
     from src.panel.ai_integration import get_ai_client
 
     data = request.get_json()
-    content = data.get('content', '')
-    max_length = data.get('max_length', 200)
+    content = data.get("content", "")
+    max_length = data.get("max_length", 200)
 
     if not content:
-        return jsonify({'error': 'Content is required'}), 400
+        return jsonify({"error": "Content is required"}), 400
 
     ai_client = get_ai_client()
     if not ai_client:
         # Fallback to simple truncation
         summary = content[:max_length] + "..." if len(content) > max_length else content
-        return jsonify({'summary': summary})
+        return jsonify({"summary": summary})
 
     try:
         import asyncio
@@ -1621,24 +1635,22 @@ def ai_summarize_content():
         def summarize():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                ai_client.summarize_content(content, max_length)
-            )
+            return loop.run_until_complete(ai_client.summarize_content(content, max_length))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(summarize)
             summary = future.result(timeout=15)
 
-        return jsonify({'summary': summary})
+        return jsonify({"summary": summary})
 
     except Exception as e:
         logger.error(f"AI summarization error: {e}")
         # Fallback to simple truncation
         summary = content[:max_length] + "..." if len(content) > max_length else content
-        return jsonify({'summary': summary})
+        return jsonify({"summary": summary})
 
 
-@app.route('/api/admin/ai/stats')
+@app.route("/api/admin/ai/stats")
 @login_required
 @admin_required
 def ai_stats():
@@ -1646,31 +1658,31 @@ def ai_stats():
     from src.panel.ai_integration import get_content_moderator
 
     stats = {
-        'ai_enabled': bool(get_ai_client()),
-        'moderation_stats': {},
-        'timestamp': datetime.utcnow().isoformat()
+        "ai_enabled": bool(get_ai_client()),
+        "moderation_stats": {},
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     moderator = get_content_moderator()
     if moderator:
-        stats['moderation_stats'] = moderator.get_moderation_stats()
+        stats["moderation_stats"] = moderator.get_moderation_stats()
 
     return jsonify(stats)
 
 
-@app.route('/api/forum/posts', methods=['POST'])
+@app.route("/api/forum/posts", methods=["POST"])
 @login_required
 def create_forum_post():
     """Create a new forum post with AI-powered features"""
     from src.panel.ai_integration import get_content_moderator, get_ai_client
 
     data = request.get_json()
-    title = data.get('title', '').strip()
-    content = data.get('content', '').strip()
-    category_id = data.get('category_id')
+    title = data.get("title", "").strip()
+    content = data.get("content", "").strip()
+    category_id = data.get("category_id")
 
     if not title or not content:
-        return jsonify({'error': 'Title and content are required'}), 400
+        return jsonify({"error": "Title and content are required"}), 400
 
     # AI-powered content moderation
     moderator = get_content_moderator()
@@ -1682,19 +1694,22 @@ def create_forum_post():
             def moderate():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                return loop.run_until_complete(
-                    moderator.moderate_post(content, current_user.id)
-                )
+                return loop.run_until_complete(moderator.moderate_post(content, current_user.id))
 
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(moderate)
                 moderation_result = future.result(timeout=10)
 
-            if not moderation_result.get('approved', True):
-                return jsonify({
-                    'error': 'Content flagged by moderation',
-                    'reason': moderation_result.get('reason', 'Inappropriate content')
-                }), 400
+            if not moderation_result.get("approved", True):
+                return (
+                    jsonify(
+                        {
+                            "error": "Content flagged by moderation",
+                            "reason": moderation_result.get("reason", "Inappropriate content"),
+                        }
+                    ),
+                    400,
+                )
         except Exception as e:
             logger.warning(f"AI moderation failed, proceeding without: {e}")
 
@@ -1703,12 +1718,11 @@ def create_forum_post():
     suggested_tags = []
     if ai_client:
         try:
+
             def suggest():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                return loop.run_until_complete(
-                    ai_client.suggest_tags(content)
-                )
+                return loop.run_until_complete(ai_client.suggest_tags(content))
 
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(suggest)
@@ -1719,10 +1733,7 @@ def create_forum_post():
     # Create the post
     try:
         post = ForumPost(
-            title=title,
-            content=content,
-            author_id=current_user.id,
-            category_id=category_id
+            title=title, content=content, author_id=current_user.id, category_id=category_id
         )
 
         # Add suggested tags if any
@@ -1734,40 +1745,42 @@ def create_forum_post():
         db.session.add(post)
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'post': {
-                'id': post.id,
-                'title': post.title,
-                'content': post.content,
-                'author': current_user.username,
-                'created_at': post.created_at.isoformat(),
-                'ai_suggested_tags': suggested_tags
+        return jsonify(
+            {
+                "success": True,
+                "post": {
+                    "id": post.id,
+                    "title": post.title,
+                    "content": post.content,
+                    "author": current_user.username,
+                    "created_at": post.created_at.isoformat(),
+                    "ai_suggested_tags": suggested_tags,
+                },
             }
-        })
+        )
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to create forum post: {e}")
-        return jsonify({'error': 'Failed to create post'}), 500
+        return jsonify({"error": "Failed to create post"}), 500
 
 
-@app.route('/api/ai/analyze-image', methods=['POST'])
+@app.route("/api/ai/analyze-image", methods=["POST"])
 @login_required
 def ai_analyze_image():
     """AI-powered image analysis"""
     from src.panel.enhanced_ai import get_content_analyzer
 
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
 
-    file = request.files['image']
+    file = request.files["image"]
     if not file.filename:
-        return jsonify({'error': 'No image selected'}), 400
+        return jsonify({"error": "No image selected"}), 400
 
     analyzer = get_content_analyzer()
     if not analyzer:
-        return jsonify({'approved': True, 'reason': 'AI analysis not available'})
+        return jsonify({"approved": True, "reason": "AI analysis not available"})
 
     try:
         # Read image data
@@ -1792,10 +1805,10 @@ def ai_analyze_image():
 
     except Exception as e:
         logger.error(f"AI image analysis error: {e}")
-        return jsonify({'approved': True, 'error': 'Moderation temporarily unavailable'})
+        return jsonify({"approved": True, "error": "Moderation temporarily unavailable"})
 
 
-@app.route('/api/ai/predict-behavior', methods=['POST'])
+@app.route("/api/ai/predict-behavior", methods=["POST"])
 @login_required
 def ai_predict_behavior():
     """AI-powered user behavior prediction"""
@@ -1803,7 +1816,7 @@ def ai_predict_behavior():
 
     predictor = get_behavior_predictor()
     if not predictor:
-        return jsonify({'engagement_level': 'unknown', 'predictions': []})
+        return jsonify({"engagement_level": "unknown", "predictions": []})
 
     try:
         # Get user's recent activity (simplified - would need proper implementation)
@@ -1813,8 +1826,8 @@ def ai_predict_behavior():
 
         # Mock activity history - replace with actual user activity query
         activity_history = [
-            {'action': 'login', 'timestamp': '2024-01-01T10:00:00Z'},
-            {'action': 'view_post', 'timestamp': '2024-01-01T10:05:00Z'},
+            {"action": "login", "timestamp": "2024-01-01T10:00:00Z"},
+            {"action": "view_post", "timestamp": "2024-01-01T10:05:00Z"},
         ]
 
         def predict():
@@ -1832,25 +1845,27 @@ def ai_predict_behavior():
 
     except Exception as e:
         logger.error(f"AI behavior prediction error: {e}")
-        return jsonify({
-            'engagement_level': 'unknown',
-            'predictions': [],
-            'error': 'Prediction temporarily unavailable'
-        })
+        return jsonify(
+            {
+                "engagement_level": "unknown",
+                "predictions": [],
+                "error": "Prediction temporarily unavailable",
+            }
+        )
 
 
-@app.route('/api/ai/personalize', methods=['POST'])
+@app.route("/api/ai/personalize", methods=["POST"])
 @login_required
 def ai_personalize_content():
     """Generate personalized content for user"""
     from src.panel.enhanced_ai import get_content_generator
 
     data = request.get_json()
-    content_type = data.get('type', 'recommendation')
+    content_type = data.get("type", "recommendation")
 
     generator = get_content_generator()
     if not generator:
-        return jsonify({'content': 'Personalization not available'})
+        return jsonify({"content": "Personalization not available"})
 
     try:
         import asyncio
@@ -1858,19 +1873,19 @@ def ai_personalize_content():
 
         # Get user profile/context
         user_context = {
-            'username': current_user.username,
-            'join_date': current_user.created_at.isoformat() if hasattr(current_user, 'created_at') else None,
-            'preferences': []  # Would be populated from user preferences
+            "username": current_user.username,
+            "join_date": (
+                current_user.created_at.isoformat() if hasattr(current_user, "created_at") else None
+            ),
+            "preferences": [],  # Would be populated from user preferences
         }
 
         def generate():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            if content_type == 'welcome':
-                return loop.run_until_complete(
-                    generator.generate_welcome_message(user_context)
-                )
-            elif content_type == 'recommendations':
+            if content_type == "welcome":
+                return loop.run_until_complete(generator.generate_welcome_message(user_context))
+            elif content_type == "recommendations":
                 return loop.run_until_complete(
                     generator.generate_recommendations(current_user.id, [])
                 )
@@ -1881,29 +1896,25 @@ def ai_personalize_content():
             future = executor.submit(generate)
             content = future.result(timeout=15)
 
-        return jsonify({
-            'content': content,
-            'type': content_type,
-            'user_id': current_user.id
-        })
+        return jsonify({"content": content, "type": content_type, "user_id": current_user.id})
 
     except Exception as e:
         logger.error(f"AI personalization error: {e}")
-        return jsonify({'content': 'Personalization temporarily unavailable', 'error': str(e)})
+        return jsonify({"content": "Personalization temporarily unavailable", "error": str(e)})
 
 
-@app.route('/api/ai/detect-anomalies', methods=['POST'])
+@app.route("/api/ai/detect-anomalies", methods=["POST"])
 @admin_required
 def ai_detect_anomalies():
     """AI-powered anomaly detection in system metrics"""
     from src.panel.enhanced_ai import get_anomaly_detector
 
     data = request.get_json()
-    metrics_data = data.get('metrics', [])
+    metrics_data = data.get("metrics", [])
 
     detector = get_anomaly_detector()
     if not detector:
-        return jsonify({'anomalies': [], 'severity': 'unknown'})
+        return jsonify({"anomalies": [], "severity": "unknown"})
 
     try:
         import asyncio
@@ -1912,9 +1923,7 @@ def ai_detect_anomalies():
         def detect():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                detector.detect_system_anomalies(metrics_data)
-            )
+            return loop.run_until_complete(detector.detect_system_anomalies(metrics_data))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(detect)
@@ -1924,26 +1933,28 @@ def ai_detect_anomalies():
 
     except Exception as e:
         logger.error(f"AI anomaly detection error: {e}")
-        return jsonify({
-            'anomalies': [],
-            'severity': 'unknown',
-            'error': 'Anomaly detection temporarily unavailable'
-        })
+        return jsonify(
+            {
+                "anomalies": [],
+                "severity": "unknown",
+                "error": "Anomaly detection temporarily unavailable",
+            }
+        )
 
 
-@app.route('/api/ai/analyze-trends', methods=['POST'])
+@app.route("/api/ai/analyze-trends", methods=["POST"])
 @admin_required
 def ai_analyze_trends():
     """AI-powered trend analysis"""
     from src.panel.enhanced_ai import get_enhanced_ai_agent
 
     data = request.get_json()
-    analysis_data = data.get('data', [])
-    analysis_type = data.get('type', 'general')
+    analysis_data = data.get("data", [])
+    analysis_type = data.get("type", "general")
 
     ai_agent = get_enhanced_ai_agent()
     if not ai_agent:
-        return jsonify({'trends': [], 'insights': 'Analysis not available'})
+        return jsonify({"trends": [], "insights": "Analysis not available"})
 
     try:
         import asyncio
@@ -1952,9 +1963,7 @@ def ai_analyze_trends():
         def analyze():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                ai_agent.analyze_trends(analysis_data, analysis_type)
-            )
+            return loop.run_until_complete(ai_agent.analyze_trends(analysis_data, analysis_type))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(analyze)
@@ -1964,54 +1973,54 @@ def ai_analyze_trends():
 
     except Exception as e:
         logger.error(f"AI trend analysis error: {e}")
-        return jsonify({
-            'trends': [],
-            'insights': 'Analysis temporarily unavailable',
-            'error': str(e)
-        })
+        return jsonify(
+            {"trends": [], "insights": "Analysis temporarily unavailable", "error": str(e)}
+        )
 
 
-@app.route('/api/admin/ai/enhanced-stats')
+@app.route("/api/admin/ai/enhanced-stats")
 @admin_required
 def ai_enhanced_stats():
     """Get enhanced AI system statistics"""
     from src.panel.enhanced_ai import (
-        get_content_analyzer, get_behavior_predictor,
-        get_content_generator, get_anomaly_detector
+        get_content_analyzer,
+        get_behavior_predictor,
+        get_content_generator,
+        get_anomaly_detector,
     )
 
     stats = {
-        'ai_enabled': bool(get_enhanced_ai_agent()),
-        'features': {
-            'content_analysis': bool(get_content_analyzer()),
-            'behavior_prediction': bool(get_behavior_predictor()),
-            'content_generation': bool(get_content_generator()),
-            'anomaly_detection': bool(get_anomaly_detector())
+        "ai_enabled": bool(get_enhanced_ai_agent()),
+        "features": {
+            "content_analysis": bool(get_content_analyzer()),
+            "behavior_prediction": bool(get_behavior_predictor()),
+            "content_generation": bool(get_content_generator()),
+            "anomaly_detection": bool(get_anomaly_detector()),
         },
-        'timestamp': datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     return jsonify(stats)
 
 
-@app.route('/api/ai/voice/transcribe', methods=['POST'])
+@app.route("/api/ai/voice/transcribe", methods=["POST"])
 @login_required
 def ai_transcribe_voice():
     """AI-powered voice transcription"""
     from src.panel.voice_analysis import get_voice_analyzer
 
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
 
-    file = request.files['audio']
+    file = request.files["audio"]
     if not file.filename:
-        return jsonify({'error': 'No audio selected'}), 400
+        return jsonify({"error": "No audio selected"}), 400
 
-    language = request.form.get('language', 'en-US')
+    language = request.form.get("language", "en-US")
 
     analyzer = get_voice_analyzer()
     if not analyzer:
-        return jsonify({'error': 'Voice analyzer not available'}), 503
+        return jsonify({"error": "Voice analyzer not available"}), 503
 
     try:
         # Read audio data
@@ -2024,9 +2033,7 @@ def ai_transcribe_voice():
         def transcribe():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                analyzer.speech_to_text(audio_data, language)
-            )
+            return loop.run_until_complete(analyzer.speech_to_text(audio_data, language))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(transcribe)
@@ -2036,25 +2043,25 @@ def ai_transcribe_voice():
 
     except Exception as e:
         logger.error(f"AI voice transcription error: {e}")
-        return jsonify({'error': 'Transcription temporarily unavailable'})
+        return jsonify({"error": "Transcription temporarily unavailable"})
 
 
-@app.route('/api/ai/voice/analyze', methods=['POST'])
+@app.route("/api/ai/voice/analyze", methods=["POST"])
 @login_required
 def ai_analyze_voice():
     """AI-powered voice emotion and quality analysis"""
     from src.panel.voice_analysis import get_voice_analyzer
 
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
 
-    file = request.files['audio']
+    file = request.files["audio"]
     if not file.filename:
-        return jsonify({'error': 'No audio selected'}), 400
+        return jsonify({"error": "No audio selected"}), 400
 
     analyzer = get_voice_analyzer()
     if not analyzer:
-        return jsonify({'error': 'Voice analyzer not available'}), 503
+        return jsonify({"error": "Voice analyzer not available"}), 503
 
     try:
         # Read audio data
@@ -2071,7 +2078,7 @@ def ai_analyze_voice():
                 asyncio.gather(
                     analyzer.analyze_voice_emotion(audio_data),
                     analyzer.analyze_speech_quality(audio_data),
-                    analyzer.detect_language(audio_data)
+                    analyzer.detect_language(audio_data),
                 )
             )
 
@@ -2081,33 +2088,35 @@ def ai_analyze_voice():
 
         emotion_analysis, quality_analysis, language_detection = results
 
-        return jsonify({
-            'emotion': emotion_analysis,
-            'quality': quality_analysis,
-            'language': language_detection
-        })
+        return jsonify(
+            {
+                "emotion": emotion_analysis,
+                "quality": quality_analysis,
+                "language": language_detection,
+            }
+        )
 
     except Exception as e:
         logger.error(f"AI voice analysis error: {e}")
-        return jsonify({'error': 'Voice analysis temporarily unavailable'})
+        return jsonify({"error": "Voice analysis temporarily unavailable"})
 
 
-@app.route('/api/ai/video/analyze', methods=['POST'])
+@app.route("/api/ai/video/analyze", methods=["POST"])
 @login_required
 def ai_analyze_video():
     """AI-powered video analysis"""
     from src.panel.video_processing import get_video_processor
 
-    if 'video' not in request.files:
-        return jsonify({'error': 'No video file provided'}), 400
+    if "video" not in request.files:
+        return jsonify({"error": "No video file provided"}), 400
 
-    file = request.files['video']
+    file = request.files["video"]
     if not file.filename:
-        return jsonify({'error': 'No video selected'}), 400
+        return jsonify({"error": "No video selected"}), 400
 
     processor = get_video_processor()
     if not processor:
-        return jsonify({'error': 'Video processor not available'}), 503
+        return jsonify({"error": "Video processor not available"}), 503
 
     try:
         # Read video data
@@ -2120,9 +2129,7 @@ def ai_analyze_video():
         def analyze():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                processor.analyze_video(video_data, file.filename)
-            )
+            return loop.run_until_complete(processor.analyze_video(video_data, file.filename))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(analyze)
@@ -2132,25 +2139,25 @@ def ai_analyze_video():
 
     except Exception as e:
         logger.error(f"AI video analysis error: {e}")
-        return jsonify({'error': 'Video analysis temporarily unavailable'})
+        return jsonify({"error": "Video analysis temporarily unavailable"})
 
 
-@app.route('/api/ai/video/moderate', methods=['POST'])
+@app.route("/api/ai/video/moderate", methods=["POST"])
 @login_required
 def ai_moderate_video():
     """AI-powered video content moderation"""
     from src.panel.video_processing import get_video_processor
 
-    if 'video' not in request.files:
-        return jsonify({'error': 'No video file provided'}), 400
+    if "video" not in request.files:
+        return jsonify({"error": "No video file provided"}), 400
 
-    file = request.files['video']
+    file = request.files["video"]
     if not file.filename:
-        return jsonify({'error': 'No video selected'}), 400
+        return jsonify({"error": "No video selected"}), 400
 
     processor = get_video_processor()
     if not processor:
-        return jsonify({'approved': True, 'reason': 'Video moderation not available'})
+        return jsonify({"approved": True, "reason": "Video moderation not available"})
 
     try:
         # Read video data
@@ -2175,26 +2182,26 @@ def ai_moderate_video():
 
     except Exception as e:
         logger.error(f"AI video moderation error: {e}")
-        return jsonify({'approved': False, 'error': 'Moderation temporarily unavailable'})
+        return jsonify({"approved": False, "error": "Moderation temporarily unavailable"})
 
 
-@app.route('/api/ai/training/start', methods=['POST'])
+@app.route("/api/ai/training/start", methods=["POST"])
 @admin_required
 def ai_start_training():
     """Start AI model fine-tuning"""
     from src.panel.custom_ai_training import get_model_trainer
 
     data = request.get_json()
-    base_model = data.get('base_model', 'gpt-3.5-turbo')
-    training_data = data.get('training_data', [])
-    parameters = data.get('parameters', {})
+    base_model = data.get("base_model", "gpt-3.5-turbo")
+    training_data = data.get("training_data", [])
+    parameters = data.get("parameters", {})
 
     if not training_data:
-        return jsonify({'error': 'Training data is required'}), 400
+        return jsonify({"error": "Training data is required"}), 400
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         import asyncio
@@ -2211,17 +2218,17 @@ def ai_start_training():
             future = executor.submit(start_training)
             result = future.result(timeout=30)
 
-        if 'error' in result:
+        if "error" in result:
             return jsonify(result), 400
 
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"AI training start error: {e}")
-        return jsonify({'error': 'Training initialization failed'})
+        return jsonify({"error": "Training initialization failed"})
 
 
-@app.route('/api/ai/training/status/<job_id>', methods=['GET'])
+@app.route("/api/ai/training/status/<job_id>", methods=["GET"])
 @admin_required
 def ai_training_status(job_id):
     """Get AI training job status"""
@@ -2229,7 +2236,7 @@ def ai_training_status(job_id):
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         import asyncio
@@ -2238,9 +2245,7 @@ def ai_training_status(job_id):
         def get_status():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                trainer.get_training_status(job_id)
-            )
+            return loop.run_until_complete(trainer.get_training_status(job_id))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(get_status)
@@ -2250,20 +2255,20 @@ def ai_training_status(job_id):
 
     except Exception as e:
         logger.error(f"AI training status error: {e}")
-        return jsonify({'error': 'Status check failed'})
+        return jsonify({"error": "Status check failed"})
 
 
-@app.route('/api/ai/training/jobs', methods=['GET'])
+@app.route("/api/ai/training/jobs", methods=["GET"])
 @admin_required
 def ai_training_jobs():
     """List AI training jobs"""
     from src.panel.custom_ai_training import get_model_trainer
 
-    status_filter = request.args.get('status')
+    status_filter = request.args.get("status")
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         import asyncio
@@ -2272,22 +2277,20 @@ def ai_training_jobs():
         def list_jobs():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                trainer.list_training_jobs(status_filter)
-            )
+            return loop.run_until_complete(trainer.list_training_jobs(status_filter))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(list_jobs)
             jobs = future.result(timeout=10)
 
-        return jsonify({'jobs': jobs})
+        return jsonify({"jobs": jobs})
 
     except Exception as e:
         logger.error(f"AI training jobs list error: {e}")
-        return jsonify({'error': 'Failed to list jobs'})
+        return jsonify({"error": "Failed to list jobs"})
 
 
-@app.route('/api/ai/training/cancel/<job_id>', methods=['POST'])
+@app.route("/api/ai/training/cancel/<job_id>", methods=["POST"])
 @admin_required
 def ai_cancel_training(job_id):
     """Cancel AI training job"""
@@ -2295,7 +2298,7 @@ def ai_cancel_training(job_id):
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         import asyncio
@@ -2304,9 +2307,7 @@ def ai_cancel_training(job_id):
         def cancel_job():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                trainer.cancel_training_job(job_id)
-            )
+            return loop.run_until_complete(trainer.cancel_training_job(job_id))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(cancel_job)
@@ -2316,24 +2317,24 @@ def ai_cancel_training(job_id):
 
     except Exception as e:
         logger.error(f"AI training cancel error: {e}")
-        return jsonify({'error': 'Cancellation failed'})
+        return jsonify({"error": "Cancellation failed"})
 
 
-@app.route('/api/ai/models/deploy/<job_id>', methods=['POST'])
+@app.route("/api/ai/models/deploy/<job_id>", methods=["POST"])
 @admin_required
 def ai_deploy_model(job_id):
     """Deploy completed AI model"""
     from src.panel.custom_ai_training import get_model_trainer
 
     data = request.get_json()
-    model_name = data.get('model_name')
+    model_name = data.get("model_name")
 
     if not model_name:
-        return jsonify({'error': 'Model name is required'}), 400
+        return jsonify({"error": "Model name is required"}), 400
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         import asyncio
@@ -2342,9 +2343,7 @@ def ai_deploy_model(job_id):
         def deploy_model():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(
-                trainer.deploy_fine_tuned_model(job_id, model_name)
-            )
+            return loop.run_until_complete(trainer.deploy_fine_tuned_model(job_id, model_name))
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(deploy_model)
@@ -2354,10 +2353,10 @@ def ai_deploy_model(job_id):
 
     except Exception as e:
         logger.error(f"AI model deployment error: {e}")
-        return jsonify({'error': 'Model deployment failed'})
+        return jsonify({"error": "Model deployment failed"})
 
 
-@app.route('/api/ai/models', methods=['GET'])
+@app.route("/api/ai/models", methods=["GET"])
 @admin_required
 def ai_list_models():
     """List deployed custom AI models"""
@@ -2365,21 +2364,23 @@ def ai_list_models():
 
     trainer = get_model_trainer()
     if not trainer:
-        return jsonify({'error': 'Model trainer not available'}), 503
+        return jsonify({"error": "Model trainer not available"}), 503
 
     try:
         models = []
         for model_id, model in trainer.fine_tuned_models.items():
-            models.append({
-                'model_id': model_id,
-                'name': model['name'],
-                'base_model': model['base_model'],
-                'created_at': model['created_at'],
-                'status': model['status']
-            })
+            models.append(
+                {
+                    "model_id": model_id,
+                    "name": model["name"],
+                    "base_model": model["base_model"],
+                    "created_at": model["created_at"],
+                    "status": model["status"],
+                }
+            )
 
-        return jsonify({'models': models})
+        return jsonify({"models": models})
 
     except Exception as e:
         logger.error(f"AI models list error: {e}")
-        return jsonify({'error': 'Failed to list models'})
+        return jsonify({"error": "Failed to list models"})

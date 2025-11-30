@@ -1,131 +1,38 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "F:\\repos\\panel\\",
-  "Documents": [
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\validate_enhanced_features.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\validate_enhanced_features.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\routes_config.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\routes_config.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\tasks.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\tasks.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\video_processing.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\video_processing.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\voice_analysis.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\voice_analysis.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|F:\\repos\\panel\\src\\panel\\structured_logging.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\panel\\structured_logging.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    }
-  ],
+  "WorkspaceRootPath": "F:\\repos\\phillgates2\\panel\\",
+  "Documents": [],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
       "DocumentGroups": [
         {
-          "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "DockedWidth": 124,
+          "SelectedChildIndex": -1,
           "Children": [
             {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "routes_config.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\routes_config.py",
-              "RelativeDocumentMoniker": "src\\panel\\routes_config.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\routes_config.py",
-              "RelativeToolTip": "src\\panel\\routes_config.py",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:39:31.158Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "validate_enhanced_features.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\validate_enhanced_features.py",
-              "RelativeDocumentMoniker": "src\\panel\\validate_enhanced_features.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\validate_enhanced_features.py",
-              "RelativeToolTip": "src\\panel\\validate_enhanced_features.py",
-              "ViewState": "AgIAAF0AAAAAAAAAAAAMwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:39:03.698Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "tasks.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\tasks.py",
-              "RelativeDocumentMoniker": "src\\panel\\tasks.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\tasks.py",
-              "RelativeToolTip": "src\\panel\\tasks.py",
-              "ViewState": "AgIAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:38:30.813Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "voice_analysis.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\voice_analysis.py",
-              "RelativeDocumentMoniker": "src\\panel\\voice_analysis.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\voice_analysis.py",
-              "RelativeToolTip": "src\\panel\\voice_analysis.py",
-              "ViewState": "AgIAAJYBAAAAAAAAAAAMwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:35:27.925Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
             },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{40ea2e6b-2121-4bb8-a43e-c83c04b51041}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "structured_logging.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\structured_logging.py",
-              "RelativeDocumentMoniker": "src\\panel\\structured_logging.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\structured_logging.py",
-              "RelativeToolTip": "src\\panel\\structured_logging.py",
-              "ViewState": "AgIAAEsBAAAAAAAAAAAMwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:38:12.944Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "video_processing.py",
-              "DocumentMoniker": "F:\\repos\\panel\\src\\panel\\video_processing.py",
-              "RelativeDocumentMoniker": "src\\panel\\video_processing.py",
-              "ToolTip": "F:\\repos\\panel\\src\\panel\\video_processing.py",
-              "RelativeToolTip": "src\\panel\\video_processing.py",
-              "ViewState": "AgIAAHMBAAAAAAAAAAAMwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
-              "WhenOpened": "2025-11-23T09:35:07.687Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
             }
           ]
         },
         {
           "DockedWidth": 200,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            }
+          ]
+        },
+        {
+          "DockedWidth": 276,
           "SelectedChildIndex": -1,
           "Children": [
             {

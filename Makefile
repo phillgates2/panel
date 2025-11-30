@@ -7,10 +7,10 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install production dependencies
-	pip install -r requirements.txt
+	pip install -r requirements/requirements.txt
 
 install-dev: ## Install development dependencies
-	pip install -r requirements-dev.txt
+	pip install -r requirements/requirements-dev.txt
 	pre-commit install
 
 test: ## Run tests with coverage
@@ -29,7 +29,7 @@ test-performance: ## Run performance tests only
 	PANEL_USE_SQLITE=1 pytest tests/ -v -m performance
 
 test-validate: ## Run basic validation script (no pytest required)
-	python3 validate_enhanced_features.py
+	python3 src/panel/validate_enhanced_features.py
 
 test-all: ## Run all tests including validation
 	$(MAKE) test-validate
@@ -127,8 +127,8 @@ docs: ## Generate documentation
 
 upgrade: ## Upgrade dependencies
 	pip install --upgrade pip
-	pip install --upgrade -r requirements.txt
-	pip install --upgrade -r requirements-dev.txt
+	pip install --upgrade -r requirements/requirements.txt
+	pip install --upgrade -r requirements/requirements-dev.txt
 
 db-migrate: ## Create database migration
 	FLASK_APP=migrations_init.py flask db migrate -m "$(message)"
@@ -139,8 +139,9 @@ db-upgrade: ## Apply database migrations
 db-downgrade: ## Rollback database migration
 	FLASK_APP=migrations_init.py flask db downgrade
 
-db-init: ## Initialize migrations directory
-	FLASK_APP=migrations_init.py flask db init
+db-init: ## Initialize database
+	@echo "Initializing database..."
+	export FLASK_ENV=development && python -c "from app import db, create_app; app = create_app(); app.app_context().push(); db.create_all()"	
 
 db-history: ## Show migration history
 	FLASK_APP=migrations_init.py flask db history
@@ -218,3 +219,18 @@ config-template: ## Generate configuration template
 	python -m flask config-template
 
 .DEFAULT_GOAL := help
+
+test-e2e: ## Run end-to-end tests with Playwright
+	@echo "Running E2E tests..."
+	playwright install
+	pytest tests/e2e/ -v --tb=short --headed=false
+
+test-e2e-headed: ## Run E2E tests with browser visible
+	@echo "Running E2E tests (headed)..."
+	playwright install
+	pytest tests/e2e/ -v --tb=short --headed=true
+
+test-e2e-debug: ## Debug E2E tests
+	@echo "Debugging E2E tests..."
+	playwright install
+	PWDEBUG=1 pytest tests/e2e/test_authentication.py::TestAuthentication::test_user_login -v

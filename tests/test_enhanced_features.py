@@ -7,11 +7,11 @@ import time
 from unittest.mock import patch
 
 import pytest
+from services.cache_service import CacheService
+from services.user_service import UserService
 
 from app import create_app, db
 from input_validation import LoginSchema, RegisterSchema, validate_request
-from services.cache_service import CacheService
-from services.user_service import UserService
 
 
 class TestInputValidation:
@@ -44,7 +44,7 @@ class TestInputValidation:
             "email": "john@example.com",
             "password": "Password123!",
             "password_confirm": "Password123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
         validated_data, errors = validate_request(RegisterSchema, data)
 
@@ -61,7 +61,7 @@ class TestInputValidation:
             "email": "john@example.com",
             "password": "Password123!",
             "password_confirm": "DifferentPassword123!",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
         validated_data, errors = validate_request(RegisterSchema, data)
 
@@ -77,7 +77,7 @@ class TestInputValidation:
             "email": "john@example.com",
             "password": "weak",
             "password_confirm": "weak",
-            "dob": "1990-01-01"
+            "dob": "1990-01-01",
         }
         validated_data, errors = validate_request(RegisterSchema, data)
 
@@ -93,6 +93,7 @@ class TestCacheService:
         """Test basic cache operations"""
         with app.app_context():
             from flask_caching import Cache
+
             cache = Cache(app, config={"CACHE_TYPE": "simple"})
             cache_svc = CacheService(cache)
 
@@ -108,6 +109,7 @@ class TestCacheService:
         """Test function memoization"""
         with app.app_context():
             from flask_caching import Cache
+
             cache = Cache(app, config={"CACHE_TYPE": "simple"})
             cache_svc = CacheService(cache)
 
@@ -133,6 +135,7 @@ class TestCacheService:
         """Test user-specific data caching"""
         with app.app_context():
             from flask_caching import Cache
+
             cache = Cache(app, config={"CACHE_TYPE": "simple"})
             cache_svc = CacheService(cache)
 
@@ -162,7 +165,7 @@ class TestUserService:
                 "last_name": "Doe",
                 "email": "john@example.com",
                 "password": "Password123!",
-                "dob": "1990-01-01"
+                "dob": "1990-01-01",
             }
 
             user, error = UserService.create_user(**user_data)
@@ -182,7 +185,7 @@ class TestUserService:
                 "last_name": "Doe",
                 "email": "john@example.com",
                 "password": "Password123!",
-                "dob": "1990-01-01"
+                "dob": "1990-01-01",
             }
             UserService.create_user(**user_data)
 
@@ -202,7 +205,7 @@ class TestUserService:
                 "last_name": "Doe",
                 "email": "john@example.com",
                 "password": "Password123!",
-                "dob": "1990-01-01"
+                "dob": "1990-01-01",
             }
             UserService.create_user(**user_data)
 
@@ -228,7 +231,7 @@ class TestHealthEndpoints:
 
     def test_health_endpoint(self, client):
         """Test basic health endpoint"""
-        response = client.get('/health')
+        response = client.get("/health")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -239,7 +242,7 @@ class TestHealthEndpoints:
 
     def test_readiness_endpoint(self, client):
         """Test readiness probe endpoint"""
-        response = client.get('/health/ready')
+        response = client.get("/health/ready")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -249,7 +252,7 @@ class TestHealthEndpoints:
 
     def test_liveness_endpoint(self, client):
         """Test liveness probe endpoint"""
-        response = client.get('/health/live')
+        response = client.get("/health/live")
         assert response.status_code == 200
 
         data = json.loads(response.data)
@@ -264,7 +267,7 @@ class TestMetricsEndpoint:
 
     def test_metrics_endpoint_requires_auth(self, client):
         """Test that metrics endpoint requires authentication"""
-        response = client.get('/metrics')
+        response = client.get("/metrics")
         assert response.status_code == 401
 
     def test_openapi_spec_endpoint(self, client, app):
@@ -283,7 +286,7 @@ class TestPerformance:
     def test_health_endpoint_performance(self, client):
         """Test health endpoint response time"""
         start_time = time.time()
-        response = client.get('/health')
+        response = client.get("/health")
         end_time = time.time()
 
         assert response.status_code == 200
@@ -292,14 +295,14 @@ class TestPerformance:
 
     def test_concurrent_health_requests(self, client):
         """Test concurrent health check requests"""
-        import threading
         import queue
+        import threading
 
         results = queue.Queue()
 
         def make_request():
             start_time = time.time()
-            response = client.get('/health')
+            response = client.get("/health")
             end_time = time.time()
             results.put((response.status_code, end_time - start_time))
 

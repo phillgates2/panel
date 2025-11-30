@@ -2,10 +2,12 @@
 Playwright test configuration and fixtures
 """
 
-import pytest
+import json
 import os
-from playwright.sync_api import Playwright
+
+import pytest
 from dotenv import load_dotenv
+from playwright.sync_api import Playwright
 
 # Load environment variables
 load_dotenv()
@@ -43,7 +45,7 @@ def browser_args(browser_args):
             "--disable-features=VizDisplayCompositor",
             "--no-sandbox",
             "--disable-dev-shm-usage",
-        ]
+        ],
     }
 
 
@@ -121,8 +123,8 @@ def setup_test_environment(page):
     # Cleanup after test
     try:
         # Take screenshot on failure
-        if hasattr(page, '_test_failed') and page._test_failed:
-            test_name = getattr(page, '_test_name', 'unknown_test')
+        if hasattr(page, "_test_failed") and page._test_failed:
+            test_name = getattr(page, "_test_name", "unknown_test")
             page.screenshot(path=f"test-results/screenshots/{test_name}_failure.png")
     except Exception as e:
         print(f"Screenshot capture failed: {e}")
@@ -146,13 +148,15 @@ def log_test_info(request, page):
 @pytest.fixture
 def mock_api_responses(page):
     """Mock API responses for testing"""
+
     def mock_response(url_pattern, response_data, status=200):
         """Mock API endpoint responses"""
-        page.route(url_pattern, lambda route: route.fulfill(
-            status=status,
-            content_type="application/json",
-            body=json.dumps(response_data)
-        ))
+        page.route(
+            url_pattern,
+            lambda route: route.fulfill(
+                status=status, content_type="application/json", body=json.dumps(response_data)
+            ),
+        )
 
     return mock_response
 
@@ -160,14 +164,16 @@ def mock_api_responses(page):
 @pytest.fixture
 def disable_animations(page):
     """Disable CSS animations for faster testing"""
-    page.add_style_tag(content="""
+    page.add_style_tag(
+        content="""
         *, *::before, *::after {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
             transition-duration: 0.01ms !important;
             scroll-behavior: auto !important;
         }
-    """)
+    """
+    )
 
 
 @pytest.fixture
@@ -185,9 +191,9 @@ def mock_notifications(page):
 # Test data helpers
 def generate_test_user():
     """Generate test user data"""
-    import uuid
     import random
     import string
+    import uuid
 
     user_id = str(uuid.uuid4())[:8]
     return {
@@ -195,7 +201,7 @@ def generate_test_user():
         "first_name": "Test",
         "last_name": f"User{user_id}",
         "password": "TestPassword123!",
-        "dob": "2000-01-01"
+        "dob": "2000-01-01",
     }
 
 
@@ -206,7 +212,7 @@ def generate_test_thread():
     thread_id = str(uuid.uuid4())[:8]
     return {
         "title": f"Test Thread {thread_id}",
-        "content": f"This is test content for thread {thread_id}. It contains some sample text to make it more realistic."
+        "content": f"This is test content for thread {thread_id}. It contains some sample text to make it more realistic.",
     }
 
 
@@ -217,7 +223,7 @@ def generate_test_post(thread_id=None):
     post_id = str(uuid.uuid4())[:8]
     return {
         "thread_id": thread_id,
-        "content": f"This is a test reply {post_id}. Testing forum functionality with realistic content."
+        "content": f"This is a test reply {post_id}. Testing forum functionality with realistic content.",
     }
 
 
@@ -228,7 +234,7 @@ def measure_page_load_time(page, url):
 
     start_time = time.time()
     page.goto(url)
-    page.wait_for_load_state('networkidle')
+    page.wait_for_load_state("networkidle")
     load_time = time.time() - start_time
 
     return load_time
@@ -251,21 +257,22 @@ def check_accessibility(page):
     violations = []
 
     # Check for missing alt text
-    images = page.query_selector_all('img:not([alt])')
+    images = page.query_selector_all("img:not([alt])")
     if images:
         violations.append(f"Found {len(images)} images without alt text")
 
     # Check for missing labels
-    inputs = page.query_selector_all('input:not([aria-label]):not([aria-labelledby])')
+    inputs = page.query_selector_all("input:not([aria-label]):not([aria-labelledby])")
     if inputs:
         violations.append(f"Found {len(inputs)} inputs without labels")
 
     # Check color contrast (basic check)
-    text_elements = page.query_selector_all('*')
+    text_elements = page.query_selector_all("*")
     low_contrast = []
     for element in text_elements:
         try:
-            color = page.evaluate("""
+            color = page.evaluate(
+                """
                 (el) => {
                     const style = window.getComputedStyle(el);
                     return {
@@ -273,10 +280,12 @@ def check_accessibility(page):
                         backgroundColor: style.backgroundColor
                     };
                 }
-            """, element)
+            """,
+                element,
+            )
 
             # Basic contrast check (would need more sophisticated analysis)
-            if color['color'] == color['backgroundColor']:
+            if color["color"] == color["backgroundColor"]:
                 low_contrast.append(element)
         except:
             pass
@@ -300,4 +309,5 @@ def compare_screenshots(baseline_path, current_path):
     # This would integrate with a visual diff tool like pixelmatch
     # For now, just check if files exist
     import os
+
     return os.path.exists(baseline_path) and os.path.exists(current_path)

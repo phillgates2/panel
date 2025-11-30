@@ -143,7 +143,9 @@ class SecurityHardening:
 
             # Cache-Control for sensitive pages
             if self._is_sensitive_path(request.path):
-                response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private, max-age=0"
+                response.headers["Cache-Control"] = (
+                    "no-store, no-cache, must-revalidate, private, max-age=0"
+                )
                 response.headers["Pragma"] = "no-cache"
                 response.headers["Expires"] = "0"
 
@@ -182,7 +184,7 @@ class SecurityHardening:
         }
 
         # Add nonce for dynamic scripts if needed
-        if hasattr(g, 'csp_nonce'):
+        if hasattr(g, "csp_nonce"):
             csp_directives["script-src"] += f" 'nonce-{g.csp_nonce}'"
 
         return "; ".join([f"{k} {v}".strip() for k, v in csp_directives.items() if v])
@@ -194,6 +196,7 @@ class SecurityHardening:
         def generate_csp_nonce():
             """Generate CSP nonce for dynamic content"""
             import secrets
+
             g.csp_nonce = secrets.token_hex(16)
 
     def _configure_rate_limiting(self):
@@ -209,13 +212,14 @@ class SecurityHardening:
             if user_id:
                 try:
                     from app import db, User
+
                     user = db.session.get(User, user_id)
                     if user:
                         if user.is_system_admin():
                             return "2000 per hour"
                         elif user.is_admin:
                             return "1000 per hour"
-                        elif hasattr(user, 'is_moderator') and user.is_moderator:
+                        elif hasattr(user, "is_moderator") and user.is_moderator:
                             return "500 per hour"
                 except Exception:
                     pass
@@ -236,12 +240,15 @@ class SecurityHardening:
         @self.app.errorhandler(429)
         def enhanced_ratelimit_handler(e):
             client_ip = get_remote_address()
-            self._log_security_event("rate_limit_exceeded", {
-                "ip": client_ip,
-                "path": request.path,
-                "user_agent": request.headers.get("User-Agent", ""),
-                "retry_after": getattr(e, 'retry_after', 3600)
-            })
+            self._log_security_event(
+                "rate_limit_exceeded",
+                {
+                    "ip": client_ip,
+                    "path": request.path,
+                    "user_agent": request.headers.get("User-Agent", ""),
+                    "retry_after": getattr(e, "retry_after", 3600),
+                },
+            )
 
             # Add to suspicious activity tracking
             self._track_suspicious_activity(client_ip, "rate_limit_exceeded")
@@ -249,21 +256,25 @@ class SecurityHardening:
             return {
                 "error": "Rate limit exceeded",
                 "message": "Too many requests. Please try again later.",
-                "retry_after": getattr(e, 'retry_after', 3600)
+                "retry_after": getattr(e, "retry_after", 3600),
             }, 429
 
         # Stricter limits for sensitive endpoints
-        limiter.limit("5 per minute")(self.app.view_functions.get('login', lambda: None))
-        limiter.limit("3 per minute")(self.app.view_functions.get('register', lambda: None))
-        limiter.limit("10 per minute")(self.app.view_functions.get('forgot_password', lambda: None))
+        limiter.limit("5 per minute")(self.app.view_functions.get("login", lambda: None))
+        limiter.limit("3 per minute")(self.app.view_functions.get("register", lambda: None))
+        limiter.limit("10 per minute")(self.app.view_functions.get("forgot_password", lambda: None))
 
         # API endpoints with role-based limits
-        limiter.limit(get_rate_limit_by_role)(self.app.view_functions.get('api_get_tokens', lambda: None))
-        limiter.limit(get_rate_limit_by_role)(self.app.view_functions.get('teams_dashboard', lambda: None))
+        limiter.limit(get_rate_limit_by_role)(
+            self.app.view_functions.get("api_get_tokens", lambda: None)
+        )
+        limiter.limit(get_rate_limit_by_role)(
+            self.app.view_functions.get("teams_dashboard", lambda: None)
+        )
 
         # Admin endpoints - very restrictive
         limiter.limit("50 per hour", key_func=get_user_id_or_ip)(
-            self.app.view_functions.get('admin_dashboard', lambda: None)
+            self.app.view_functions.get("admin_dashboard", lambda: None)
         )
 
         logger.info("Enhanced rate limiting configured with role-based limits")
@@ -274,7 +285,7 @@ class SecurityHardening:
         @self.app.before_request
         def validate_request_data():
             """Validate incoming request data for security threats"""
-            if request.method in ['POST', 'PUT', 'PATCH']:
+            if request.method in ["POST", "PUT", "PATCH"]:
                 self._validate_request_content(request)
 
     def _validate_request_content(self, req: Request):
@@ -300,13 +311,16 @@ class SecurityHardening:
         for pattern in self.suspicious_patterns:
             if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
                 client_ip = get_remote_address()
-                self._log_security_event("suspicious_content_detected", {
-                    "ip": client_ip,
-                    "source": source,
-                    "pattern": pattern,
-                    "content_length": len(content),
-                    "user_agent": request.headers.get("User-Agent", "")
-                })
+                self._log_security_event(
+                    "suspicious_content_detected",
+                    {
+                        "ip": client_ip,
+                        "source": source,
+                        "pattern": pattern,
+                        "content_length": len(content),
+                        "user_agent": request.headers.get("User-Agent", ""),
+                    },
+                )
                 self._track_suspicious_activity(client_ip, "suspicious_content")
                 break
 
@@ -329,21 +343,27 @@ class SecurityHardening:
         def monitor_security_events(response: Response) -> Response:
             """Monitor responses for security-related events"""
             if response.status_code >= 400:
-                self._log_security_event("error_response", {
-                    "status_code": response.status_code,
-                    "path": request.path,
-                    "method": request.method,
-                    "ip": get_remote_address(),
-                    "user_agent": request.headers.get("User-Agent", "")
-                })
+                self._log_security_event(
+                    "error_response",
+                    {
+                        "status_code": response.status_code,
+                        "path": request.path,
+                        "method": request.method,
+                        "ip": get_remote_address(),
+                        "user_agent": request.headers.get("User-Agent", ""),
+                    },
+                )
 
             # Monitor for potential security headers bypass attempts
-            if 'X-Forwarded-For' in request.headers and self._is_internal_ip(get_remote_address()):
-                self._log_security_event("proxy_header_detected", {
-                    "ip": get_remote_address(),
-                    "xff_header": request.headers.get('X-Forwarded-For'),
-                    "path": request.path
-                })
+            if "X-Forwarded-For" in request.headers and self._is_internal_ip(get_remote_address()):
+                self._log_security_event(
+                    "proxy_header_detected",
+                    {
+                        "ip": get_remote_address(),
+                        "xff_header": request.headers.get("X-Forwarded-For"),
+                        "path": request.path,
+                    },
+                )
 
             return response
 
@@ -357,30 +377,28 @@ class SecurityHardening:
 
             # Check if IP is blocked
             if client_ip in self.blocked_ips:
-                self._log_security_event("blocked_ip_access", {
-                    "ip": client_ip,
-                    "path": request.path,
-                    "user_agent": request.headers.get("User-Agent", "")
-                })
+                self._log_security_event(
+                    "blocked_ip_access",
+                    {
+                        "ip": client_ip,
+                        "path": request.path,
+                        "user_agent": request.headers.get("User-Agent", ""),
+                    },
+                )
                 return {"error": "Access denied"}, 403
 
             # Check for suspicious user agents
             user_agent = request.headers.get("User-Agent", "")
             if self._is_suspicious_user_agent(user_agent):
-                self._log_security_event("suspicious_user_agent", {
-                    "ip": client_ip,
-                    "user_agent": user_agent,
-                    "path": request.path
-                })
+                self._log_security_event(
+                    "suspicious_user_agent",
+                    {"ip": client_ip, "user_agent": user_agent, "path": request.path},
+                )
                 self._track_suspicious_activity(client_ip, "suspicious_user_agent")
 
     def _log_security_event(self, event_type: str, details: Dict):
         """Log security events"""
-        event = {
-            "timestamp": time.time(),
-            "type": event_type,
-            "details": details
-        }
+        event = {"timestamp": time.time(), "type": event_type, "details": details}
 
         self.security_events.append(event)
 
@@ -389,10 +407,10 @@ class SecurityHardening:
             self.security_events.pop(0)
 
         # Log to structured logger
-        logger.warning(f"Security event: {event_type}", extra={
-            "security_event": event_type,
-            "event_details": details
-        })
+        logger.warning(
+            f"Security event: {event_type}",
+            extra={"security_event": event_type, "event_details": details},
+        )
 
     def _track_suspicious_activity(self, ip: str, activity_type: str):
         """Track suspicious activity from IPs"""
@@ -403,7 +421,7 @@ class SecurityHardening:
 
         # This is a simplified implementation
         # In production, you'd want persistent storage
-        if hasattr(self, '_suspicious_tracking'):
+        if hasattr(self, "_suspicious_tracking"):
             self._suspicious_tracking[suspicious_key] = current_time
         else:
             self._suspicious_tracking = {suspicious_key: current_time}
@@ -411,31 +429,61 @@ class SecurityHardening:
     def _is_sensitive_path(self, path: str) -> bool:
         """Check if the path is sensitive and needs special headers"""
         sensitive_paths = [
-            '/admin', '/account', '/settings', '/security',
-            '/api/admin', '/api/user', '/api/auth'
+            "/admin",
+            "/account",
+            "/settings",
+            "/security",
+            "/api/admin",
+            "/api/user",
+            "/api/auth",
         ]
         return any(path.startswith(sp) for sp in sensitive_paths)
 
     def _is_https_request(self) -> bool:
         """Check if the current request is over HTTPS"""
-        return request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https'
+        return request.is_secure or request.headers.get("X-Forwarded-Proto") == "https"
 
     def _is_internal_ip(self, ip: str) -> bool:
         """Check if IP is internal/private"""
         private_ranges = [
-            '10.', '172.16.', '172.17.', '172.18.', '172.19.',
-            '172.20.', '172.21.', '172.22.', '172.23.', '172.24.',
-            '172.25.', '172.26.', '172.27.', '172.28.', '172.29.',
-            '172.30.', '172.31.', '192.168.'
+            "10.",
+            "172.16.",
+            "172.17.",
+            "172.18.",
+            "172.19.",
+            "172.20.",
+            "172.21.",
+            "172.22.",
+            "172.23.",
+            "172.24.",
+            "172.25.",
+            "172.26.",
+            "172.27.",
+            "172.28.",
+            "172.29.",
+            "172.30.",
+            "172.31.",
+            "192.168.",
         ]
-        return any(ip.startswith(range) for range in private_ranges) or ip == '127.0.0.1'
+        return any(ip.startswith(range) for range in private_ranges) or ip == "127.0.0.1"
 
     def _is_suspicious_user_agent(self, user_agent: str) -> bool:
         """Check if user agent looks suspicious"""
         suspicious_patterns = [
-            'sqlmap', 'nmap', 'nikto', 'dirbuster', 'gobuster',
-            'masscan', 'zmap', 'acunetix', 'openvas', 'nessus',
-            'metasploit', 'burpsuite', 'owasp', 'qualysguard'
+            "sqlmap",
+            "nmap",
+            "nikto",
+            "dirbuster",
+            "gobuster",
+            "masscan",
+            "zmap",
+            "acunetix",
+            "openvas",
+            "nessus",
+            "metasploit",
+            "burpsuite",
+            "owasp",
+            "qualysguard",
         ]
         return any(pattern.lower() in user_agent.lower() for pattern in suspicious_patterns)
 
@@ -447,7 +495,7 @@ class SecurityHardening:
             "recent_events": self.security_events[-10:] if self.security_events else [],
             "rate_limiting_enabled": True,
             "csp_enabled": True,
-            "security_headers_enabled": True
+            "security_headers_enabled": True,
         }
 
 
@@ -463,20 +511,20 @@ class SecurityValidationSchemas:
         if len(password) < 12:
             issues.append("Password must be at least 12 characters long")
 
-        if not re.search(r'[A-Z]', password):
+        if not re.search(r"[A-Z]", password):
             issues.append("Password must contain at least one uppercase letter")
 
-        if not re.search(r'[a-z]', password):
+        if not re.search(r"[a-z]", password):
             issues.append("Password must contain at least one lowercase letter")
 
-        if not re.search(r'[0-9]', password):
+        if not re.search(r"[0-9]", password):
             issues.append("Password must contain at least one number")
 
-        if not re.search(r'[^A-Za-z0-9]', password):
+        if not re.search(r"[^A-Za-z0-9]", password):
             issues.append("Password must contain at least one special character")
 
         # Check for common weak patterns
-        common_patterns = ['123456', 'password', 'qwerty', 'admin', 'letmein']
+        common_patterns = ["123456", "password", "qwerty", "admin", "letmein"]
         if any(pattern in password.lower() for pattern in common_patterns):
             issues.append("Password contains common weak patterns")
 
@@ -485,15 +533,19 @@ class SecurityValidationSchemas:
     @staticmethod
     def validate_email_domain(email: str) -> bool:
         """Validate email domain for suspicious patterns"""
-        if not email or '@' not in email:
+        if not email or "@" not in email:
             return False
 
-        domain = email.split('@')[1].lower()
+        domain = email.split("@")[1].lower()
 
         # Block suspicious domains
         blocked_domains = [
-            '10minutemail.com', 'guerrillamail.com', 'mailinator.com',
-            'temp-mail.org', 'throwaway.email', 'yopmail.com'
+            "10minutemail.com",
+            "guerrillamail.com",
+            "mailinator.com",
+            "temp-mail.org",
+            "throwaway.email",
+            "yopmail.com",
         ]
 
         return domain not in blocked_domains
@@ -502,11 +554,11 @@ class SecurityValidationSchemas:
     def sanitize_html_content(content: str) -> str:
         """Sanitize HTML content to prevent XSS"""
         # Remove script tags and event handlers
-        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.IGNORECASE | re.DOTALL)
-        content = re.sub(r'<[^>]+on\w+\s*=', '<', content, flags=re.IGNORECASE)
+        content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        content = re.sub(r"<[^>]+on\w+\s*=", "<", content, flags=re.IGNORECASE)
 
         # Remove javascript: URLs
-        content = re.sub(r'javascript:', '', content, flags=re.IGNORECASE)
+        content = re.sub(r"javascript:", "", content, flags=re.IGNORECASE)
 
         return content
 

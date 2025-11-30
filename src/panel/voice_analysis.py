@@ -3,21 +3,24 @@ Voice Analysis Integration
 Speech-to-text, voice emotion analysis, and audio processing
 """
 
-import os
-import asyncio
-import base64
-from typing import Dict, Any, Optional
-import logging
-import json
-import datetime
 import io
+import json
+import logging
+import os
 import wave
-import audioop
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from src.panel.ai_integration import get_ai_client
 from src.panel.enhanced_ai import get_enhanced_ai_agent
 
+try:
+    import audioop
+except ImportError:
+    audioop = None
+
 logger = logging.getLogger(__name__)
+
 
 class VoiceAnalyzer:
     """Advanced voice analysis and processing"""
@@ -25,19 +28,20 @@ class VoiceAnalyzer:
     def __init__(self):
         self.ai_client = get_ai_client()
         self.enhanced_ai = get_enhanced_ai_agent()
-        self.supported_formats = ['wav', 'mp3', 'm4a', 'webm']
+        self.supported_formats = ["wav", "mp3", "m4a", "webm"]
 
-    async def speech_to_text(self, audio_data: bytes, language: str = 'en-US',
-                           provider: str = 'auto') -> Dict[str, Any]:
+    async def speech_to_text(
+        self, audio_data: bytes, language: str = "en-US", provider: str = "auto"
+    ) -> Dict[str, Any]:
         """Convert speech to text using AI services"""
         try:
             # Choose provider based on availability and preference
-            if provider == 'auto':
+            if provider == "auto":
                 provider = self._select_best_provider()
 
-            if provider == 'azure':
+            if provider == "azure":
                 result = await self._azure_speech_to_text(audio_data, language)
-            elif provider == 'google':
+            elif provider == "google":
                 result = await self._google_speech_to_text(audio_data, language)
             else:
                 result = await self._fallback_speech_to_text(audio_data, language)
@@ -47,11 +51,11 @@ class VoiceAnalyzer:
         except Exception as e:
             logger.error(f"Speech-to-text failed: {e}")
             return {
-                'text': '',
-                'confidence': 0.0,
-                'language': language,
-                'error': str(e),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "text": "",
+                "confidence": 0.0,
+                "language": language,
+                "error": str(e),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
     async def analyze_voice_emotion(self, audio_data: bytes) -> Dict[str, Any]:
@@ -61,19 +65,7 @@ class VoiceAnalyzer:
             features = await self._extract_audio_features(audio_data)
 
             # Use AI to analyze emotional content
-            analysis_prompt = f"""Analyze the emotional content of this voice based on audio features:
-
-Features: {json.dumps(features)}
-
-Determine the primary emotion and confidence level. Consider:
-- Pitch variations
-- Speech rate
-- Volume levels
-- Tone consistency
-- Energy levels
-
-Return JSON with: emotion, confidence, secondary_emotions, explanation"""
-
+            analysis_prompt = f"Analyze voice emotion: {json.dumps(features)}\nReturn JSON: emotion, confidence, secondary_emotions, explanation"
             if self.enhanced_ai:
                 analysis_text = await self.enhanced_ai.generate_response(analysis_prompt)
             else:
@@ -83,27 +75,27 @@ Return JSON with: emotion, confidence, secondary_emotions, explanation"""
                 analysis = json.loads(analysis_text)
             except json.JSONDecodeError:
                 analysis = {
-                    'emotion': 'neutral',
-                    'confidence': 0.5,
-                    'secondary_emotions': [],
-                    'explanation': 'Analysis completed'
+                    "emotion": "neutral",
+                    "confidence": 0.5,
+                    "secondary_emotions": [],
+                    "explanation": "Analysis completed",
                 }
 
             return {
                 **analysis,
-                'features': features,
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "features": features,
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Voice emotion analysis failed: {e}")
             return {
-                'emotion': 'unknown',
-                'confidence': 0.0,
-                'secondary_emotions': [],
-                'explanation': 'Analysis failed',
-                'error': str(e),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "emotion": "unknown",
+                "confidence": 0.0,
+                "secondary_emotions": [],
+                "explanation": "Analysis failed",
+                "error": str(e),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
     async def detect_language(self, audio_data: bytes) -> Dict[str, Any]:
@@ -112,13 +104,9 @@ Return JSON with: emotion, confidence, secondary_emotions, explanation"""
             # Use AI to detect language from audio characteristics
             features = await self._extract_audio_features(audio_data)
 
-            prompt = f"""Based on these audio features, detect the most likely spoken language:
+            prompt = f"""Detect language from audio features: {json.dumps(features)}
 
-Features: {json.dumps(features)}
-
-Common languages to consider: English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese
-
-Return JSON with: language, confidence, alternatives"""
+Return JSON: language, confidence, alternatives"""
 
             if self.enhanced_ai:
                 result_text = await self.enhanced_ai.generate_response(prompt)
@@ -128,25 +116,18 @@ Return JSON with: language, confidence, alternatives"""
             try:
                 result = json.loads(result_text)
             except json.JSONDecodeError:
-                result = {
-                    'language': 'unknown',
-                    'confidence': 0.0,
-                    'alternatives': []
-                }
+                result = {"language": "unknown", "confidence": 0.0, "alternatives": []}
 
-            return {
-                **result,
-                'timestamp': datetime.datetime.utcnow().isoformat()
-            }
+            return {**result, "timestamp": datetime.datetime.utcnow().isoformat()}
 
         except Exception as e:
             logger.error(f"Language detection failed: {e}")
             return {
-                'language': 'unknown',
-                'confidence': 0.0,
-                'code': 'unknown',
-                'error': str(e),
-                'detected_at': datetime.datetime.utcnow().isoformat()
+                "language": "unknown",
+                "confidence": 0.0,
+                "code": "unknown",
+                "error": str(e),
+                "detected_at": datetime.datetime.utcnow().isoformat(),
             }
 
     async def analyze_speech_quality(self, audio_data: bytes) -> Dict[str, Any]:
@@ -155,47 +136,47 @@ Return JSON with: language, confidence, alternatives"""
             features = await self._extract_audio_features(audio_data)
 
             quality_metrics = {
-                'clarity': self._calculate_clarity(features),
-                'volume': self._assess_volume(features),
-                'background_noise': self._detect_background_noise(features),
-                'speech_rate': self._calculate_speech_rate(features),
-                'overall_quality': 'good'  # Placeholder
+                "clarity": self._calculate_clarity(features),
+                "volume": self._assess_volume(features),
+                "background_noise": self._detect_background_noise(features),
+                "speech_rate": self._calculate_speech_rate(features),
+                "overall_quality": "good",  # Placeholder
             }
 
             # Determine overall quality
             quality_score = (
-                quality_metrics['clarity'] * 0.3 +
-                quality_metrics['volume'] * 0.2 +
-                (1 - quality_metrics['background_noise']) * 0.3 +
-                quality_metrics['speech_rate'] * 0.2
+                quality_metrics["clarity"] * 0.3
+                + quality_metrics["volume"] * 0.2
+                + (1 - quality_metrics["background_noise"]) * 0.3
+                + quality_metrics["speech_rate"] * 0.2
             )
 
             if quality_score > 0.8:
-                quality_metrics['overall_quality'] = 'excellent'
+                quality_metrics["overall_quality"] = "excellent"
             elif quality_score > 0.6:
-                quality_metrics['overall_quality'] = 'good'
+                quality_metrics["overall_quality"] = "good"
             elif quality_score > 0.4:
-                quality_metrics['overall_quality'] = 'fair'
+                quality_metrics["overall_quality"] = "fair"
             else:
-                quality_metrics['overall_quality'] = 'poor'
+                quality_metrics["overall_quality"] = "poor"
 
             return {
                 **quality_metrics,
-                'quality_score': quality_score,
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "quality_score": quality_score,
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Speech quality analysis failed: {e}")
             return {
-                'clarity': 0.5,
-                'volume': 0.5,
-                'background_noise': 0.5,
-                'speech_rate': 0.5,
-                'overall_quality': 'unknown',
-                'quality_score': 0.0,
-                'error': str(e),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "clarity": 0.5,
+                "volume": 0.5,
+                "background_noise": 0.5,
+                "speech_rate": 0.5,
+                "overall_quality": "unknown",
+                "quality_score": 0.0,
+                "error": str(e),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
     async def transcribe_with_timestamps(self, audio_data: bytes) -> Dict[str, Any]:
@@ -206,59 +187,61 @@ Return JSON with: language, confidence, alternatives"""
             basic_transcription = await self.speech_to_text(audio_data)
 
             # Mock word-level timestamps
-            words = basic_transcription.get('text', '').split()
+            words = basic_transcription.get("text", "").split()
             timestamps = []
 
             duration = 10.0  # Assume 10 second audio
             word_duration = duration / max(len(words), 1)
 
             for i, word in enumerate(words):
-                timestamps.append({
-                    'word': word,
-                    'start_time': i * word_duration,
-                    'end_time': (i + 1) * word_duration,
-                    'confidence': 0.8
-                })
+                timestamps.append(
+                    {
+                        "word": word,
+                        "start_time": i * word_duration,
+                        "end_time": (i + 1) * word_duration,
+                        "confidence": 0.8,
+                    }
+                )
 
             return {
-                'text': basic_transcription.get('text', ''),
-                'words': timestamps,
-                'duration': duration,
-                'language': basic_transcription.get('language', 'en-US'),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "text": basic_transcription.get("text", ""),
+                "words": timestamps,
+                "duration": duration,
+                "language": basic_transcription.get("language", "en-US"),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Timestamp transcription failed: {e}")
             return {
-                'text': '',
-                'words': [],
-                'duration': 0.0,
-                'language': 'unknown',
-                'error': str(e),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "text": "",
+                "words": [],
+                "duration": 0.0,
+                "language": "unknown",
+                "error": str(e),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
     async def _azure_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
         """Azure Speech Services integration"""
         # Placeholder - would integrate with Azure Speech SDK
         return {
-            'text': 'Azure speech-to-text transcription [Integration needed]',
-            'confidence': 0.85,
-            'language': language,
-            'provider': 'azure',
-            'timestamp': datetime.datetime.utcnow().isoformat()
+            "text": "Azure speech-to-text transcription [Integration needed]",
+            "confidence": 0.85,
+            "language": language,
+            "provider": "azure",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
         }
 
     async def _google_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
         """Google Speech-to-Text integration"""
         # Placeholder - would integrate with Google Cloud Speech-to-Text
         return {
-            'text': 'Google speech-to-text transcription [Integration needed]',
-            'confidence': 0.82,
-            'language': language,
-            'provider': 'google',
-            'timestamp': datetime.datetime.utcnow().isoformat()
+            "text": "Google speech-to-text transcription [Integration needed]",
+            "confidence": 0.82,
+            "language": language,
+            "provider": "google",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
         }
 
     async def _fallback_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
@@ -269,79 +252,78 @@ Return JSON with: language, confidence, alternatives"""
             prompt = f"Transcribe this audio description. Assume the language is {language} and provide a likely transcription."
 
             if self.enhanced_ai:
-                transcription = await self.enhanced_ai.generate_response(
-                    prompt)
+                transcription = await self.enhanced_ai.generate_response(prompt)
             else:
                 transcription = "Audio transcription not available"
 
             return {
-                'text': transcription,
-                'confidence': 0.6,
-                'language': language,
-                'provider': 'fallback',
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "text": transcription,
+                "confidence": 0.6,
+                "language": language,
+                "provider": "fallback",
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             return {
-                'text': '',
-                'confidence': 0.0,
-                'language': language,
-                'provider': 'fallback',
-                'error': str(e),
-                'timestamp': datetime.datetime.utcnow().isoformat()
+                "text": "",
+                "confidence": 0.0,
+                "language": language,
+                "provider": "fallback",
+                "error": str(e),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
     def _select_best_provider(self) -> str:
         """Select best available speech provider"""
         # Check environment variables for configured services
-        if os.getenv('AZURE_SPEECH_KEY'):
-            return 'azure'
-        elif os.getenv('GOOGLE_CLOUD_PROJECT'):
-            return 'google'
+        if os.getenv("AZURE_SPEECH_KEY"):
+            return "azure"
+        elif os.getenv("GOOGLE_CLOUD_PROJECT"):
+            return "google"
         else:
-            return 'fallback'
+            return "fallback"
 
     async def _extract_audio_features(self, audio_data: bytes) -> Dict[str, Any]:
         """Extract basic audio features"""
         try:
             # Basic audio analysis using standard library
             features = {
-                'duration': len(audio_data) / 16000,  # Rough estimate for 16kHz
-                'size_bytes': len(audio_data),
-                'format': 'unknown'
+                "duration": len(audio_data) / 16000,  # Rough estimate for 16kHz
+                "size_bytes": len(audio_data),
+                "format": "unknown",
             }
 
             # Try to parse as WAV
             try:
                 with io.BytesIO(audio_data) as audio_buffer:
-                    with wave.open(audio_buffer, 'rb') as wav_file:
+                    with wave.open(audio_buffer, "rb") as wav_file:
                         features.update({
-                            'format': 'wav',
-                            'channels': wav_file.getnchannels(),
-                            'sample_rate': wav_file.getframerate(),
-                            'duration': wav_file.getnframes() / wav_file.getframerate(),
-                            'sample_width': wav_file.getsampwidth()
+                            "format": "wav",
+                            "channels": wav_file.getnchannels(),
+                            "sample_rate": wav_file.getframerate(),
+                            "duration": wav_file.getnframes() / wav_file.getframerate(),
+                            "sample_width": wav_file.getsampwidth(),
                         })
 
                         # Calculate RMS volume
                         frames = wav_file.readframes(wav_file.getnframes())
                         rms = audioop.rms(frames, wav_file.getsampwidth())
-                        features['rms_volume'] = rms
+                        features["rms_volume"] = rms
 
             except wave.Error:
                 # Not a WAV file, provide basic features
-                features['format'] = 'unknown'
+                features["format"] = "unknown"
 
             return features
 
         except Exception as e:
             logger.error(f"Audio feature extraction failed: {e}")
             return {
-                'duration': 0.0,
-                'size_bytes': len(audio_data),
-                'format': 'unknown',
-                'error': str(e)
+                "duration": 0.0,
+                "size_bytes": len(audio_data),
+                "format": "unknown",
+                "error": str(e),
             }
 
     def _calculate_clarity(self, features: Dict) -> float:
@@ -349,12 +331,12 @@ Return JSON with: language, confidence, alternatives"""
         # Simple heuristic based on available features
         clarity = 0.5  # Base score
 
-        if features.get('format') == 'wav':
+        if features.get("format") == "wav":
             # WAV files are typically clearer
             clarity += 0.2
 
         # Adjust based on sample rate (higher is better)
-        sample_rate = features.get('sample_rate', 16000)
+        sample_rate = features.get("sample_rate", 16000)
         if sample_rate >= 44100:
             clarity += 0.2
         elif sample_rate >= 22050:
@@ -364,7 +346,7 @@ Return JSON with: language, confidence, alternatives"""
 
     def _assess_volume(self, features: Dict) -> float:
         """Assess audio volume level"""
-        rms = features.get('rms_volume', 0)
+        rms = features.get("rms_volume", 0)
         # Normalize RMS to 0-1 scale (rough estimate)
         return min(rms / 32767, 1.0) if rms > 0 else 0.5
 
@@ -378,7 +360,7 @@ Return JSON with: language, confidence, alternatives"""
     def _calculate_speech_rate(self, features: Dict) -> float:
         """Calculate speech rate (words per minute estimate)"""
         # Rough estimate based on duration
-        duration_minutes = features.get('duration', 1) / 60
+        duration_minutes = features.get("duration", 1) / 60
         if duration_minutes > 0:
             # Assume average speaking rate of 150 words per minute
             estimated_words = 150 * duration_minutes
@@ -386,8 +368,10 @@ Return JSON with: language, confidence, alternatives"""
             return min(estimated_words / 150, 2.0) / 2.0
         return 0.5
 
+
 # Global voice analyzer
 voice_analyzer = None
+
 
 def init_voice_analyzer():
     """Initialize voice analyzer"""
@@ -395,29 +379,33 @@ def init_voice_analyzer():
     voice_analyzer = VoiceAnalyzer()
     logger.info("Voice analyzer initialized")
 
+
 def get_voice_analyzer() -> Optional[VoiceAnalyzer]:
     """Get the voice analyzer instance"""
     return voice_analyzer
 
+
 # Utility functions
-async def transcribe_audio(audio_data: bytes, language: str = 'en-US') -> str:
+async def transcribe_audio(audio_data: bytes, language: str = "en-US") -> str:
     """Quick function to transcribe audio to text"""
     analyzer = get_voice_analyzer()
     if analyzer:
         result = await analyzer.speech_to_text(audio_data, language)
-        return result.get('text', '')
-    return ''
+        return result.get("text", "")
+    return ""
+
 
 async def analyze_voice_sentiment(audio_data: bytes) -> Dict[str, Any]:
     """Analyze voice for emotional content"""
     analyzer = get_voice_analyzer()
     if analyzer:
         return await analyzer.analyze_voice_emotion(audio_data)
-    return {'emotion': 'unknown', 'confidence': 0.0}
+    return {"emotion": "unknown", "confidence": 0.0}
+
 
 async def check_audio_quality(audio_data: bytes) -> Dict[str, Any]:
     """Check audio quality metrics"""
     analyzer = get_voice_analyzer()
     if analyzer:
         return await analyzer.analyze_speech_quality(audio_data)
-    return {'overall_quality': 'unknown', 'quality_score': 0.0}
+    return {"overall_quality": "unknown", "quality_score": 0.0}

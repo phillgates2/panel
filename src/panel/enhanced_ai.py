@@ -17,6 +17,7 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 
+
 class EnhancedAIAgent:
     """Enhanced AI agent with multiple capabilities and providers"""
 
@@ -29,28 +30,31 @@ class EnhancedAIAgent:
     def _init_providers(self):
         """Initialize available AI providers"""
         # Azure OpenAI (existing)
-        if os.getenv('AZURE_OPENAI_API_KEY'):
+        if os.getenv("AZURE_OPENAI_API_KEY"):
             try:
                 from src.panel.ai_integration import AzureOpenAIClient
-                self.providers['azure'] = AzureOpenAIClient()
+
+                self.providers["azure"] = AzureOpenAIClient()
                 logger.info("Azure OpenAI provider initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize Azure OpenAI: {e}")
 
         # Google Vertex AI (new)
-        if os.getenv('GOOGLE_CLOUD_PROJECT'):
+        if os.getenv("GOOGLE_CLOUD_PROJECT"):
             try:
                 from src.panel.gcp_ai_integration import GCPAIAgent
-                self.providers['gcp'] = GCPAIAgent()
+
+                self.providers["gcp"] = GCPAIAgent()
                 logger.info("Google Vertex AI provider initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize Google Vertex AI: {e}")
 
         # OpenAI API (direct)
-        if os.getenv('OPENAI_API_KEY'):
+        if os.getenv("OPENAI_API_KEY"):
             try:
                 import openai
-                self.providers['openai'] = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+                self.providers["openai"] = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
                 logger.info("OpenAI API provider initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI API: {e}")
@@ -71,7 +75,9 @@ class EnhancedAIAgent:
         self.cache[cache_key] = result
         self.cache_expiry[cache_key] = datetime.utcnow() + timedelta(minutes=ttl_minutes)
 
-    async def analyze_image(self, image_data: Union[str, bytes], content_type: str = "url") -> Dict[str, Any]:
+    async def analyze_image(
+        self, image_data: Union[str, bytes], content_type: str = "url"
+    ) -> Dict[str, Any]:
         """Advanced image analysis with multiple AI providers"""
         try:
             cache_key = f"image_analysis_{hash(str(image_data))}"
@@ -84,11 +90,11 @@ class EnhancedAIAgent:
             results = {}
 
             # Try GCP Vertex AI first (better for images)
-            if 'gcp' in self.providers:
+            if "gcp" in self.providers:
                 try:
                     if content_type == "url":
-                        result = await self.providers['gcp'].analyze_image(image_data)
-                        results['gcp'] = result
+                        result = await self.providers["gcp"].analyze_image(image_data)
+                        results["gcp"] = result
                     elif content_type == "base64":
                         # Convert base64 to image for analysis
                         image_bytes = base64.b64decode(image_data)
@@ -98,15 +104,15 @@ class EnhancedAIAgent:
                     logger.warning(f"GCP image analysis failed: {e}")
 
             # Fallback to Azure OpenAI
-            if 'azure' in self.providers and not results:
+            if "azure" in self.providers and not results:
                 try:
                     # Azure OpenAI can analyze images via vision models
                     prompt = f"Analyze this image and provide: 1) Main subjects, 2) Content appropriateness, 3) Suggested tags, 4) Overall mood/tone\n\nImage: {image_data}"
-                    analysis = await self.providers['azure'].generate_response(prompt)
-                    results['azure'] = {
-                        'analysis': analysis,
-                        'moderated': self._check_content_safety(analysis),
-                        'timestamp': datetime.utcnow().isoformat()
+                    analysis = await self.providers["azure"].generate_response(prompt)
+                    results["azure"] = {
+                        "analysis": analysis,
+                        "moderated": self._check_content_safety(analysis),
+                        "timestamp": datetime.utcnow().isoformat(),
                     }
                 except Exception as e:
                     logger.warning(f"Azure image analysis failed: {e}")
@@ -122,12 +128,14 @@ class EnhancedAIAgent:
         except Exception as e:
             logger.error(f"Image analysis failed: {e}")
             return {
-                'error': str(e),
-                'moderated': True,  # Default to safe
-                'timestamp': datetime.utcnow().isoformat()
+                "error": str(e),
+                "moderated": True,  # Default to safe
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
-    async def predict_user_behavior(self, user_history: List[Dict], user_profile: Dict = None) -> Dict[str, Any]:
+    async def predict_user_behavior(
+        self, user_history: List[Dict], user_profile: Dict = None
+    ) -> Dict[str, Any]:
         """Predict user behavior and preferences using advanced analytics"""
         try:
             cache_key = f"user_prediction_{hash(str(user_history) + str(user_profile))}"
@@ -138,9 +146,9 @@ class EnhancedAIAgent:
 
             # Prepare context
             context = {
-                'history': user_history[-20:],  # Last 20 actions
-                'profile': user_profile or {},
-                'timestamp': datetime.utcnow().isoformat()
+                "history": user_history[-20:],  # Last 20 actions
+                "profile": user_profile or {},
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
             prompt = f"""Based on this user activity history and profile, predict:
@@ -160,21 +168,23 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
             # Try different providers
             result_text = None
 
-            if 'gcp' in self.providers:
+            if "gcp" in self.providers:
                 try:
-                    result = await self.providers['gcp'].predict_user_behavior(user_history)
-                    result_text = result.get('predictions', '')
+                    result = await self.providers["gcp"].predict_user_behavior(user_history)
+                    result_text = result.get("predictions", "")
                 except Exception as e:
                     logger.warning(f"GCP behavior prediction failed: {e}")
 
-            if not result_text and 'azure' in self.providers:
+            if not result_text and "azure" in self.providers:
                 try:
-                    result_text = await self.providers['azure'].generate_response(prompt)
+                    result_text = await self.providers["azure"].generate_response(prompt)
                 except Exception as e:
                     logger.warning(f"Azure behavior prediction failed: {e}")
 
             # Parse and structure result
-            prediction = self._parse_behavior_prediction(result_text or "Unable to generate prediction")
+            prediction = self._parse_behavior_prediction(
+                result_text or "Unable to generate prediction"
+            )
 
             # Cache for 24 hours
             await self._cache_result(cache_key, prediction, 1440)
@@ -184,17 +194,19 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
         except Exception as e:
             logger.error(f"Behavior prediction failed: {e}")
             return {
-                'interests': [],
-                'predictions': [],
-                'engagement': {'level': 'unknown', 'confidence': 0.0},
-                'recommendations': [],
-                'churn_risk': {'level': 'unknown', 'reasoning': 'Analysis failed'},
-                'notifications': [],
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "interests": [],
+                "predictions": [],
+                "engagement": {"level": "unknown", "confidence": 0.0},
+                "recommendations": [],
+                "churn_risk": {"level": "unknown", "reasoning": "Analysis failed"},
+                "notifications": [],
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
-    async def generate_personalized_content(self, user_id: int, content_type: str, context: Dict = None) -> Dict[str, Any]:
+    async def generate_personalized_content(
+        self, user_id: int, content_type: str, context: Dict = None
+    ) -> Dict[str, Any]:
         """Generate personalized content for users"""
         try:
             context = context or {}
@@ -205,11 +217,11 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
                 return cached
 
             prompt_templates = {
-                'welcome_message': "Create a personalized welcome message for a new user based on their profile and interests.",
-                'recommendation': "Suggest personalized gaming content, servers, or features based on user preferences.",
-                'notification': "Create a personalized notification message about new features or content.",
-                'tutorial': "Generate a personalized tutorial or guide based on user's skill level and interests.",
-                'motivational': "Create a motivational message to encourage continued engagement."
+                "welcome_message": "Create a personalized welcome message for a new user based on their profile and interests.",
+                "recommendation": "Suggest personalized gaming content, servers, or features based on user preferences.",
+                "notification": "Create a personalized notification message about new features or content.",
+                "tutorial": "Generate a personalized tutorial or guide based on user's skill level and interests.",
+                "motivational": "Create a motivational message to encourage continued engagement.",
             }
 
             base_prompt = prompt_templates.get(content_type, "Generate personalized content")
@@ -218,24 +230,26 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
             # Generate content
             content = None
 
-            if 'azure' in self.providers:
+            if "azure" in self.providers:
                 try:
-                    content = await self.providers['azure'].generate_response(full_prompt)
+                    content = await self.providers["azure"].generate_response(full_prompt)
                 except Exception as e:
                     logger.warning(f"Azure content generation failed: {e}")
 
-            if not content and 'gcp' in self.providers:
+            if not content and "gcp" in self.providers:
                 try:
-                    content = await self.providers['gcp'].generate_content(full_prompt, content_type)
+                    content = await self.providers["gcp"].generate_content(
+                        full_prompt, content_type
+                    )
                 except Exception as e:
                     logger.warning(f"GCP content generation failed: {e}")
 
             result = {
-                'content': content or "Personalized content is currently unavailable.",
-                'type': content_type,
-                'user_id': user_id,
-                'context': context,
-                'generated_at': datetime.utcnow().isoformat()
+                "content": content or "Personalized content is currently unavailable.",
+                "type": content_type,
+                "user_id": user_id,
+                "context": context,
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
             # Cache for 1 hour
@@ -246,13 +260,15 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
         except Exception as e:
             logger.error(f"Personalized content generation failed: {e}")
             return {
-                'content': "Personalized content is currently unavailable.",
-                'type': content_type,
-                'error': str(e),
-                'generated_at': datetime.utcnow().isoformat()
+                "content": "Personalized content is currently unavailable.",
+                "type": content_type,
+                "error": str(e),
+                "generated_at": datetime.utcnow().isoformat(),
             }
 
-    async def analyze_trends(self, data: List[Dict], analysis_type: str = "general") -> Dict[str, Any]:
+    async def analyze_trends(
+        self, data: List[Dict], analysis_type: str = "general"
+    ) -> Dict[str, Any]:
         """Analyze trends in forum posts, user activity, or other data"""
         try:
             cache_key = f"trend_analysis_{analysis_type}_{hash(str(data))}"
@@ -279,16 +295,16 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
 
             analysis_text = None
 
-            if 'gcp' in self.providers:
+            if "gcp" in self.providers:
                 try:
-                    result = await self.providers['gcp'].analyze_forum_trends(data)
+                    result = await self.providers["gcp"].analyze_forum_trends(data)
                     analysis_text = json.dumps(result)
                 except Exception as e:
                     logger.warning(f"GCP trend analysis failed: {e}")
 
-            if not analysis_text and 'azure' in self.providers:
+            if not analysis_text and "azure" in self.providers:
                 try:
-                    analysis_text = await self.providers['azure'].generate_response(prompt)
+                    analysis_text = await self.providers["azure"].generate_response(prompt)
                 except Exception as e:
                     logger.warning(f"Azure trend analysis failed: {e}")
 
@@ -303,16 +319,18 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
         except Exception as e:
             logger.error(f"Trend analysis failed: {e}")
             return {
-                'trends': [],
-                'changes': [],
-                'anomalies': [],
-                'predictions': [],
-                'recommendations': [],
-                'error': str(e),
-                'analyzed_at': datetime.utcnow().isoformat()
+                "trends": [],
+                "changes": [],
+                "anomalies": [],
+                "predictions": [],
+                "recommendations": [],
+                "error": str(e),
+                "analyzed_at": datetime.utcnow().isoformat(),
             }
 
-    async def moderate_content_advanced(self, content: str, content_type: str = "text", metadata: Dict = None) -> Dict[str, Any]:
+    async def moderate_content_advanced(
+        self, content: str, content_type: str = "text", metadata: Dict = None
+    ) -> Dict[str, Any]:
         """Advanced content moderation with context and metadata"""
         try:
             metadata = metadata or {}
@@ -331,9 +349,9 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
             # Combine results
             advanced_result = {
                 **base_moderation,
-                'context_analysis': context_analysis,
-                'risk_score': self._calculate_risk_score(base_moderation, context_analysis),
-                'moderated_at': datetime.utcnow().isoformat()
+                "context_analysis": context_analysis,
+                "risk_score": self._calculate_risk_score(base_moderation, context_analysis),
+                "moderated_at": datetime.utcnow().isoformat(),
             }
 
             # Cache for 30 minutes
@@ -344,10 +362,10 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
         except Exception as e:
             logger.error(f"Advanced moderation failed: {e}")
             return {
-                'approved': True,
-                'risk_score': 0.0,
-                'error': str(e),
-                'moderated_at': datetime.utcnow().isoformat()
+                "approved": True,
+                "risk_score": 0.0,
+                "error": str(e),
+                "moderated_at": datetime.utcnow().isoformat(),
             }
 
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
@@ -360,8 +378,11 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
             for text in texts:
                 # Generate simple hash-based embedding (placeholder)
                 import hashlib
+
                 hash_obj = hashlib.md5(text.encode())
-                embedding = [int(hash_obj.hexdigest()[i:i+2], 16) / 255.0 for i in range(0, 32, 2)]
+                embedding = [
+                    int(hash_obj.hexdigest()[i : i + 2], 16) / 255.0 for i in range(0, 32, 2)
+                ]
                 embeddings.append(embedding[:16])  # 16-dimensional embedding
 
             return embeddings
@@ -370,7 +391,9 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
             logger.error(f"Embedding generation failed: {e}")
             return [[0.0] * 16 for _ in texts]
 
-    async def detect_anomalies(self, data_points: List[Dict], baseline: Dict = None) -> Dict[str, Any]:
+    async def detect_anomalies(
+        self, data_points: List[Dict], baseline: Dict = None
+    ) -> Dict[str, Any]:
         """Detect anomalies in user behavior or system metrics"""
         try:
             cache_key = f"anomaly_detection_{hash(str(data_points) + str(baseline))}"
@@ -396,9 +419,9 @@ Format as JSON with keys: statistical_anomalies, pattern_anomalies, contextual_a
 
             analysis_text = None
 
-            if 'azure' in self.providers:
+            if "azure" in self.providers:
                 try:
-                    analysis_text = await self.providers['azure'].generate_response(prompt)
+                    analysis_text = await self.providers["azure"].generate_response(prompt)
                 except Exception as e:
                     logger.warning(f"Azure anomaly detection failed: {e}")
 
@@ -412,27 +435,29 @@ Format as JSON with keys: statistical_anomalies, pattern_anomalies, contextual_a
         except Exception as e:
             logger.error(f"Anomaly detection failed: {e}")
             return {
-                'statistical_anomalies': [],
-                'pattern_anomalies': [],
-                'contextual_anomalies': [],
-                'severity_assessment': {},
-                'recommendations': [],
-                'error': str(e),
-                'detected_at': datetime.utcnow().isoformat()
+                "statistical_anomalies": [],
+                "pattern_anomalies": [],
+                "contextual_anomalies": [],
+                "severity_assessment": {},
+                "recommendations": [],
+                "error": str(e),
+                "detected_at": datetime.utcnow().isoformat(),
             }
 
     # Helper methods
     async def _basic_moderation(self, content: str) -> Dict[str, Any]:
         """Basic content moderation using available providers"""
-        if 'azure' in self.providers:
-            return await self.providers['azure'].moderate_content(content)
-        elif 'gcp' in self.providers:
+        if "azure" in self.providers:
+            return await self.providers["azure"].moderate_content(content)
+        elif "gcp" in self.providers:
             # GCP doesn't have direct moderation, use classification
-            return {'approved': True, 'categories': {}, 'category_scores': {}}
+            return {"approved": True, "categories": {}, "category_scores": {}}
         else:
-            return {'approved': True, 'categories': {}, 'category_scores': {}}
+            return {"approved": True, "categories": {}, "category_scores": {}}
 
-    async def _analyze_content_context(self, content: str, content_type: str, metadata: Dict) -> Dict[str, Any]:
+    async def _analyze_content_context(
+        self, content: str, content_type: str, metadata: Dict
+    ) -> Dict[str, Any]:
         """Analyze content in context"""
         context_prompt = f"""Analyze this {content_type} content in context:
 
@@ -449,24 +474,24 @@ Assess:
 Provide contextual analysis."""
 
         try:
-            if 'azure' in self.providers:
-                analysis = await self.providers['azure'].generate_response(context_prompt)
-                return {'analysis': analysis, 'risk_factors': []}
+            if "azure" in self.providers:
+                analysis = await self.providers["azure"].generate_response(context_prompt)
+                return {"analysis": analysis, "risk_factors": []}
             else:
-                return {'analysis': 'Context analysis unavailable', 'risk_factors': []}
+                return {"analysis": "Context analysis unavailable", "risk_factors": []}
         except Exception:
-            return {'analysis': 'Context analysis failed', 'risk_factors': []}
+            return {"analysis": "Context analysis failed", "risk_factors": []}
 
     def _calculate_risk_score(self, base_moderation: Dict, context_analysis: Dict) -> float:
         """Calculate overall risk score"""
         base_score = 0.0
 
         # Base moderation score
-        if not base_moderation.get('approved', True):
+        if not base_moderation.get("approved", True):
             base_score += 0.7
 
         # Category scores
-        category_scores = base_moderation.get('category_scores', {})
+        category_scores = base_moderation.get("category_scores", {})
         for category, score in category_scores.items():
             if score > 0.5:  # Threshold for concern
                 base_score += score * 0.3
@@ -476,8 +501,16 @@ Provide contextual analysis."""
     def _check_content_safety(self, analysis: str) -> bool:
         """Check if content analysis indicates safety concerns"""
         unsafe_keywords = [
-            'inappropriate', 'explicit', 'violent', 'harmful', 'offensive',
-            'nsfw', 'adult', 'nudity', 'unsafe', 'dangerous'
+            "inappropriate",
+            "explicit",
+            "violent",
+            "harmful",
+            "offensive",
+            "nsfw",
+            "adult",
+            "nudity",
+            "unsafe",
+            "dangerous",
         ]
 
         analysis_lower = analysis.lower()
@@ -486,15 +519,15 @@ Provide contextual analysis."""
     def _combine_image_analysis(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """Combine results from multiple image analysis providers"""
         if not results:
-            return {'error': 'No analysis results available'}
+            return {"error": "No analysis results available"}
 
         # Use the most comprehensive result
-        if 'gcp' in results:
-            return results['gcp']
-        elif 'azure' in results:
-            return results['azure']
+        if "gcp" in results:
+            return results["gcp"]
+        elif "azure" in results:
+            return results["azure"]
         else:
-            return {'error': 'No valid analysis results'}
+            return {"error": "No valid analysis results"}
 
     def _parse_behavior_prediction(self, text: str) -> Dict[str, Any]:
         """Parse behavior prediction response"""
@@ -504,34 +537,40 @@ Provide contextual analysis."""
         except json.JSONDecodeError:
             # Fallback parsing
             return {
-                'interests': [],
-                'predictions': [text],
-                'engagement': {'level': 'medium', 'confidence': 0.5},
-                'recommendations': [],
-                'churn_risk': {'level': 'medium', 'reasoning': 'Analysis inconclusive'},
-                'notifications': []
+                "interests": [],
+                "predictions": [text],
+                "engagement": {"level": "medium", "confidence": 0.5},
+                "recommendations": [],
+                "churn_risk": {"level": "medium", "reasoning": "Analysis inconclusive"},
+                "notifications": [],
             }
 
     def _summarize_data_for_analysis(self, data: List[Dict]) -> Dict[str, Any]:
         """Summarize data for AI analysis"""
         if not data:
-            return {'count': 0, 'summary': 'No data available'}
+            return {"count": 0, "summary": "No data available"}
 
         # Basic statistics
         summary = {
-            'count': len(data),
-            'date_range': {
-                'start': min((item.get('created_at') for item in data if item.get('created_at')), default=None),
-                'end': max((item.get('created_at') for item in data if item.get('created_at')), default=None)
+            "count": len(data),
+            "date_range": {
+                "start": min(
+                    (item.get("created_at") for item in data if item.get("created_at")),
+                    default=None,
+                ),
+                "end": max(
+                    (item.get("created_at") for item in data if item.get("created_at")),
+                    default=None,
+                ),
             },
-            'types': {},
-            'metrics': {}
+            "types": {},
+            "metrics": {},
         }
 
         # Count by type/category
         for item in data:
-            item_type = item.get('type', item.get('category', 'unknown'))
-            summary['types'][item_type] = summary['types'].get(item_type, 0) + 1
+            item_type = item.get("type", item.get("category", "unknown"))
+            summary["types"][item_type] = summary["types"].get(item_type, 0) + 1
 
         return summary
 
@@ -541,11 +580,11 @@ Provide contextual analysis."""
             return json.loads(text)
         except json.JSONDecodeError:
             return {
-                'trends': [text],
-                'changes': [],
-                'anomalies': [],
-                'predictions': [],
-                'recommendations': []
+                "trends": [text],
+                "changes": [],
+                "anomalies": [],
+                "predictions": [],
+                "recommendations": [],
             }
 
     def _parse_anomaly_detection(self, text: str) -> Dict[str, Any]:
@@ -554,15 +593,17 @@ Provide contextual analysis."""
             return json.loads(text)
         except json.JSONDecodeError:
             return {
-                'statistical_anomalies': [],
-                'pattern_anomalies': [text],
-                'contextual_anomalies': [],
-                'severity_assessment': {},
-                'recommendations': []
+                "statistical_anomalies": [],
+                "pattern_anomalies": [text],
+                "contextual_anomalies": [],
+                "severity_assessment": {},
+                "recommendations": [],
             }
+
 
 # Global enhanced AI agent
 enhanced_ai_agent = None
+
 
 def init_enhanced_ai():
     """Initialize the enhanced AI agent"""
@@ -570,9 +611,11 @@ def init_enhanced_ai():
     enhanced_ai_agent = EnhancedAIAgent()
     logger.info("Enhanced AI agent initialized")
 
+
 def get_enhanced_ai_agent() -> Optional[EnhancedAIAgent]:
     """Get the enhanced AI agent instance"""
     return enhanced_ai_agent
+
 
 # Enhanced AI features for the application
 class ContentAnalyzer:
@@ -581,10 +624,12 @@ class ContentAnalyzer:
     def __init__(self):
         self.ai_agent = get_enhanced_ai_agent()
 
-    async def analyze_image_upload(self, image_data: bytes, filename: str, user_id: int) -> Dict[str, Any]:
+    async def analyze_image_upload(
+        self, image_data: bytes, filename: str, user_id: int
+    ) -> Dict[str, Any]:
         """Analyze uploaded images for content and safety"""
         if not self.ai_agent:
-            return {'approved': True, 'reason': 'AI analysis unavailable'}
+            return {"approved": True, "reason": "AI analysis unavailable"}
 
         try:
             # Convert to base64 for analysis
@@ -593,34 +638,37 @@ class ContentAnalyzer:
             analysis = await self.ai_agent.analyze_image(image_b64, "base64")
 
             return {
-                'approved': analysis.get('moderated', True),
-                'analysis': analysis.get('analysis', ''),
-                'tags': analysis.get('tags', []),
-                'filename': filename,
-                'user_id': user_id,
-                'analyzed_at': datetime.utcnow().isoformat()
+                "approved": analysis.get("moderated", True),
+                "analysis": analysis.get("analysis", ""),
+                "tags": analysis.get("tags", []),
+                "filename": filename,
+                "user_id": user_id,
+                "analyzed_at": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"Image upload analysis failed: {e}")
-            return {'approved': True, 'error': str(e)}
+            return {"approved": True, "error": str(e)}
 
-    async def analyze_user_content_patterns(self, user_id: int, content_history: List[Dict]) -> Dict[str, Any]:
+    async def analyze_user_content_patterns(
+        self, user_id: int, content_history: List[Dict]
+    ) -> Dict[str, Any]:
         """Analyze patterns in user's content creation"""
         if not self.ai_agent:
-            return {'patterns': [], 'insights': 'Analysis unavailable'}
+            return {"patterns": [], "insights": "Analysis unavailable"}
 
         try:
             analysis = await self.ai_agent.analyze_trends(content_history, "user_content")
 
             return {
-                'user_id': user_id,
-                'patterns': analysis.get('trends', []),
-                'insights': analysis.get('recommendations', []),
-                'analyzed_at': datetime.utcnow().isoformat()
+                "user_id": user_id,
+                "patterns": analysis.get("trends", []),
+                "insights": analysis.get("recommendations", []),
+                "analyzed_at": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"User content pattern analysis failed: {e}")
-            return {'patterns': [], 'insights': [], 'error': str(e)}
+            return {"patterns": [], "insights": [], "error": str(e)}
+
 
 class UserBehaviorPredictor:
     """Predict user behavior and preferences"""
@@ -628,26 +676,29 @@ class UserBehaviorPredictor:
     def __init__(self):
         self.ai_agent = get_enhanced_ai_agent()
 
-    async def predict_user_engagement(self, user_id: int, activity_history: List[Dict]) -> Dict[str, Any]:
+    async def predict_user_engagement(
+        self, user_id: int, activity_history: List[Dict]
+    ) -> Dict[str, Any]:
         """Predict user engagement levels and next actions"""
         if not self.ai_agent:
-            return {'engagement_level': 'unknown', 'predictions': []}
+            return {"engagement_level": "unknown", "predictions": []}
 
         try:
             prediction = await self.ai_agent.predict_user_behavior(activity_history)
 
             return {
-                'user_id': user_id,
-                'engagement_level': prediction.get('engagement', {}).get('level', 'unknown'),
-                'confidence': prediction.get('engagement', {}).get('confidence', 0.0),
-                'next_actions': prediction.get('predictions', []),
-                'recommendations': prediction.get('recommendations', []),
-                'churn_risk': prediction.get('churn_risk', {}),
-                'predicted_at': datetime.utcnow().isoformat()
+                "user_id": user_id,
+                "engagement_level": prediction.get("engagement", {}).get("level", "unknown"),
+                "confidence": prediction.get("engagement", {}).get("confidence", 0.0),
+                "next_actions": prediction.get("predictions", []),
+                "recommendations": prediction.get("recommendations", []),
+                "churn_risk": prediction.get("churn_risk", {}),
+                "predicted_at": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"User engagement prediction failed: {e}")
-            return {'engagement_level': 'unknown', 'predictions': [], 'error': str(e)}
+            return {"engagement_level": "unknown", "predictions": [], "error": str(e)}
+
 
 class PersonalizedContentGenerator:
     """Generate personalized content for users"""
@@ -662,9 +713,9 @@ class PersonalizedContentGenerator:
 
         try:
             result = await self.ai_agent.generate_personalized_content(
-                user_profile.get('id', 0), 'welcome_message', user_profile
+                user_profile.get("id", 0), "welcome_message", user_profile
             )
-            return result.get('content', "Welcome to Panel!")
+            return result.get("content", "Welcome to Panel!")
         except Exception as e:
             logger.error(f"Welcome message generation failed: {e}")
             return "Welcome to Panel! We're excited to have you here."
@@ -675,18 +726,21 @@ class PersonalizedContentGenerator:
             return ["Explore our gaming forums", "Check out server listings"]
 
         try:
-            context = {'interests': user_interests}
+            context = {"interests": user_interests}
             result = await self.ai_agent.generate_personalized_content(
-                user_id, 'recommendation', context
+                user_id, "recommendation", context
             )
 
             # Parse recommendations from content
-            content = result.get('content', '')
-            recommendations = [line.strip('- ').strip() for line in content.split('\n') if line.strip()]
+            content = result.get("content", "")
+            recommendations = [
+                line.strip("- ").strip() for line in content.split("\n") if line.strip()
+            ]
             return recommendations[:5]  # Limit to 5 recommendations
         except Exception as e:
             logger.error(f"Recommendation generation failed: {e}")
             return ["Explore our gaming forums", "Check out server listings"]
+
 
 class AnomalyDetector:
     """Detect anomalies in system metrics and user behavior"""
@@ -697,7 +751,7 @@ class AnomalyDetector:
     async def detect_system_anomalies(self, metrics_data: List[Dict]) -> Dict[str, Any]:
         """Detect anomalies in system metrics"""
         if not self.ai_agent:
-            return {'anomalies': [], 'severity': 'low'}
+            return {"anomalies": [], "severity": "low"}
 
         try:
             # Calculate baseline from historical data
@@ -706,13 +760,13 @@ class AnomalyDetector:
             anomalies = await self.ai_agent.detect_anomalies(metrics_data, baseline)
 
             return {
-                'anomalies': anomalies,
-                'severity': self._assess_severity(anomalies),
-                'detected_at': datetime.utcnow().isoformat()
+                "anomalies": anomalies,
+                "severity": self._assess_severity(anomalies),
+                "detected_at": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"System anomaly detection failed: {e}")
-            return {'anomalies': [], 'severity': 'unknown', 'error': str(e)}
+            return {"anomalies": [], "severity": "unknown", "error": str(e)}
 
     def _calculate_baseline(self, data: List[Dict]) -> Dict[str, Any]:
         """Calculate baseline metrics"""
@@ -720,15 +774,18 @@ class AnomalyDetector:
             return {}
 
         # Simple baseline calculation
-        numeric_fields = ['cpu_usage', 'memory_usage', 'response_time', 'error_rate']
+        numeric_fields = ["cpu_usage", "memory_usage", "response_time", "error_rate"]
 
         baseline = {}
         for field in numeric_fields:
             values = [item.get(field) for item in data if item.get(field) is not None]
             if values:
                 baseline[field] = {
-                    'mean': sum(values) / len(values),
-                    'std_dev': (sum((x - sum(values)/len(values))**2 for x in values) / len(values))**0.5
+                    "mean": sum(values) / len(values),
+                    "std_dev": (
+                        sum((x - sum(values) / len(values)) ** 2 for x in values) / len(values)
+                    )
+                    ** 0.5,
                 }
 
         return baseline
@@ -736,27 +793,29 @@ class AnomalyDetector:
     def _assess_severity(self, anomalies: Dict) -> str:
         """Assess overall severity of anomalies"""
         total_anomalies = (
-            len(anomalies.get('statistical_anomalies', [])) +
-            len(anomalies.get('pattern_anomalies', [])) +
-            len(anomalies.get('contextual_anomalies', []))
+            len(anomalies.get("statistical_anomalies", []))
+            + len(anomalies.get("pattern_anomalies", []))
+            + len(anomalies.get("contextual_anomalies", []))
         )
 
         if total_anomalies > 10:
-            return 'critical'
+            return "critical"
         elif total_anomalies > 5:
-            return 'high'
+            return "high"
         elif total_anomalies > 2:
-            return 'medium'
+            return "medium"
         elif total_anomalies > 0:
-            return 'low'
+            return "low"
         else:
-            return 'none'
+            return "none"
+
 
 # Global instances
 content_analyzer = None
 behavior_predictor = None
 content_generator = None
 anomaly_detector = None
+
 
 def init_advanced_ai_features():
     """Initialize all advanced AI features"""
@@ -773,17 +832,21 @@ def init_advanced_ai_features():
     else:
         logger.warning("Advanced AI features not available - AI providers not configured")
 
+
 def get_content_analyzer() -> Optional[ContentAnalyzer]:
     """Get the content analyzer instance"""
     return content_analyzer
+
 
 def get_behavior_predictor() -> Optional[UserBehaviorPredictor]:
     """Get the behavior predictor instance"""
     return behavior_predictor
 
+
 def get_content_generator() -> Optional[PersonalizedContentGenerator]:
     """Get the content generator instance"""
     return content_generator
+
 
 def get_anomaly_detector() -> Optional[AnomalyDetector]:
     """Get the anomaly detector instance"""

@@ -268,7 +268,7 @@ Failure occurred at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             self.send_notification(subject, message)
 
         logger.info(
-            f"SSL renewal check completed. Renewed: {len(renewed_domains)}, Failed: {len(failed_domains)}"
+            f"SSL renewal completed. Renewed: {len(renewed_domains)}, Failed: {len(failed_domains)}"
         )
         return len(failed_domains) == 0
 

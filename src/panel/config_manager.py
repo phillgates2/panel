@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 class Environment(Enum):
     """Environment types"""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -28,6 +29,7 @@ class Environment(Enum):
 @dataclass
 class EnvironmentConfig:
     """Configuration for a specific environment"""
+
     name: str
     debug: bool = False
     testing: bool = False
@@ -59,18 +61,20 @@ class EnvironmentConfig:
     max_login_attempts: int = 5
     lockout_duration: int = 900  # 15 minutes
     # Feature flags
-    features: Dict[str, bool] = field(default_factory=lambda: {
-        'forum': True,
-        'cms': True,
-        'admin': True,
-        'api': True,
-        'oauth': True,
-        'gdpr': True,
-        'pwa': True,
-        'realtime': True,
-        'microservices': False,
-        'cdn': False
-    })
+    features: Dict[str, bool] = field(
+        default_factory=lambda: {
+            "forum": True,
+            "cms": True,
+            "admin": True,
+            "api": True,
+            "oauth": True,
+            "gdpr": True,
+            "pwa": True,
+            "realtime": True,
+            "microservices": False,
+            "cdn": False,
+        }
+    )
 
 
 class ConfigManager:
@@ -93,7 +97,7 @@ class ConfigManager:
             config_file = self.config_dir / f"config.{env.value}.json"
             if config_file.exists():
                 try:
-                    with open(config_file, 'r') as f:
+                    with open(config_file, "r") as f:
                         data = json.load(f)
                         config = EnvironmentConfig(**data)
                         self.environments[env.value] = config
@@ -144,7 +148,7 @@ class ConfigManager:
 
     def _generate_secret_key(self) -> str:
         """Generate a secure random secret key"""
-        return base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8')
+        return base64.urlsafe_b64encode(os.urandom(32)).decode("utf-8")
 
     def set_environment(self, env: Environment):
         """Set the current environment"""
@@ -152,14 +156,14 @@ class ConfigManager:
             raise ValueError(f"Environment {env.value} not configured")
 
         self.current_env = env
-        os.environ['FLASK_ENV'] = env.value
+        os.environ["FLASK_ENV"] = env.value
         self.logger.info(f"Environment set to: {env.value}")
 
     def get_current_config(self) -> EnvironmentConfig:
         """Get configuration for current environment"""
         if not self.current_env:
             # Auto-detect from environment variable
-            env_name = os.getenv('FLASK_ENV', 'development')
+            env_name = os.getenv("FLASK_ENV", "development")
             try:
                 self.current_env = Environment(env_name)
             except ValueError:
@@ -189,11 +193,12 @@ class ConfigManager:
 
         # Convert to dict, excluding sensitive data
         config_dict = {
-            k: v for k, v in config.__dict__.items()
-            if not k.startswith('_') and k not in ['secret_key', 'mail_password']
+            k: v
+            for k, v in config.__dict__.items()
+            if not k.startswith("_") and k not in ["secret_key", "mail_password"]
         }
 
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(config_dict, f, indent=2, default=str)
 
     def validate_config(self, env: str) -> List[str]:
@@ -202,17 +207,19 @@ class ConfigManager:
         errors = []
 
         # Required fields
-        required_fields = ['secret_key', 'database_url']
+        required_fields = ["secret_key", "database_url"]
         for field in required_fields:
             value = getattr(config, field, None)
             if not value:
                 errors.append(f"Missing required field: {field}")
 
         # URL validations
-        if config.database_url and not config.database_url.startswith(('sqlite://', 'postgresql://', 'mysql://')):
+        if config.database_url and not config.database_url.startswith(
+            ("sqlite://", "postgresql://", "mysql://")
+        ):
             errors.append("Invalid database URL format")
 
-        if config.redis_url and not config.redis_url.startswith('redis://'):
+        if config.redis_url and not config.redis_url.startswith("redis://"):
             errors.append("Invalid Redis URL format")
 
         # Security validations
@@ -229,48 +236,48 @@ class ConfigManager:
         config = self.environments[env]
 
         flask_config = {
-            'DEBUG': config.debug,
-            'TESTING': config.testing,
-            'SECRET_KEY': config.secret_key,
-            'SQLALCHEMY_DATABASE_URI': config.database_url,
-            'REDIS_URL': config.redis_url,
-            'MAIL_SERVER': config.mail_server,
-            'MAIL_PORT': config.mail_port,
-            'MAIL_USERNAME': config.mail_username,
-            'MAIL_PASSWORD': config.mail_password,
-            'MAIL_USE_TLS': config.mail_use_tls,
-            'MAIL_USE_SSL': config.mail_use_ssl,
-            'SESSION_TIMEOUT': config.session_timeout,
-            'PASSWORD_MIN_LENGTH': config.password_min_length,
-            'MAX_LOGIN_ATTEMPTS': config.max_login_attempts,
-            'LOCKOUT_DURATION': config.lockout_duration,
+            "DEBUG": config.debug,
+            "TESTING": config.testing,
+            "SECRET_KEY": config.secret_key,
+            "SQLALCHEMY_DATABASE_URI": config.database_url,
+            "REDIS_URL": config.redis_url,
+            "MAIL_SERVER": config.mail_server,
+            "MAIL_PORT": config.mail_port,
+            "MAIL_USERNAME": config.mail_username,
+            "MAIL_PASSWORD": config.mail_password,
+            "MAIL_USE_TLS": config.mail_use_tls,
+            "MAIL_USE_SSL": config.mail_use_ssl,
+            "SESSION_TIMEOUT": config.session_timeout,
+            "PASSWORD_MIN_LENGTH": config.password_min_length,
+            "MAX_LOGIN_ATTEMPTS": config.max_login_attempts,
+            "LOCKOUT_DURATION": config.lockout_duration,
         }
 
         # Add OAuth providers
         for provider, settings in config.oauth_providers.items():
-            flask_config[f'{provider.upper()}_CLIENT_ID'] = settings.get('client_id', '')
-            flask_config[f'{provider.upper()}_CLIENT_SECRET'] = settings.get('client_secret', '')
+            flask_config[f"{provider.upper()}_CLIENT_ID"] = settings.get("client_id", "")
+            flask_config[f"{provider.upper()}_CLIENT_SECRET"] = settings.get("client_secret", "")
 
         # Add feature flags
         for feature, enabled in config.features.items():
-            flask_config[f'{feature.upper()}_ENABLED'] = enabled
+            flask_config[f"{feature.upper()}_ENABLED"] = enabled
 
         # Add CDN settings
-        flask_config['CDN_ENABLED'] = config.cdn_enabled
-        flask_config['CDN_URL'] = config.cdn_url
-        flask_config['CDN_PROVIDER'] = config.cdn_provider
+        flask_config["CDN_ENABLED"] = config.cdn_enabled
+        flask_config["CDN_URL"] = config.cdn_url
+        flask_config["CDN_PROVIDER"] = config.cdn_provider
 
         # Add microservices settings
-        flask_config['MICROSERVICES_ENABLED'] = config.microservices_enabled
-        flask_config['API_GATEWAY_ENABLED'] = config.api_gateway_enabled
+        flask_config["MICROSERVICES_ENABLED"] = config.microservices_enabled
+        flask_config["API_GATEWAY_ENABLED"] = config.api_gateway_enabled
 
         # Add monitoring settings
-        flask_config['PERFORMANCE_MONITORING_ENABLED'] = config.performance_monitoring_enabled
+        flask_config["PERFORMANCE_MONITORING_ENABLED"] = config.performance_monitoring_enabled
 
         # Add load testing settings
-        flask_config['LOAD_TEST_USERS'] = config.load_test_users
-        flask_config['LOAD_TEST_SPAWN_RATE'] = config.load_test_spawn_rate
-        flask_config['LOAD_TEST_DURATION'] = config.load_test_duration
+        flask_config["LOAD_TEST_USERS"] = config.load_test_users
+        flask_config["LOAD_TEST_SPAWN_RATE"] = config.load_test_spawn_rate
+        flask_config["LOAD_TEST_DURATION"] = config.load_test_duration
 
         return flask_config
 
@@ -282,12 +289,14 @@ class ConfigManager:
         env_vars = []
 
         # Basic Flask settings
-        env_vars.extend([
-            f"FLASK_ENV={env}",
-            f"DEBUG={'true' if config.debug else 'false'}",
-            f"TESTING={'true' if config.testing else 'false'}",
-            f"SECRET_KEY={config.secret_key}",
-        ])
+        env_vars.extend(
+            [
+                f"FLASK_ENV={env}",
+                f"DEBUG={'true' if config.debug else 'false'}",
+                f"TESTING={'true' if config.testing else 'false'}",
+                f"SECRET_KEY={config.secret_key}",
+            ]
+        )
 
         # Database and cache
         if config.database_url:
@@ -297,21 +306,25 @@ class ConfigManager:
 
         # Email settings
         if config.mail_server:
-            env_vars.extend([
-                f"MAIL_SERVER={config.mail_server}",
-                f"MAIL_PORT={config.mail_port}",
-                f"MAIL_USERNAME={config.mail_username}",
-                f"MAIL_USE_TLS={'true' if config.mail_use_tls else 'false'}",
-                f"MAIL_USE_SSL={'true' if config.mail_use_ssl else 'false'}",
-            ])
+            env_vars.extend(
+                [
+                    f"MAIL_SERVER={config.mail_server}",
+                    f"MAIL_PORT={config.mail_port}",
+                    f"MAIL_USERNAME={config.mail_username}",
+                    f"MAIL_USE_TLS={'true' if config.mail_use_tls else 'false'}",
+                    f"MAIL_USE_SSL={'true' if config.mail_use_ssl else 'false'}",
+                ]
+            )
 
         # CDN settings
         if config.cdn_enabled:
-            env_vars.extend([
-                f"CDN_ENABLED=true",
-                f"CDN_URL={config.cdn_url}",
-                f"CDN_PROVIDER={config.cdn_provider}",
-            ])
+            env_vars.extend(
+                [
+                    f"CDN_ENABLED=true",
+                    f"CDN_URL={config.cdn_url}",
+                    f"CDN_PROVIDER={config.cdn_provider}",
+                ]
+            )
 
         # Microservices
         if config.microservices_enabled:
@@ -320,20 +333,22 @@ class ConfigManager:
             env_vars.append("API_GATEWAY_ENABLED=true")
 
         # Security settings
-        env_vars.extend([
-            f"SESSION_TIMEOUT={config.session_timeout}",
-            f"PASSWORD_MIN_LENGTH={config.password_min_length}",
-            f"MAX_LOGIN_ATTEMPTS={config.max_login_attempts}",
-            f"LOCKOUT_DURATION={config.lockout_duration}",
-        ])
+        env_vars.extend(
+            [
+                f"SESSION_TIMEOUT={config.session_timeout}",
+                f"PASSWORD_MIN_LENGTH={config.password_min_length}",
+                f"MAX_LOGIN_ATTEMPTS={config.max_login_attempts}",
+                f"LOCKOUT_DURATION={config.lockout_duration}",
+            ]
+        )
 
         # Feature flags
         for feature, enabled in config.features.items():
             env_vars.append(f"{feature.upper()}_ENABLED={'true' if enabled else 'false'}")
 
         # Write to file
-        with open(env_file, 'w') as f:
-            f.write('\n'.join(env_vars))
+        with open(env_file, "w") as f:
+            f.write("\n".join(env_vars))
 
         self.logger.info(f"Environment file created: {env_file}")
 
@@ -347,18 +362,18 @@ class ConfigManager:
         errors = self.validate_config(env)
 
         return {
-            'name': config.name,
-            'debug': config.debug,
-            'testing': config.testing,
-            'features_enabled': sum(config.features.values()),
-            'total_features': len(config.features),
-            'has_database': bool(config.database_url),
-            'has_redis': bool(config.redis_url),
-            'has_mail': bool(config.mail_server),
-            'has_cdn': config.cdn_enabled,
-            'has_oauth': bool(config.oauth_providers),
-            'validation_errors': errors,
-            'is_valid': len(errors) == 0
+            "name": config.name,
+            "debug": config.debug,
+            "testing": config.testing,
+            "features_enabled": sum(config.features.values()),
+            "total_features": len(config.features),
+            "has_database": bool(config.database_url),
+            "has_redis": bool(config.redis_url),
+            "has_mail": bool(config.mail_server),
+            "has_cdn": config.cdn_enabled,
+            "has_oauth": bool(config.oauth_providers),
+            "validation_errors": errors,
+            "is_valid": len(errors) == 0,
         }
 
 
@@ -375,12 +390,12 @@ class SecretManager:
             return self._key
 
         if self.key_file.exists():
-            with open(self.key_file, 'rb') as f:
+            with open(self.key_file, "rb") as f:
                 self._key = f.read()
         else:
             # Generate new key
             self._key = Fernet.generate_key()
-            with open(self.key_file, 'wb') as f:
+            with open(self.key_file, "wb") as f:
                 f.write(self._key)
 
         return self._key
@@ -400,7 +415,7 @@ class SecretManager:
     def get_secret(self, key: str, default: str = "") -> str:
         """Get a secret from environment or encrypted storage"""
         # First check environment variables
-        env_key = key.upper().replace('/', '_').replace('-', '_')
+        env_key = key.upper().replace("/", "_").replace("-", "_")
         env_value = os.getenv(env_key)
         if env_value:
             return env_value
@@ -409,7 +424,7 @@ class SecretManager:
         secrets_file = Path(".secrets")
         if secrets_file.exists():
             try:
-                with open(secrets_file, 'r') as f:
+                with open(secrets_file, "r") as f:
                     secrets = json.load(f)
                     encrypted_value = secrets.get(key)
                     if encrypted_value:
@@ -426,26 +441,27 @@ class SecretManager:
 
         if secrets_file.exists():
             try:
-                with open(secrets_file, 'r') as f:
+                with open(secrets_file, "r") as f:
                     secrets = json.load(f)
             except Exception:
                 pass
 
         secrets[key] = self.encrypt_secret(value)
 
-        with open(secrets_file, 'w') as f:
+        with open(secrets_file, "w") as f:
             json.dump(secrets, f, indent=2)
 
 
 # Global configuration manager
 config_manager = ConfigManager()
 
+
 def init_config_manager(app):
     """Initialize configuration manager for Flask app"""
     global config_manager
 
     # Detect environment
-    env_name = os.getenv('FLASK_ENV', 'development')
+    env_name = os.getenv("FLASK_ENV", "development")
     try:
         env = Environment(env_name)
     except ValueError:

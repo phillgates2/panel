@@ -19,68 +19,53 @@ class MetricsCollector:
 
         # HTTP request metrics
         self.http_requests_total = Counter(
-            'http_requests_total',
-            'Total number of HTTP requests',
-            ['method', 'endpoint', 'status_code']
+            "http_requests_total",
+            "Total number of HTTP requests",
+            ["method", "endpoint", "status_code"],
         )
 
         self.http_request_duration_seconds = Histogram(
-            'http_request_duration_seconds',
-            'HTTP request duration in seconds',
-            ['method', 'endpoint'],
-            buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+            "http_request_duration_seconds",
+            "HTTP request duration in seconds",
+            ["method", "endpoint"],
+            buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
         )
 
         # Database metrics
         self.db_connections_active = Gauge(
-            'db_connections_active',
-            'Number of active database connections'
+            "db_connections_active", "Number of active database connections"
         )
 
         self.db_query_duration_seconds = Histogram(
-            'db_query_duration_seconds',
-            'Database query duration in seconds',
-            ['query_type'],
-            buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+            "db_query_duration_seconds",
+            "Database query duration in seconds",
+            ["query_type"],
+            buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
         )
 
         # Cache metrics
-        self.cache_hits_total = Counter(
-            'cache_hits_total',
-            'Total number of cache hits'
-        )
+        self.cache_hits_total = Counter("cache_hits_total", "Total number of cache hits")
 
-        self.cache_misses_total = Counter(
-            'cache_misses_total',
-            'Total number of cache misses'
-        )
+        self.cache_misses_total = Counter("cache_misses_total", "Total number of cache misses")
 
         # System metrics
         self.system_cpu_usage = Gauge(
-            'system_cpu_usage_percent',
-            'Current system CPU usage percentage'
+            "system_cpu_usage_percent", "Current system CPU usage percentage"
         )
 
         self.system_memory_usage = Gauge(
-            'system_memory_usage_bytes',
-            'Current system memory usage in bytes'
+            "system_memory_usage_bytes", "Current system memory usage in bytes"
         )
 
         self.system_disk_usage = Gauge(
-            'system_disk_usage_bytes',
-            'Current system disk usage in bytes',
-            ['mount_point']
+            "system_disk_usage_bytes", "Current system disk usage in bytes", ["mount_point"]
         )
 
         # Application metrics
-        self.active_users = Gauge(
-            'active_users',
-            'Number of currently active users'
-        )
+        self.active_users = Gauge("active_users", "Number of currently active users")
 
         self.registered_users_total = Gauge(
-            'registered_users_total',
-            'Total number of registered users'
+            "registered_users_total", "Total number of registered users"
         )
 
         if app:
@@ -95,7 +80,7 @@ class MetricsCollector:
         app.after_request(self.after_request)
 
         # Add metrics endpoint
-        app.add_url_rule('/metrics', 'metrics', self.metrics_endpoint)
+        app.add_url_rule("/metrics", "metrics", self.metrics_endpoint)
 
         # Start background metrics collection
         self.start_background_collection()
@@ -106,33 +91,27 @@ class MetricsCollector:
 
     def after_request(self, response):
         """Record request metrics"""
-        if hasattr(g, 'request_start_time'):
+        if hasattr(g, "request_start_time"):
             duration = time.time() - g.request_start_time
 
             # Get endpoint info
-            endpoint = getattr(g, 'endpoint', 'unknown')
-            method = getattr(g, 'method', 'GET')
+            endpoint = getattr(g, "endpoint", "unknown")
+            method = getattr(g, "method", "GET")
 
             # Record metrics
             self.http_requests_total.labels(
-                method=method,
-                endpoint=endpoint,
-                status_code=response.status_code
+                method=method, endpoint=endpoint, status_code=response.status_code
             ).inc()
 
-            self.http_request_duration_seconds.labels(
-                method=method,
-                endpoint=endpoint
-            ).observe(duration)
+            self.http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
+                duration
+            )
 
         return response
 
     def metrics_endpoint(self) -> Response:
         """Expose Prometheus metrics endpoint"""
-        return Response(
-            generate_latest(),
-            mimetype=CONTENT_TYPE_LATEST
-        )
+        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
     def start_background_collection(self) -> None:
         """Start background collection of system metrics"""
@@ -154,9 +133,9 @@ class MetricsCollector:
                         if os.path.exists(partition.mountpoint):
                             try:
                                 usage = psutil.disk_usage(partition.mountpoint)
-                                self.system_disk_usage.labels(
-                                    mount_point=partition.mountpoint
-                                ).set(usage.used)
+                                self.system_disk_usage.labels(mount_point=partition.mountpoint).set(
+                                    usage.used
+                                )
                             except Exception:
                                 pass
 
@@ -192,6 +171,7 @@ class MetricsCollector:
 
                 # Active users (rough estimate: users who logged in recently)
                 from datetime import datetime, timedelta, timezone
+
                 recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
                 active_users = User.query.filter(User.last_login >= recent_cutoff).count()
                 self.active_users.set(active_users)

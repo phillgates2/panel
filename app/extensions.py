@@ -5,7 +5,7 @@ from flask_caching import Cache
 from flask_compress import Compress
 from flask_cors import CORS
 from config import config
-from src.panel.socket_handlers import socketio
+# from src.panel.socket_handlers import socketio
 from config_validator import validate_configuration_at_startup
 from src.panel.structured_logging import setup_structured_logging
 try:
@@ -73,7 +73,7 @@ def init_app_extensions(app: Flask) -> Dict[str, Any]:
     app.config['SQLALCHEMY_POOL_PRE_PING'] = True
 
     # Initialize SocketIO
-    socketio.init_app(app)
+    # socketio.init_app(app)
 
     # Initialize Cache for performance optimization
     cache_config = {

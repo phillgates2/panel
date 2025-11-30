@@ -23,6 +23,7 @@ from flask import Flask
 @dataclass
 class BackupConfig:
     """Configuration for backup operations"""
+
     enabled: bool = True
     schedule: str = "daily"  # daily, weekly, monthly
     retention_days: int = 30
@@ -38,6 +39,7 @@ class BackupConfig:
 @dataclass
 class BackupJob:
     """Represents a backup job"""
+
     id: str
     name: str
     type: str  # database, filesystem, application
@@ -66,10 +68,10 @@ class BackupManager:
 
         # Initialize backup types
         self.backup_types = {
-            'database': DatabaseBackup(self.app),
-            'filesystem': FilesystemBackup(self.app),
-            'application': ApplicationBackup(self.app),
-            'configuration': ConfigurationBackup(self.app)
+            "database": DatabaseBackup(self.app),
+            "filesystem": FilesystemBackup(self.app),
+            "application": ApplicationBackup(self.app),
+            "configuration": ConfigurationBackup(self.app),
         }
 
     def start_scheduler(self):
@@ -110,7 +112,7 @@ class BackupManager:
         """Run scheduled backup for all types"""
         self.logger.info("Starting scheduled backup")
 
-        backup_types = ['database', 'filesystem', 'configuration']
+        backup_types = ["database", "filesystem", "configuration"]
         results = []
 
         for backup_type in backup_types:
@@ -119,11 +121,7 @@ class BackupManager:
                 results.append(result)
             except Exception as e:
                 self.logger.error(f"Scheduled backup failed for {backup_type}: {e}")
-                results.append({
-                    'type': backup_type,
-                    'status': 'failed',
-                    'error': str(e)
-                })
+                results.append({"type": backup_type, "status": "failed", "error": str(e)})
 
         # Send notification if enabled
         if self.config.notification_enabled:
@@ -141,10 +139,7 @@ class BackupManager:
             job_id = f"{name}_{job_id}"
 
         job = BackupJob(
-            id=job_id,
-            name=name or f"{backup_type}_backup",
-            type=backup_type,
-            status="running"
+            id=job_id, name=name or f"{backup_type}_backup", type=backup_type, status="running"
         )
 
         self.backup_jobs[job_id] = job
@@ -166,19 +161,19 @@ class BackupManager:
             job.status = "completed"
             job.completed_at = datetime.utcnow()
             job.metadata = {
-                'file_path': str(result_path),
-                'compressed': self.config.compression != "none",
-                'encrypted': self.config.encryption
+                "file_path": str(result_path),
+                "compressed": self.config.compression != "none",
+                "encrypted": self.config.encryption,
             }
 
             self.logger.info(f"Backup completed: {job_id} ({job.size_bytes} bytes)")
 
             return {
-                'job_id': job_id,
-                'type': backup_type,
-                'status': 'completed',
-                'file_path': str(result_path),
-                'size': job.size_bytes
+                "job_id": job_id,
+                "type": backup_type,
+                "status": "completed",
+                "file_path": str(result_path),
+                "size": job.size_bytes,
             }
 
         except Exception as e:
@@ -195,11 +190,13 @@ class BackupManager:
             raise ValueError(f"Unknown backup type: {backup_type}")
 
         # Decrypt if needed
-        if self.config.encryption and backup_file.endswith('.enc'):
+        if self.config.encryption and backup_file.endswith(".enc"):
             backup_file = self._decrypt_backup(backup_file)
 
         # Decompress if needed
-        if self.config.compression != "none" and backup_file.endswith(f'.{self.config.compression}'):
+        if self.config.compression != "none" and backup_file.endswith(
+            f".{self.config.compression}"
+        ):
             backup_file = self._decompress_backup(backup_file)
 
         backup_handler = self.backup_types[backup_type]
@@ -218,24 +215,24 @@ class BackupManager:
                 continue
 
             backup_info = {
-                'id': job.id,
-                'name': job.name,
-                'type': job.type,
-                'status': job.status,
-                'created_at': job.created_at.isoformat(),
-                'size_bytes': job.size_bytes,
-                'file_path': job.metadata.get('file_path')
+                "id": job.id,
+                "name": job.name,
+                "type": job.type,
+                "status": job.status,
+                "created_at": job.created_at.isoformat(),
+                "size_bytes": job.size_bytes,
+                "file_path": job.metadata.get("file_path"),
             }
 
             if job.completed_at:
-                backup_info['completed_at'] = job.completed_at.isoformat()
+                backup_info["completed_at"] = job.completed_at.isoformat()
 
             if job.error_message:
-                backup_info['error'] = job.error_message
+                backup_info["error"] = job.error_message
 
             backups.append(backup_info)
 
-        return sorted(backups, key=lambda x: x['created_at'], reverse=True)
+        return sorted(backups, key=lambda x: x["created_at"], reverse=True)
 
     def cleanup_old_backups(self):
         """Clean up old backups based on retention policy"""
@@ -245,7 +242,7 @@ class BackupManager:
         for job in list(self.backup_jobs.values()):
             if job.created_at < cutoff_date and job.status == "completed":
                 # Remove backup file
-                file_path = job.metadata.get('file_path')
+                file_path = job.metadata.get("file_path")
                 if file_path and Path(file_path).exists():
                     Path(file_path).unlink()
                     removed_count += 1
@@ -263,14 +260,14 @@ class BackupManager:
             return None
 
         return {
-            'id': job.id,
-            'name': job.name,
-            'type': job.type,
-            'status': job.status,
-            'created_at': job.created_at.isoformat(),
-            'size_bytes': job.size_bytes,
-            'error_message': job.error_message,
-            'metadata': job.metadata
+            "id": job.id,
+            "name": job.name,
+            "type": job.type,
+            "status": job.status,
+            "created_at": job.created_at.isoformat(),
+            "size_bytes": job.size_bytes,
+            "error_message": job.error_message,
+            "metadata": job.metadata,
         }
 
     def _compress_backup(self, file_path: Path, job_id: str) -> Path:
@@ -278,13 +275,14 @@ class BackupManager:
         compressed_path = file_path.with_suffix(f"{file_path.suffix}.{self.config.compression}")
 
         if self.config.compression == "gzip":
-            with open(file_path, 'rb') as f_in:
-                with gzip.open(compressed_path, 'wb') as f_out:
+            with open(file_path, "rb") as f_in:
+                with gzip.open(compressed_path, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
         elif self.config.compression == "bz2":
             import bz2
-            with open(file_path, 'rb') as f_in:
-                with bz2.open(compressed_path, 'wb') as f_out:
+
+            with open(file_path, "rb") as f_in:
+                with bz2.open(compressed_path, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
         # Remove original file
@@ -295,16 +293,17 @@ class BackupManager:
     def _decompress_backup(self, file_path: str) -> str:
         """Decompress a backup file"""
         path = Path(file_path)
-        decompressed_path = path.with_suffix('')
+        decompressed_path = path.with_suffix("")
 
         if self.config.compression == "gzip":
-            with gzip.open(path, 'rb') as f_in:
-                with open(decompressed_path, 'wb') as f_out:
+            with gzip.open(path, "rb") as f_in:
+                with open(decompressed_path, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
         elif self.config.compression == "bz2":
             import bz2
-            with bz2.open(path, 'rb') as f_in:
-                with open(decompressed_path, 'wb') as f_out:
+
+            with bz2.open(path, "rb") as f_in:
+                with open(decompressed_path, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
         return str(decompressed_path)
@@ -317,14 +316,14 @@ class BackupManager:
         secret_manager = SecretManager()
 
         # Read file content
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             data = f.read()
 
         # Encrypt data
-        encrypted_data = secret_manager.encrypt_secret(data.decode('latin-1'))
+        encrypted_data = secret_manager.encrypt_secret(data.decode("latin-1"))
 
         # Write encrypted data
-        with open(encrypted_path, 'w') as f:
+        with open(encrypted_path, "w") as f:
             f.write(encrypted_data)
 
         # Remove original file
@@ -337,20 +336,20 @@ class BackupManager:
         from src.panel.config_manager import SecretManager
 
         path = Path(file_path)
-        decrypted_path = path.with_suffix('')
+        decrypted_path = path.with_suffix("")
 
         secret_manager = SecretManager()
 
         # Read encrypted data
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             encrypted_data = f.read()
 
         # Decrypt data
         decrypted_data = secret_manager.decrypt_secret(encrypted_data)
 
         # Write decrypted data
-        with open(decrypted_path, 'wb') as f:
-            f.write(decrypted_data.encode('latin-1'))
+        with open(decrypted_path, "wb") as f:
+            f.write(decrypted_data.encode("latin-1"))
 
         return str(decrypted_path)
 
@@ -358,7 +357,7 @@ class BackupManager:
         """Send backup completion notification"""
         # This would integrate with your notification system
         # For now, just log the results
-        success_count = sum(1 for r in results if r.get('status') == 'completed')
+        success_count = sum(1 for r in results if r.get("status") == "completed")
         total_count = len(results)
 
         self.logger.info(f"Backup notification: {success_count}/{total_count} backups completed")
@@ -373,7 +372,7 @@ class DatabaseBackup:
 
     def __init__(self, app: Flask):
         self.app = app
-        self.db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        self.db_url = app.config.get("SQLALCHEMY_DATABASE_URI", "")
 
     def create_backup(self, job_id: str) -> Path:
         """Create database backup"""
@@ -382,11 +381,11 @@ class DatabaseBackup:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         backup_file = backup_dir / f"db_backup_{timestamp}.sql"
 
-        if self.db_url.startswith('postgresql://'):
+        if self.db_url.startswith("postgresql://"):
             self._backup_postgresql(str(backup_file))
-        elif self.db_url.startswith('mysql://'):
+        elif self.db_url.startswith("mysql://"):
             self._backup_mysql(str(backup_file))
-        elif self.db_url.startswith('sqlite:///'):
+        elif self.db_url.startswith("sqlite:///"):
             self._backup_sqlite(str(backup_file))
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
@@ -395,40 +394,46 @@ class DatabaseBackup:
 
     def restore_backup(self, backup_file: str) -> Dict[str, Any]:
         """Restore database from backup"""
-        if self.db_url.startswith('postgresql://'):
+        if self.db_url.startswith("postgresql://"):
             self._restore_postgresql(backup_file)
-        elif self.db_url.startswith('mysql://'):
+        elif self.db_url.startswith("mysql://"):
             self._restore_mysql(backup_file)
-        elif self.db_url.startswith('sqlite:///'):
+        elif self.db_url.startswith("sqlite:///"):
             self._restore_sqlite(backup_file)
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
 
-        return {'status': 'restored', 'database': self.db_url}
+        return {"status": "restored", "database": self.db_url}
 
     def _backup_postgresql(self, output_file: str):
         """Backup PostgreSQL database"""
         # Parse connection details
         from urllib.parse import urlparse
+
         parsed = urlparse(self.db_url)
-        db_name = parsed.path.lstrip('/')
+        db_name = parsed.path.lstrip("/")
         host = parsed.hostname
         port = parsed.port or 5432
         user = parsed.username
         password = parsed.password
 
         env = os.environ.copy()
-        env['PGPASSWORD'] = password or ''
+        env["PGPASSWORD"] = password or ""
 
         cmd = [
-            'pg_dump',
-            '-h', host,
-            '-p', str(port),
-            '-U', user,
-            '-d', db_name,
-            '-f', output_file,
-            '--no-password',
-            '--format=custom'  # Custom format for better compression
+            "pg_dump",
+            "-h",
+            host,
+            "-p",
+            str(port),
+            "-U",
+            user,
+            "-d",
+            db_name,
+            "-f",
+            output_file,
+            "--no-password",
+            "--format=custom",  # Custom format for better compression
         ]
 
         result = subprocess.run(cmd, env=env, capture_output=True, text=True)
@@ -438,25 +443,30 @@ class DatabaseBackup:
     def _restore_postgresql(self, backup_file: str):
         """Restore PostgreSQL database"""
         from urllib.parse import urlparse
+
         parsed = urlparse(self.db_url)
-        db_name = parsed.path.lstrip('/')
+        db_name = parsed.path.lstrip("/")
         host = parsed.hostname
         port = parsed.port or 5432
         user = parsed.username
         password = parsed.password
 
         env = os.environ.copy()
-        env['PGPASSWORD'] = password or ''
+        env["PGPASSWORD"] = password or ""
 
         cmd = [
-            'pg_restore',
-            '-h', host,
-            '-p', str(port),
-            '-U', user,
-            '-d', db_name,
-            '--clean',
-            '--if-exists',
-            backup_file
+            "pg_restore",
+            "-h",
+            host,
+            "-p",
+            str(port),
+            "-U",
+            user,
+            "-d",
+            db_name,
+            "--clean",
+            "--if-exists",
+            backup_file,
         ]
 
         result = subprocess.run(cmd, env=env, capture_output=True, text=True)
@@ -466,23 +476,17 @@ class DatabaseBackup:
     def _backup_mysql(self, output_file: str):
         """Backup MySQL database"""
         from urllib.parse import urlparse
+
         parsed = urlparse(self.db_url)
-        db_name = parsed.path.lstrip('/')
+        db_name = parsed.path.lstrip("/")
         host = parsed.hostname
         port = parsed.port or 3306
         user = parsed.username
         password = parsed.password
 
-        cmd = [
-            'mysqldump',
-            '-h', host,
-            '-P', str(port),
-            '-u', user,
-            f'-p{password}',
-            db_name
-        ]
+        cmd = ["mysqldump", "-h", host, "-P", str(port), "-u", user, f"-p{password}", db_name]
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
             if result.returncode != 0:
                 raise Exception(f"MySQL backup failed: {result.stderr}")
@@ -490,35 +494,29 @@ class DatabaseBackup:
     def _restore_mysql(self, backup_file: str):
         """Restore MySQL database"""
         from urllib.parse import urlparse
+
         parsed = urlparse(self.db_url)
-        db_name = parsed.path.lstrip('/')
+        db_name = parsed.path.lstrip("/")
         host = parsed.hostname
         port = parsed.port or 3306
         user = parsed.username
         password = parsed.password
 
-        cmd = [
-            'mysql',
-            '-h', host,
-            '-P', str(port),
-            '-u', user,
-            f'-p{password}',
-            db_name
-        ]
+        cmd = ["mysql", "-h", host, "-P", str(port), "-u", user, f"-p{password}", db_name]
 
-        with open(backup_file, 'r') as f:
+        with open(backup_file, "r") as f:
             result = subprocess.run(cmd, stdin=f, stderr=subprocess.PIPE, text=True)
             if result.returncode != 0:
                 raise Exception(f"MySQL restore failed: {result.stderr}")
 
     def _backup_sqlite(self, output_file: str):
         """Backup SQLite database"""
-        db_path = self.db_url.replace('sqlite:///', '')
+        db_path = self.db_url.replace("sqlite:///", "")
         shutil.copy2(db_path, output_file)
 
     def _restore_sqlite(self, backup_file: str):
         """Restore SQLite database"""
-        db_path = self.db_url.replace('sqlite:///', '')
+        db_path = self.db_url.replace("sqlite:///", "")
         shutil.copy2(backup_file, db_path)
 
 
@@ -527,12 +525,7 @@ class FilesystemBackup:
 
     def __init__(self, app: Flask):
         self.app = app
-        self.backup_paths = [
-            'static/uploads',
-            'instance',
-            'logs',
-            'config'
-        ]
+        self.backup_paths = ["static/uploads", "instance", "logs", "config"]
 
     def create_backup(self, job_id: str) -> Path:
         """Create filesystem backup"""
@@ -558,7 +551,7 @@ class FilesystemBackup:
 
             # Create compressed archive
             with tarfile.open(backup_file, "w:gz") as tar:
-                for item in temp_dir.rglob('*'):
+                for item in temp_dir.rglob("*"):
                     if item.is_file():
                         tar.add(item, arcname=item.relative_to(temp_dir))
 
@@ -583,7 +576,7 @@ class FilesystemBackup:
 
             # Restore files
             restored_paths = []
-            for item in temp_dir.rglob('*'):
+            for item in temp_dir.rglob("*"):
                 if item.is_file():
                     relative_path = item.relative_to(temp_dir)
                     target_path = Path(relative_path)
@@ -596,9 +589,9 @@ class FilesystemBackup:
                     restored_paths.append(str(target_path))
 
             return {
-                'status': 'restored',
-                'files_restored': len(restored_paths),
-                'paths': restored_paths[:10]  # Limit output
+                "status": "restored",
+                "files_restored": len(restored_paths),
+                "paths": restored_paths[:10],  # Limit output
             }
 
         finally:
@@ -621,39 +614,40 @@ class ApplicationBackup:
 
         # Collect application state
         app_state = {
-            'timestamp': timestamp,
-            'version': '1.0.0',  # Would come from version file
-            'environment': os.getenv('FLASK_ENV', 'development'),
-            'config': {
-                k: v for k, v in self.app.config.items()
-                if not k.startswith('_') and 'SECRET' not in k and 'PASSWORD' not in k
+            "timestamp": timestamp,
+            "version": "1.0.0",  # Would come from version file
+            "environment": os.getenv("FLASK_ENV", "development"),
+            "config": {
+                k: v
+                for k, v in self.app.config.items()
+                if not k.startswith("_") and "SECRET" not in k and "PASSWORD" not in k
             },
-            'routes': [str(rule) for rule in self.app.url_map.iter_rules()],
-            'active_users': 0,  # Would need to query database
-            'system_info': {
-                'python_version': f"{os.sys.version_info.major}.{os.sys.version_info.minor}",
-                'platform': os.sys.platform
-            }
+            "routes": [str(rule) for rule in self.app.url_map.iter_rules()],
+            "active_users": 0,  # Would need to query database
+            "system_info": {
+                "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}",
+                "platform": os.sys.platform,
+            },
         }
 
         # Save to file
-        with open(backup_file, 'w') as f:
+        with open(backup_file, "w") as f:
             json.dump(app_state, f, indent=2, default=str)
 
         return backup_file
 
     def restore_backup(self, backup_file: str) -> Dict[str, Any]:
         """Restore application state"""
-        with open(backup_file, 'r') as f:
+        with open(backup_file, "r") as f:
             app_state = json.load(f)
 
         # This would typically restore application configuration
         # For now, just validate the backup
         return {
-            'status': 'validated',
-            'version': app_state.get('version'),
-            'environment': app_state.get('environment'),
-            'routes_count': len(app_state.get('routes', []))
+            "status": "validated",
+            "version": app_state.get("version"),
+            "environment": app_state.get("environment"),
+            "routes_count": len(app_state.get("routes", [])),
         }
 
 
@@ -679,23 +673,23 @@ class ConfigurationBackup:
         try:
             # Backup configuration files
             config_files = [
-                'config/config.*.json',
-                '.env',
-                '.secrets',
-                '.config_key',
-                'pyproject.toml',
-                'requirements.txt',
-                'requirements/requirements*.txt'
+                "config/config.*.json",
+                ".env",
+                ".secrets",
+                ".config_key",
+                "pyproject.toml",
+                "requirements.txt",
+                "requirements/requirements*.txt",
             ]
 
             for pattern in config_files:
-                for file_path in Path('.').glob(pattern):
+                for file_path in Path(".").glob(pattern):
                     if file_path.exists():
                         shutil.copy2(file_path, temp_dir / file_path.name)
 
             # Create compressed archive
             with tarfile.open(backup_file, "w:gz") as tar:
-                for item in temp_dir.rglob('*'):
+                for item in temp_dir.rglob("*"):
                     if item.is_file():
                         tar.add(item, arcname=item.relative_to(temp_dir))
 
@@ -718,7 +712,7 @@ class ConfigurationBackup:
 
             # Restore configuration files
             restored_files = []
-            for item in temp_dir.rglob('*'):
+            for item in temp_dir.rglob("*"):
                 if item.is_file():
                     relative_path = item.relative_to(temp_dir)
                     target_path = Path(relative_path)
@@ -736,9 +730,9 @@ class ConfigurationBackup:
                     restored_files.append(str(target_path))
 
             return {
-                'status': 'restored',
-                'files_restored': len(restored_files),
-                'files': restored_files
+                "status": "restored",
+                "files_restored": len(restored_files),
+                "files": restored_files,
             }
 
         finally:
@@ -749,20 +743,21 @@ class ConfigurationBackup:
 # Global backup manager instance
 backup_manager = None
 
+
 def init_backup_system(app: Flask):
     """Initialize backup and recovery system"""
     global backup_manager
 
     # Get backup configuration from app config
     backup_config = BackupConfig(
-        enabled=app.config.get('BACKUP_ENABLED', True),
-        schedule=app.config.get('BACKUP_SCHEDULE', 'daily'),
-        retention_days=app.config.get('BACKUP_RETENTION_DAYS', 30),
-        compression=app.config.get('BACKUP_COMPRESSION', 'gzip'),
-        encryption=app.config.get('BACKUP_ENCRYPTION', False),
-        storage_path=app.config.get('BACKUP_STORAGE_PATH', 'backups'),
-        verify_backups=app.config.get('BACKUP_VERIFY', True),
-        notification_enabled=app.config.get('BACKUP_NOTIFICATIONS', True)
+        enabled=app.config.get("BACKUP_ENABLED", True),
+        schedule=app.config.get("BACKUP_SCHEDULE", "daily"),
+        retention_days=app.config.get("BACKUP_RETENTION_DAYS", 30),
+        compression=app.config.get("BACKUP_COMPRESSION", "gzip"),
+        encryption=app.config.get("BACKUP_ENCRYPTION", False),
+        storage_path=app.config.get("BACKUP_STORAGE_PATH", "backups"),
+        verify_backups=app.config.get("BACKUP_VERIFY", True),
+        notification_enabled=app.config.get("BACKUP_NOTIFICATIONS", True),
     )
 
     backup_manager = BackupManager(app, backup_config)

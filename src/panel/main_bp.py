@@ -1,146 +1,145 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
 
-main_bp = Blueprint('main', __name__)
+main_bp = Blueprint("main", __name__)
 
-@main_bp.route('/')
+
+@main_bp.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@main_bp.route('/status')
+
+@main_bp.route("/status")
 def status():
     import time
-    from app import app
+
     return {
-        'status': 'ok',
-        'uptime': time.time() - app.start_time,
-        'version': '1.0',
-        'features': list(feature_flags.keys())
+        "status": "ok",
+        "uptime": time.time() - current_app.start_time,
+        "version": "1.0",
+        "features": list(feature_flags.keys()),
     }
 
-@main_bp.route('/health')
+
+@main_bp.route("/health")
 def health():
+    import time
     # Check external services
-    health_status = {'status': 'healthy', 'checks': {}}
+    health_status = {"status": "healthy", "checks": {}, "timestamp": time.time()}
     try:
         # Check Redis
-        cache.get('health_check')
-        health_status['checks']['redis'] = 'ok'
+        cache.get("health_check")
+        health_status["checks"]["redis"] = "ok"
     except:
-        health_status['checks']['redis'] = 'fail'
-        health_status['status'] = 'unhealthy'
+        health_status["checks"]["redis"] = "fail"
+        health_status["status"] = "unhealthy"
     try:
         # Check DB
-        db.session.execute(db.text('SELECT 1'))
-        health_status['checks']['database'] = 'ok'
+        db.session.execute(db.text("SELECT 1"))
+        health_status["checks"]["database"] = "ok"
     except:
-        health_status['checks']['database'] = 'fail'
-        health_status['status'] = 'unhealthy'
+        health_status["checks"]["database"] = "fail"
+        health_status["status"] = "unhealthy"
     # Add AI API check if applicable
     return health_status
 
-@main_bp.route('/api/v2/status')
-def api_v2_status():
-    return {'version': 'v2', 'status': 'ok'}
 
-@main_bp.route('/webhooks', methods=['POST'])
+@main_bp.route("/api/v2/status")
+def api_v2_status():
+    return {"version": "v2", "status": "ok"}
+
+
+@main_bp.route("/webhooks", methods=["POST"])
 def webhooks():
     data = request.json
     # Process webhook, e.g., Discord/Slack
-    return {'received': True}
+    return {"received": True}
+
 
 # GraphQL
-from graphene_flask import GraphQLView
-from app.extensions import extensions
+from graphene import ObjectType, String, Schema as GraphQLSchema
 
-@main_bp.route('/graphql', methods=['GET', 'POST'])
+
+@main_bp.route("/graphql", methods=["GET", "POST"])
 def graphql_view():
-    return GraphQLView.as_view('graphql', schema=extensions['schema'], graphiql=True)()
+    return GraphQLView.as_view("graphql", schema=extensions["schema"], graphiql=True)()
 
-# CSP
-from app import app
-@app.after_request
-def add_csp(response):
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.example.com; style-src 'self' 'unsafe-inline'"
-    return response
-
-# HTTP Caching
-@app.after_request
-def add_cache_headers(response):
-    if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=31536000'  # 1 year for static
-    elif request.path.startswith('/api/'):
-        response.headers['Cache-Control'] = 'private, max-age=300'  # 5 min for API
-    return response
 
 # Feature flags
-feature_flags = {
-    'dark_mode': True,
-    'new_ui': False,
-    'gdpr_auto_export': True
-}
+feature_flags = {"dark_mode": True, "new_ui": False, "gdpr_auto_export": True}
 
-@main_bp.route('/profile')
+
+@main_bp.route("/profile")
 def profile():
-    return render_template('profile.html')
+    return render_template("profile.html")
 
-@main_bp.route('/settings')
+
+@main_bp.route("/settings")
 def settings():
-    return render_template('settings.html')
+    return render_template("settings.html")
 
-@main_bp.route('/notifications')
+
+@main_bp.route("/notifications")
 def notifications():
-    return render_template('notifications.html')
+    return render_template("notifications.html")
 
-@main_bp.route('/api/user/theme', methods=['POST'])
+
+@main_bp.route("/api/user/theme", methods=["POST"])
 def update_theme():
     data = request.json
-    theme = data.get('theme')
+    theme = data.get("theme")
     # Save to user settings
-    return {'success': True}
+    return {"success": True}
 
-@main_bp.route('/api/notifications')
+
+@main_bp.route("/api/notifications")
 def get_notifications():
     # Get user notifications
     notifications = []  # Query from DB
-    return {'notifications': notifications}
+    return {"notifications": notifications}
 
-@main_bp.route('/api/notifications/<int:notif_id>/read', methods=['POST'])
+
+@main_bp.route("/api/notifications/<int:notif_id>/read", methods=["POST"])
 def mark_notification_read(notif_id):
     # Mark as read
-    return {'success': True}
+    return {"success": True}
+
 
 @main_bp.context_processor
 def inject_breadcrumbs():
     # Simple breadcrumb logic - customize based on routes
     path = request.path
     breadcrumbs = []
-    if path.startswith('/forum'):
-        breadcrumbs = [{'name': 'Home', 'url': '/'}, {'name': 'Forum', 'url': '/forum'}]
-    elif path.startswith('/profile'):
-        breadcrumbs = [{'name': 'Home', 'url': '/'}, {'name': 'Profile', 'url': '/profile'}]
-    return {'breadcrumbs': breadcrumbs}
+    if path.startswith("/forum"):
+        breadcrumbs = [{"name": "Home", "url": "/"}, {"name": "Forum", "url": "/forum"}]
+    elif path.startswith("/profile"):
+        breadcrumbs = [{"name": "Home", "url": "/"}, {"name": "Profile", "url": "/profile"}]
+    return {"breadcrumbs": breadcrumbs}
 
-@main_bp.route('/search')
+
+@main_bp.route("/search")
 def search():
-    query = request.args.get('q', '')
+    query = request.args.get("q", "")
     # Implement search logic
     results = []
     if query:
         # Search in models
         results = []  # Placeholder
-    return render_template('search.html', query=query, results=results)
+    return render_template("search.html", query=query, results=results)
 
-@main_bp.route('/help')
+
+@main_bp.route("/help")
 def help_page():
-    return render_template('help.html')
+    return render_template("help.html")
 
-@main_bp.route('/permissions')
+
+@main_bp.route("/permissions")
 def permissions():
-    return render_template('permissions.html')
+    return render_template("permissions.html")
 
-@main_bp.route('/chat')
+
+@main_bp.route("/chat")
 def chat():
-    return render_template('chat.html')
+    return render_template("chat.html")

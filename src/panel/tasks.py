@@ -13,12 +13,14 @@ from src.panel.models import db
 
 # Determine LOG_DIR with fallback to writable temp directory if configured dir is not accessible
 try:
-    from src.panel import config
-    _log_dir_env = os.environ.get("LOG_DIR")
-    _log_dir_config = config.LOG_DIR
-    LOG_DIR = _log_dir_env or _log_dir_config
+    from config import LOG_DIR
+
+    _log_dir_config = LOG_DIR
 except ImportError:
-    LOG_DIR = os.path.join(tempfile.gettempdir(), "panel_logs")
+    _log_dir_config = os.path.join(tempfile.gettempdir(), "panel_logs")
+
+_log_dir_env = os.environ.get("LOG_DIR")
+LOG_DIR = _log_dir_env or _log_dir_config
 
 # Try to create LOG_DIR; if it fails (permission denied), fall back to temp directory
 try:
@@ -43,6 +45,7 @@ def _discord_post(payload):
     if not webhook:
         try:
             from src.panel import config
+
             webhook = getattr(config, "DISCORD_WEBHOOK", "")
         except ImportError:
             pass
@@ -52,6 +55,7 @@ def _discord_post(payload):
 
     try:
         import requests
+
         requests.post(webhook, json=payload, timeout=10)
     except Exception:
         # best-effort
@@ -64,6 +68,7 @@ def _slack_post(message):
     if not webhook:
         try:
             from src.panel import config
+
             webhook = getattr(config, "SLACK_WEBHOOK", "")
         except ImportError:
             pass
@@ -73,6 +78,7 @@ def _slack_post(message):
 
     try:
         import requests
+
         payload = {"text": message}
         requests.post(webhook, json=payload, timeout=10)
     except Exception:
@@ -80,7 +86,7 @@ def _slack_post(message):
         pass
 
 
-@celery_app.task(name='panel.send_email')
+@celery_app.task(name="panel.send_email")
 def send_email_task(to_email, subject, body, html_body=None):
     """Send email asynchronously"""
     try:
@@ -99,13 +105,14 @@ def send_email_task(to_email, subject, body, html_body=None):
         return {"status": "failed", "to": to_email, "error": str(e)}
 
 
-@celery_app.task(name='panel.process_file')
+@celery_app.task(name="panel.process_file")
 def process_file_task(file_path, operation):
     """Process file asynchronously (upload, resize, etc.)"""
     try:
         if operation == "resize_image":
             # Example: resize uploaded image
             from PIL import Image
+
             img = Image.open(file_path)
             img.thumbnail((800, 600))
             img.save(file_path)
@@ -125,7 +132,7 @@ def process_file_task(file_path, operation):
         return {"status": "failed", "file": file_path, "error": str(e)}
 
 
-@celery_app.task(name='panel.backup_database')
+@celery_app.task(name="panel.backup_database")
 def backup_database_task():
     """Run database backup asynchronously"""
     try:
@@ -138,14 +145,18 @@ def backup_database_task():
             _log("backup", f"Database backup completed: {backup_file}")
 
             # Send notifications
-            _discord_post({
-                "embeds": [{
-                    "title": "Database Backup Completed",
-                    "description": f"Backup saved to: {backup_file}",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "color": 3066993,
-                }]
-            })
+            _discord_post(
+                {
+                    "embeds": [
+                        {
+                            "title": "Database Backup Completed",
+                            "description": f"Backup saved to: {backup_file}",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "color": 3066993,
+                        }
+                    ]
+                }
+            )
             _slack_post(f"✅ Database backup completed: {backup_file}")
 
             return {"status": "completed", "backup_file": backup_file}
@@ -159,7 +170,7 @@ def backup_database_task():
         return {"status": "failed", "error": str(e)}
 
 
-@celery_app.task(name='panel.run_autodeploy')
+@celery_app.task(name="panel.run_autodeploy")
 def run_autodeploy_task(download_url=None):
     """Run autodeploy asynchronously"""
     env = os.environ.copy()
@@ -180,25 +191,29 @@ def run_autodeploy_task(download_url=None):
         if proc.returncode == 0:
             payload = {
                 "content": None,
-                "embeds": [{
-                    "title": "Autodeploy Completed",
-                    "description": f'Autodeploy finished successfully for {download_url or "(default)"}.',
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "color": 3066993,
-                }]
+                "embeds": [
+                    {
+                        "title": "Autodeploy Completed",
+                        "description": f'Autodeploy finished successfully for {download_url or "(default)"}.',
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 3066993,
+                    }
+                ],
             }
             _discord_post(payload)
             return {"ok": True, "out": proc.stdout}
         else:
             payload = {
                 "content": None,
-                "embeds": [{
-                    "title": "Autodeploy Failed",
-                    "description": f"Autodeploy failed (rc={proc.returncode})",
-                    "fields": [{"name": "stderr", "value": proc.stderr[:1000]}],
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "color": 15158332,
-                }]
+                "embeds": [
+                    {
+                        "title": "Autodeploy Failed",
+                        "description": f"Autodeploy failed (rc={proc.returncode})",
+                        "fields": [{"name": "stderr", "value": proc.stderr[:1000]}],
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "color": 15158332,
+                    }
+                ],
             }
             _discord_post(payload)
             return {"ok": False, "out": proc.stdout, "err": proc.stderr}
@@ -208,12 +223,13 @@ def run_autodeploy_task(download_url=None):
         return {"ok": False, "err": str(e)}
 
 
-@celery_app.task(name='panel.train_ai_model')
+@celery_app.task(name="panel.train_ai_model")
 def train_ai_model_task(model_name, data_path):
     """Train AI model asynchronously"""
     try:
         # Example: Call AI training function
         from src.panel.ai_integration import train_model
+
         result = train_model(model_name, data_path)
         _log("ai", f"AI model trained: {model_name}")
         return {"status": "trained", "model": model_name, "result": result}
@@ -222,17 +238,18 @@ def train_ai_model_task(model_name, data_path):
         return {"status": "failed", "model": model_name, "error": str(e)}
 
 
-@celery_app.task(name='panel.gdpr_export')
+@celery_app.task(name="panel.gdpr_export")
 def gdpr_export_task(user_id):
     """Export user data for GDPR"""
     try:
         from src.panel import models
+
         user = models.User.query.get(user_id)
         if user:
             data = {
-                'user': user.display_name,
-                'email': user.email,
-                'posts': [p.content for p in user.forum_posts],
+                "user": user.display_name,
+                "email": user.email,
+                "posts": [p.content for p in user.forum_posts],
                 # Add more
             }
             # Save to file or email
@@ -244,7 +261,7 @@ def gdpr_export_task(user_id):
         return {"status": "failed", "error": str(e)}
 
 
-@celery_app.task(name='panel.data_retention')
+@celery_app.task(name="panel.data_retention")
 def data_retention_task():
     """Clean up old data for retention compliance"""
     try:

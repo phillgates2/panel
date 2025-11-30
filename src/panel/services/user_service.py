@@ -44,7 +44,7 @@ class UserService:
                     "password": password,
                     "password_confirm": password,
                     "dob": dob,
-                }
+                },
             )
 
             if validation_errors:
@@ -58,6 +58,7 @@ class UserService:
 
             # Check if user already exists
             from app import User
+
             existing_user = User.query.filter_by(email=email.lower()).first()
             if existing_user:
                 return None, "Email already registered"
@@ -69,12 +70,7 @@ class UserService:
                 return None, "You must be at least 16 years old to register"
 
             # Create user
-            user = User(
-                first_name=first_name,
-                last_name=last_name,
-                email=email.lower(),
-                dob=dob
-            )
+            user = User(first_name=first_name, last_name=last_name, email=email.lower(), dob=dob)
             user.set_password(password)
 
             db.session.add(user)
@@ -104,6 +100,7 @@ class UserService:
         """
         try:
             from app import User
+
             user = User.query.filter_by(email=email.lower()).first()
 
             if not user:
@@ -169,7 +166,7 @@ class UserService:
             Tuple of (success, error_message)
         """
         try:
-            allowed_fields = ['first_name', 'last_name', 'bio']
+            allowed_fields = ["first_name", "last_name", "bio"]
 
             for field, value in kwargs.items():
                 if field in allowed_fields and value is not None:
@@ -202,11 +199,14 @@ class UserService:
 
             # Validate new password complexity
             import re
-            if (len(new_password) < 8 or
-                not re.search(r"[A-Z]", new_password) or
-                not re.search(r"[a-z]", new_password) or
-                not re.search(r"\d", new_password) or
-                not re.search(r"[^A-Za-z0-9]", new_password)):
+
+            if (
+                len(new_password) < 8
+                or not re.search(r"[A-Z]", new_password)
+                or not re.search(r"[a-z]", new_password)
+                or not re.search(r"\d", new_password)
+                or not re.search(r"[^A-Za-z0-9]", new_password)
+            ):
                 return False, "New password does not meet complexity requirements"
 
             user.set_password(new_password)

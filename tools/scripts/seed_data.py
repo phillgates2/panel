@@ -75,7 +75,7 @@ def create_server_templates():
             "description": "Standard competitive 6v6 configuration",
             "category": "competitive",
             "variables_json": '{"maxclients": "12", "sv_maxRate": "25000", "g_antilag": "1"}',
-            "raw_config": 'set sv_hostname "Competitive Server"\nset g_gametype 6\nset sv_maxclients 12',
+            "raw_config": 'set sv_hostname "Comp Server"\nset g_gametype 6\nset sv_maxclients 12',
         },
         {
             "name": "Casual Public",
@@ -179,7 +179,7 @@ def create_sample_activity():
             activity = UserActivity(
                 user_id=user.id,
                 activity_type=random.choice(activities),
-                ip_address=f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
+                ip_address=".".join(str(random.randint(1,255)) for _ in range(4)),
                 created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30)),
             )
             db.session.add(activity)

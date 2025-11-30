@@ -4,16 +4,15 @@ Database Seeding Script
 Populates the database with sample data for testing and demonstrations
 """
 
-import os
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add app path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app import create_app, db
-from src.panel.models import User, Server, ROLE_HIERARCHY
+from src.panel.models import User, Server
 from src.panel.models_extended import UserGroup, UserGroupMembership
 
 
@@ -247,13 +246,13 @@ def create_sample_forum_content(users):
     threads_data = [
         {
             "title": "Welcome to the Panel Forum!",
-            "content": "Welcome to our community forum! This is the place to discuss game strategies, share experiences, and connect with other players.",
+            "content": "Welcome to our community forum! Discuss strategies, share experiences.",
             "author": users[0],  # admin
             "is_pinned": True
         },
         {
             "title": "Server Rules and Guidelines",
-            "content": "Please read and follow these rules to ensure a positive gaming experience for everyone.",
+            "content": "Please read and follow these rules to ensure a positive gaming experience.",
             "author": users[1],  # server admin
             "is_pinned": True
         },
@@ -315,7 +314,7 @@ def create_sample_blog_posts(users):
         {
             "title": "Welcome to Panel Blog",
             "slug": "welcome-to-panel-blog",
-            "content": "Welcome to the official Panel blog! Here we'll share news, updates, and community highlights.",
+            "content": "Welcome to the official Panel blog! We'll share news, updates, highlights.",
             "excerpt": "Official welcome post for the Panel blog",
             "author": users[0],
             "is_published": True

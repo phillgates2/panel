@@ -1,4 +1,5 @@
 """Test forum delete thread button functionality"""
+
 from datetime import date
 
 from forum import Post, Thread

@@ -32,11 +32,13 @@ class IPBlocklist:
 
         if self.redis:
             key = f"blocked_ip:{ip}"
-            self.redis.setex(key, ttl, json.dumps({
-                "reason": reason,
-                "blocked_at": datetime.utcnow().isoformat(),
-                "ttl": ttl
-            }))
+            self.redis.setex(
+                key,
+                ttl,
+                json.dumps(
+                    {"reason": reason, "blocked_at": datetime.utcnow().isoformat(), "ttl": ttl}
+                ),
+            )
         else:
             self.local_blocklist.add(ip)
 
@@ -65,10 +67,11 @@ class IPBlocklist:
         """Trigger fail2ban ban"""
         try:
             import subprocess
+
             # Use fail2ban-client to ban IP
-            subprocess.run([
-                "fail2ban-client", "set", "panel", "banip", ip
-            ], capture_output=True, timeout=10)
+            subprocess.run(
+                ["fail2ban-client", "set", "panel", "banip", ip], capture_output=True, timeout=10
+            )
             logger.info(f"Fail2ban ban triggered for IP: {ip}")
         except Exception as e:
             logger.warning(f"Fail2ban integration failed: {e}")
@@ -142,23 +145,21 @@ class CloudflareIntegration:
 
             headers = {
                 "Authorization": f"Bearer {self.api_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
             # Create firewall rule to block IP
             rule_data = {
-                "filter": {
-                    "expression": f"ip.src eq {ip}"
-                },
+                "filter": {"expression": f"ip.src eq {ip}"},
                 "action": "block",
-                "description": f"Panel abuse prevention: {reason}"
+                "description": f"Panel abuse prevention: {reason}",
             }
 
             response = requests.post(
                 f"{self.base_url}/zones/{self.zone_id}/firewall/rules",
                 headers=headers,
                 json=rule_data,
-                timeout=10
+                timeout=10,
             )
 
             if response.status_code == 200:
@@ -182,13 +183,11 @@ class CloudflareIntegration:
 
             headers = {
                 "Authorization": f"Bearer {self.api_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
             response = requests.get(
-                f"{self.base_url}/zones/{self.zone_id}/firewall/rules",
-                headers=headers,
-                timeout=10
+                f"{self.base_url}/zones/{self.zone_id}/firewall/rules", headers=headers, timeout=10
             )
 
             if response.status_code == 200:
@@ -222,8 +221,8 @@ class AdvancedRateLimiter:
         self.cloudflare = None
 
         # Configuration
-        self.abuse_threshold = float(app.config.get('RATE_LIMIT_ABUSE_THRESHOLD', '10.0'))
-        self.block_duration = int(app.config.get('RATE_LIMIT_BLOCK_DURATION', '3600'))
+        self.abuse_threshold = float(app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", "10.0"))
+        self.block_duration = int(app.config.get("RATE_LIMIT_BLOCK_DURATION", "3600"))
 
         # Initialize components
         self._init_components()
@@ -232,8 +231,9 @@ class AdvancedRateLimiter:
         """Initialize all components"""
         try:
             from src.panel.services.cache_service import get_cache_service
+
             cache = get_cache_service()
-            if hasattr(cache, '_cache') and hasattr(cache._cache, 'connection'):
+            if hasattr(cache, "_cache") and hasattr(cache._cache, "connection"):
                 self.redis = cache._cache.connection
         except Exception:
             logger.warning("Redis not available for advanced rate limiting")
@@ -242,8 +242,8 @@ class AdvancedRateLimiter:
         self.behavior_analyzer = BehaviorAnalyzer(self.redis)
 
         # Cloudflare integration
-        cf_token = self.app.config.get('CLOUDFLARE_API_TOKEN')
-        cf_zone = self.app.config.get('CLOUDFLARE_ZONE_ID')
+        cf_token = self.app.config.get("CLOUDFLARE_API_TOKEN")
+        cf_zone = self.app.config.get("CLOUDFLARE_ZONE_ID")
         if cf_token and cf_zone:
             self.cloudflare = CloudflareIntegration(cf_token, cf_zone)
             logger.info("Cloudflare integration enabled")
@@ -256,7 +256,7 @@ class AdvancedRateLimiter:
         Returns: (allowed, reason_if_blocked)
         """
         ip = get_remote_address()
-        user_id = getattr(g, 'user_id', None)
+        user_id = getattr(g, "user_id", None)
         identifier = user_id or f"ip:{ip}"
 
         # Check if IP is blocked
@@ -291,7 +291,9 @@ class AdvancedRateLimiter:
     def get_stats(self) -> Dict[str, any]:
         """Get rate limiting statistics"""
         return {
-            "blocked_ips_count": len(self.ip_blocklist.local_blocklist) if not self.redis else "redis-backed",
+            "blocked_ips_count": (
+                len(self.ip_blocklist.local_blocklist) if not self.redis else "redis-backed"
+            ),
             "cloudflare_enabled": self.cloudflare is not None,
             "abuse_threshold": self.abuse_threshold,
             "block_duration": self.block_duration,
@@ -301,6 +303,7 @@ class AdvancedRateLimiter:
 def get_user_id_or_ip():
     """Get user ID if logged in, otherwise use IP address for rate limiting"""
     from flask import session
+
     return session.get("user_id", get_remote_address())
 
 
@@ -313,6 +316,7 @@ def get_rate_limit_by_role():
         try:
             from src.panel import db
             from src.panel.models import User
+
             user = db.session.get(User, user_id)
             if user and user.is_system_admin():
                 return "1000 per hour"
@@ -358,50 +362,71 @@ def setup_rate_limiting(app: Flask):
         return {
             "error": "Rate limit exceeded",
             "message": str(e.description),
-            "retry_after": getattr(e, 'retry_after', 3600)
+            "retry_after": getattr(e, "retry_after", 3600),
         }, 429
 
     # Request middleware for abuse prevention
     @app.before_request
     def check_abuse_prevention():
-        if request.endpoint in ['static', 'health', 'metrics']:
+        if request.endpoint in ["static", "health", "metrics"]:
             return  # Skip checks for static/health endpoints
 
         allowed, reason = advanced_limiter.check_request()
         if not allowed:
             logger.warning(f"Request blocked: {get_remote_address()} - {reason}")
-            return {
-                "error": "Access denied",
-                "message": reason or "Request blocked"
-            }, 403
+            return {"error": "Access denied", "message": reason or "Request blocked"}, 403
 
     # Specific limits for sensitive endpoints
-    limiter.limit("5 per minute")(app.view_functions.get('login', lambda: None))
-    limiter.limit("3 per minute")(app.view_functions.get('register', lambda: None))
-    limiter.limit("2 per minute")(app.view_functions.get('forgot', lambda: None))
-    limiter.limit("10 per hour")(app.view_functions.get('reset', lambda: None))
+    limiter.limit("5 per minute")(app.view_functions.get("login", lambda: None))
+    limiter.limit("3 per minute")(app.view_functions.get("register", lambda: None))
+    limiter.limit("2 per minute")(app.view_functions.get("forgot", lambda: None))
+    limiter.limit("10 per hour")(app.view_functions.get("reset", lambda: None))
 
     # API endpoints
-    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('api_get_tokens', lambda: None))
-    limiter.limit("100 per hour", key_func=get_user_id_or_ip)(app.view_functions.get('api_health', lambda: None))
+    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("api_get_tokens", lambda: None)
+    )
+    limiter.limit("100 per hour", key_func=get_user_id_or_ip)(
+        app.view_functions.get("api_health", lambda: None)
+    )
 
     # Admin endpoints
-    limiter.limit(get_rate_limit_by_role, key_func=get_user_id_or_ip)(app.view_functions.get('teams_dashboard', lambda: None))
-    limiter.limit(get_rate_limit_by_role, key_func=get_user_id_or_ip)(app.view_functions.get('security_dashboard', lambda: None))
-    limiter.limit("50 per hour", key_func=get_user_id_or_ip)(app.view_functions.get('admin_users', lambda: None))
+    limiter.limit(get_rate_limit_by_role, key_func=get_user_id_or_ip)(
+        app.view_functions.get("teams_dashboard", lambda: None)
+    )
+    limiter.limit(get_rate_limit_by_role, key_func=get_user_id_or_ip)(
+        app.view_functions.get("security_dashboard", lambda: None)
+    )
+    limiter.limit("50 per hour", key_func=get_user_id_or_ip)(
+        app.view_functions.get("admin_users", lambda: None)
+    )
 
     # Server management
-    limiter.limit("20 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('server_create', lambda: None))
-    limiter.limit("50 per hour", key_func=get_user_id_or_ip)(app.view_functions.get('server_edit', lambda: None))
+    limiter.limit("20 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("server_create", lambda: None)
+    )
+    limiter.limit("50 per hour", key_func=get_user_id_or_ip)(
+        app.view_functions.get("server_edit", lambda: None)
+    )
 
     # Forum endpoints
-    limiter.limit("60 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('forum_index', lambda: None))
-    limiter.limit("10 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('create_thread', lambda: None))
-    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('post_reply', lambda: None))
+    limiter.limit("60 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("forum_index", lambda: None)
+    )
+    limiter.limit("10 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("create_thread", lambda: None)
+    )
+    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("post_reply", lambda: None)
+    )
 
     # CMS endpoints
-    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(app.view_functions.get('blog_index', lambda: None))
-    limiter.limit("5 per hour", key_func=get_user_id_or_ip)(app.view_functions.get('create_post', lambda: None))
+    limiter.limit("30 per minute", key_func=get_user_id_or_ip)(
+        app.view_functions.get("blog_index", lambda: None)
+    )
+    limiter.limit("5 per hour", key_func=get_user_id_or_ip)(
+        app.view_functions.get("create_post", lambda: None)
+    )
 
     # Store advanced limiter in app for access
     app.advanced_limiter = advanced_limiter
@@ -415,32 +440,32 @@ def setup_rate_limiting(app: Flask):
 def init_rate_limiting_admin(app: Flask):
     """Initialize admin endpoints for rate limiting management"""
 
-    @app.route('/admin/rate-limiting/stats')
+    @app.route("/admin/rate-limiting/stats")
     @auth_admin_required
     def rate_limiting_stats():
         """Get rate limiting statistics"""
-        limiter = getattr(app, 'advanced_limiter', None)
+        limiter = getattr(app, "advanced_limiter", None)
         if not limiter:
             return jsonify({"error": "Advanced rate limiter not initialized"}), 500
 
         return jsonify(limiter.get_stats())
 
-    @app.route('/admin/rate-limiting/block/<ip>', methods=['POST'])
+    @app.route("/admin/rate-limiting/block/<ip>", methods=["POST"])
     @auth_admin_required
     def block_ip_admin(ip):
         """Manually block an IP"""
-        limiter = getattr(app, 'advanced_limiter', None)
+        limiter = getattr(app, "advanced_limiter", None)
         if not limiter:
             return jsonify({"error": "Advanced rate limiter not initialized"}), 500
 
         limiter.block_ip(ip, "manual_admin_block")
         return jsonify({"status": "IP blocked", "ip": ip})
 
-    @app.route('/admin/rate-limiting/unblock/<ip>', methods=['POST'])
+    @app.route("/admin/rate-limiting/unblock/<ip>", methods=["POST"])
     @auth_admin_required
     def unblock_ip_admin(ip):
         """Manually unblock an IP"""
-        limiter = getattr(app, 'advanced_limiter', None)
+        limiter = getattr(app, "advanced_limiter", None)
         if not limiter:
             return jsonify({"error": "Advanced rate limiter not initialized"}), 500
 

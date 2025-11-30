@@ -159,7 +159,7 @@ check_image_size() {
 
 validate_dependencies() {
     echo -n "Checking Python dependencies... "
-    if [ -f "requirements-prod.txt" ] && [ -f "requirements-dev.txt" ]; then
+    if [ -f "requirements/requirements-prod.txt" ] && [ -f "requirements/requirements-dev.txt" ]; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗ Requirements files missing${NC}"

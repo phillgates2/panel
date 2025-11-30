@@ -73,8 +73,8 @@ class Thread(db.Model):
     author = db.relationship("User", backref="forum_threads", foreign_keys=[author_id])
 
     __table_args__ = (
-        db.Index('idx_thread_author', 'author_id'),
-        db.Index('idx_thread_pinned_created', 'is_pinned', 'created_at'),
+        db.Index("idx_thread_author", "author_id"),
+        db.Index("idx_thread_pinned_created", "is_pinned", "created_at"),
     )
 
 
@@ -90,9 +90,9 @@ class Post(db.Model):
     author = db.relationship("User", backref="forum_posts", foreign_keys=[author_id])
 
     __table_args__ = (
-        db.Index('idx_post_thread', 'thread_id'),
-        db.Index('idx_post_author', 'author_id'),
-        db.Index('idx_post_created', 'created_at'),
+        db.Index("idx_post_thread", "thread_id"),
+        db.Index("idx_post_author", "author_id"),
+        db.Index("idx_post_created", "created_at"),
     )
 
 

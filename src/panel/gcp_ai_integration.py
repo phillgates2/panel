@@ -12,14 +12,15 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 class GCPAIAgent:
     """GCP AI agent using Vertex AI"""
 
     def __init__(self):
         try:
             vertexai.init(
-                project=os.getenv('GOOGLE_CLOUD_PROJECT'),
-                location=os.getenv('GOOGLE_CLOUD_REGION', 'us-central1')
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location=os.getenv("GOOGLE_CLOUD_REGION", "us-central1"),
             )
             self.model = GenerativeModel("gemini-1.5-pro")
             self.vision_model = GenerativeModel("gemini-1.5-pro-vision")  # For image analysis
@@ -47,28 +48,30 @@ Be detailed but concise in your analysis."""
             response = await self.model.generate_content([prompt])
 
             return {
-                'analysis': response.text,
-                'moderated': self._assess_content_safety(response.text),
-                'tags': self._extract_tags_from_analysis(response.text),
-                'timestamp': datetime.utcnow().isoformat()
+                "analysis": response.text,
+                "moderated": self._assess_content_safety(response.text),
+                "tags": self._extract_tags_from_analysis(response.text),
+                "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"GCP image analysis failed: {e}")
             return {
-                'analysis': 'Image analysis failed',
-                'moderated': True,
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "analysis": "Image analysis failed",
+                "moderated": True,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     async def predict_user_behavior(self, user_history: List[Dict]) -> Dict[str, Any]:
         """Predict user behavior using Vertex AI"""
         try:
             # Format user history for analysis
-            history_text = "\n".join([
-                f"- {item.get('action', 'unknown')}: {item.get('details', '')} at {item.get('timestamp', '')}"
-                for item in user_history[-20:]  # Last 20 actions
-            ])
+            history_text = "\n".join(
+                [
+                    f"- {item.get('action', 'unknown')}: {item.get('details', '')} at {item.get('timestamp', '')}"
+                    for item in user_history[-20:]  # Last 20 actions
+                ]
+            )
 
             prompt = f"""Based on this user's activity history, predict their behavior and preferences:
 
@@ -90,19 +93,21 @@ Format your response as a structured analysis."""
             analysis = self._parse_behavior_analysis(response.text)
 
             return {
-                'predictions': response.text,
-                'interests': analysis.get('interests', []),
-                'engagement': analysis.get('engagement', {'level': 'medium', 'confidence': 0.5}),
-                'recommendations': analysis.get('recommendations', []),
-                'churn_risk': analysis.get('churn_risk', {'level': 'medium', 'reasoning': 'Analysis completed'}),
-                'timestamp': datetime.utcnow().isoformat()
+                "predictions": response.text,
+                "interests": analysis.get("interests", []),
+                "engagement": analysis.get("engagement", {"level": "medium", "confidence": 0.5}),
+                "recommendations": analysis.get("recommendations", []),
+                "churn_risk": analysis.get(
+                    "churn_risk", {"level": "medium", "reasoning": "Analysis completed"}
+                ),
+                "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"GCP behavior prediction failed: {e}")
             return {
-                'predictions': 'Analysis failed',
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "predictions": "Analysis failed",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     async def generate_content(self, prompt: str, content_type: str = "general") -> str:
@@ -114,7 +119,7 @@ Format your response as a structured analysis."""
                 "summary": "Provide a concise summary.",
                 "description": "Write an engaging description.",
                 "recommendation": "Give helpful recommendations.",
-                "explanation": "Explain clearly and simply."
+                "explanation": "Explain clearly and simply.",
             }
 
             instruction = type_instructions.get(content_type, "Generate helpful content")
@@ -125,7 +130,7 @@ Format your response as a structured analysis."""
                 generation_config=GenerationConfig(
                     temperature=0.7,
                     max_output_tokens=500,
-                )
+                ),
             )
 
             return response.text.strip()
@@ -139,7 +144,9 @@ Format your response as a structured analysis."""
             # Summarize posts for analysis
             post_summaries = []
             for post in posts[:20]:  # Limit to 20 posts
-                summary = f"Title: {post.get('title', '')}\nContent: {post.get('content', '')[:200]}..."
+                summary = (
+                    f"Title: {post.get('title', '')}\nContent: {post.get('content', '')[:200]}..."
+                )
                 post_summaries.append(summary)
 
             combined_content = "\n\n".join(post_summaries)
@@ -164,24 +171,24 @@ Structure your analysis clearly."""
             analysis = self._parse_trend_analysis(response.text)
 
             return {
-                'topics': analysis.get('topics', []),
-                'sentiment': analysis.get('sentiment', 'neutral'),
-                'issues': analysis.get('issues', []),
-                'trends': analysis.get('trends', []),
-                'recommendations': analysis.get('recommendations', []),
-                'full_analysis': response.text,
-                'timestamp': datetime.utcnow().isoformat()
+                "topics": analysis.get("topics", []),
+                "sentiment": analysis.get("sentiment", "neutral"),
+                "issues": analysis.get("issues", []),
+                "trends": analysis.get("trends", []),
+                "recommendations": analysis.get("recommendations", []),
+                "full_analysis": response.text,
+                "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"GCP forum trend analysis failed: {e}")
             return {
-                'topics': [],
-                'sentiment': 'unknown',
-                'issues': [],
-                'trends': [],
-                'recommendations': [],
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "topics": [],
+                "sentiment": "unknown",
+                "issues": [],
+                "trends": [],
+                "recommendations": [],
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     async def classify_content(self, content: str, categories: List[str]) -> Dict[str, Any]:
@@ -206,27 +213,36 @@ Be precise and justify your classification."""
             classification = self._parse_classification(response.text)
 
             return {
-                'category': classification.get('primary', categories[0] if categories else 'unknown'),
-                'confidence': classification.get('confidence', 0.5),
-                'explanation': classification.get('explanation', 'Classification completed'),
-                'secondary_categories': classification.get('secondary', []),
-                'timestamp': datetime.utcnow().isoformat()
+                "category": classification.get(
+                    "primary", categories[0] if categories else "unknown"
+                ),
+                "confidence": classification.get("confidence", 0.5),
+                "explanation": classification.get("explanation", "Classification completed"),
+                "secondary_categories": classification.get("secondary", []),
+                "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             logger.error(f"GCP content classification failed: {e}")
             return {
-                'category': categories[0] if categories else 'unknown',
-                'confidence': 0.0,
-                'explanation': 'Classification failed',
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
+                "category": categories[0] if categories else "unknown",
+                "confidence": 0.0,
+                "explanation": "Classification failed",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     def _assess_content_safety(self, analysis: str) -> bool:
         """Assess if content is safe based on analysis"""
         unsafe_indicators = [
-            'inappropriate', 'explicit', 'violent', 'harmful',
-            'offensive', 'nsfw', 'adult', 'unsafe', 'dangerous'
+            "inappropriate",
+            "explicit",
+            "violent",
+            "harmful",
+            "offensive",
+            "nsfw",
+            "adult",
+            "unsafe",
+            "dangerous",
         ]
 
         analysis_lower = analysis.lower()
@@ -239,7 +255,7 @@ Be precise and justify your classification."""
         potential_tags = []
 
         # Look for gaming-related terms
-        gaming_terms = ['gaming', 'game', 'server', 'player', 'community', 'forum', 'chat']
+        gaming_terms = ["gaming", "game", "server", "player", "community", "forum", "chat"]
         for term in gaming_terms:
             if term in words:
                 potential_tags.append(term)
@@ -250,29 +266,29 @@ Be precise and justify your classification."""
         """Parse behavior analysis response"""
         # Simplified parsing - in production, use more sophisticated NLP
         return {
-            'interests': [],
-            'engagement': {'level': 'medium', 'confidence': 0.5},
-            'recommendations': [],
-            'churn_risk': {'level': 'medium', 'reasoning': 'Analysis completed'}
+            "interests": [],
+            "engagement": {"level": "medium", "confidence": 0.5},
+            "recommendations": [],
+            "churn_risk": {"level": "medium", "reasoning": "Analysis completed"},
         }
 
     def _parse_trend_analysis(self, text: str) -> Dict[str, Any]:
         """Parse trend analysis response"""
         # Simplified parsing
         return {
-            'topics': [],
-            'sentiment': 'neutral',
-            'issues': [],
-            'trends': [],
-            'recommendations': []
+            "topics": [],
+            "sentiment": "neutral",
+            "issues": [],
+            "trends": [],
+            "recommendations": [],
         }
 
     def _parse_classification(self, text: str) -> Dict[str, Any]:
         """Parse classification response"""
         # Simplified parsing
         return {
-            'primary': 'general',
-            'confidence': 0.5,
-            'explanation': 'Classification completed',
-            'secondary': []
+            "primary": "general",
+            "confidence": 0.5,
+            "explanation": "Classification completed",
+            "secondary": [],
         }

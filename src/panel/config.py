@@ -3,8 +3,10 @@ from urllib.parse import quote_plus
 
 from .os_paths import os_paths
 
+
 class Config:
     """Base configuration class."""
+
     SECRET_KEY = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
 
     # Database configuration: PostgreSQL for production, SQLite for dev
@@ -25,11 +27,11 @@ class Config:
 
     # Database connection pooling and performance optimization
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,  # Verify connections before use
-        'pool_recycle': 300,    # Recycle connections after 5 minutes
-        'pool_size': 10,        # Base pool size
-        'max_overflow': 20,     # Maximum overflow connections
-        'pool_timeout': 30,     # Connection timeout
+        "pool_pre_ping": True,  # Verify connections before use
+        "pool_recycle": 300,  # Recycle connections after 5 minutes
+        "pool_size": 10,  # Base pool size
+        "max_overflow": 20,  # Maximum overflow connections
+        "pool_timeout": 30,  # Connection timeout
     }
 
     # Query optimization settings
@@ -67,6 +69,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     """Development configuration."""
+
     DEBUG = True
     TESTING = False
     USE_SQLITE = True
@@ -76,6 +79,7 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     """Production configuration."""
+
     DEBUG = False
     TESTING = False
     USE_SQLITE = False
@@ -84,6 +88,7 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     """Testing configuration."""
+
     DEBUG = True
     TESTING = True
     USE_SQLITE = True

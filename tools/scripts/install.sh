@@ -18,8 +18,8 @@
 #   - Enterprise integrations
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install.sh | bash -s -- --help
+#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/tools/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/tools/scripts/install.sh | bash -s -- --help
 #
 # ============================================================================
 

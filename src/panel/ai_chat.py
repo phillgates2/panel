@@ -18,6 +18,7 @@ from src.panel.enhanced_ai import get_enhanced_ai_agent
 
 logger = logging.getLogger(__name__)
 
+
 class AIChatManager:
     """Manages real-time AI chat conversations"""
 
@@ -34,14 +35,14 @@ class AIChatManager:
         conversation_id = str(uuid.uuid4())
 
         self.active_conversations[user_id] = {
-            'id': conversation_id,
-            'user_id': user_id,
-            'room': room,
-            'messages': [],
-            'started_at': datetime.utcnow(),
-            'last_activity': datetime.utcnow(),
-            'ai_personality': 'helpful_assistant',
-            'context': {}
+            "id": conversation_id,
+            "user_id": user_id,
+            "room": room,
+            "messages": [],
+            "started_at": datetime.utcnow(),
+            "last_activity": datetime.utcnow(),
+            "ai_personality": "helpful_assistant",
+            "context": {},
         }
 
         logger.info(f"Started AI conversation {conversation_id} for user {user_id}")
@@ -53,12 +54,12 @@ class AIChatManager:
             return False
 
         conversation = self.active_conversations[user_id]
-        conversation['messages'].append(message)
-        conversation['last_activity'] = datetime.utcnow()
+        conversation["messages"].append(message)
+        conversation["last_activity"] = datetime.utcnow()
 
         # Keep only last 50 messages to prevent memory issues
-        if len(conversation['messages']) > 50:
-            conversation['messages'] = conversation['messages'][-50:]
+        if len(conversation["messages"]) > 50:
+            conversation["messages"] = conversation["messages"][-50:]
 
         return True
 
@@ -68,26 +69,28 @@ class AIChatManager:
             return []
 
         conversation = self.active_conversations[user_id]
-        return conversation['messages'][-limit:]
+        return conversation["messages"][-limit:]
 
-    async def generate_ai_response(self, user_id: int, user_message: str, message_type: str = "text") -> Dict[str, Any]:
+    async def generate_ai_response(
+        self, user_id: int, user_message: str, message_type: str = "text"
+    ) -> Dict[str, Any]:
         """Generate AI response for user message"""
         if not self.enhanced_ai:
             return {
-                'response': 'AI assistant is currently unavailable.',
-                'type': 'text',
-                'timestamp': datetime.utcnow().isoformat()
+                "response": "AI assistant is currently unavailable.",
+                "type": "text",
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         conversation = self.active_conversations.get(user_id, {})
-        history = conversation.get('messages', [])
+        history = conversation.get("messages", [])
 
         # Prepare context for AI
         context = {
-            'conversation_history': history[-10:],  # Last 10 messages
-            'user_id': user_id,
-            'message_type': message_type,
-            'personality': conversation.get('ai_personality', 'helpful_assistant')
+            "conversation_history": history[-10:],  # Last 10 messages
+            "user_id": user_id,
+            "message_type": message_type,
+            "personality": conversation.get("ai_personality", "helpful_assistant"),
         }
 
         try:
@@ -99,32 +102,37 @@ class AIChatManager:
                 response = await self._process_image_message(user_message, context)
             else:
                 # Text message
-                response = await self.enhanced_ai.generate_response(user_message, json.dumps(context))
+                response = await self.enhanced_ai.generate_response(
+                    user_message, json.dumps(context)
+                )
 
             ai_response = {
-                'response': response,
-                'type': message_type,
-                'timestamp': datetime.utcnow().isoformat(),
-                'conversation_id': conversation.get('id')
+                "response": response,
+                "type": message_type,
+                "timestamp": datetime.utcnow().isoformat(),
+                "conversation_id": conversation.get("id"),
             }
 
             # Add AI response to conversation
-            self.add_message(user_id, {
-                'role': 'assistant',
-                'content': response,
-                'type': message_type,
-                'timestamp': ai_response['timestamp']
-            })
+            self.add_message(
+                user_id,
+                {
+                    "role": "assistant",
+                    "content": response,
+                    "type": message_type,
+                    "timestamp": ai_response["timestamp"],
+                },
+            )
 
             return ai_response
 
         except Exception as e:
             logger.error(f"AI response generation failed: {e}")
             return {
-                'response': 'I apologize, but I encountered an error. Please try again.',
-                'type': 'text',
-                'timestamp': datetime.utcnow().isoformat(),
-                'error': str(e)
+                "response": "I apologize, but I encountered an error. Please try again.",
+                "type": "text",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e),
             }
 
     async def _process_voice_message(self, audio_data: str, context: Dict) -> str:
@@ -181,12 +189,7 @@ Generate a helpful response that acknowledges the image and provides relevant as
     async def _analyze_voice_characteristics(self, audio_data: str) -> Dict[str, Any]:
         """Analyze voice characteristics like emotion, speed, etc."""
         # Placeholder - would integrate with voice analysis services
-        return {
-            'emotion': 'neutral',
-            'confidence': 0.8,
-            'speed': 'normal',
-            'clarity': 'good'
-        }
+        return {"emotion": "neutral", "confidence": 0.8, "speed": "normal", "clarity": "good"}
 
     def end_conversation(self, user_id: int) -> bool:
         """End conversation for user"""
@@ -202,7 +205,7 @@ Generate a helpful response that acknowledges the image and provides relevant as
         to_remove = []
 
         for user_id, conversation in self.active_conversations.items():
-            if current_time - conversation['last_activity'] > self.conversation_timeout:
+            if current_time - conversation["last_activity"] > self.conversation_timeout:
                 to_remove.append(user_id)
 
         for user_id in to_remove:
@@ -234,8 +237,10 @@ Generate a helpful response that acknowledges the image and provides relevant as
         """Get users currently typing in room"""
         return list(self.typing_users[room])
 
+
 # Global AI chat manager
 ai_chat_manager = None
+
 
 def init_ai_chat():
     """Initialize AI chat manager"""
@@ -243,34 +248,39 @@ def init_ai_chat():
     ai_chat_manager = AIChatManager()
     logger.info("AI chat manager initialized")
 
+
 def get_ai_chat_manager() -> Optional[AIChatManager]:
     """Get the AI chat manager instance"""
     return ai_chat_manager
+
 
 # WebSocket event handlers
 def register_ai_chat_handlers(socketio):
     """Register AI chat WebSocket event handlers"""
 
-    @socketio.on('ai_chat_join')
+    @socketio.on("ai_chat_join")
     def handle_ai_chat_join(data):
         """User joins AI chat"""
-        user_id = data.get('user_id')
+        user_id = data.get("user_id")
         room = f"ai_chat_{user_id}"
 
         join_room(room)
-        emit('ai_chat_joined', {
-            'conversation_id': ai_chat_manager.start_conversation(user_id, room),
-            'message': 'AI assistant is ready to help!'
-        })
+        emit(
+            "ai_chat_joined",
+            {
+                "conversation_id": ai_chat_manager.start_conversation(user_id, room),
+                "message": "AI assistant is ready to help!",
+            },
+        )
 
         ai_chat_manager.user_online(user_id)
 
-    @socketio.on('ai_chat_message')
+    @socketio.on("ai_chat_message")
     async def handle_ai_chat_message(data):
         """Handle AI chat message"""
-        user_id = data.get('user_id')
-        message = data.get('message', '')
-        message_type = data.get('type', 'text')
+        user_id = data.get("user_id")
+        message = data.get("message", "")
+        message_type = data.get("type", "text")
 
         if not message:
             return
@@ -278,64 +288,79 @@ def register_ai_chat_handlers(socketio):
         room = f"ai_chat_{user_id}"
 
         # Add user message to conversation
-        ai_chat_manager.add_message(user_id, {
-            'role': 'user',
-            'content': message,
-            'type': message_type,
-            'timestamp': datetime.utcnow().isoformat()
-        })
+        ai_chat_manager.add_message(
+            user_id,
+            {
+                "role": "user",
+                "content": message,
+                "type": message_type,
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        )
 
         # Emit user message to room
-        emit('ai_chat_message', {
-            'role': 'user',
-            'content': message,
-            'type': message_type,
-            'timestamp': datetime.utcnow().isoformat()
-        }, room=room)
+        emit(
+            "ai_chat_message",
+            {
+                "role": "user",
+                "content": message,
+                "type": message_type,
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+            room=room,
+        )
 
         # Generate AI response
         ai_response = await ai_chat_manager.generate_ai_response(user_id, message, message_type)
 
         # Emit AI response to room
-        emit('ai_chat_message', {
-            'role': 'assistant',
-            'content': ai_response['response'],
-            'type': ai_response['type'],
-            'timestamp': ai_response['timestamp']
-        }, room=room)
+        emit(
+            "ai_chat_message",
+            {
+                "role": "assistant",
+                "content": ai_response["response"],
+                "type": ai_response["type"],
+                "timestamp": ai_response["timestamp"],
+            },
+            room=room,
+        )
 
-    @socketio.on('ai_chat_typing')
+    @socketio.on("ai_chat_typing")
     def handle_ai_chat_typing(data):
         """Handle typing indicators"""
-        user_id = data.get('user_id')
+        user_id = data.get("user_id")
         room = f"ai_chat_{user_id}"
-        is_typing = data.get('typing', False)
+        is_typing = data.get("typing", False)
 
         ai_chat_manager.user_typing(user_id, room, is_typing)
 
         # Broadcast typing status to room
-        emit('ai_chat_typing_update', {
-            'typing_users': ai_chat_manager.get_typing_users(room)
-        }, room=room, skip_sid=True)
+        emit(
+            "ai_chat_typing_update",
+            {"typing_users": ai_chat_manager.get_typing_users(room)},
+            room=room,
+            skip_sid=True,
+        )
 
-    @socketio.on('ai_chat_leave')
+    @socketio.on("ai_chat_leave")
     def handle_ai_chat_leave(data):
         """User leaves AI chat"""
-        user_id = data.get('user_id')
+        user_id = data.get("user_id")
         room = f"ai_chat_{user_id}"
 
         leave_room(room)
         ai_chat_manager.end_conversation(user_id)
         ai_chat_manager.user_offline(user_id)
 
-        emit('ai_chat_left', {'message': 'AI chat ended'})
+        emit("ai_chat_left", {"message": "AI chat ended"})
 
-    @socketio.on('disconnect')
+    @socketio.on("disconnect")
     def handle_disconnect():
         """Handle user disconnection"""
         # Note: In a real implementation, you'd track user sessions
         # and clean up conversations on disconnect
         pass
+
 
 # Background task for cleanup
 async def cleanup_ai_conversations():
@@ -344,6 +369,7 @@ async def cleanup_ai_conversations():
         if ai_chat_manager:
             ai_chat_manager.cleanup_old_conversations()
         await asyncio.sleep(3600)  # Run every hour
+
 
 # Start cleanup task
 def start_ai_chat_cleanup(socketio):

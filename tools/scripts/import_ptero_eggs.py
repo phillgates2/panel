@@ -141,8 +141,8 @@ def import_all_eggs(eggs_dir):
 
     if not eggs_path.exists():
         print(f"❌ Directory not found: {eggs_dir}")
-        print(f"Please clone the Ptero-Eggs repository first:")
-        print(f"  git clone https://github.com/Ptero-Eggs/game-eggs.git /tmp/game-eggs")
+        print("Please clone the Ptero-Eggs repository first:")
+        print("  git clone https://github.com/Ptero-Eggs/game-eggs.git /tmp/game-eggs")
         return
 
     # Find all egg JSON files
@@ -175,7 +175,7 @@ def import_all_eggs(eggs_dir):
 
             if result == "success":
                 success_count += 1
-                print(f"✅ Imported successfully")
+                print("✅ Imported successfully")
             elif result == "skip":
                 skip_count += 1
             elif result == "error":

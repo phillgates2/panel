@@ -121,7 +121,7 @@ def update_server(server_id, template_id, dry_run=True):
                 if server.config:
                     try:
                         server_config = json.loads(server.config)
-                    except:
+                    except Exception:
                         server_config = {}
                 else:
                     server_config = {}
@@ -175,7 +175,7 @@ def match_servers_to_templates():
 
         for server, templates in matches:
             print(f"Server: {server.name} (ID: {server.id}, Type: {server.game_type})")
-            print(f"  Matching templates:")
+            print("  Matching templates:")
             for template in templates:
                 print(f"    - {template.name} (ID: {template.id})")
             print()

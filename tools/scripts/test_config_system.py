@@ -3,7 +3,6 @@
 Simple test script for configuration management functionality
 """
 
-import json
 import sys
 
 
@@ -37,7 +36,7 @@ def run_config_system_checks():
         sys.modules["app"] = mock_app
         sys.modules["app.db"] = mock_db
 
-        from config_manager import ConfigManager
+        from config_manager import ConfigManager  # noqa: F401
 
         print("  ✅ ConfigManager import ok")
 

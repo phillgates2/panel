@@ -375,7 +375,7 @@ def admin_page(page: Page, test_server):
 # Test utilities
 def take_screenshot_on_failure(page: Page, test_name: str):
     """Take screenshot on test failure"""
-    if hasattr(page, '_screenshot_on_failure'):
+    if hasattr(page, "_screenshot_on_failure"):
         page.screenshot(path=f"test-results/screenshots/{test_name}_failure.png")
 
 

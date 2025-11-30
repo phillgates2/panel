@@ -55,25 +55,27 @@ class DatabaseConfig:
     def sqlalchemy_engine_options(self) -> dict:
         """Generate SQLAlchemy engine options"""
         return {
-            'pool_pre_ping': self.pool_pre_ping,
-            'pool_recycle': self.pool_recycle,
-            'pool_size': self.pool_size,
-            'max_overflow': self.max_overflow,
-            'pool_timeout': self.pool_timeout,
+            "pool_pre_ping": self.pool_pre_ping,
+            "pool_recycle": self.pool_recycle,
+            "pool_size": self.pool_size,
+            "max_overflow": self.max_overflow,
+            "pool_timeout": self.pool_timeout,
         }
 
 
 class LoggingConfig:
     """Logging configuration"""
 
-    VALID_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+    VALID_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
     def __init__(self):
         self.level = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.directory = Path(os.environ.get("LOG_DIR", os_paths.log_dir))
         self.format = os.environ.get("LOG_FORMAT", "text").lower()
         self.audit_enabled = os.environ.get("AUDIT_LOG_ENABLED", "True") == "True"
-        self.audit_directory = Path(os.environ.get("AUDIT_LOG_DIR", os.path.join(str(self.directory), "audit")))
+        self.audit_directory = Path(
+            os.environ.get("AUDIT_LOG_DIR", os.path.join(str(self.directory), "audit"))
+        )
         self.performance_threshold = 500.0
 
 
@@ -93,7 +95,9 @@ class ETLegacyConfig:
         self.server_host = os.environ.get("ET_SERVER_HOST", "127.0.0.1")
         self.server_port = int(os.environ.get("ET_SERVER_PORT", 27960))
         self.rcon_password = os.environ.get("ET_RCON_PASSWORD", "changeme")
-        self.pid_file = Path(os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid")))
+        self.pid_file = Path(
+            os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid"))
+        )
         self.download_dir = Path(os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir))
 
 
@@ -132,7 +136,7 @@ class PanelConfig:
             errors.append(f"LOG_LEVEL must be one of: {', '.join(self.logging.VALID_LEVELS)}")
 
         # Validate log format
-        if self.logging.format not in ['json', 'text']:
+        if self.logging.format not in ["json", "text"]:
             errors.append("LOG_FORMAT must be 'json' or 'text'")
 
         # Validate port ranges
@@ -140,17 +144,17 @@ class PanelConfig:
             errors.append("ET_SERVER_PORT must be between 1 and 65535")
 
         # Validate email formats
-        email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+        email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
         for email in self.security.admin_emails:
             if not email_pattern.match(email):
                 errors.append(f"Invalid email format: {email}")
 
         # Validate Redis URL
-        if not self.redis_url.startswith(('redis://', 'rediss://', 'unix://')):
+        if not self.redis_url.startswith(("redis://", "rediss://", "unix://")):
             errors.append("REDIS_URL must start with redis://, rediss://, or unix://")
 
         # Validate Discord webhook
-        if self.discord_webhook and not self.discord_webhook.startswith(('http://', 'https://')):
+        if self.discord_webhook and not self.discord_webhook.startswith(("http://", "https://")):
             errors.append("DISCORD_WEBHOOK must be a valid HTTP/HTTPS URL")
 
         return errors
@@ -159,43 +163,36 @@ class PanelConfig:
         """Convert to Flask-compatible configuration dictionary"""
         return {
             # Database
-            'SQLALCHEMY_DATABASE_URI': self.database.sqlalchemy_database_uri,
-            'SQLALCHEMY_TRACK_MODIFICATIONS': False,
-            'SQLALCHEMY_ENGINE_OPTIONS': self.database.sqlalchemy_engine_options,
-            'SQLALCHEMY_ECHO': self.database.echo,
-
+            "SQLALCHEMY_DATABASE_URI": self.database.sqlalchemy_database_uri,
+            "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+            "SQLALCHEMY_ENGINE_OPTIONS": self.database.sqlalchemy_engine_options,
+            "SQLALCHEMY_ECHO": self.database.echo,
             # Logging
-            'LOG_LEVEL': self.logging.level,
-            'LOG_DIR': str(self.logging.directory),
-            'LOG_FORMAT': self.logging.format,
-            'AUDIT_LOG_ENABLED': self.logging.audit_enabled,
-            'AUDIT_LOG_DIR': str(self.logging.audit_directory),
-            'PERFORMANCE_THRESHOLD': self.logging.performance_threshold,
-
+            "LOG_LEVEL": self.logging.level,
+            "LOG_DIR": str(self.logging.directory),
+            "LOG_FORMAT": self.logging.format,
+            "AUDIT_LOG_ENABLED": self.logging.audit_enabled,
+            "AUDIT_LOG_DIR": str(self.logging.audit_directory),
+            "PERFORMANCE_THRESHOLD": self.logging.performance_threshold,
             # ET:Legacy
-            'ET_SERVER_HOST': self.etlegacy.server_host,
-            'ET_SERVER_PORT': self.etlegacy.server_port,
-            'ET_RCON_PASSWORD': self.etlegacy.rcon_password,
-            'ET_PID_FILE': str(self.etlegacy.pid_file),
-
+            "ET_SERVER_HOST": self.etlegacy.server_host,
+            "ET_SERVER_PORT": self.etlegacy.server_port,
+            "ET_RCON_PASSWORD": self.etlegacy.rcon_password,
+            "ET_PID_FILE": str(self.etlegacy.pid_file),
             # Notifications
-            'DISCORD_WEBHOOK': self.discord_webhook,
-
+            "DISCORD_WEBHOOK": self.discord_webhook,
             # Security
-            'SECRET_KEY': self.security.secret_key,
-            'ADMIN_EMAILS': self.security.admin_emails,
-
+            "SECRET_KEY": self.security.secret_key,
+            "ADMIN_EMAILS": self.security.admin_emails,
             # System
-            'BACKUP_DIR': str(self.system.backup_dir),
-            'DOWNLOAD_DIR': str(self.etlegacy.download_dir),
-            'OS_SYSTEM': self.system.os_system,
-            'OS_DISTRO': self.system.os_distro,
-
+            "BACKUP_DIR": str(self.system.backup_dir),
+            "DOWNLOAD_DIR": str(self.etlegacy.download_dir),
+            "OS_SYSTEM": self.system.os_system,
+            "OS_DISTRO": self.system.os_distro,
             # Redis
-            'REDIS_URL': self.redis_url,
-
+            "REDIS_URL": self.redis_url,
             # Feature flags
-            'FEATURE_FLAGS': self.feature_flags,
+            "FEATURE_FLAGS": self.feature_flags,
         }
 
 
@@ -205,7 +202,9 @@ def load_config() -> PanelConfig:
     errors = config.validate()
 
     if errors:
-        error_msg = "Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
+        error_msg = "Configuration validation failed:\n" + "\n".join(
+            f"  - {error}" for error in errors
+        )
         raise ValidationError([{"loc": ["config"], "msg": error_msg}])
 
     return config
@@ -220,17 +219,18 @@ def validate_config_file(config_file: Union[str, Path]) -> bool:
 
     try:
         import json
-        with open(config_path, 'r') as f:
+
+        with open(config_path, "r") as f:
             config_data = json.load(f)
 
         # Basic structure validation
-        required_sections = ['database', 'logging', 'security']
+        required_sections = ["database", "logging", "security"]
         for section in required_sections:
             if section not in config_data:
                 print(f"❌ Missing required section: {section}")
                 return False
 
-        if 'secret_key' not in config_data.get('security', {}):
+        if "secret_key" not in config_data.get("security", {}):
             print("❌ Missing required field: security.secret_key")
             return False
 
@@ -250,29 +250,24 @@ def generate_config_template(output_file: Union[str, Path]) -> None:
     config_path = Path(output_file)
 
     template_config = {
-        "database": {
-            "use_sqlite": True,
-            "sqlite_uri": "sqlite:///panel_dev.db"
-        },
-        "logging": {
-            "level": "INFO",
-            "format": "json"
-        },
+        "database": {"use_sqlite": True, "sqlite_uri": "sqlite:///panel_dev.db"},
+        "logging": {"level": "INFO", "format": "json"},
         "security": {
             "secret_key": "your-very-secure-secret-key-here-minimum-16-chars",
-            "admin_emails": ["admin@example.com"]
+            "admin_emails": ["admin@example.com"],
         },
         "etlegacy": {
             "server_host": "127.0.0.1",
             "server_port": 27960,
-            "rcon_password": "secure-rcon-password"
+            "rcon_password": "secure-rcon-password",
         },
         "redis_url": "redis://127.0.0.1:6379/0",
-        "discord_webhook": "https://discord.com/api/webhooks/your-webhook-url"
+        "discord_webhook": "https://discord.com/api/webhooks/your-webhook-url",
     }
 
     import json
-    with open(config_path, 'w') as f:
+
+    with open(config_path, "w") as f:
         json.dump(template_config, f, indent=2)
 
     print(f"Configuration template generated: {config_path}")

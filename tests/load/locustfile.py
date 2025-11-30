@@ -3,12 +3,13 @@ Load Testing with Locust
 Performance testing and stress testing for the Panel application
 """
 
-import os
 import json
+import os
 import time
-from locust import HttpUser, TaskSet, task, between, events
-from locust.contrib.fasthttp import FastHttpUser
+
 import gevent
+from locust import HttpUser, TaskSet, between, events, task
+from locust.contrib.fasthttp import FastHttpUser
 
 
 class WebsiteUser(FastHttpUser):
@@ -19,12 +20,12 @@ class WebsiteUser(FastHttpUser):
     def on_start(self):
         """Setup user session"""
         self.client.headers = {
-            'User-Agent': 'Panel Load Test/1.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
+            "User-Agent": "Panel Load Test/1.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         }
 
     @task(10)
@@ -61,7 +62,7 @@ class WebsiteUser(FastHttpUser):
             "/static/css/style.css",
             "/static/js/app.js",
             "/static/manifest.json",
-            "/static/icons/icon-192.png"
+            "/static/icons/icon-192.png",
         ]
 
         for asset in assets:
@@ -84,9 +85,9 @@ class AuthenticatedUser(FastHttpUser):
     def login(self):
         """Perform login"""
         login_data = {
-            'email': os.getenv('TEST_USER_EMAIL', 'test@example.com'),
-            'password': os.getenv('TEST_USER_PASSWORD', 'test123'),
-            'captcha': 'TEST123'
+            "email": os.getenv("TEST_USER_EMAIL", "test@example.com"),
+            "password": os.getenv("TEST_USER_PASSWORD", "test123"),
+            "captcha": "TEST123",
         }
 
         with self.client.post("/login", data=login_data, catch_response=True) as response:
@@ -101,7 +102,7 @@ class AuthenticatedUser(FastHttpUser):
     @task(8)
     def dashboard(self):
         """Load dashboard page"""
-        if not getattr(self, 'logged_in', False):
+        if not getattr(self, "logged_in", False):
             self.login()
             return
 
@@ -114,7 +115,7 @@ class AuthenticatedUser(FastHttpUser):
     @task(6)
     def profile_page(self):
         """Load profile page"""
-        if not getattr(self, 'logged_in', False):
+        if not getattr(self, "logged_in", False):
             self.login()
             return
 
@@ -127,7 +128,7 @@ class AuthenticatedUser(FastHttpUser):
     @task(4)
     def forum_interaction(self):
         """Interact with forum"""
-        if not getattr(self, 'logged_in', False):
+        if not getattr(self, "logged_in", False):
             self.login()
             return
 
@@ -152,10 +153,12 @@ class APIUser(FastHttpUser):
 
     def on_start(self):
         """Setup API user"""
-        self.client.headers.update({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        })
+        self.client.headers.update(
+            {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        )
 
         # Login and get token if needed
         self.token = self.get_auth_token()
@@ -163,16 +166,16 @@ class APIUser(FastHttpUser):
     def get_auth_token(self):
         """Get authentication token"""
         login_data = {
-            'email': os.getenv('TEST_USER_EMAIL', 'test@example.com'),
-            'password': os.getenv('TEST_USER_PASSWORD', 'test123'),
-            'captcha': 'TEST123'
+            "email": os.getenv("TEST_USER_EMAIL", "test@example.com"),
+            "password": os.getenv("TEST_USER_PASSWORD", "test123"),
+            "captcha": "TEST123",
         }
 
         with self.client.post("/login", json=login_data, catch_response=True) as response:
             if response.status_code == 200:
                 # Extract token from response (adjust based on your auth system)
                 data = response.json()
-                return data.get('token')
+                return data.get("token")
             else:
                 response.failure(f"API login failed: {response.status_code}")
                 return None
@@ -190,7 +193,7 @@ class APIUser(FastHttpUser):
     def api_user_profile(self):
         """Test user profile API"""
         if self.token:
-            self.client.headers['Authorization'] = f'Bearer {self.token}'
+            self.client.headers["Authorization"] = f"Bearer {self.token}"
 
         with self.client.get("/api/user/profile", catch_response=True) as response:
             if response.status_code == 200:
@@ -217,7 +220,7 @@ class APIUser(FastHttpUser):
     def api_gdpr_endpoints(self):
         """Test GDPR API endpoints"""
         if self.token:
-            self.client.headers['Authorization'] = f'Bearer {self.token}'
+            self.client.headers["Authorization"] = f"Bearer {self.token}"
 
         with self.client.get("/api/gdpr/consent", catch_response=True) as response:
             if response.status_code in [200, 401]:  # 401 is expected without auth
@@ -238,9 +241,9 @@ class AdminUser(FastHttpUser):
     def admin_login(self):
         """Perform admin login"""
         login_data = {
-            'email': os.getenv('TEST_ADMIN_EMAIL', 'admin@example.com'),
-            'password': os.getenv('TEST_ADMIN_PASSWORD', 'admin123'),
-            'captcha': 'TEST123'
+            "email": os.getenv("TEST_ADMIN_EMAIL", "admin@example.com"),
+            "password": os.getenv("TEST_ADMIN_PASSWORD", "admin123"),
+            "captcha": "TEST123",
         }
 
         with self.client.post("/login", data=login_data, catch_response=True) as response:
@@ -254,7 +257,7 @@ class AdminUser(FastHttpUser):
     @task(5)
     def admin_dashboard(self):
         """Load admin dashboard"""
-        if not getattr(self, 'admin_logged_in', False):
+        if not getattr(self, "admin_logged_in", False):
             self.admin_login()
             return
 
@@ -267,7 +270,7 @@ class AdminUser(FastHttpUser):
     @task(3)
     def admin_users(self):
         """Load admin user management"""
-        if not getattr(self, 'admin_logged_in', False):
+        if not getattr(self, "admin_logged_in", False):
             self.admin_login()
             return
 
@@ -280,7 +283,7 @@ class AdminUser(FastHttpUser):
     @task(2)
     def admin_audit(self):
         """Load admin audit log"""
-        if not getattr(self, 'admin_logged_in', False):
+        if not getattr(self, "admin_logged_in", False):
             self.admin_login()
             return
 
@@ -299,15 +302,10 @@ class StressTestUser(FastHttpUser):
     @task
     def stress_test_endpoint(self):
         """Hit endpoints rapidly for stress testing"""
-        endpoints = [
-            "/",
-            "/forum",
-            "/api/health",
-            "/static/css/style.css",
-            "/static/manifest.json"
-        ]
+        endpoints = ["/", "/forum", "/api/health", "/static/css/style.css", "/static/manifest.json"]
 
         import random
+
         endpoint = random.choice(endpoints)
 
         with self.client.get(endpoint, catch_response=True) as response:
@@ -335,8 +333,9 @@ def on_test_stop(environment, **kwargs):
 
 
 @events.request.add_listener
-def on_request(request_type, name, response_time, response_length, response,
-               context, exception, **kwargs):
+def on_request(
+    request_type, name, response_time, response_length, response, context, exception, **kwargs
+):
     """Called for each request"""
     if exception:
         print(f"Request failed: {name} - {exception}")
@@ -347,31 +346,31 @@ def generate_load_test_report(environment):
     import datetime
 
     report = {
-        'timestamp': datetime.datetime.utcnow().isoformat(),
-        'test_duration': environment.runner.stats.total_run_time,
-        'total_requests': environment.runner.stats.num_requests,
-        'total_failures': environment.runner.stats.num_failures,
-        'requests_per_second': environment.runner.stats.total_rps,
-        'average_response_time': environment.runner.stats.avg_response_time,
-        'median_response_time': environment.runner.stats.median_response_time,
-        '95th_percentile': environment.runner.stats.get_percentile(95),
-        '99th_percentile': environment.runner.stats.get_percentile(99),
-        'user_classes': {}
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "test_duration": environment.runner.stats.total_run_time,
+        "total_requests": environment.runner.stats.num_requests,
+        "total_failures": environment.runner.stats.num_failures,
+        "requests_per_second": environment.runner.stats.total_rps,
+        "average_response_time": environment.runner.stats.avg_response_time,
+        "median_response_time": environment.runner.stats.median_response_time,
+        "95th_percentile": environment.runner.stats.get_percentile(95),
+        "99th_percentile": environment.runner.stats.get_percentile(99),
+        "user_classes": {},
     }
 
     # Per-user-class statistics
     for user_class_name, user_class_stats in environment.runner.stats.entries.items():
-        report['user_classes'][user_class_name] = {
-            'num_requests': user_class_stats.num_requests,
-            'num_failures': user_class_stats.num_failures,
-            'average_response_time': user_class_stats.avg_response_time,
-            'min_response_time': user_class_stats.min_response_time,
-            'max_response_time': user_class_stats.max_response_time,
-            'requests_per_second': user_class_stats.total_rps,
+        report["user_classes"][user_class_name] = {
+            "num_requests": user_class_stats.num_requests,
+            "num_failures": user_class_stats.num_failures,
+            "average_response_time": user_class_stats.avg_response_time,
+            "min_response_time": user_class_stats.min_response_time,
+            "max_response_time": user_class_stats.max_response_time,
+            "requests_per_second": user_class_stats.total_rps,
         }
 
     # Save report
-    with open('test-results/load_test_report.json', 'w') as f:
+    with open("test-results/load_test_report.json", "w") as f:
         json.dump(report, f, indent=2)
 
     print("Load test report saved to test-results/load_test_report.json")
@@ -393,39 +392,39 @@ class PerformanceMonitor:
 
     def __init__(self):
         self.metrics = {
-            'response_times': [],
-            'error_rates': [],
-            'throughput': [],
-            'memory_usage': [],
-            'cpu_usage': []
+            "response_times": [],
+            "error_rates": [],
+            "throughput": [],
+            "memory_usage": [],
+            "cpu_usage": [],
         }
 
     def record_response_time(self, response_time):
         """Record response time"""
-        self.metrics['response_times'].append(response_time)
+        self.metrics["response_times"].append(response_time)
 
     def record_error(self):
         """Record error occurrence"""
-        self.metrics['error_rates'].append(1)
+        self.metrics["error_rates"].append(1)
 
     def record_success(self):
         """Record successful request"""
-        self.metrics['error_rates'].append(0)
+        self.metrics["error_rates"].append(0)
 
     def get_summary(self):
         """Get performance summary"""
-        response_times = self.metrics['response_times']
-        error_rates = self.metrics['error_rates']
+        response_times = self.metrics["response_times"]
+        error_rates = self.metrics["error_rates"]
 
         if not response_times:
             return {}
 
         return {
-            'avg_response_time': sum(response_times) / len(response_times),
-            'min_response_time': min(response_times),
-            'max_response_time': max(response_times),
-            'error_rate': sum(error_rates) / len(error_rates) if error_rates else 0,
-            'total_requests': len(response_times)
+            "avg_response_time": sum(response_times) / len(response_times),
+            "min_response_time": min(response_times),
+            "max_response_time": max(response_times),
+            "error_rate": sum(error_rates) / len(error_rates) if error_rates else 0,
+            "total_requests": len(response_times),
         }
 
 
@@ -434,8 +433,9 @@ performance_monitor = PerformanceMonitor()
 
 
 @events.request.add_listener
-def record_performance(request_type, name, response_time, response_length, response,
-                      context, exception, **kwargs):
+def record_performance(
+    request_type, name, response_time, response_length, response, context, exception, **kwargs
+):
     """Record performance metrics"""
     performance_monitor.record_response_time(response_time)
 

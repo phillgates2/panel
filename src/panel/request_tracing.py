@@ -35,13 +35,13 @@ class RequestTracer:
         @app.after_request
         def add_request_id_header(response):
             """Add request ID to response headers."""
-            if hasattr(g, 'request_id'):
-                response.headers['X-Request-ID'] = g.request_id
+            if hasattr(g, "request_id"):
+                response.headers["X-Request-ID"] = g.request_id
 
                 # Add request duration
-                if hasattr(g, 'request_start_time'):
+                if hasattr(g, "request_start_time"):
                     duration = time.time() - g.request_start_time
-                    response.headers['X-Request-Duration'] = f"{duration:.3f}s"
+                    response.headers["X-Request-Duration"] = f"{duration:.3f}s"
 
             return response
 
@@ -53,10 +53,10 @@ class RequestTracer:
             """Logging filter to add request ID to log records."""
 
             def filter(self, record):
-                if hasattr(g, 'request_id'):
+                if hasattr(g, "request_id"):
                     record.request_id = g.request_id
                 else:
-                    record.request_id = 'no-request-id'
+                    record.request_id = "no-request-id"
                 return True
 
         # Add filter to all handlers
@@ -65,7 +65,7 @@ class RequestTracer:
 
         # Update log format to include request ID
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [RequestID: %(request_id)s] - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - [RequestID: %(request_id)s] - %(message)s"
         )
         for handler in app.logger.handlers:
             handler.setFormatter(formatter)
@@ -77,7 +77,7 @@ request_tracer = RequestTracer()
 
 def get_current_request_id():
     """Get the current request ID."""
-    return getattr(g, 'request_id', 'no-request-id')
+    return getattr(g, "request_id", "no-request-id")
 
 
 def log_with_request_id(logger, level, message, *args, **kwargs):
@@ -89,13 +89,16 @@ def log_with_request_id(logger, level, message, *args, **kwargs):
 
 def traced_route(f):
     """Decorator to add tracing to route handlers."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         import time
+
         start_time = time.time()
 
         # Log request start
         from flask import current_app
+
         current_app.logger.info(f"Started {request.method} {request.path}")
 
         try:
@@ -110,7 +113,9 @@ def traced_route(f):
         except Exception as e:
             # Log request error
             duration = time.time() - start_time
-            current_app.logger.error(f"Failed {request.method} {request.path} in {duration:.3f}s: {str(e)}")
+            current_app.logger.error(
+                f"Failed {request.method} {request.path} in {duration:.3f}s: {str(e)}"
+            )
             raise
 
     return decorated_function

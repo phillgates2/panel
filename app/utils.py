@@ -169,7 +169,7 @@ from transformers import pipeline
 
 # Content moderation models
 text_moderator = pipeline("text-classification", model="unitary/toxic-bert")
-image_moderator = pipeline("image-classification", model="microsoft/DiNAT-base")  # Placeholder
+# image_moderator = pipeline("image-classification", model="microsoft/DiNAT-base")  # Placeholder
 
 def moderate_content(text=None, image_path=None):
     """AI-powered content moderation"""

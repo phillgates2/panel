@@ -9,16 +9,12 @@ This script adds:
 
 import os
 import sys
-from datetime import datetime, timezone
 
-from flask import Flask
 from sqlalchemy import text
 
 # Import app to get db context
 try:
     from app import app, db
-    from cms import BlogPost
-    from forum import Post, Thread
 except ImportError as e:
     print(f"Error importing app modules: {e}")
     print("Make sure you're running this from the project root directory.")

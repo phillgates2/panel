@@ -5,9 +5,7 @@ Provides improved hot reload and file watching for development
 """
 
 import os
-import sys
 import time
-import threading
 from pathlib import Path
 from typing import Set
 
@@ -22,7 +20,9 @@ class ReloadHandler(FileSystemEventHandler):
     def __init__(self, server, watch_paths: Set[str], ignore_patterns: Set[str] = None):
         self.server = server
         self.watch_paths = watch_paths
-        self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.venv', 'venv', 'node_modules'}
+        self.ignore_patterns = ignore_patterns or {
+            '.git', '__pycache__', '.venv', 'venv', 'node_modules'
+        }
         self.last_reload = time.time()
         self.reload_delay = 1.0  # Minimum delay between reloads
 
