@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, render_template
+from flask import Blueprint, redirect, render_template, url_for
 from flask_login import current_user
 
 admin_bp = Blueprint("admin", __name__)

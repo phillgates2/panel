@@ -45,9 +45,13 @@ def run_migration():
         if "author_id" not in thread_columns:
             print("Adding author_id column to forum_thread...")
             with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE forum_thread ADD COLUMN author_id INTEGER"))
                 conn.execute(
-                    text("ALTER TABLE forum_thread ADD FOREIGN KEY (author_id) REFERENCES user(id)")
+                    text("ALTER TABLE forum_thread ADD COLUMN author_id INTEGER")
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE forum_thread ADD FOREIGN KEY (author_id) REFERENCES user(id)"
+                    )
                 )
                 conn.commit()
             print("✓ author_id added to forum_thread")
@@ -58,7 +62,9 @@ def run_migration():
             print("Adding is_pinned column to forum_thread...")
             with db.engine.connect() as conn:
                 conn.execute(
-                    text("ALTER TABLE forum_thread ADD COLUMN is_pinned BOOLEAN DEFAULT 0")
+                    text(
+                        "ALTER TABLE forum_thread ADD COLUMN is_pinned BOOLEAN DEFAULT 0"
+                    )
                 )
                 conn.commit()
             print("✓ is_pinned added to forum_thread")
@@ -69,7 +75,9 @@ def run_migration():
             print("Adding is_locked column to forum_thread...")
             with db.engine.connect() as conn:
                 conn.execute(
-                    text("ALTER TABLE forum_thread ADD COLUMN is_locked BOOLEAN DEFAULT 0")
+                    text(
+                        "ALTER TABLE forum_thread ADD COLUMN is_locked BOOLEAN DEFAULT 0"
+                    )
                 )
                 conn.commit()
             print("✓ is_locked added to forum_thread")
@@ -90,7 +98,9 @@ def run_migration():
 
             with db.engine.connect() as conn:
                 # Add new column
-                conn.execute(text("ALTER TABLE forum_post ADD COLUMN author_id INTEGER"))
+                conn.execute(
+                    text("ALTER TABLE forum_post ADD COLUMN author_id INTEGER")
+                )
 
                 # Set author_id to NULL for now (posts with string authors can't be matched)
                 print(
@@ -100,7 +110,9 @@ def run_migration():
 
                 # Add foreign key constraint
                 conn.execute(
-                    text("ALTER TABLE forum_post ADD FOREIGN KEY (author_id) REFERENCES user(id)")
+                    text(
+                        "ALTER TABLE forum_post ADD FOREIGN KEY (author_id) REFERENCES user(id)"
+                    )
                 )
 
                 # Optionally: Remove old author column (commented out for safety)
@@ -109,7 +121,9 @@ def run_migration():
                 conn.commit()
 
             print("✓ author_id added to forum_post")
-            print("ℹ Old 'author' column preserved for reference (can be manually removed)")
+            print(
+                "ℹ Old 'author' column preserved for reference (can be manually removed)"
+            )
         elif "author_id" in post_columns:
             print("ℹ author_id already exists in forum_post")
         else:

@@ -161,7 +161,9 @@ class BackupManager:
             print(f"Backup completed successfully: {backup_path}")
 
             # Send notification
-            self._send_notification("success", f"Backup {backup_name} completed successfully")
+            self._send_notification(
+                "success", f"Backup {backup_name} completed successfully"
+            )
 
             return backup_path
 
@@ -260,7 +262,9 @@ class BackupManager:
 
     def _update_backup_registry(self, backup_path, backup_type):
         """Update backup registry with new backup info."""
-        registry_file = Path(self.config["backup"]["directory"]) / "backup_registry.json"
+        registry_file = (
+            Path(self.config["backup"]["directory"]) / "backup_registry.json"
+        )
 
         # Load existing registry
         registry = []
@@ -393,7 +397,9 @@ class BackupManager:
 
     def list_backups(self):
         """List available backups."""
-        registry_file = Path(self.config["backup"]["directory"]) / "backup_registry.json"
+        registry_file = (
+            Path(self.config["backup"]["directory"]) / "backup_registry.json"
+        )
 
         if not registry_file.exists():
             return []
@@ -477,7 +483,9 @@ def main():
             if backups:
                 print("Available backups:")
                 for backup in backups:
-                    print(f"  {backup['filename']} ({backup['type']}) - {backup['timestamp']}")
+                    print(
+                        f"  {backup['filename']} ({backup['type']}) - {backup['timestamp']}"
+                    )
             else:
                 print("No backups found")
         elif args.action == "cleanup":

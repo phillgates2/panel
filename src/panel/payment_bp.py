@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import current_user
+
 from src.panel.models import Donation
 
 payment_bp = Blueprint("payment", __name__)
@@ -81,6 +82,7 @@ def send_donation_email(payment_intent):
     """Send donation confirmation email"""
     try:
         from flask_mail import Message
+
         from src.panel import mail
 
         donor_email = payment_intent.get("receipt_email")
@@ -129,6 +131,8 @@ def donation_analytics_data():
         .all()
     )
 
-    monthly_data = [{"month": str(m.month)[:7], "amount": m.amount / 100} for m in monthly]
+    monthly_data = [
+        {"month": str(m.month)[:7], "amount": m.amount / 100} for m in monthly
+    ]
 
     return {"total": total, "monthly": monthly_data, "count": len(monthly_data)}

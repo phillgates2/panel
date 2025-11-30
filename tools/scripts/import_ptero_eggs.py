@@ -111,7 +111,9 @@ def import_egg_file(egg_path, admin_user_id):
         existing = ConfigTemplate.query.filter_by(name=template_name).first()
 
         if existing:
-            print(f"⚠️  Template '{template_name}' already exists (ID: {existing.id}), skipping")
+            print(
+                f"⚠️  Template '{template_name}' already exists (ID: {existing.id}), skipping"
+            )
             return "skip"
 
         # Create new template
@@ -203,7 +205,9 @@ def import_all_eggs(eggs_dir):
 def list_imported_eggs():
     """List all imported Ptero-Eggs templates."""
     with app.app_context():
-        templates = ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%")).all()
+        templates = ConfigTemplate.query.filter(
+            ConfigTemplate.name.like("%(Ptero-Eggs)%")
+        ).all()
 
         if not templates:
             print("\n❌ No Ptero-Eggs templates found in database")
@@ -225,7 +229,9 @@ def list_imported_eggs():
 def clear_ptero_eggs():
     """Remove all Ptero-Eggs templates from database."""
     with app.app_context():
-        templates = ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%")).all()
+        templates = ConfigTemplate.query.filter(
+            ConfigTemplate.name.like("%(Ptero-Eggs)%")
+        ).all()
 
         if not templates:
             print("\n❌ No Ptero-Eggs templates found to remove")

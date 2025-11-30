@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import User, app, db
 from config_manager import ConfigTemplate
-from ptero_eggs_updater import PteroEggsTemplateVersion, PteroEggsUpdateMetadata, PteroEggsUpdater
+from ptero_eggs_updater import (PteroEggsTemplateVersion,
+                                PteroEggsUpdateMetadata, PteroEggsUpdater)
 
 
 @pytest.fixture(scope="module")
@@ -183,7 +184,9 @@ def test_ptero_eggs_sync_route_exists():
 
     # Check that the route is registered
     route_names = [rule.endpoint for rule in config_bp.url_map.iter_rules()]
-    assert "config.ptero_eggs_sync" in route_names or any("sync" in name for name in route_names)
+    assert "config.ptero_eggs_sync" in route_names or any(
+        "sync" in name for name in route_names
+    )
 
 
 def test_ptero_eggs_routes_registered():
@@ -216,7 +219,9 @@ def test_ptero_eggs_routes_registered():
 
         assert hasattr(
             routes_config, func_name
-        ) or func_name in routes_config.config_bp.view_functions.get(f"config.{func_name}", {})
+        ) or func_name in routes_config.config_bp.view_functions.get(
+            f"config.{func_name}", {}
+        )
 
 
 def test_get_sync_status(test_app):

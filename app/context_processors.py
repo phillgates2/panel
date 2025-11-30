@@ -1,19 +1,25 @@
-from flask import session, current_app
 import os
-from typing import Dict, Any
-from src.panel import models
+from typing import Any, Dict
+
+from flask import current_app, session
+
 from app.db import db
+from src.panel import models
 
 # CDN Integration
-CDN_ENABLED = os.environ.get('PANEL_CDN_ENABLED', 'false').lower() == 'true'
-CDN_PROVIDER = os.environ.get('PANEL_CDN_PROVIDER', 'cloudflare')  # cloudflare or cloudfront
-CDN_BASE_URL = os.environ.get('PANEL_CDN_BASE_URL', 'https://cdn.panel.com')
+CDN_ENABLED = os.environ.get("PANEL_CDN_ENABLED", "false").lower() == "true"
+CDN_PROVIDER = os.environ.get(
+    "PANEL_CDN_PROVIDER", "cloudflare"
+)  # cloudflare or cloudfront
+CDN_BASE_URL = os.environ.get("PANEL_CDN_BASE_URL", "https://cdn.panel.com")
+
 
 def get_cdn_url(path):
     """Get CDN URL for static assets"""
     if CDN_ENABLED:
         return f"{CDN_BASE_URL}{path}"
     return path
+
 
 def inject_user() -> Dict[str, Any]:
     """Inject `logged_in` and `current_user` into templates.
@@ -38,7 +44,9 @@ def inject_user() -> Dict[str, Any]:
             theme_enabled = s.value.strip() == "1"
         else:
             # fallback to instance file for older installations
-            theme_flag = os.path.join(current_app.root_path, "instance", "theme_enabled")
+            theme_flag = os.path.join(
+                current_app.root_path, "instance", "theme_enabled"
+            )
             if os.path.exists(theme_flag):
                 with open(theme_flag, "r", encoding="utf-8") as f:
                     v = f.read().strip()
@@ -60,7 +68,11 @@ def inject_user() -> Dict[str, Any]:
     # site-wide flag to allow client theme toggle (default on)
     theme_toggle_enabled = True
     try:
-        s_toggle = db.session.query(models.SiteSetting).filter_by(key="theme_toggle_enabled").first()
+        s_toggle = (
+            db.session.query(models.SiteSetting)
+            .filter_by(key="theme_toggle_enabled")
+            .first()
+        )
         if s_toggle and s_toggle.value is not None:
             theme_toggle_enabled = s_toggle.value.strip() == "1"
     except Exception:
@@ -68,7 +80,9 @@ def inject_user() -> Dict[str, Any]:
     # optional forced theme when toggle disabled: 'dark'|'light'
     theme_forced = None
     try:
-        s_forced = db.session.query(models.SiteSetting).filter_by(key="theme_forced").first()
+        s_forced = (
+            db.session.query(models.SiteSetting).filter_by(key="theme_forced").first()
+        )
         if s_forced and s_forced.value in ("dark", "light"):
             theme_forced = s_forced.value
     except Exception:

@@ -7,14 +7,16 @@ Run with: python rq_worker.py
 
 import os
 import sys
-from rq import Worker, Queue, Connection
+
 from redis import Redis
+from rq import Connection, Queue, Worker
 
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import job functions
-from background_jobs import default_queue, backup_queue, notification_queue, maintenance_queue
+from background_jobs import (backup_queue, default_queue, maintenance_queue,
+                             notification_queue)
 
 # Redis connection
 redis_url = os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0")

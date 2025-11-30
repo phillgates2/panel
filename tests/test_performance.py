@@ -94,7 +94,11 @@ class TestCachePerformance:
     def test_user_data_cache_performance(self):
         """Test user data caching performance"""
         user_ids = range(100)
-        user_data = {"name": "Test User", "role": "admin", "preferences": {"theme": "dark"}}
+        user_data = {
+            "name": "Test User",
+            "role": "admin",
+            "preferences": {"theme": "dark"},
+        }
 
         # Cache user data for 100 users
         start_time = time.time()
@@ -216,11 +220,15 @@ class TestDatabasePerformance:
         # Test authentication performance
         start_time = time.time()
         for _ in range(100):
-            user, error = UserService.authenticate_user("authtest@example.com", "Password123!")
+            user, error = UserService.authenticate_user(
+                "authtest@example.com", "Password123!"
+            )
             assert user is not None
         auth_time = time.time() - start_time
 
-        assert auth_time < 5.0  # Should complete within 5 seconds for 100 authentications
+        assert (
+            auth_time < 5.0
+        )  # Should complete within 5 seconds for 100 authentications
 
 
 class TestConcurrentOperations:
@@ -309,7 +317,9 @@ class TestConcurrentOperations:
 
         # Perform memory-intensive operations
         for i in range(10000):
-            self.cache_svc.set(f"memory_test_key_{i}", f"x" * 1000, timeout=300)  # 1KB per item
+            self.cache_svc.set(
+                f"memory_test_key_{i}", f"x" * 1000, timeout=300
+            )  # 1KB per item
 
         peak_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = peak_memory - initial_memory

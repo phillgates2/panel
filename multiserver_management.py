@@ -10,7 +10,8 @@ import threading
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import (Blueprint, jsonify, redirect, render_template, request,
+                   url_for)
 from flask_login import current_user, login_required
 
 from app import db
@@ -45,18 +46,24 @@ class ClusterServer(db.Model):
     __tablename__ = "cluster_server"
 
     id = db.Column(db.Integer, primary_key=True)
-    cluster_id = db.Column(db.Integer, db.ForeignKey("server_cluster.id"), nullable=False)
+    cluster_id = db.Column(
+        db.Integer, db.ForeignKey("server_cluster.id"), nullable=False
+    )
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
 
     # Server role in cluster
-    role = db.Column(db.String(32), default="member")  # primary, backup, member, load_balancer
+    role = db.Column(
+        db.String(32), default="member"
+    )  # primary, backup, member, load_balancer
     priority = db.Column(db.Integer, default=100)  # For failover ordering
     weight = db.Column(db.Integer, default=100)  # For load balancing
 
     is_active = db.Column(db.Boolean, default=True)
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    cluster = db.relationship("ServerCluster", backref=db.backref("servers", lazy="dynamic"))
+    cluster = db.relationship(
+        "ServerCluster", backref=db.backref("servers", lazy="dynamic")
+    )
     server = db.relationship("Server")
 
 
@@ -97,7 +104,9 @@ class ServerSync(db.Model):
     source_server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
     target_servers = db.Column(db.Text, nullable=False)  # JSON array of server IDs
 
-    status = db.Column(db.String(32), default="pending")  # pending, running, completed, failed
+    status = db.Column(
+        db.String(32), default="pending"
+    )  # pending, running, completed, failed
     progress = db.Column(db.Integer, default=0)  # Percentage complete
 
     started_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -119,7 +128,9 @@ class LoadBalancer(db.Model):
     __tablename__ = "load_balancer"
 
     id = db.Column(db.Integer, primary_key=True)
-    cluster_id = db.Column(db.Integer, db.ForeignKey("server_cluster.id"), nullable=False)
+    cluster_id = db.Column(
+        db.Integer, db.ForeignKey("server_cluster.id"), nullable=False
+    )
 
     algorithm = db.Column(
         db.String(32), default="round_robin"
@@ -130,12 +141,16 @@ class LoadBalancer(db.Model):
     # Health check settings
     health_check_interval = db.Column(db.Integer, default=30)  # seconds
     health_check_timeout = db.Column(db.Integer, default=5)  # seconds
-    failure_threshold = db.Column(db.Integer, default=3)  # consecutive failures before removing
+    failure_threshold = db.Column(
+        db.Integer, default=3
+    )  # consecutive failures before removing
 
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    cluster = db.relationship("ServerCluster", backref=db.backref("load_balancer", uselist=False))
+    cluster = db.relationship(
+        "ServerCluster", backref=db.backref("load_balancer", uselist=False)
+    )
 
 
 class MultiServerManager:
@@ -143,7 +158,9 @@ class MultiServerManager:
 
     def __init__(self):
         self.active_syncs = {}  # Track running sync operations
-        self.load_balancer_state = defaultdict(dict)  # Track server states for load balancing
+        self.load_balancer_state = defaultdict(
+            dict
+        )  # Track server states for load balancing
 
     def create_cluster(
         self,
@@ -176,13 +193,17 @@ class MultiServerManager:
             db.session.rollback()
             raise e
 
-    def add_server_to_cluster(self, cluster_id, server_id, role="member", priority=100, weight=100):
+    def add_server_to_cluster(
+        self, cluster_id, server_id, role="member", priority=100, weight=100
+    ):
         """Add a server to a cluster."""
         try:
             # Check if server is already in any cluster
             existing = ClusterServer.query.filter_by(server_id=server_id).first()
             if existing:
-                raise ValueError(f"Server already belongs to cluster: {existing.cluster.name}")
+                raise ValueError(
+                    f"Server already belongs to cluster: {existing.cluster.name}"
+                )
 
             cluster_server = ClusterServer(
                 cluster_id=cluster_id,
@@ -389,10 +410,14 @@ class MultiServerManager:
 
         # Find servers that need rebalancing
         _overloaded = [
-            s for s in online_servers if (s["metrics"].player_count or 0) > target_per_server + 3
+            s
+            for s in online_servers
+            if (s["metrics"].player_count or 0) > target_per_server + 3
         ]
         _underloaded = [
-            s for s in online_servers if (s["metrics"].player_count or 0) < target_per_server - 3
+            s
+            for s in online_servers
+            if (s["metrics"].player_count or 0) < target_per_server - 3
         ]
 
         # Implement player redirection logic here
@@ -403,7 +428,9 @@ class MultiServerManager:
     def get_cross_server_player_stats(self, limit=100):
         """Get global player statistics across all servers."""
         return (
-            CrossServerPlayer.query.order_by(CrossServerPlayer.total_playtime_minutes.desc())
+            CrossServerPlayer.query.order_by(
+                CrossServerPlayer.total_playtime_minutes.desc()
+            )
             .limit(limit)
             .all()
         )
@@ -463,7 +490,9 @@ def cluster_management():
         status = multiserver_manager.get_cluster_status(cluster.id)
         cluster_stats.append(status)
 
-    return render_template("admin_multiserver_clusters.html", cluster_stats=cluster_stats)
+    return render_template(
+        "admin_multiserver_clusters.html", cluster_stats=cluster_stats
+    )
 
 
 @multiserver_bp.route("/admin/multiserver/clusters/create", methods=["POST"])
@@ -539,7 +568,9 @@ def cross_server_players():
     return render_template("admin_multiserver_players.html", players=players)
 
 
-@multiserver_bp.route("/api/multiserver/cluster/<int:cluster_id>/balance", methods=["POST"])
+@multiserver_bp.route(
+    "/api/multiserver/cluster/<int:cluster_id>/balance", methods=["POST"]
+)
 @login_required
 def balance_cluster(cluster_id):
     """Trigger load balancing for a cluster."""
@@ -552,7 +583,9 @@ def balance_cluster(cluster_id):
         return jsonify(
             {
                 "success": result,
-                "message": ("Load balancing completed" if result else "Load balancing failed"),
+                "message": (
+                    "Load balancing completed" if result else "Load balancing failed"
+                ),
             }
         )
 

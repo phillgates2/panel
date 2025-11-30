@@ -5,10 +5,11 @@ Provides comprehensive health monitoring for the application
 
 import os
 import time
-import psutil
-from flask import Flask, jsonify, current_app
-from typing import Dict, Any
 from datetime import datetime, timezone
+from typing import Any, Dict
+
+import psutil
+from flask import Flask, current_app, jsonify
 
 
 class HealthChecker:
@@ -75,14 +76,18 @@ class HealthChecker:
                 connection_info = {
                     "status": "healthy",
                     "response_time_ms": round(db_time * 1000, 2),
-                    "type": "postgresql" if "postgresql" in str(db.engine.url) else "sqlite",
+                    "type": (
+                        "postgresql" if "postgresql" in str(db.engine.url) else "sqlite"
+                    ),
                 }
 
                 # Additional checks for PostgreSQL
                 if connection_info["type"] == "postgresql":
                     try:
                         result = db.session.execute(text("SELECT version()")).scalar()
-                        connection_info["version"] = result.split()[1] if result else "unknown"
+                        connection_info["version"] = (
+                            result.split()[1] if result else "unknown"
+                        )
                     except Exception:
                         connection_info["version"] = "unknown"
 
@@ -117,7 +122,10 @@ class HealthChecker:
                         "type": "redis",
                     }
                 else:
-                    return {"status": "unhealthy", "error": "Cache read/write test failed"}
+                    return {
+                        "status": "unhealthy",
+                        "error": "Cache read/write test failed",
+                    }
             else:
                 return {"status": "unknown", "error": "Cache not configured"}
 
@@ -150,7 +158,9 @@ class HealthChecker:
                         if stat:
                             free_space = stat.f_bavail * stat.f_frsize
                             total_space = stat.f_blocks * stat.f_frsize
-                            usage_percent = ((total_space - free_space) / total_space) * 100
+                            usage_percent = (
+                                (total_space - free_space) / total_space
+                            ) * 100
 
                             filesystem_status["paths"][path] = {
                                 "writable": True,
@@ -163,10 +173,16 @@ class HealthChecker:
                                 "free_space_gb": "unknown",
                             }
                     except Exception as e:
-                        filesystem_status["paths"][path] = {"writable": False, "error": str(e)}
+                        filesystem_status["paths"][path] = {
+                            "writable": False,
+                            "error": str(e),
+                        }
                         filesystem_status["status"] = "degraded"
                 else:
-                    filesystem_status["paths"][path] = {"exists": False, "writable": False}
+                    filesystem_status["paths"][path] = {
+                        "exists": False,
+                        "writable": False,
+                    }
                     filesystem_status["status"] = "degraded"
 
             return filesystem_status
@@ -217,14 +233,16 @@ class HealthChecker:
         """Check application-specific metrics"""
         try:
             from src.panel import db
-            from src.panel.models import User, Server
+            from src.panel.models import Server, User
 
             with self.app.app_context():
                 # User counts
                 total_users = User.query.count()
                 active_users = User.query.filter(
                     User.last_login
-                    >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                    >= datetime.now(timezone.utc).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
                 ).count()
 
                 # Server counts
@@ -234,7 +252,10 @@ class HealthChecker:
                 recent_logins = User.query.filter(
                     User.last_login
                     >= datetime.now(timezone.utc).replace(
-                        hour=datetime.now(timezone.utc).hour - 24, minute=0, second=0, microsecond=0
+                        hour=datetime.now(timezone.utc).hour - 24,
+                        minute=0,
+                        second=0,
+                        microsecond=0,
                     )
                 ).count()
 

@@ -20,7 +20,9 @@ def create_migration(message: str):
 
     with app.app_context():
         # This will create a new migration file
-        os.system(f"cd {Path(__file__).parent.parent} && flask db migrate -m '{message}'")
+        os.system(
+            f"cd {Path(__file__).parent.parent} && flask db migrate -m '{message}'"
+        )
         print(f"Migration created: {message}")
 
 
@@ -57,8 +59,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Database Migration Helper")
-    parser.add_argument("action", choices=["create", "upgrade", "downgrade", "history"],
-                        help="Migration action")
+    parser.add_argument(
+        "action",
+        choices=["create", "upgrade", "downgrade", "history"],
+        help="Migration action",
+    )
     parser.add_argument("--message", "-m", help="Migration message (for create)")
     parser.add_argument("--revision", "-r", help="Revision to downgrade to")
 

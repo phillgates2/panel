@@ -60,7 +60,9 @@ def test_ptero_eggs_template_structure(test_app):
     """Test that a Ptero-Eggs template has correct structure."""
     with test_app.app_context():
         # Find any Ptero-Eggs template
-        template = ConfigTemplate.query.filter(ConfigTemplate.name.like("%(Ptero-Eggs)%")).first()
+        template = ConfigTemplate.query.filter(
+            ConfigTemplate.name.like("%(Ptero-Eggs)%")
+        ).first()
 
         if template:
             # Verify basic structure

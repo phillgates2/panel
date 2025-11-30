@@ -61,7 +61,9 @@ class SecurityValidationSchemas:
     def sanitize_html_content(content: str) -> str:
         """Sanitize HTML content to prevent XSS"""
         # Remove script tags and event handlers
-        content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        content = re.sub(
+            r"<script[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL
+        )
         content = re.sub(r"<[^>]+on\w+\s*=", "<", content, flags=re.IGNORECASE)
 
         # Remove javascript: URLs

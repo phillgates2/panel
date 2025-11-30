@@ -19,7 +19,9 @@ class AuthService:
     """Service class for authentication operations"""
 
     @staticmethod
-    def login_user(email: str, password: str, captcha: str = None, ip_address: str = None) -> tuple:
+    def login_user(
+        email: str, password: str, captcha: str = None, ip_address: str = None
+    ) -> tuple:
         """
         Authenticate and login a user
 
@@ -38,7 +40,9 @@ class AuthService:
             if captcha:
                 login_data["captcha"] = captcha
 
-            validated_data, validation_errors = validate_request(LoginSchema, login_data)
+            validated_data, validation_errors = validate_request(
+                LoginSchema, login_data
+            )
             if validation_errors:
                 error_messages = []
                 for field, messages in validation_errors.items():
@@ -204,7 +208,9 @@ class AuthService:
                 return False
 
             # Check if session has expired
-            if user_session.expires_at and user_session.expires_at < datetime.now(timezone.utc):
+            if user_session.expires_at and user_session.expires_at < datetime.now(
+                timezone.utc
+            ):
                 user_session.is_active = False
                 db.session.commit()
                 return False

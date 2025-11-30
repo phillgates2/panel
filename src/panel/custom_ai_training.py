@@ -3,13 +3,13 @@ Custom AI Model Training
 Fine-tuning and custom model training capabilities
 """
 
-import os
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+import os
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from src.panel.ai_integration import get_ai_client
 from src.panel.enhanced_ai import get_enhanced_ai_agent
@@ -61,7 +61,9 @@ class AIModelTrainer:
             return {
                 "job_id": job_id,
                 "status": "preparing",
-                "estimated_time": self._estimate_training_time(len(training_data), parameters),
+                "estimated_time": self._estimate_training_time(
+                    len(training_data), parameters
+                ),
                 "message": "Training job created successfully",
             }
 
@@ -99,9 +101,15 @@ class AIModelTrainer:
         job["status"] = "cancelled"
         job["updated_at"] = datetime.utcnow().isoformat()
 
-        return {"job_id": job_id, "status": "cancelled", "message": "Training job cancelled"}
+        return {
+            "job_id": job_id,
+            "status": "cancelled",
+            "message": "Training job cancelled",
+        }
 
-    async def list_training_jobs(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_training_jobs(
+        self, status_filter: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """List all training jobs"""
         jobs = []
         for job_id, job in self.training_jobs.items():
@@ -118,7 +126,9 @@ class AIModelTrainer:
 
         return sorted(jobs, key=lambda x: x["created_at"], reverse=True)
 
-    async def deploy_fine_tuned_model(self, job_id: str, model_name: str) -> Dict[str, Any]:
+    async def deploy_fine_tuned_model(
+        self, job_id: str, model_name: str
+    ) -> Dict[str, Any]:
         """Deploy a completed fine-tuned model"""
         if job_id not in self.training_jobs:
             return {"error": "Training job not found"}
@@ -176,7 +186,9 @@ class AIModelTrainer:
             "created_at": model["created_at"],
         }
 
-    async def _validate_training_data(self, training_data: List[Dict]) -> Dict[str, Any]:
+    async def _validate_training_data(
+        self, training_data: List[Dict]
+    ) -> Dict[str, Any]:
         """Validate training data format and quality"""
         errors = []
 
@@ -313,7 +325,9 @@ class AIModelTrainer:
                 if len(test_case.get("input", "")) > 20:  # Simple heuristic
                     correct_predictions += 1
 
-            accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
+            accuracy = (
+                correct_predictions / total_predictions if total_predictions > 0 else 0
+            )
 
             return {
                 "model_id": model_id,
@@ -360,7 +374,11 @@ async def cleanup_old_training_jobs():
                 for job_id, job in model_trainer.training_jobs.items():
                     # Remove jobs older than 7 days
                     job_age = current_time - datetime.fromisoformat(job["created_at"])
-                    if job_age.days > 7 and job["status"] in ["completed", "failed", "cancelled"]:
+                    if job_age.days > 7 and job["status"] in [
+                        "completed",
+                        "failed",
+                        "cancelled",
+                    ]:
                         jobs_to_remove.append(job_id)
 
                 for job_id in jobs_to_remove:

@@ -77,7 +77,9 @@ def cleanup_old_activity(days_old=90):
 
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
 
-        old_activities = UserActivity.query.filter(UserActivity.created_at < cutoff_date).all()
+        old_activities = UserActivity.query.filter(
+            UserActivity.created_at < cutoff_date
+        ).all()
 
         if old_activities:
             print(f"Found {len(old_activities)} old activity records to remove")
@@ -94,8 +96,12 @@ def cleanup_old_activity(days_old=90):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Clean up expired sessions and old data")
-    parser.add_argument("--sessions", action="store_true", help="Clean up expired sessions")
+    parser = argparse.ArgumentParser(
+        description="Clean up expired sessions and old data"
+    )
+    parser.add_argument(
+        "--sessions", action="store_true", help="Clean up expired sessions"
+    )
     parser.add_argument(
         "--old-sessions",
         type=int,

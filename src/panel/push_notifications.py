@@ -5,18 +5,20 @@ Handles web push notifications using VAPID
 
 import json
 import time
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from pywebpush import webpush, WebPushException
+from pywebpush import WebPushException, webpush
 
 from src.panel import db
-from src.panel.models import User, NotificationSubscription
+from src.panel.models import NotificationSubscription, User
 
 
 class PushNotificationService:
     """Service for managing push notifications"""
 
-    def __init__(self, vapid_private_key: str, vapid_public_key: str, vapid_subject: str):
+    def __init__(
+        self, vapid_private_key: str, vapid_public_key: str, vapid_subject: str
+    ):
         self.vapid_private_key = vapid_private_key
         self.vapid_public_key = vapid_public_key
         self.vapid_subject = vapid_subject
@@ -53,7 +55,9 @@ class PushNotificationService:
     def unsubscribe_user(self, user_id: int, endpoint: str) -> bool:
         """Unsubscribe a user from push notifications"""
         try:
-            NotificationSubscription.query.filter_by(user_id=user_id, endpoint=endpoint).delete()
+            NotificationSubscription.query.filter_by(
+                user_id=user_id, endpoint=endpoint
+            ).delete()
             db.session.commit()
             return True
         except Exception as e:
@@ -112,7 +116,12 @@ class PushNotificationService:
         return success_count > 0
 
     def send_broadcast(
-        self, user_ids: List[int], title: str, body: str, url: str = "/", icon: str = None
+        self,
+        user_ids: List[int],
+        title: str,
+        body: str,
+        url: str = "/",
+        icon: str = None,
     ) -> int:
         """Send push notification to multiple users"""
         success_count = 0
@@ -129,7 +138,9 @@ class PushNotificationService:
                 "id": sub.id,
                 "endpoint": sub.endpoint,
                 "user_agent": sub.user_agent,
-                "last_updated": sub.last_updated.isoformat() if sub.last_updated else None,
+                "last_updated": (
+                    sub.last_updated.isoformat() if sub.last_updated else None
+                ),
             }
             for sub in subscriptions
         ]
@@ -159,7 +170,9 @@ def init_push_notifications(app) -> None:
     vapid_subject = app.config.get("VAPID_SUBJECT", "mailto:admin@panel.local")
 
     if vapid_private and vapid_public:
-        push_service = PushNotificationService(vapid_private, vapid_public, vapid_subject)
+        push_service = PushNotificationService(
+            vapid_private, vapid_public, vapid_subject
+        )
         app.logger.info("Push notification service initialized")
     else:
         app.logger.warning("Push notifications disabled - VAPID keys not configured")

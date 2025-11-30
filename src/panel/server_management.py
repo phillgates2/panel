@@ -4,18 +4,10 @@ Provides game server control and monitoring via RCON protocol
 """
 
 import json
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
-from flask import (
-    Blueprint,
-    current_app,
-    flash,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
+from flask import (Blueprint, current_app, flash, redirect, render_template,
+                   request, session, url_for)
 
 from src.panel import db
 from src.panel.models import Server, User
@@ -46,7 +38,9 @@ def can_manage_server(user: User, server: Server) -> bool:
     # Check server-specific roles
     from src.panel.models import ServerUser
 
-    server_user = ServerUser.query.filter_by(server_id=server.id, user_id=user.id).first()
+    server_user = ServerUser.query.filter_by(
+        server_id=server.id, user_id=user.id
+    ).first()
     if server_user and server_user.role in ["server_admin", "server_mod"]:
         return True
     return False
@@ -68,7 +62,9 @@ def index():
         from src.panel.models import ServerUser
 
         owned_servers = Server.query.filter_by(owner_id=user.id).all()
-        role_servers = Server.query.join(ServerUser).filter(ServerUser.user_id == user.id).all()
+        role_servers = (
+            Server.query.join(ServerUser).filter(ServerUser.user_id == user.id).all()
+        )
         servers = list(set(owned_servers + role_servers))
 
     return render_template("servers/index.html", servers=servers, user=user)
@@ -133,7 +129,9 @@ def rcon_console(server_id):
         .all()
     )
 
-    return render_template("servers/rcon.html", server=server, history=history, user=user)
+    return render_template(
+        "servers/rcon.html", server=server, history=history, user=user
+    )
 
 
 @server_bp.route("/<int:server_id>/rcon/execute", methods=["POST"])
@@ -261,7 +259,9 @@ def server_status(server_id):
                 map_name = line.split(":")[1].strip()
             elif line.startswith("players:"):
                 player_count = int(line.split(":")[1].strip())
-            elif len(line.split()) >= 5 and not line.startswith(("map:", "players:", "----")):
+            elif len(line.split()) >= 5 and not line.startswith(
+                ("map:", "players:", "----")
+            ):
                 # Player line: score ping name
                 parts = line.split()
                 if len(parts) >= 3:

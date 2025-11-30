@@ -13,18 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db
 from config_manager import ConfigDeployment, ConfigTemplate  # noqa: F401
-
 # Import all models to ensure they're registered
-from models_extended import (  # noqa: F401
-    ApiKey,
-    IpAccessControl,
-    Notification,
-    PerformanceMetric,
-    ServerTemplate,
-    TwoFactorAuth,
-    UserActivity,
-    UserSession,
-)
+from models_extended import (ApiKey, IpAccessControl,  # noqa: F401
+                             Notification, PerformanceMetric, ServerTemplate,
+                             TwoFactorAuth, UserActivity, UserSession)
 
 
 def migrate_database():

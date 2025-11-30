@@ -3,12 +3,14 @@ Prometheus Metrics Collection
 Implements basic application metrics for monitoring and observability
 """
 
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
-from flask import Flask, Response, g
-import time
-import psutil
 import os
+import time
 from typing import Optional
+
+import psutil
+from flask import Flask, Response, g
+from prometheus_client import (CONTENT_TYPE_LATEST, Counter, Gauge, Histogram,
+                               generate_latest)
 
 
 class MetricsCollector:
@@ -44,9 +46,13 @@ class MetricsCollector:
         )
 
         # Cache metrics
-        self.cache_hits_total = Counter("cache_hits_total", "Total number of cache hits")
+        self.cache_hits_total = Counter(
+            "cache_hits_total", "Total number of cache hits"
+        )
 
-        self.cache_misses_total = Counter("cache_misses_total", "Total number of cache misses")
+        self.cache_misses_total = Counter(
+            "cache_misses_total", "Total number of cache misses"
+        )
 
         # System metrics
         self.system_cpu_usage = Gauge(
@@ -58,7 +64,9 @@ class MetricsCollector:
         )
 
         self.system_disk_usage = Gauge(
-            "system_disk_usage_bytes", "Current system disk usage in bytes", ["mount_point"]
+            "system_disk_usage_bytes",
+            "Current system disk usage in bytes",
+            ["mount_point"],
         )
 
         # Application metrics
@@ -103,9 +111,9 @@ class MetricsCollector:
                 method=method, endpoint=endpoint, status_code=response.status_code
             ).inc()
 
-            self.http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
-                duration
-            )
+            self.http_request_duration_seconds.labels(
+                method=method, endpoint=endpoint
+            ).observe(duration)
 
         return response
 
@@ -133,9 +141,9 @@ class MetricsCollector:
                         if os.path.exists(partition.mountpoint):
                             try:
                                 usage = psutil.disk_usage(partition.mountpoint)
-                                self.system_disk_usage.labels(mount_point=partition.mountpoint).set(
-                                    usage.used
-                                )
+                                self.system_disk_usage.labels(
+                                    mount_point=partition.mountpoint
+                                ).set(usage.used)
                             except Exception:
                                 pass
 
@@ -173,7 +181,9 @@ class MetricsCollector:
                 from datetime import datetime, timedelta, timezone
 
                 recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-                active_users = User.query.filter(User.last_login >= recent_cutoff).count()
+                active_users = User.query.filter(
+                    User.last_login >= recent_cutoff
+                ).count()
                 self.active_users.set(active_users)
 
         except Exception as e:

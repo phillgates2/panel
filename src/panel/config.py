@@ -13,7 +13,9 @@ class Config:
     USE_SQLITE = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
 
     if USE_SQLITE:
-        SQLALCHEMY_DATABASE_URI = os.environ.get("PANEL_SQLITE_URI", "sqlite:///panel_dev.db")
+        SQLALCHEMY_DATABASE_URI = os.environ.get(
+            "PANEL_SQLITE_URI", "sqlite:///panel_dev.db"
+        )
     else:
         # PostgreSQL configuration
         DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
@@ -49,13 +51,17 @@ class Config:
     ET_RCON_PASSWORD = os.environ.get("ET_RCON_PASSWORD", "changeme")
 
     # OS-aware paths with environment variable overrides
-    ET_PID_FILE = os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid"))
+    ET_PID_FILE = os.environ.get(
+        "ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid")
+    )
     DOWNLOAD_DIR = os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir)
     BACKUP_DIR = os.environ.get("PANEL_BACKUP_DIR", os_paths.backup_dir)
 
     # Admin list (comma separated emails) allowed to perform manual deploys/core-dumps
     ADMIN_EMAILS = [
-        e.strip().lower() for e in os.environ.get("PANEL_ADMIN_EMAILS", "").split(",") if e.strip()
+        e.strip().lower()
+        for e in os.environ.get("PANEL_ADMIN_EMAILS", "").split(",")
+        if e.strip()
     ]
 
     # Discord webhook for notifications (optional)

@@ -85,7 +85,9 @@ class SecurityConfig:
     def __init__(self):
         self.secret_key = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
         admin_emails_str = os.environ.get("PANEL_ADMIN_EMAILS", "")
-        self.admin_emails = [e.strip().lower() for e in admin_emails_str.split(",") if e.strip()]
+        self.admin_emails = [
+            e.strip().lower() for e in admin_emails_str.split(",") if e.strip()
+        ]
 
 
 class ETLegacyConfig:
@@ -96,9 +98,13 @@ class ETLegacyConfig:
         self.server_port = int(os.environ.get("ET_SERVER_PORT", 27960))
         self.rcon_password = os.environ.get("ET_RCON_PASSWORD", "changeme")
         self.pid_file = Path(
-            os.environ.get("ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid"))
+            os.environ.get(
+                "ET_PID_FILE", os.path.join(os_paths.run_dir, "etlegacy.pid")
+            )
         )
-        self.download_dir = Path(os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir))
+        self.download_dir = Path(
+            os.environ.get("PANEL_DOWNLOAD_DIR", os_paths.etlegacy_dir)
+        )
 
 
 class SystemConfig:
@@ -133,7 +139,9 @@ class PanelConfig:
 
         # Validate log level
         if self.logging.level not in self.logging.VALID_LEVELS:
-            errors.append(f"LOG_LEVEL must be one of: {', '.join(self.logging.VALID_LEVELS)}")
+            errors.append(
+                f"LOG_LEVEL must be one of: {', '.join(self.logging.VALID_LEVELS)}"
+            )
 
         # Validate log format
         if self.logging.format not in ["json", "text"]:
@@ -154,7 +162,9 @@ class PanelConfig:
             errors.append("REDIS_URL must start with redis://, rediss://, or unix://")
 
         # Validate Discord webhook
-        if self.discord_webhook and not self.discord_webhook.startswith(("http://", "https://")):
+        if self.discord_webhook and not self.discord_webhook.startswith(
+            ("http://", "https://")
+        ):
             errors.append("DISCORD_WEBHOOK must be a valid HTTP/HTTPS URL")
 
         return errors

@@ -116,7 +116,9 @@ async def test_modal_confirm_delete_server(test_app):
 
             # Check modal is visible
             modal = await page.query_selector("#confirm-modal")
-            modal_display = await modal.evaluate("el => window.getComputedStyle(el).display")
+            modal_display = await modal.evaluate(
+                "el => window.getComputedStyle(el).display"
+            )
             assert modal_display == "block", "Modal should be visible"
 
             # Check message text
@@ -175,7 +177,9 @@ async def test_modal_cancel_delete(test_app):
 
             # Check modal is visible
             modal = await page.query_selector("#confirm-modal")
-            modal_display = await modal.evaluate("el => window.getComputedStyle(el).display")
+            modal_display = await modal.evaluate(
+                "el => window.getComputedStyle(el).display"
+            )
             assert modal_display == "block"
 
             # Click Cancel
@@ -191,7 +195,9 @@ async def test_modal_cancel_delete(test_app):
                 from app import Server
 
                 still_exists = db.session.query(Server).filter_by(id=server_id).first()
-                assert still_exists is not None, "Server should still exist after cancel"
+                assert (
+                    still_exists is not None
+                ), "Server should still exist after cancel"
 
         finally:
             await browser.close()

@@ -54,7 +54,9 @@ class CacheService:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 # Generate cache key
-                cache_key = f"{key_prefix}:{func.__name__}:{self._make_key(*args, **kwargs)}"
+                cache_key = (
+                    f"{key_prefix}:{func.__name__}:{self._make_key(*args, **kwargs)}"
+                )
 
                 # Try to get from cache
                 cached_result = self.cache.get(cache_key)
@@ -70,7 +72,9 @@ class CacheService:
 
         return decorator
 
-    def cached_view(self, timeout: Optional[int] = None, key_prefix: str = "view") -> Callable:
+    def cached_view(
+        self, timeout: Optional[int] = None, key_prefix: str = "view"
+    ) -> Callable:
         """
         Decorator for view function caching based on request
 

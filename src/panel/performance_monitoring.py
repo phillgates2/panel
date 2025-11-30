@@ -3,14 +3,15 @@ Performance Monitoring and APM Integration
 Application Performance Monitoring with New Relic and custom metrics
 """
 
-import os
-import time
-import psutil
-import threading
-from flask import Flask, request, g
-from functools import wraps
 import logging
+import os
+import threading
+import time
 from datetime import datetime, timedelta
+from functools import wraps
+
+import psutil
+from flask import Flask, g, request
 
 
 class PerformanceMonitor:
@@ -71,7 +72,10 @@ class PerformanceMonitor:
                 # CPU usage
                 cpu_percent = psutil.cpu_percent(interval=1)
                 self.metrics["cpu_usage"].append(
-                    {"timestamp": datetime.utcnow().isoformat(), "percentage": cpu_percent}
+                    {
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "percentage": cpu_percent,
+                    }
                 )
 
                 # Keep only last 1000 entries to prevent memory issues
@@ -98,7 +102,9 @@ class PerformanceMonitor:
     def _after_request(self, response):
         """Hook called after each request"""
         if hasattr(g, "start_time"):
-            response_time = (time.time() - g.start_time) * 1000  # Convert to milliseconds
+            response_time = (
+                time.time() - g.start_time
+            ) * 1000  # Convert to milliseconds
 
             request_metric = {
                 "timestamp": datetime.utcnow().isoformat(),
@@ -107,7 +113,9 @@ class PerformanceMonitor:
                 "path": g.request_metrics["path"],
                 "status_code": response.status_code,
                 "response_time": response_time,
-                "content_length": len(response.get_data()) if response.get_data() else 0,
+                "content_length": (
+                    len(response.get_data()) if response.get_data() else 0
+                ),
                 "user_agent": g.request_metrics["user_agent"],
                 "ip": g.request_metrics["ip"],
             }
@@ -209,9 +217,13 @@ class PerformanceMonitor:
             summary["cpu_usage_avg"] = sum(cpu_usage) / len(cpu_usage)
 
         # Calculate cache hit rate
-        total_cache_ops = len(self.metrics["cache_hits"]) + len(self.metrics["cache_misses"])
+        total_cache_ops = len(self.metrics["cache_hits"]) + len(
+            self.metrics["cache_misses"]
+        )
         if total_cache_ops > 0:
-            summary["cache_hit_rate"] = len(self.metrics["cache_hits"]) / total_cache_ops
+            summary["cache_hit_rate"] = (
+                len(self.metrics["cache_hits"]) / total_cache_ops
+            )
 
         return summary
 
@@ -417,7 +429,9 @@ def monitor_database_query():
                 return result
             except Exception as e:
                 execution_time = (time.time() - start_time) * 1000
-                performance_monitor.record_database_query(f"ERROR: {str(e)}", execution_time)
+                performance_monitor.record_database_query(
+                    f"ERROR: {str(e)}", execution_time
+                )
                 raise
 
         return wrapper
@@ -466,7 +480,11 @@ def _add_monitoring_routes(app: Flask):
     @app.route("/api/monitoring/health")
     def health_check():
         """Health check endpoint"""
-        return {"status": "healthy", "timestamp": datetime.utcnow().isoformat(), "version": "1.0.0"}
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "1.0.0",
+        }
 
     @app.route("/api/monitoring/system")
     def system_info():
@@ -479,7 +497,9 @@ def _add_monitoring_routes(app: Flask):
                 "memory_percent": psutil.virtual_memory().percent,
                 "disk_usage": psutil.disk_usage("/").percent,
                 "network_connections": len(psutil.net_connections()),
-                "load_average": psutil.getloadavg() if hasattr(psutil, "getloadavg") else None,
+                "load_average": (
+                    psutil.getloadavg() if hasattr(psutil, "getloadavg") else None
+                ),
             }
         except Exception as e:
             return {"error": str(e)}, 500

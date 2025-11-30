@@ -8,21 +8,12 @@ import difflib
 import json
 from datetime import datetime, timedelta, timezone
 
-from flask import (
-    Blueprint,
-    flash,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-    send_file,
-    current_app,
-)
+from flask import (Blueprint, current_app, flash, jsonify, redirect,
+                   render_template, request, send_file, session, url_for)
 
 from app import User, db
-from config_manager import ConfigDeployment, ConfigManager, ConfigTemplate, ConfigVersion
+from config_manager import (ConfigDeployment, ConfigManager, ConfigTemplate,
+                            ConfigVersion)
 
 config_bp = Blueprint("config", __name__)
 
@@ -136,7 +127,9 @@ def create_template():
         except Exception as e:
             db.session.rollback()
             return (
-                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
+                jsonify(
+                    {"success": False, "message": f"Error creating template: {str(e)}"}
+                ),
                 500,
             )
 
@@ -201,7 +194,9 @@ def update_template(template_id):
     except Exception as e:
         db.session.rollback()
         return (
-            jsonify({"success": False, "message": f"Error updating template: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error updating template: {str(e)}"}
+            ),
             500,
         )
 
@@ -311,7 +306,9 @@ def create_config_version(server_id):
         )
 
 
-@config_bp.route("/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"])
+@config_bp.route(
+    "/server/<int:server_id>/config/<int:version_id>/deploy", methods=["POST"]
+)
 def deploy_config_version(server_id, version_id):
     """Deploy a configuration version."""
     # Authentication check
@@ -356,7 +353,9 @@ def deploy_config_version(server_id, version_id):
         )
 
 
-@config_bp.route("/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"])
+@config_bp.route(
+    "/server/<int:server_id>/config/<int:version_id>/rollback", methods=["POST"]
+)
 def rollback_config_version(server_id, version_id):
     """Rollback to a previous configuration version."""
     # Authentication check
@@ -437,7 +436,9 @@ def compare_config_versions(server_id):
 
     except Exception as e:
         return (
-            jsonify({"success": False, "message": f"Error comparing versions: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error comparing versions: {str(e)}"}
+            ),
             500,
         )
 
@@ -462,7 +463,9 @@ def config_version_details(server_id, version_id):
     if not (current_user.is_system_admin() or server.owner_id == current_user.id):
         return jsonify({"success": False, "message": "Access denied"}), 403
 
-    version = ConfigVersion.query.filter_by(server_id=server_id, id=version_id).first_or_404()
+    version = ConfigVersion.query.filter_by(
+        server_id=server_id, id=version_id
+    ).first_or_404()
 
     deployments = (
         ConfigDeployment.query.filter_by(config_version_id=version_id)
@@ -489,7 +492,9 @@ def config_version_details(server_id, version_id):
                     "status": d.deployment_status,
                     "log": d.deployment_log,
                     "started_at": d.started_at.isoformat(),
-                    "completed_at": (d.completed_at.isoformat() if d.completed_at else None),
+                    "completed_at": (
+                        d.completed_at.isoformat() if d.completed_at else None
+                    ),
                     "deployer": d.deployer.email if d.deployer else "Unknown",
                 }
                 for d in deployments
@@ -512,7 +517,9 @@ def get_template_data(template_id):
 
     template = ConfigTemplate.query.get_or_404(template_id)
 
-    return jsonify({"success": True, "template_data": json.loads(template.template_data)})
+    return jsonify(
+        {"success": True, "template_data": json.loads(template.template_data)}
+    )
 
 
 @config_bp.route("/admin/config/deployments")
@@ -707,7 +714,9 @@ def ptero_eggs_template_preview(template_id):
     )
 
 
-@config_bp.route("/admin/ptero-eggs/apply/<int:template_id>/<int:server_id>", methods=["POST"])
+@config_bp.route(
+    "/admin/ptero-eggs/apply/<int:template_id>/<int:server_id>", methods=["POST"]
+)
 def apply_ptero_eggs_template(template_id, server_id):
     """Apply a Ptero-Eggs template to a server."""
     from app import Server
@@ -737,7 +746,9 @@ def apply_ptero_eggs_template(template_id, server_id):
         if hasattr(server, "config"):
             server_config = json.loads(server.config) if server.config else {}
             server_config["ptero_egg_template_id"] = template.id
-            server_config["ptero_egg_applied_at"] = datetime.now(timezone.utc).isoformat()
+            server_config["ptero_egg_applied_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
             server.config = json.dumps(server_config)
 
         db.session.commit()
@@ -753,7 +764,9 @@ def apply_ptero_eggs_template(template_id, server_id):
     except Exception as e:
         db.session.rollback()
         return (
-            jsonify({"success": False, "message": f"Error applying template: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error applying template: {str(e)}"}
+            ),
             500,
         )
 
@@ -861,7 +874,9 @@ def create_custom_ptero_template():
         except Exception as e:
             db.session.rollback()
             return (
-                jsonify({"success": False, "message": f"Error creating template: {str(e)}"}),
+                jsonify(
+                    {"success": False, "message": f"Error creating template: {str(e)}"}
+                ),
                 500,
             )
 
@@ -896,7 +911,10 @@ def migrate_servers_to_ptero():
             if not server_ids or not template_id:
                 return (
                     jsonify(
-                        {"success": False, "message": "Server IDs and template ID are required"}
+                        {
+                            "success": False,
+                            "message": "Server IDs and template ID are required",
+                        }
                     ),
                     400,
                 )
@@ -931,7 +949,9 @@ def migrate_servers_to_ptero():
 
                     # Store reference
                     if hasattr(server, "config"):
-                        server_config = json.loads(server.config) if server.config else {}
+                        server_config = (
+                            json.loads(server.config) if server.config else {}
+                        )
                         server_config["ptero_egg_template_id"] = template.id
                         server_config["ptero_egg_applied_at"] = datetime.now(
                             timezone.utc
@@ -1020,8 +1040,9 @@ def optimize_database():
 @cache.cached(timeout=300)  # Cache for 5 minutes
 def user_stats():
     """Get user statistics with caching"""
-    from src.panel.models import User
     from datetime import datetime, timedelta, timezone
+
+    from src.panel.models import User
 
     # This query result will be cached
     total_users = User.query.count()
@@ -1057,7 +1078,8 @@ def gdpr_export():
         return jsonify({"error": "Authentication required"}), 401
 
     try:
-        from src.panel.gdpr_compliance import get_gdpr_compliance, DataExportService
+        from src.panel.gdpr_compliance import (DataExportService,
+                                               get_gdpr_compliance)
 
         gdpr = get_gdpr_compliance()
 
@@ -1212,7 +1234,9 @@ def gdpr_consent():
             return jsonify({"message": "Consent updated successfully"})
 
     except Exception as e:
-        current_app.logger.error(f"GDPR consent operation failed for user {user.id}: {e}")
+        current_app.logger.error(
+            f"GDPR consent operation failed for user {user.id}: {e}"
+        )
         return jsonify({"error": "Operation failed", "message": str(e)}), 500
 
 
@@ -1233,8 +1257,8 @@ def gdpr_tools():
     user = get_current_user()
 
     # Get some basic stats
-    from src.panel.forum import Post
     from src.panel.cms import BlogPost
+    from src.panel.forum import Post
 
     forum_posts_count = Post.query.filter_by(author_id=user.id).count()
     blog_posts_count = BlogPost.query.filter_by(author_id=user.id).count()
@@ -1319,7 +1343,9 @@ def push_unsubscribe():
 
         success = push_service.unsubscribe_user(user.id, endpoint)
         if success:
-            return jsonify({"message": "Successfully unsubscribed from push notifications"})
+            return jsonify(
+                {"message": "Successfully unsubscribed from push notifications"}
+            )
         else:
             return jsonify({"error": "Failed to unsubscribe"}), 500
 
@@ -1385,7 +1411,8 @@ def api_docs():
 @admin_required
 def backup_status():
     """Get backup system status"""
-    from src.panel.backup_monitoring import check_backup_health, check_storage_health
+    from src.panel.backup_monitoring import (check_backup_health,
+                                             check_storage_health)
 
     try:
         backup_health = check_backup_health()
@@ -1414,7 +1441,11 @@ def create_backup_api(backup_type):
         result = create_backup(backup_type, name)
 
         return jsonify(
-            {"success": True, "backup": result, "timestamp": datetime.utcnow().isoformat()}
+            {
+                "success": True,
+                "backup": result,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1432,7 +1463,11 @@ def list_backups_api():
         backups = list_backups(backup_type)
 
         return jsonify(
-            {"backups": backups, "count": len(backups), "timestamp": datetime.utcnow().isoformat()}
+            {
+                "backups": backups,
+                "count": len(backups),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1453,7 +1488,11 @@ def restore_backup_api(backup_type):
         result = restore_backup(backup_type, backup_file)
 
         return jsonify(
-            {"success": True, "result": result, "timestamp": datetime.utcnow().isoformat()}
+            {
+                "success": True,
+                "result": result,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1478,8 +1517,8 @@ def ai_assistant():
 
     try:
         # Run in background for better performance
-        from concurrent.futures import ThreadPoolExecutor
         import asyncio
+        from concurrent.futures import ThreadPoolExecutor
 
         def get_response():
             loop = asyncio.new_event_loop()
@@ -1492,7 +1531,9 @@ def ai_assistant():
             future = executor.submit(get_response)
             response = future.result(timeout=30)  # 30 second timeout
 
-        return jsonify({"response": response, "timestamp": datetime.utcnow().isoformat()})
+        return jsonify(
+            {"response": response, "timestamp": datetime.utcnow().isoformat()}
+        )
 
     except Exception as e:
         logger.error(f"AI assistant error: {e}")
@@ -1523,7 +1564,9 @@ def ai_moderate_content():
         def moderate():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(moderator.moderate_post(content, current_user.id))
+            return loop.run_until_complete(
+                moderator.moderate_post(content, current_user.id)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(moderate)
@@ -1560,7 +1603,9 @@ def ai_suggest_tags():
         def suggest():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(ai_client.suggest_tags(content, existing_tags))
+            return loop.run_until_complete(
+                ai_client.suggest_tags(content, existing_tags)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(suggest)
@@ -1606,7 +1651,9 @@ def ai_analyze_sentiment():
 
     except Exception as e:
         logger.error(f"AI sentiment analysis error: {e}")
-        return jsonify({"sentiment": "neutral", "confidence": 0.0, "error": "Analysis failed"})
+        return jsonify(
+            {"sentiment": "neutral", "confidence": 0.0, "error": "Analysis failed"}
+        )
 
 
 @app.route("/api/ai/summarize", methods=["POST"])
@@ -1635,7 +1682,9 @@ def ai_summarize_content():
         def summarize():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(ai_client.summarize_content(content, max_length))
+            return loop.run_until_complete(
+                ai_client.summarize_content(content, max_length)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(summarize)
@@ -1674,7 +1723,7 @@ def ai_stats():
 @login_required
 def create_forum_post():
     """Create a new forum post with AI-powered features"""
-    from src.panel.ai_integration import get_content_moderator, get_ai_client
+    from src.panel.ai_integration import get_ai_client, get_content_moderator
 
     data = request.get_json()
     title = data.get("title", "").strip()
@@ -1694,7 +1743,9 @@ def create_forum_post():
             def moderate():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                return loop.run_until_complete(moderator.moderate_post(content, current_user.id))
+                return loop.run_until_complete(
+                    moderator.moderate_post(content, current_user.id)
+                )
 
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(moderate)
@@ -1705,7 +1756,9 @@ def create_forum_post():
                     jsonify(
                         {
                             "error": "Content flagged by moderation",
-                            "reason": moderation_result.get("reason", "Inappropriate content"),
+                            "reason": moderation_result.get(
+                                "reason", "Inappropriate content"
+                            ),
                         }
                     ),
                     400,
@@ -1733,7 +1786,10 @@ def create_forum_post():
     # Create the post
     try:
         post = ForumPost(
-            title=title, content=content, author_id=current_user.id, category_id=category_id
+            title=title,
+            content=content,
+            author_id=current_user.id,
+            category_id=category_id,
         )
 
         # Add suggested tags if any
@@ -1794,7 +1850,9 @@ def ai_analyze_image():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             return loop.run_until_complete(
-                analyzer.analyze_image_upload(image_data, file.filename, current_user.id)
+                analyzer.analyze_image_upload(
+                    image_data, file.filename, current_user.id
+                )
             )
 
         with ThreadPoolExecutor() as executor:
@@ -1805,7 +1863,9 @@ def ai_analyze_image():
 
     except Exception as e:
         logger.error(f"AI image analysis error: {e}")
-        return jsonify({"approved": True, "error": "Moderation temporarily unavailable"})
+        return jsonify(
+            {"approved": True, "error": "Moderation temporarily unavailable"}
+        )
 
 
 @app.route("/api/ai/predict-behavior", methods=["POST"])
@@ -1875,7 +1935,9 @@ def ai_personalize_content():
         user_context = {
             "username": current_user.username,
             "join_date": (
-                current_user.created_at.isoformat() if hasattr(current_user, "created_at") else None
+                current_user.created_at.isoformat()
+                if hasattr(current_user, "created_at")
+                else None
             ),
             "preferences": [],  # Would be populated from user preferences
         }
@@ -1884,7 +1946,9 @@ def ai_personalize_content():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             if content_type == "welcome":
-                return loop.run_until_complete(generator.generate_welcome_message(user_context))
+                return loop.run_until_complete(
+                    generator.generate_welcome_message(user_context)
+                )
             elif content_type == "recommendations":
                 return loop.run_until_complete(
                     generator.generate_recommendations(current_user.id, [])
@@ -1896,11 +1960,15 @@ def ai_personalize_content():
             future = executor.submit(generate)
             content = future.result(timeout=15)
 
-        return jsonify({"content": content, "type": content_type, "user_id": current_user.id})
+        return jsonify(
+            {"content": content, "type": content_type, "user_id": current_user.id}
+        )
 
     except Exception as e:
         logger.error(f"AI personalization error: {e}")
-        return jsonify({"content": "Personalization temporarily unavailable", "error": str(e)})
+        return jsonify(
+            {"content": "Personalization temporarily unavailable", "error": str(e)}
+        )
 
 
 @app.route("/api/ai/detect-anomalies", methods=["POST"])
@@ -1923,7 +1991,9 @@ def ai_detect_anomalies():
         def detect():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(detector.detect_system_anomalies(metrics_data))
+            return loop.run_until_complete(
+                detector.detect_system_anomalies(metrics_data)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(detect)
@@ -1963,7 +2033,9 @@ def ai_analyze_trends():
         def analyze():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(ai_agent.analyze_trends(analysis_data, analysis_type))
+            return loop.run_until_complete(
+                ai_agent.analyze_trends(analysis_data, analysis_type)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(analyze)
@@ -1974,7 +2046,11 @@ def ai_analyze_trends():
     except Exception as e:
         logger.error(f"AI trend analysis error: {e}")
         return jsonify(
-            {"trends": [], "insights": "Analysis temporarily unavailable", "error": str(e)}
+            {
+                "trends": [],
+                "insights": "Analysis temporarily unavailable",
+                "error": str(e),
+            }
         )
 
 
@@ -1982,12 +2058,10 @@ def ai_analyze_trends():
 @admin_required
 def ai_enhanced_stats():
     """Get enhanced AI system statistics"""
-    from src.panel.enhanced_ai import (
-        get_content_analyzer,
-        get_behavior_predictor,
-        get_content_generator,
-        get_anomaly_detector,
-    )
+    from src.panel.enhanced_ai import (get_anomaly_detector,
+                                       get_behavior_predictor,
+                                       get_content_analyzer,
+                                       get_content_generator)
 
     stats = {
         "ai_enabled": bool(get_enhanced_ai_agent()),
@@ -2033,7 +2107,9 @@ def ai_transcribe_voice():
         def transcribe():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(analyzer.speech_to_text(audio_data, language))
+            return loop.run_until_complete(
+                analyzer.speech_to_text(audio_data, language)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(transcribe)
@@ -2129,7 +2205,9 @@ def ai_analyze_video():
         def analyze():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(processor.analyze_video(video_data, file.filename))
+            return loop.run_until_complete(
+                processor.analyze_video(video_data, file.filename)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(analyze)
@@ -2182,7 +2260,9 @@ def ai_moderate_video():
 
     except Exception as e:
         logger.error(f"AI video moderation error: {e}")
-        return jsonify({"approved": False, "error": "Moderation temporarily unavailable"})
+        return jsonify(
+            {"approved": False, "error": "Moderation temporarily unavailable"}
+        )
 
 
 @app.route("/api/ai/training/start", methods=["POST"])
@@ -2343,7 +2423,9 @@ def ai_deploy_model(job_id):
         def deploy_model():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(trainer.deploy_fine_tuned_model(job_id, model_name))
+            return loop.run_until_complete(
+                trainer.deploy_fine_tuned_model(job_id, model_name)
+            )
 
         with ThreadPoolExecutor() as executor:
             future = executor.submit(deploy_model)

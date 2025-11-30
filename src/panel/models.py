@@ -1,7 +1,7 @@
 """Database models for the Panel application."""
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from flask_sqlalchemy import SQLAlchemy
@@ -146,7 +146,9 @@ class User(db.Model):
     backup_codes = db.Column(db.Text, nullable=True)  # JSON array of backup codes
 
     # API Access
-    api_token = db.Column(db.String(128), nullable=True, unique=True)  # API access token
+    api_token = db.Column(
+        db.String(128), nullable=True, unique=True
+    )  # API access token
     api_token_created = db.Column(db.DateTime, nullable=True)  # When token was created
     api_token_last_used = db.Column(db.DateTime, nullable=True)  # Last API usage
 
@@ -160,8 +162,12 @@ class User(db.Model):
     avatar = db.Column(db.String(255), nullable=True)  # Avatar image filename
 
     # OAuth 2.0 Social Login
-    oauth_provider = db.Column(db.String(32), nullable=True)  # 'google', 'github', 'discord'
-    oauth_id = db.Column(db.String(128), nullable=True, unique=True)  # Provider's user ID
+    oauth_provider = db.Column(
+        db.String(32), nullable=True
+    )  # 'google', 'github', 'discord'
+    oauth_id = db.Column(
+        db.String(128), nullable=True, unique=True
+    )  # Provider's user ID
     oauth_token = db.Column(db.Text, nullable=True)  # Access token (encrypted)
     oauth_refresh_token = db.Column(db.Text, nullable=True)  # Refresh token (encrypted)
     oauth_token_expires = db.Column(db.DateTime, nullable=True)  # Token expiration
@@ -202,7 +208,9 @@ class User(db.Model):
             "password123",
         ]
         if password.lower() in weak_passwords:
-            raise ValueError("Password is too common, please choose a stronger password")
+            raise ValueError(
+                "Password is too common, please choose a stronger password"
+            )
 
     def check_password(self, password: str) -> bool:
         """Check the user's password."""
@@ -277,7 +285,11 @@ class User(db.Model):
         return self.role == "admin" or self.role == "system_admin"
 
     def is_server_mod(self) -> bool:
-        return self.role == "moderator" or self.role == "admin" or self.role == "system_admin"
+        return (
+            self.role == "moderator"
+            or self.role == "admin"
+            or self.role == "system_admin"
+        )
 
     def get_role_level(self) -> int:
         """Get the numeric level of the user's role"""
@@ -310,7 +322,10 @@ class User(db.Model):
                 # Admins can view anyone's activity, mods can view non-admin activity
                 if self.is_system_admin():
                     return True
-                elif self.is_server_admin() and not User.query.get(int(resource)).is_system_admin():
+                elif (
+                    self.is_server_admin()
+                    and not User.query.get(int(resource)).is_system_admin()
+                ):
                     return True
                 return False
 
@@ -406,7 +421,9 @@ class User(db.Model):
     @classmethod
     def find_by_oauth(cls, provider: str, provider_id: str):
         """Find user by OAuth provider and ID"""
-        return cls.query.filter_by(oauth_provider=provider, oauth_id=provider_id).first()
+        return cls.query.filter_by(
+            oauth_provider=provider, oauth_id=provider_id
+        ).first()
 
     @property
     def has_oauth_linked(self) -> bool:
@@ -442,14 +459,18 @@ class Server(db.Model):
     game_type = db.Column(
         db.String(32), default="etlegacy", nullable=False
     )  # game type for configs
-    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # server owner
+    owner_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # server owner
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    users = db.relationship("ServerUser", backref="server", cascade="all, delete-orphan")
+    users = db.relationship(
+        "ServerUser", backref="server", cascade="all, delete-orphan"
+    )
     owner = db.relationship("User", foreign_keys=[owner_id])
 
     __table_args__ = (
@@ -512,7 +533,9 @@ class IPWhitelist(db.Model):
     __tablename__ = "ip_whitelist"
 
     id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(45), nullable=False, unique=True)  # IPv4/IPv6 support
+    ip_address = db.Column(
+        db.String(45), nullable=False, unique=True
+    )  # IPv4/IPv6 support
     description = db.Column(db.String(256), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -527,7 +550,9 @@ class IPBlacklist(db.Model):
     __tablename__ = "ip_blacklist"
 
     id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(45), nullable=False, unique=True)  # IPv4/IPv6 support
+    ip_address = db.Column(
+        db.String(45), nullable=False, unique=True
+    )  # IPv4/IPv6 support
     reason = db.Column(db.String(256), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -542,7 +567,9 @@ class SecurityEvent(db.Model):
     __tablename__ = "security_event"
 
     id = db.Column(db.Integer, primary_key=True)
-    event_type = db.Column(db.String(64), nullable=False)  # login_attempt, ip_blocked, etc.
+    event_type = db.Column(
+        db.String(64), nullable=False
+    )  # login_attempt, ip_blocked, etc.
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.Text, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
@@ -564,9 +591,13 @@ class NotificationSubscription(db.Model):
     subscription_data = db.Column(db.Text, nullable=False)  # JSON data
     user_agent = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_updated = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
-    user = db.relationship("User", backref=db.backref("notification_subscriptions", lazy=True))
+    user = db.relationship(
+        "User", backref=db.backref("notification_subscriptions", lazy=True)
+    )
 
     def __repr__(self):
         return f"<NotificationSubscription user={self.user_id} endpoint={self.endpoint[:50]}>"
@@ -631,7 +662,9 @@ class Donation(db.Model):
     amount = db.Column(db.Integer, nullable=False)  # In cents
     currency = db.Column(db.String(3), default="usd")
     donor_email = db.Column(db.String(120), nullable=True)
-    status = db.Column(db.String(20), default="completed")  # completed, failed, refunded
+    status = db.Column(
+        db.String(20), default="completed"
+    )  # completed, failed, refunded
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

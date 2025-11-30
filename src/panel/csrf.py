@@ -7,7 +7,8 @@ Provides CSRF token generation, validation, and middleware for Flask application
 import hashlib
 import hmac
 import secrets
-from flask import request, session, abort
+
+from flask import abort, request, session
 
 
 def generate_csrf_token():

@@ -3,17 +3,17 @@ Database Optimization and Profiling
 Provides query profiling, index recommendations, connection pooling, and query result caching
 """
 
-import time
-import logging
 import hashlib
-from typing import Dict, List, Any, Optional, Callable
-from functools import wraps
+import logging
+import time
 from contextlib import contextmanager
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
 
-from sqlalchemy import event, text, create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
+from flask import Flask, current_app, g
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import QueuePool
-from flask import Flask, g, current_app
 
 from src.panel.services.cache_service import get_cache_service
 
@@ -45,7 +45,9 @@ class QueryResultCache:
         logger.debug(f"Cache miss for query: {query[:50]}...")
         return None
 
-    def set(self, query: str, result: Any, params: tuple = None, ttl: int = None) -> None:
+    def set(
+        self, query: str, result: Any, params: tuple = None, ttl: int = None
+    ) -> None:
         """Cache query result"""
         if ttl is None:
             ttl = self.default_ttl
@@ -139,14 +141,18 @@ class QueryProfiler:
         from src.panel import db
 
         @event.listens_for(db.engine, "before_cursor_execute")
-        def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        def before_cursor_execute(
+            conn, cursor, statement, parameters, context, executemany
+        ):
             if self.enabled:
                 g.query_start_time = time.time()
                 g.query_statement = statement
                 g.query_parameters = parameters
 
         @event.listens_for(db.engine, "after_cursor_execute")
-        def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        def after_cursor_execute(
+            conn, cursor, statement, parameters, context, executemany
+        ):
             if self.enabled and hasattr(g, "query_start_time"):
                 duration = time.time() - g.query_start_time
                 self.record_query(statement, duration, parameters)
@@ -156,13 +162,19 @@ class QueryProfiler:
                     logger.warning(
                         "Slow query detected",
                         extra={
-                            "query": statement[:500] + "..." if len(statement) > 500 else statement,
+                            "query": (
+                                statement[:500] + "..."
+                                if len(statement) > 500
+                                else statement
+                            ),
                             "duration": duration,
                             "slow_threshold": self.slow_query_threshold,
                         },
                     )
 
-    def record_query(self, statement: str, duration: float, parameters: tuple = None) -> None:
+    def record_query(
+        self, statement: str, duration: float, parameters: tuple = None
+    ) -> None:
         """Record query execution statistics"""
         # Extract table name from query (simple heuristic)
         table_name = self.extract_table_name(statement)
@@ -186,7 +198,9 @@ class QueryProfiler:
         if len(stats["queries"]) < 10:
             stats["queries"].append(
                 {
-                    "statement": statement[:200] + "..." if len(statement) > 200 else statement,
+                    "statement": (
+                        statement[:200] + "..." if len(statement) > 200 else statement
+                    ),
                     "duration": duration,
                     "timestamp": time.time(),
                 }
@@ -437,7 +451,9 @@ def generate_index_sql() -> List[str]:
             if index_type == "unique":
                 sql = f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
             else:
-                sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
+                sql = (
+                    f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({cols_str});"
+                )
 
         sql_statements.append(sql)
 
@@ -447,6 +463,7 @@ def generate_index_sql() -> List[str]:
 def create_database_indexes() -> None:
     """Create recommended database indexes"""
     from flask import current_app
+
     from src.panel import db
 
     with current_app.app_context():
@@ -463,7 +480,9 @@ def create_database_indexes() -> None:
 
 
 # Migration helpers
-def create_migration_script(name: str, upgrade_sql: str, downgrade_sql: str = None) -> str:
+def create_migration_script(
+    name: str, upgrade_sql: str, downgrade_sql: str = None
+) -> str:
     """Create a new migration script"""
     import os
     from datetime import datetime

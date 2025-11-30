@@ -10,8 +10,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from simple_config import PanelConfig, ValidationError, load_config
 from flask import Flask
+
+from simple_config import PanelConfig, ValidationError, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class ConfigValidator:
                     "database_uri": config.database.sqlalchemy_database_uri,
                     "log_level": config.logging.level,
                     "log_format": config.logging.format,
-                }
+                },
             )
 
         except Exception as e:
@@ -63,7 +64,9 @@ class ConfigValidator:
                 logger.error("Exiting due to configuration validation failure")
                 sys.exit(1)
             else:
-                logger.warning("Continuing with invalid configuration (strict mode disabled)")
+                logger.warning(
+                    "Continuing with invalid configuration (strict mode disabled)"
+                )
 
     def _add_cli_commands(self, app: Flask) -> None:
         """Add configuration CLI commands"""
@@ -136,15 +139,25 @@ class ConfigValidator:
                 # Check database configuration
                 if config.database.use_sqlite:
                     db_path = config.database.sqlite_uri.replace("sqlite:///", "")
-                    if not os.path.exists(os.path.dirname(db_path)) and db_path != ":memory:":
-                        issues.append(f"SQLite database directory does not exist: {os.path.dirname(db_path)}")
+                    if (
+                        not os.path.exists(os.path.dirname(db_path))
+                        and db_path != ":memory:"
+                    ):
+                        issues.append(
+                            f"SQLite database directory does not exist: {os.path.dirname(db_path)}"
+                        )
                 else:
                     # Check PostgreSQL connection (basic check)
                     if config.database.postgres_password == "panelpass":
-                        issues.append("Using default PostgreSQL password - change in production")
+                        issues.append(
+                            "Using default PostgreSQL password - change in production"
+                        )
 
                 # Check secret key
-                if config.security.secret_key in ["dev-secret-key-change", "dev-local-change-me"]:
+                if config.security.secret_key in [
+                    "dev-secret-key-change",
+                    "dev-local-change-me",
+                ]:
                     issues.append("Using default secret key - change in production")
 
                 # Check log directory
@@ -152,21 +165,32 @@ class ConfigValidator:
                     try:
                         config.logging.directory.mkdir(parents=True, exist_ok=True)
                     except Exception:
-                        issues.append(f"Cannot create log directory: {config.logging.directory}")
+                        issues.append(
+                            f"Cannot create log directory: {config.logging.directory}"
+                        )
 
                 # Check audit directory
-                if config.logging.audit_enabled and not config.logging.audit_directory.exists():
+                if (
+                    config.logging.audit_enabled
+                    and not config.logging.audit_directory.exists()
+                ):
                     try:
-                        config.logging.audit_directory.mkdir(parents=True, exist_ok=True)
+                        config.logging.audit_directory.mkdir(
+                            parents=True, exist_ok=True
+                        )
                     except Exception:
-                        issues.append(f"Cannot create audit log directory: {config.logging.audit_directory}")
+                        issues.append(
+                            f"Cannot create audit log directory: {config.logging.audit_directory}"
+                        )
 
                 # Check backup directory
                 if not config.system.backup_dir.exists():
                     try:
                         config.system.backup_dir.mkdir(parents=True, exist_ok=True)
                     except Exception:
-                        issues.append(f"Cannot create backup directory: {config.system.backup_dir}")
+                        issues.append(
+                            f"Cannot create backup directory: {config.system.backup_dir}"
+                        )
 
                 if issues:
                     print("⚠️  Configuration Issues Found:")
@@ -191,7 +215,7 @@ def get_validated_config() -> PanelConfig:
     """Get the validated configuration instance"""
     from flask import current_app
 
-    if not hasattr(current_app, 'config_validator'):
+    if not hasattr(current_app, "config_validator"):
         current_app.config_validator = ConfigValidator(current_app)
 
     validator = current_app.config_validator
@@ -206,7 +230,7 @@ def reload_configuration() -> bool:
     try:
         from flask import current_app
 
-        if hasattr(current_app, 'config_validator'):
+        if hasattr(current_app, "config_validator"):
             validator = current_app.config_validator
             validator._validate_and_apply_config()
             return True
@@ -227,11 +251,11 @@ def get_config_value(key: str, default: Any = None) -> Any:
 
     # Map common keys to config attributes
     key_mapping = {
-        'database_uri': lambda: config.database.sqlalchemy_database_uri,
-        'log_level': lambda: config.logging.level,
-        'log_format': lambda: config.logging.format,
-        'secret_key': lambda: config.security.secret_key,
-        'redis_url': lambda: config.redis_url,
+        "database_uri": lambda: config.database.sqlalchemy_database_uri,
+        "log_level": lambda: config.logging.level,
+        "log_format": lambda: config.logging.format,
+        "secret_key": lambda: config.security.secret_key,
+        "redis_url": lambda: config.redis_url,
     }
 
     if key in key_mapping:
@@ -239,6 +263,7 @@ def get_config_value(key: str, default: Any = None) -> Any:
     else:
         # Try to get from Flask config
         from flask import current_app
+
         return current_app.config.get(key, default)
 
 

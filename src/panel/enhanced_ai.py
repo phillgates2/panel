@@ -3,17 +3,18 @@ Enhanced AI Integration with Multiple Providers
 Advanced AI features including image analysis, predictive analytics, and content generation
 """
 
-import os
 import asyncio
 import base64
-from io import BytesIO
-from typing import Dict, List, Optional, Any, Union
-import logging
 import json
+import logging
+import os
 from datetime import datetime, timedelta
-from PIL import Image
-import requests
 from functools import wraps
+from io import BytesIO
+from typing import Any, Dict, List, Optional, Union
+
+import requests
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,9 @@ class EnhancedAIAgent:
             try:
                 import openai
 
-                self.providers["openai"] = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                self.providers["openai"] = openai.OpenAI(
+                    api_key=os.getenv("OPENAI_API_KEY")
+                )
                 logger.info("OpenAI API provider initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI API: {e}")
@@ -73,7 +76,9 @@ class EnhancedAIAgent:
     async def _cache_result(self, cache_key: str, result: Any, ttl_minutes: int = 30):
         """Cache result with TTL"""
         self.cache[cache_key] = result
-        self.cache_expiry[cache_key] = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+        self.cache_expiry[cache_key] = datetime.utcnow() + timedelta(
+            minutes=ttl_minutes
+        )
 
     async def analyze_image(
         self, image_data: Union[str, bytes], content_type: str = "url"
@@ -170,14 +175,18 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
 
             if "gcp" in self.providers:
                 try:
-                    result = await self.providers["gcp"].predict_user_behavior(user_history)
+                    result = await self.providers["gcp"].predict_user_behavior(
+                        user_history
+                    )
                     result_text = result.get("predictions", "")
                 except Exception as e:
                     logger.warning(f"GCP behavior prediction failed: {e}")
 
             if not result_text and "azure" in self.providers:
                 try:
-                    result_text = await self.providers["azure"].generate_response(prompt)
+                    result_text = await self.providers["azure"].generate_response(
+                        prompt
+                    )
                 except Exception as e:
                     logger.warning(f"Azure behavior prediction failed: {e}")
 
@@ -210,7 +219,9 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
         """Generate personalized content for users"""
         try:
             context = context or {}
-            cache_key = f"personalized_content_{user_id}_{content_type}_{hash(str(context))}"
+            cache_key = (
+                f"personalized_content_{user_id}_{content_type}_{hash(str(context))}"
+            )
 
             cached = await self._get_cached_result(cache_key)
             if cached:
@@ -224,15 +235,21 @@ Provide analysis in JSON format with keys: interests, predictions, engagement, r
                 "motivational": "Create a motivational message to encourage continued engagement.",
             }
 
-            base_prompt = prompt_templates.get(content_type, "Generate personalized content")
-            full_prompt = f"{base_prompt}\n\nUser Context: {json.dumps(context, default=str)}"
+            base_prompt = prompt_templates.get(
+                content_type, "Generate personalized content"
+            )
+            full_prompt = (
+                f"{base_prompt}\n\nUser Context: {json.dumps(context, default=str)}"
+            )
 
             # Generate content
             content = None
 
             if "azure" in self.providers:
                 try:
-                    content = await self.providers["azure"].generate_response(full_prompt)
+                    content = await self.providers["azure"].generate_response(
+                        full_prompt
+                    )
                 except Exception as e:
                     logger.warning(f"Azure content generation failed: {e}")
 
@@ -304,12 +321,16 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
 
             if not analysis_text and "azure" in self.providers:
                 try:
-                    analysis_text = await self.providers["azure"].generate_response(prompt)
+                    analysis_text = await self.providers["azure"].generate_response(
+                        prompt
+                    )
                 except Exception as e:
                     logger.warning(f"Azure trend analysis failed: {e}")
 
             # Parse analysis
-            analysis = self._parse_trend_analysis(analysis_text or "Unable to analyze trends")
+            analysis = self._parse_trend_analysis(
+                analysis_text or "Unable to analyze trends"
+            )
 
             # Cache for 2 hours
             await self._cache_result(cache_key, analysis, 120)
@@ -344,13 +365,17 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
             base_moderation = await self._basic_moderation(content)
 
             # Add contextual analysis
-            context_analysis = await self._analyze_content_context(content, content_type, metadata)
+            context_analysis = await self._analyze_content_context(
+                content, content_type, metadata
+            )
 
             # Combine results
             advanced_result = {
                 **base_moderation,
                 "context_analysis": context_analysis,
-                "risk_score": self._calculate_risk_score(base_moderation, context_analysis),
+                "risk_score": self._calculate_risk_score(
+                    base_moderation, context_analysis
+                ),
                 "moderated_at": datetime.utcnow().isoformat(),
             }
 
@@ -381,7 +406,8 @@ Format as JSON with keys: trends, changes, anomalies, predictions, recommendatio
 
                 hash_obj = hashlib.md5(text.encode())
                 embedding = [
-                    int(hash_obj.hexdigest()[i : i + 2], 16) / 255.0 for i in range(0, 32, 2)
+                    int(hash_obj.hexdigest()[i : i + 2], 16) / 255.0
+                    for i in range(0, 32, 2)
                 ]
                 embeddings.append(embedding[:16])  # 16-dimensional embedding
 
@@ -421,11 +447,15 @@ Format as JSON with keys: statistical_anomalies, pattern_anomalies, contextual_a
 
             if "azure" in self.providers:
                 try:
-                    analysis_text = await self.providers["azure"].generate_response(prompt)
+                    analysis_text = await self.providers["azure"].generate_response(
+                        prompt
+                    )
                 except Exception as e:
                     logger.warning(f"Azure anomaly detection failed: {e}")
 
-            anomalies = self._parse_anomaly_detection(analysis_text or "Unable to detect anomalies")
+            anomalies = self._parse_anomaly_detection(
+                analysis_text or "Unable to detect anomalies"
+            )
 
             # Cache for 15 minutes
             await self._cache_result(cache_key, anomalies, 15)
@@ -475,14 +505,18 @@ Provide contextual analysis."""
 
         try:
             if "azure" in self.providers:
-                analysis = await self.providers["azure"].generate_response(context_prompt)
+                analysis = await self.providers["azure"].generate_response(
+                    context_prompt
+                )
                 return {"analysis": analysis, "risk_factors": []}
             else:
                 return {"analysis": "Context analysis unavailable", "risk_factors": []}
         except Exception:
             return {"analysis": "Context analysis failed", "risk_factors": []}
 
-    def _calculate_risk_score(self, base_moderation: Dict, context_analysis: Dict) -> float:
+    def _calculate_risk_score(
+        self, base_moderation: Dict, context_analysis: Dict
+    ) -> float:
         """Calculate overall risk score"""
         base_score = 0.0
 
@@ -657,7 +691,9 @@ class ContentAnalyzer:
             return {"patterns": [], "insights": "Analysis unavailable"}
 
         try:
-            analysis = await self.ai_agent.analyze_trends(content_history, "user_content")
+            analysis = await self.ai_agent.analyze_trends(
+                content_history, "user_content"
+            )
 
             return {
                 "user_id": user_id,
@@ -688,7 +724,9 @@ class UserBehaviorPredictor:
 
             return {
                 "user_id": user_id,
-                "engagement_level": prediction.get("engagement", {}).get("level", "unknown"),
+                "engagement_level": prediction.get("engagement", {}).get(
+                    "level", "unknown"
+                ),
                 "confidence": prediction.get("engagement", {}).get("confidence", 0.0),
                 "next_actions": prediction.get("predictions", []),
                 "recommendations": prediction.get("recommendations", []),
@@ -720,7 +758,9 @@ class PersonalizedContentGenerator:
             logger.error(f"Welcome message generation failed: {e}")
             return "Welcome to Panel! We're excited to have you here."
 
-    async def generate_recommendations(self, user_id: int, user_interests: List[str]) -> List[str]:
+    async def generate_recommendations(
+        self, user_id: int, user_interests: List[str]
+    ) -> List[str]:
         """Generate personalized recommendations"""
         if not self.ai_agent:
             return ["Explore our gaming forums", "Check out server listings"]
@@ -783,7 +823,8 @@ class AnomalyDetector:
                 baseline[field] = {
                     "mean": sum(values) / len(values),
                     "std_dev": (
-                        sum((x - sum(values) / len(values)) ** 2 for x in values) / len(values)
+                        sum((x - sum(values) / len(values)) ** 2 for x in values)
+                        / len(values)
                     )
                     ** 0.5,
                 }
@@ -830,7 +871,9 @@ def init_advanced_ai_features():
         anomaly_detector = AnomalyDetector()
         logger.info("Advanced AI features initialized")
     else:
-        logger.warning("Advanced AI features not available - AI providers not configured")
+        logger.warning(
+            "Advanced AI features not available - AI providers not configured"
+        )
 
 
 def get_content_analyzer() -> Optional[ContentAnalyzer]:

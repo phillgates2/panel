@@ -3,10 +3,10 @@ Video Processing Integration
 Video analysis, content moderation, and processing capabilities
 """
 
-from typing import Dict, Any, Optional, List
+import base64
 import logging
 from datetime import datetime
-import base64
+from typing import Any, Dict, List, Optional
 
 from src.panel.ai_integration import get_ai_client
 from src.panel.enhanced_ai import get_enhanced_ai_agent
@@ -68,7 +68,9 @@ class VideoProcessor:
                 "processed_at": datetime.utcnow().isoformat(),
             }
 
-    async def moderate_video_content(self, video_data: bytes, filename: str) -> Dict[str, Any]:
+    async def moderate_video_content(
+        self, video_data: bytes, filename: str
+    ) -> Dict[str, Any]:
         """Moderate video content for inappropriate material"""
         try:
             analysis = await self.analyze_video(video_data, filename)
@@ -90,7 +92,9 @@ class VideoProcessor:
                 flags.extend(audio_flags)
 
             # Check metadata for suspicious patterns
-            metadata_flags = await self._check_metadata_flags(analysis.get("metadata", {}))
+            metadata_flags = await self._check_metadata_flags(
+                analysis.get("metadata", {})
+            )
             if metadata_flags:
                 approved = False
                 flags.extend(metadata_flags)
@@ -98,7 +102,9 @@ class VideoProcessor:
             return {
                 "approved": approved,
                 "flags": list(set(flags)),
-                "confidence": analysis.get("overall_assessment", {}).get("confidence", 0.5),
+                "confidence": analysis.get("overall_assessment", {}).get(
+                    "confidence", 0.5
+                ),
                 "analysis": analysis,
                 "moderated_at": datetime.utcnow().isoformat(),
             }
@@ -160,7 +166,9 @@ class VideoProcessor:
                 # For now, simulate with empty audio
                 audio_data = b""  # Would be extracted audio
 
-                transcription = await voice_analyzer.transcribe_with_timestamps(audio_data)
+                transcription = await voice_analyzer.transcribe_with_timestamps(
+                    audio_data
+                )
 
                 return {
                     "transcription": transcription,
@@ -199,7 +207,9 @@ class VideoProcessor:
                 sentiments.append("neutral")
 
             # Analyze audio sentiment
-            audio_sentiment = analysis.get("audio_analysis", {}).get("sentiment", "neutral")
+            audio_sentiment = analysis.get("audio_analysis", {}).get(
+                "sentiment", "neutral"
+            )
 
             # Determine overall sentiment
             overall_sentiment = self._combine_sentiments(sentiments + [audio_sentiment])
@@ -223,7 +233,9 @@ class VideoProcessor:
                 "analyzed_at": datetime.utcnow().isoformat(),
             }
 
-    async def _extract_video_metadata(self, video_data: bytes, filename: str) -> Dict[str, Any]:
+    async def _extract_video_metadata(
+        self, video_data: bytes, filename: str
+    ) -> Dict[str, Any]:
         """Extract basic video metadata"""
         try:
             # This would use libraries like moviepy or OpenCV
@@ -240,7 +252,11 @@ class VideoProcessor:
 
         except Exception as e:
             logger.error(f"Metadata extraction failed: {e}")
-            return {"filename": filename, "size_bytes": len(video_data), "error": str(e)}
+            return {
+                "filename": filename,
+                "size_bytes": len(video_data),
+                "error": str(e),
+            }
 
     async def _extract_keyframes(self, video_data: bytes) -> List[bytes]:
         """Extract keyframe images from video"""
@@ -398,7 +414,9 @@ async def analyze_video_content(video_data: bytes, filename: str) -> Dict[str, A
     return {"error": "Video processor not available"}
 
 
-async def get_video_thumbnail(video_data: bytes, timestamp: float = 1.0) -> Optional[bytes]:
+async def get_video_thumbnail(
+    video_data: bytes, timestamp: float = 1.0
+) -> Optional[bytes]:
     """Extract video thumbnail"""
     processor = get_video_processor()
     if processor:

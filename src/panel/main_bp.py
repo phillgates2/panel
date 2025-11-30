@@ -1,6 +1,9 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, current_app
+from typing import Any, Dict
+
+from flask import (Blueprint, current_app, jsonify, redirect, render_template,
+                   request, url_for)
 from flask_login import current_user
-from typing import Dict, Any
+
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
 
@@ -27,6 +30,7 @@ def status() -> Dict[str, Any]:
 @main_bp.route("/health")
 def health() -> Dict[str, Any]:
     import time
+
     # Check external services
     health_status = {"status": "healthy", "checks": {}, "timestamp": time.time()}
     try:
@@ -60,7 +64,9 @@ def webhooks() -> Dict[str, Any]:
 
 
 # GraphQL
-from graphene import ObjectType, String, Schema as GraphQLSchema
+from graphene import ObjectType
+from graphene import Schema as GraphQLSchema
+from graphene import String
 
 
 @main_bp.route("/graphql", methods=["GET", "POST"])
@@ -116,7 +122,10 @@ def inject_breadcrumbs() -> Dict[str, Any]:
     if path.startswith("/forum"):
         breadcrumbs = [{"name": "Home", "url": "/"}, {"name": "Forum", "url": "/forum"}]
     elif path.startswith("/profile"):
-        breadcrumbs = [{"name": "Home", "url": "/"}, {"name": "Profile", "url": "/profile"}]
+        breadcrumbs = [
+            {"name": "Home", "url": "/"},
+            {"name": "Profile", "url": "/profile"},
+        ]
     return {"breadcrumbs": breadcrumbs}
 
 

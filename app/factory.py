@@ -1,26 +1,32 @@
-from flask import Flask, Blueprint
+from flask import Blueprint, Flask
 from flask_caching import Cache
 from flask_compress import Compress
 from flask_socketio import SocketIO
+
 from config import config
-from src.panel.structured_logging import setup_structured_logging
 from src.panel.security_headers import configure_security_headers
+from src.panel.structured_logging import setup_structured_logging
+
 try:
     from src.panel.tools.mail import mail
 except Exception:
     pass
 from src.panel.database_admin import DatabaseAdmin
+
 try:
     from config_validator import validate_configuration_at_startup
 except Exception:
     validate_configuration_at_startup = None
-from app.db import db
 import os
+
 from app.context_processors import inject_user
-from src.panel.csrf import ensure_csrf_after, ensure_csrf_for_templates, ensure_theme_migration_once
+from app.db import db
+from src.panel.csrf import (ensure_csrf_after, ensure_csrf_for_templates,
+                            ensure_theme_migration_once)
 
 # Create main blueprint
 main_bp = Blueprint("main", __name__)
+
 
 def create_app(config_obj: Optional[object] = None) -> Flask:
     """Application factory.
@@ -59,7 +65,9 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
     # Initialize Cache for performance optimization
     _cache_config = {
         "CACHE_TYPE": "redis",
-        "CACHE_REDIS_URL": os.environ.get("PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"),
+        "CACHE_REDIS_URL": os.environ.get(
+            "PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"
+        ),
         "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
     }
     _cache = Cache(_app, config=_cache_config)
@@ -133,7 +141,11 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
                         view = _app.view_functions.get(ep)
                         if view:
                             try:
-                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                                methods = [
+                                    m
+                                    for m in rule.methods
+                                    if m not in ("HEAD", "OPTIONS")
+                                ]
                                 _app.add_url_rule(
                                     rule.rule,
                                     endpoint=short,
@@ -229,7 +241,11 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
                         view = _app.view_functions.get(ep)
                         if view:
                             try:
-                                methods = [m for m in rule.methods if m not in ("HEAD", "OPTIONS")]
+                                methods = [
+                                    m
+                                    for m in rule.methods
+                                    if m not in ("HEAD", "OPTIONS")
+                                ]
                                 _app.add_url_rule(
                                     rule.rule,
                                     endpoint=short,

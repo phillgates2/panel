@@ -19,7 +19,9 @@ class UserService:
     """Service class for user management operations"""
 
     @staticmethod
-    def create_user(first_name: str, last_name: str, email: str, password: str, dob) -> tuple:
+    def create_user(
+        first_name: str, last_name: str, email: str, password: str, dob
+    ) -> tuple:
         """
         Create a new user account
 
@@ -65,12 +67,18 @@ class UserService:
 
             # Age validation
             today = datetime.now().date()
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            age = (
+                today.year
+                - dob.year
+                - ((today.month, today.day) < (dob.month, dob.day))
+            )
             if age < 16:
                 return None, "You must be at least 16 years old to register"
 
             # Create user
-            user = User(first_name=first_name, last_name=last_name, email=email.lower(), dob=dob)
+            user = User(
+                first_name=first_name, last_name=last_name, email=email.lower(), dob=dob
+            )
             user.set_password(password)
 
             db.session.add(user)
@@ -111,7 +119,10 @@ class UserService:
 
             # Check if account is locked
             if user.is_account_locked():
-                return None, "Account is temporarily locked due to too many failed login attempts"
+                return (
+                    None,
+                    "Account is temporarily locked due to too many failed login attempts",
+                )
 
             return user, None
 
@@ -170,7 +181,9 @@ class UserService:
 
             for field, value in kwargs.items():
                 if field in allowed_fields and value is not None:
-                    setattr(user, field, value.strip() if isinstance(value, str) else value)
+                    setattr(
+                        user, field, value.strip() if isinstance(value, str) else value
+                    )
 
             db.session.commit()
             return True, None

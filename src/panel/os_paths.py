@@ -49,7 +49,9 @@ class OSPaths:
         elif self.is_macos:
             return str(Path.home() / "Library" / "Logs" / "Panel")
         elif self.is_windows:
-            return str(Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Logs")
+            return str(
+                Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Logs"
+            )
         else:
             return "instance/logs"
 
@@ -77,9 +79,13 @@ class OSPaths:
             else:
                 return str(Path.home() / ".config" / "panel")
         elif self.is_macos:
-            return str(Path.home() / "Library" / "Application Support" / "Panel" / "Config")
+            return str(
+                Path.home() / "Library" / "Application Support" / "Panel" / "Config"
+            )
         elif self.is_windows:
-            return str(Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Config")
+            return str(
+                Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Config"
+            )
         else:
             return "instance"
 
@@ -96,9 +102,13 @@ class OSPaths:
             else:
                 return str(Path.home() / ".local" / "run" / "panel")
         elif self.is_macos:
-            return str(Path.home() / "Library" / "Application Support" / "Panel" / "Run")
+            return str(
+                Path.home() / "Library" / "Application Support" / "Panel" / "Run"
+            )
         elif self.is_windows:
-            return str(Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Run")
+            return str(
+                Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Run"
+            )
         else:
             return "instance/run"
 
@@ -111,9 +121,13 @@ class OSPaths:
             else:
                 return str(Path.home() / ".local" / "share" / "panel" / "backups")
         elif self.is_macos:
-            return str(Path.home() / "Library" / "Application Support" / "Panel" / "Backups")
+            return str(
+                Path.home() / "Library" / "Application Support" / "Panel" / "Backups"
+            )
         elif self.is_windows:
-            return str(Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Backups")
+            return str(
+                Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Panel" / "Backups"
+            )
         else:
             return "instance/backups"
 
@@ -131,7 +145,9 @@ class OSPaths:
         elif self.is_macos:
             return str(Path.home() / "Library" / "Application Support" / "etlegacy")
         elif self.is_windows:
-            return str(Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "ETLegacy")
+            return str(
+                Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "ETLegacy"
+            )
         else:
             return str(Path.home() / "etlegacy")
 

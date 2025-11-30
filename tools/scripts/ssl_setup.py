@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -39,8 +41,12 @@ class SSLSetup:
         if missing_tools:
             logger.error(f"Missing required tools: {', '.join(missing_tools)}")
             logger.info("Please install missing tools:")
-            logger.info("Ubuntu/Debian: sudo apt install certbot python3-certbot-nginx nginx")
-            logger.info("CentOS/RHEL: sudo yum install certbot python3-certbot-nginx nginx")
+            logger.info(
+                "Ubuntu/Debian: sudo apt install certbot python3-certbot-nginx nginx"
+            )
+            logger.info(
+                "CentOS/RHEL: sudo yum install certbot python3-certbot-nginx nginx"
+            )
             return False
 
         return True
@@ -128,7 +134,9 @@ location /.well-known/acme-challenge/ {{
 
         # Get email
         while not email:
-            email = input("Enter your email address for Let's Encrypt notifications: ").strip()
+            email = input(
+                "Enter your email address for Let's Encrypt notifications: "
+            ).strip()
             if "@" not in email:
                 print("Please enter a valid email address")
                 email = ""
@@ -184,7 +192,9 @@ location /.well-known/acme-challenge/ {{
                 if result.returncode == 0:
                     logger.info(f"Successfully obtained certificate for {domain}")
                 else:
-                    logger.error(f"Failed to obtain certificate for {domain}: {result.stderr}")
+                    logger.error(
+                        f"Failed to obtain certificate for {domain}: {result.stderr}"
+                    )
                     return False
 
             except Exception as e:

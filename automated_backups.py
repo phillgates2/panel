@@ -10,24 +10,25 @@ This module provides comprehensive backup capabilities including:
 - Backup verification and monitoring
 """
 
-import os
-import subprocess
-import boto3
 import gzip
-import shutil
 import hashlib
-from datetime import datetime, timedelta
-from pathlib import Path
-import logging
 import json
-from typing import Dict, List, Optional
-import schedule
-import time
-import threading
-from concurrent.futures import ThreadPoolExecutor
+import logging
+import os
+import shutil
 import smtplib
-from email.mime.text import MIMEText
+import subprocess
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import boto3
+import schedule
 
 logger = logging.getLogger(__name__)
 
@@ -37,27 +38,27 @@ class BackupManager:
 
     def __init__(self, config: Dict):
         self.config = config
-        self.backup_dir = Path(config.get('backup_dir', '/app/backups'))
+        self.backup_dir = Path(config.get("backup_dir", "/app/backups"))
         self.backup_dir.mkdir(exist_ok=True)
 
         # Cloud storage
         self.s3_client = None
-        if config.get('s3_enabled'):
+        if config.get("s3_enabled"):
             self.s3_client = boto3.client(
-                's3',
-                aws_access_key_id=config.get('aws_access_key_id'),
-                aws_secret_access_key=config.get('aws_secret_access_key'),
-                region_name=config.get('aws_region', 'us-east-1')
+                "s3",
+                aws_access_key_id=config.get("aws_access_key_id"),
+                aws_secret_access_key=config.get("aws_secret_access_key"),
+                region_name=config.get("aws_region", "us-east-1"),
             )
 
         # Email notifications
-        self.email_config = config.get('email', {})
+        self.email_config = config.get("email", {})
 
         # Encryption
-        self.encryption_key = config.get('encryption_key')
+        self.encryption_key = config.get("encryption_key")
 
         # Retention policies
-        self.retention_days = config.get('retention_days', 30)
+        self.retention_days = config.get("retention_days", 30)
 
     def create_database_backup(self, db_url: str, name: str = None) -> str:
         """Create encrypted database backup"""
@@ -85,21 +86,17 @@ class BackupManager:
                 "--no-password",
                 "--format=custom",
                 "--compress=9",
-                "--verbose"
+                "--verbose",
             ]
 
             # Set password environment
             env = os.environ.copy()
-            env['PGPASSWORD'] = db_password
+            env["PGPASSWORD"] = db_password
 
             # Execute backup
-            with open(backup_file, 'wb') as f:
+            with open(backup_file, "wb") as f:
                 result = subprocess.run(
-                    cmd,
-                    env=env,
-                    stdout=f,
-                    stderr=subprocess.PIPE,
-                    check=True
+                    cmd, env=env, stdout=f, stderr=subprocess.PIPE, check=True
                 )
 
             # Encrypt if key provided
@@ -108,7 +105,7 @@ class BackupManager:
 
             # Calculate checksum
             checksum = self._calculate_checksum(backup_file)
-            checksum_file = backup_file.with_suffix('.sha256')
+            checksum_file = backup_file.with_suffix(".sha256")
             checksum_file.write_text(f"{checksum}  {backup_file.name}")
 
             logger.info(f"Database backup created: {backup_file}")
@@ -137,7 +134,7 @@ class BackupManager:
 
             # Calculate checksum
             checksum = self._calculate_checksum(backup_file)
-            checksum_file = backup_file.with_suffix('.sha256')
+            checksum_file = backup_file.with_suffix(".sha256")
             checksum_file.write_text(f"{checksum}  {backup_file.name}")
 
             logger.info(f"Filesystem backup created: {backup_file}")
@@ -161,7 +158,9 @@ class BackupManager:
                 if os.path.isfile(path):
                     config_files.append(path)
                 elif os.path.isdir(path):
-                    config_files.extend([str(p) for p in Path(path).rglob('*') if p.is_file()])
+                    config_files.extend(
+                        [str(p) for p in Path(path).rglob("*") if p.is_file()]
+                    )
 
             if not config_files:
                 raise ValueError("No configuration files found")
@@ -208,7 +207,7 @@ class BackupManager:
             return False
 
         # Verify checksum if available
-        checksum_file = backup_path.with_suffix('.sha256')
+        checksum_file = backup_path.with_suffix(".sha256")
         if checksum_file.exists():
             expected_checksum = checksum_file.read_text().split()[0]
             actual_checksum = self._calculate_checksum(backup_path)
@@ -218,7 +217,7 @@ class BackupManager:
                 return False
 
         # Try to decrypt if encrypted
-        if self.encryption_key and backup_path.suffix == '.enc':
+        if self.encryption_key and backup_path.suffix == ".enc":
             try:
                 self._decrypt_file(backup_path)
             except Exception as e:
@@ -242,7 +241,7 @@ class BackupManager:
                     try:
                         backup_file.unlink()
                         # Also remove checksum file if exists
-                        checksum_file = backup_file.with_suffix('.sha256')
+                        checksum_file = backup_file.with_suffix(".sha256")
                         if checksum_file.exists():
                             checksum_file.unlink()
 
@@ -256,14 +255,14 @@ class BackupManager:
 
     def send_notification(self, subject: str, message: str, success: bool = True):
         """Send email notification"""
-        if not self.email_config.get('enabled'):
+        if not self.email_config.get("enabled"):
             return
 
         try:
             msg = MIMEMultipart()
-            msg['From'] = self.email_config['from']
-            msg['To'] = self.email_config['to']
-            msg['Subject'] = f"{'✅' if success else '❌'} {subject}"
+            msg["From"] = self.email_config["from"]
+            msg["To"] = self.email_config["to"]
+            msg["Subject"] = f"{'✅' if success else '❌'} {subject}"
 
             body = f"""
 Backup System Notification
@@ -273,11 +272,14 @@ Backup System Notification
 Timestamp: {datetime.now().isoformat()}
 Status: {'SUCCESS' if success else 'FAILED'}
 """
-            msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(body, "plain"))
 
-            server = smtplib.SMTP(self.email_config['smtp_server'], self.email_config.get('smtp_port', 587))
+            server = smtplib.SMTP(
+                self.email_config["smtp_server"],
+                self.email_config.get("smtp_port", 587),
+            )
             server.starttls()
-            server.login(self.email_config['username'], self.email_config['password'])
+            server.login(self.email_config["username"], self.email_config["password"])
             server.send_message(msg)
             server.quit()
 
@@ -290,16 +292,18 @@ Status: {'SUCCESS' if success else 'FAILED'}
         """Encrypt a file using AES"""
         # This is a simplified encryption example
         # In production, use proper encryption libraries
-        encrypted_file = file_path.with_suffix('.enc')
+        encrypted_file = file_path.with_suffix(".enc")
 
         # Simple XOR encryption for demonstration
         key = self.encryption_key.encode()
-        with open(file_path, 'rb') as f_in, open(encrypted_file, 'wb') as f_out:
+        with open(file_path, "rb") as f_in, open(encrypted_file, "wb") as f_out:
             while True:
                 chunk = f_in.read(4096)
                 if not chunk:
                     break
-                encrypted_chunk = bytes(b ^ key[i % len(key)] for i, b in enumerate(chunk))
+                encrypted_chunk = bytes(
+                    b ^ key[i % len(key)] for i, b in enumerate(chunk)
+                )
                 f_out.write(encrypted_chunk)
 
         # Replace original file
@@ -309,20 +313,22 @@ Status: {'SUCCESS' if success else 'FAILED'}
         """Decrypt a file"""
         # Simplified decryption
         key = self.encryption_key.encode()
-        decrypted_file = file_path.with_suffix('')
+        decrypted_file = file_path.with_suffix("")
 
-        with open(file_path, 'rb') as f_in, open(decrypted_file, 'wb') as f_out:
+        with open(file_path, "rb") as f_in, open(decrypted_file, "wb") as f_out:
             while True:
                 chunk = f_in.read(4096)
                 if not chunk:
                     break
-                decrypted_chunk = bytes(b ^ key[i % len(key)] for i, b in enumerate(chunk))
+                decrypted_chunk = bytes(
+                    b ^ key[i % len(key)] for i, b in enumerate(chunk)
+                )
                 f_out.write(decrypted_chunk)
 
     def _calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA256 checksum"""
         sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             while True:
                 data = f.read(65536)
                 if not data:
@@ -379,20 +385,19 @@ class BackupScheduler:
         try:
             logger.info("Starting scheduled database backup")
             backup_file = self.backup_manager.create_database_backup(
-                self.backup_manager.config['database_url']
+                self.backup_manager.config["database_url"]
             )
 
             # Upload to S3 if configured
             if self.backup_manager.s3_client:
                 s3_url = self.backup_manager.upload_to_s3(
-                    backup_file,
-                    self.backup_manager.config['s3_bucket']
+                    backup_file, self.backup_manager.config["s3_bucket"]
                 )
 
             # Send success notification
             self.backup_manager.send_notification(
                 "Database Backup Completed",
-                f"Database backup completed successfully: {backup_file}"
+                f"Database backup completed successfully: {backup_file}",
             )
 
         except Exception as e:
@@ -400,25 +405,26 @@ class BackupScheduler:
             self.backup_manager.send_notification(
                 "Database Backup Failed",
                 f"Database backup failed: {str(e)}",
-                success=False
+                success=False,
             )
 
     def _run_filesystem_backup(self):
         """Execute scheduled filesystem backup"""
         try:
             logger.info("Starting scheduled filesystem backup")
-            paths = self.backup_manager.config.get('filesystem_paths', ['/app/uploads', '/app/logs'])
+            paths = self.backup_manager.config.get(
+                "filesystem_paths", ["/app/uploads", "/app/logs"]
+            )
             backup_file = self.backup_manager.create_filesystem_backup(paths)
 
             if self.backup_manager.s3_client:
                 s3_url = self.backup_manager.upload_to_s3(
-                    backup_file,
-                    self.backup_manager.config['s3_bucket']
+                    backup_file, self.backup_manager.config["s3_bucket"]
                 )
 
             self.backup_manager.send_notification(
                 "Filesystem Backup Completed",
-                f"Filesystem backup completed successfully: {backup_file}"
+                f"Filesystem backup completed successfully: {backup_file}",
             )
 
         except Exception as e:
@@ -426,25 +432,26 @@ class BackupScheduler:
             self.backup_manager.send_notification(
                 "Filesystem Backup Failed",
                 f"Filesystem backup failed: {str(e)}",
-                success=False
+                success=False,
             )
 
     def _run_config_backup(self):
         """Execute scheduled configuration backup"""
         try:
             logger.info("Starting scheduled configuration backup")
-            config_paths = self.backup_manager.config.get('config_paths', ['/app/config'])
+            config_paths = self.backup_manager.config.get(
+                "config_paths", ["/app/config"]
+            )
             backup_file = self.backup_manager.create_config_backup(config_paths)
 
             if self.backup_manager.s3_client:
                 s3_url = self.backup_manager.upload_to_s3(
-                    backup_file,
-                    self.backup_manager.config['s3_bucket']
+                    backup_file, self.backup_manager.config["s3_bucket"]
                 )
 
             self.backup_manager.send_notification(
                 "Configuration Backup Completed",
-                f"Configuration backup completed successfully: {backup_file}"
+                f"Configuration backup completed successfully: {backup_file}",
             )
 
         except Exception as e:
@@ -452,7 +459,7 @@ class BackupScheduler:
             self.backup_manager.send_notification(
                 "Configuration Backup Failed",
                 f"Configuration backup failed: {str(e)}",
-                success=False
+                success=False,
             )
 
     def _run_cleanup(self):
@@ -463,7 +470,7 @@ class BackupScheduler:
 
             self.backup_manager.send_notification(
                 "Backup Cleanup Completed",
-                f"Cleaned up {deleted_count} old backup files"
+                f"Cleaned up {deleted_count} old backup files",
             )
 
         except Exception as e:
@@ -471,7 +478,7 @@ class BackupScheduler:
             self.backup_manager.send_notification(
                 "Backup Cleanup Failed",
                 f"Backup cleanup failed: {str(e)}",
-                success=False
+                success=False,
             )
 
 
@@ -479,26 +486,26 @@ class BackupScheduler:
 def init_backup_system(app):
     """Initialize backup system for Flask application"""
     backup_config = {
-        'backup_dir': app.config.get('BACKUP_DIR', '/app/backups'),
-        'database_url': app.config['SQLALCHEMY_DATABASE_URI'],
-        'retention_days': app.config.get('BACKUP_RETENTION_DAYS', 30),
-        'encryption_key': app.config.get('BACKUP_ENCRYPTION_KEY'),
-        's3_enabled': app.config.get('BACKUP_S3_ENABLED', False),
-        'aws_access_key_id': app.config.get('AWS_ACCESS_KEY_ID'),
-        'aws_secret_access_key': app.config.get('AWS_SECRET_ACCESS_KEY'),
-        'aws_region': app.config.get('AWS_REGION', 'us-east-1'),
-        's3_bucket': app.config.get('BACKUP_S3_BUCKET'),
-        'filesystem_paths': app.config.get('BACKUP_FILESYSTEM_PATHS', ['/app/uploads']),
-        'config_paths': app.config.get('BACKUP_CONFIG_PATHS', ['/app/config']),
-        'email': {
-            'enabled': app.config.get('BACKUP_EMAIL_ENABLED', False),
-            'from': app.config.get('BACKUP_EMAIL_FROM'),
-            'to': app.config.get('BACKUP_EMAIL_TO'),
-            'smtp_server': app.config.get('BACKUP_SMTP_SERVER'),
-            'smtp_port': app.config.get('BACKUP_SMTP_PORT', 587),
-            'username': app.config.get('BACKUP_SMTP_USERNAME'),
-            'password': app.config.get('BACKUP_SMTP_PASSWORD')
-        }
+        "backup_dir": app.config.get("BACKUP_DIR", "/app/backups"),
+        "database_url": app.config["SQLALCHEMY_DATABASE_URI"],
+        "retention_days": app.config.get("BACKUP_RETENTION_DAYS", 30),
+        "encryption_key": app.config.get("BACKUP_ENCRYPTION_KEY"),
+        "s3_enabled": app.config.get("BACKUP_S3_ENABLED", False),
+        "aws_access_key_id": app.config.get("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": app.config.get("AWS_SECRET_ACCESS_KEY"),
+        "aws_region": app.config.get("AWS_REGION", "us-east-1"),
+        "s3_bucket": app.config.get("BACKUP_S3_BUCKET"),
+        "filesystem_paths": app.config.get("BACKUP_FILESYSTEM_PATHS", ["/app/uploads"]),
+        "config_paths": app.config.get("BACKUP_CONFIG_PATHS", ["/app/config"]),
+        "email": {
+            "enabled": app.config.get("BACKUP_EMAIL_ENABLED", False),
+            "from": app.config.get("BACKUP_EMAIL_FROM"),
+            "to": app.config.get("BACKUP_EMAIL_TO"),
+            "smtp_server": app.config.get("BACKUP_SMTP_SERVER"),
+            "smtp_port": app.config.get("BACKUP_SMTP_PORT", 587),
+            "username": app.config.get("BACKUP_SMTP_USERNAME"),
+            "password": app.config.get("BACKUP_SMTP_PASSWORD"),
+        },
     }
 
     backup_manager = BackupManager(backup_config)
@@ -509,7 +516,7 @@ def init_backup_system(app):
     app.backup_scheduler = backup_scheduler
 
     # Start scheduler if enabled
-    if app.config.get('BACKUP_SCHEDULER_ENABLED', True):
+    if app.config.get("BACKUP_SCHEDULER_ENABLED", True):
         backup_scheduler.start()
 
     return backup_manager, backup_scheduler

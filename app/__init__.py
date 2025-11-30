@@ -1,20 +1,23 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
-from config import config
 import os
+
+from flask import Flask
+from flask_login import LoginManager
+from flask_sqlalchemy import SQLAlchemy
+
+from config import config
 
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
 
 # Import models for testing
-from src.panel.models import User, SiteAsset, SiteSetting
+from src.panel.models import SiteAsset, SiteSetting, User
 
-def create_app(config_name='default'):
+
+def create_app(config_name="default"):
     """Application factory function"""
-    template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+    template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
     app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 
     # Load configuration
@@ -23,7 +26,7 @@ def create_app(config_name='default'):
     else:
         # Assume it's a config object
         for key, value in vars(config_name).items():
-            if not key.startswith('_'):
+            if not key.startswith("_"):
                 app.config[key.upper()] = value
 
     # Initialize essential extensions
@@ -36,27 +39,30 @@ def create_app(config_name='default'):
         return None
 
     # Register blueprints
-    from src.panel.main_bp import main_bp
+    from src.panel.admin_bp import admin_bp
     from src.panel.api_bp import api_bp
     from src.panel.chat_bp import chat_bp
+    from src.panel.main_bp import main_bp
     from src.panel.payment_bp import payment_bp
-    from src.panel.admin_bp import admin_bp
 
     app.register_blueprint(main_bp)
-    app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(chat_bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(admin_bp)
 
     # Register context processors
     from app.context_processors import inject_user
+
     app.context_processor(inject_user)
 
     return app
 
+
 def verify_csrf():
     """Dummy CSRF verification for testing"""
     return True
+
 
 # Create default app instance for testing
 app = create_app()

@@ -9,7 +9,8 @@ import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import (Blueprint, jsonify, redirect, render_template, request,
+                   url_for)
 from flask_login import current_user, login_required
 from sqlalchemy import desc
 
@@ -78,7 +79,9 @@ class PlayerSession(db.Model):
     score = db.Column(db.Integer, default=0)
     team = db.Column(db.String(16), nullable=True)  # axis, allies, spectator
 
-    server = db.relationship("Server", backref=db.backref("player_sessions", lazy="dynamic"))
+    server = db.relationship(
+        "Server", backref=db.backref("player_sessions", lazy="dynamic")
+    )
 
 
 class ServerAlert(db.Model):
@@ -135,7 +138,9 @@ class ServerMonitor:
     def __init__(self):
         self.monitoring_active = False
         self.monitor_thread = None
-        self.live_data = defaultdict(lambda: deque(maxlen=60))  # 60 seconds of live data
+        self.live_data = defaultdict(
+            lambda: deque(maxlen=60)
+        )  # 60 seconds of live data
         self.app = None  # Store app reference
 
     def start_monitoring(self, app=None):
@@ -148,7 +153,9 @@ class ServerMonitor:
 
         # Only start thread if app context is available
         if app is None:
-            print("Warning: ServerMonitor.start_monitoring() called without app context")
+            print(
+                "Warning: ServerMonitor.start_monitoring() called without app context"
+            )
             return
 
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -180,7 +187,9 @@ class ServerMonitor:
                     self._check_alerts(server, metrics)
 
                     # Store in live data for real-time dashboard
-                    self.live_data[server.id].append({"timestamp": time.time(), "metrics": metrics})
+                    self.live_data[server.id].append(
+                        {"timestamp": time.time(), "metrics": metrics}
+                    )
 
                 time.sleep(5)  # Monitor every 5 seconds
 
@@ -284,7 +293,9 @@ class ServerMonitor:
                     "5": "LMS",
                     "6": "Map Voting",
                 }
-                info["game_mode"] = gametype_map.get(gamemode_response.strip(), "Unknown")
+                info["game_mode"] = gametype_map.get(
+                    gamemode_response.strip(), "Unknown"
+                )
 
             return info
 
@@ -341,7 +352,9 @@ class ServerMonitor:
         try:
             # Get active alerts for this server and global alerts
             alerts = ServerAlert.query.filter(
-                db.or_(ServerAlert.server_id == server.id, ServerAlert.server_id.is_(None)),
+                db.or_(
+                    ServerAlert.server_id == server.id, ServerAlert.server_id.is_(None)
+                ),
                 ServerAlert.is_active,
             ).all()
 
@@ -406,7 +419,8 @@ class ServerMonitor:
                 AlertHistory.alert_id == alert.id,
                 AlertHistory.server_id == server.id,
                 AlertHistory.resolved_at.is_(None),
-                AlertHistory.triggered_at > datetime.now(timezone.utc) - timedelta(minutes=5),
+                AlertHistory.triggered_at
+                > datetime.now(timezone.utc) - timedelta(minutes=5),
             ).first()
 
             if recent_alert:
@@ -464,7 +478,9 @@ class ServerMonitor:
             "player_count_low": f"Low player count: {metric_value} players (threshold: {alert.threshold_value})",
         }
 
-        base_message = alert_messages.get(alert.alert_type, f"Alert triggered: {alert.alert_type}")
+        base_message = alert_messages.get(
+            alert.alert_type, f"Alert triggered: {alert.alert_type}"
+        )
         return f"Server '{server.name}': {base_message}"
 
     def _send_discord_notification(self, alert, server, message, severity):

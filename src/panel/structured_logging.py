@@ -49,7 +49,9 @@ class StructuredJSONFormatter(logging.Formatter):
         # Add exception info
         if record.exc_info:
             log_record["exception"] = {
-                "type": record.exc_info[0].__name__ if record.exc_info[0] else "Unknown",
+                "type": (
+                    record.exc_info[0].__name__ if record.exc_info[0] else "Unknown"
+                ),
                 "message": str(record.exc_info[1]) if record.exc_info[1] else "",
                 "traceback": self.formatException(record.exc_info),
             }
@@ -96,7 +98,9 @@ class PerformanceMiddleware:
 
     def __init__(self, app: Flask):
         self.app = app
-        self.performance_threshold = float(os.environ.get("PERFORMANCE_THRESHOLD", "500"))
+        self.performance_threshold = float(
+            os.environ.get("PERFORMANCE_THRESHOLD", "500")
+        )
         app.before_request(self.before_request)
         app.after_request(self.after_request)
 
@@ -192,7 +196,8 @@ def setup_structured_logging(app: Flask) -> logging.Logger:
         formatter = StructuredJSONFormatter()
     else:
         formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
     # Console handler
@@ -329,9 +334,7 @@ def log_security_event(
         **kwargs,
     }
 
-    log_message = (
-        f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
-    )
+    log_message = f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
     audit_logger.info(log_message)
 
 
@@ -341,12 +344,19 @@ def log_performance_metric(
     """Log a performance metric"""
     performance_logger = get_performance_logger()
 
-    extra = {"operation": operation, "duration_ms": duration_ms, "success": success, **kwargs}
+    extra = {
+        "operation": operation,
+        "duration_ms": duration_ms,
+        "success": success,
+        **kwargs,
+    }
 
     if success:
         performance_logger.info(f"Performance metric: {operation}", extra=extra)
     else:
-        performance_logger.warning(f"Performance metric (failed): {operation}", extra=extra)
+        performance_logger.warning(
+            f"Performance metric (failed): {operation}", extra=extra
+        )
 
 
 def get_request_logger() -> logging.Logger:

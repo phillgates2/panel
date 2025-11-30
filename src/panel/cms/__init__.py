@@ -1,20 +1,11 @@
 from datetime import datetime, timezone
 
-from flask import (
-    Blueprint,
-    abort,
-    current_app,
-    flash,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
+from flask import (Blueprint, abort, current_app, flash, redirect,
+                   render_template, request, session, url_for)
 from flask_caching import Cache
+from tools.auth import admin_required as auth_admin_required
 
 from app import User, db, verify_csrf
-from tools.auth import admin_required as auth_admin_required
 
 cms_bp = Blueprint("cms", __name__, url_prefix="/cms")
 
@@ -79,7 +70,9 @@ def index():
     q = db.session.query(Page).order_by(Page.title)
     total = q.count()
     pages = q.offset((page - 1) * per_page).limit(per_page).all()
-    return render_template("cms/index.html", pages=pages, page=page, per_page=per_page, total=total)
+    return render_template(
+        "cms/index.html", pages=pages, page=page, per_page=per_page, total=total
+    )
 
 
 @cms_bp.route("/<slug>")
@@ -153,7 +146,9 @@ def admin_login():
         # Prefer authenticating against the User model (hashed passwords).
         user = None
         try:
-            user = db.session.query(User).filter_by(email=(username or "").lower()).first()
+            user = (
+                db.session.query(User).filter_by(email=(username or "").lower()).first()
+            )
         except Exception:
             user = None
         if user:
@@ -265,7 +260,9 @@ def admin_blog_edit(post_id):
             return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
 
         # Check if slug conflicts with another post
-        existing = BlogPost.query.filter(BlogPost.slug == slug, BlogPost.id != post_id).first()
+        existing = BlogPost.query.filter(
+            BlogPost.slug == slug, BlogPost.id != post_id
+        ).first()
         if existing:
             flash(f"Slug '{slug}' is already used by another post", "error")
             return redirect(url_for("cms.admin_blog_edit", post_id=post_id))
@@ -313,7 +310,9 @@ def blog_index():
     posts = cache.get(cache_key)
     if posts is None:
         posts = (
-            BlogPost.query.filter_by(is_published=True).order_by(BlogPost.created_at.desc()).all()
+            BlogPost.query.filter_by(is_published=True)
+            .order_by(BlogPost.created_at.desc())
+            .all()
         )
         cache.set(cache_key, posts, timeout=600)
     return render_template("cms/blog_index.html", posts=posts)

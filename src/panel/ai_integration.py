@@ -3,14 +3,15 @@ AI Integration with Azure OpenAI
 Intelligent features for content moderation, chat assistance, and analytics
 """
 
-import os
 import asyncio
-import openai
-from typing import Dict, List, Optional, Any
-import logging
 import json
+import logging
+import os
 from datetime import datetime
 from functools import wraps
+from typing import Any, Dict, List, Optional
+
+import openai
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,9 @@ class AzureOpenAIClient:
         )
 
         self.deployment_gpt4 = os.getenv("AZURE_OPENAI_DEPLOYMENT_GPT4", "gpt-4")
-        self.deployment_gpt35 = os.getenv("AZURE_OPENAI_DEPLOYMENT_GPT35", "gpt-35-turbo")
+        self.deployment_gpt35 = os.getenv(
+            "AZURE_OPENAI_DEPLOYMENT_GPT35", "gpt-35-turbo"
+        )
 
         # Rate limiting
         self.request_count = 0
@@ -40,7 +43,9 @@ class AzureOpenAIClient:
             self.request_count = 0
             self.last_reset = now
 
-        if self.request_count >= 50:  # Azure OpenAI rate limit (adjust based on your tier)
+        if (
+            self.request_count >= 50
+        ):  # Azure OpenAI rate limit (adjust based on your tier)
             wait_time = 60 - (now - self.last_reset).seconds
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
@@ -88,7 +93,10 @@ class AzureOpenAIClient:
             if user_history:
                 for msg in user_history[-5:]:  # Last 5 messages for context
                     messages.append(
-                        {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                        {
+                            "role": msg.get("role", "user"),
+                            "content": msg.get("content", ""),
+                        }
                     )
 
             # Add current context
@@ -161,7 +169,9 @@ Format your response as JSON with keys: sentiment, confidence, emotions, explana
                 "analyzed_at": datetime.utcnow().isoformat(),
             }
 
-    async def suggest_tags(self, content: str, existing_tags: List[str] = None) -> List[str]:
+    async def suggest_tags(
+        self, content: str, existing_tags: List[str] = None
+    ) -> List[str]:
         """Suggest relevant tags for forum posts"""
         try:
             await self._check_rate_limit()
@@ -260,9 +270,13 @@ Content: {content}"""
 
         except Exception as e:
             logger.error(f"Content summarization failed: {e}")
-            return content[:max_length] + "..." if len(content) > max_length else content
+            return (
+                content[:max_length] + "..." if len(content) > max_length else content
+            )
 
-    async def classify_content(self, content: str, categories: List[str]) -> Dict[str, Any]:
+    async def classify_content(
+        self, content: str, categories: List[str]
+    ) -> Dict[str, Any]:
         """Classify content into predefined categories"""
         try:
             await self._check_rate_limit()
@@ -450,7 +464,8 @@ class AIContentModerator:
         return {
             **self.moderation_stats,
             "flagged_percentage": (
-                self.moderation_stats["flagged"] / max(self.moderation_stats["total_checked"], 1)
+                self.moderation_stats["flagged"]
+                / max(self.moderation_stats["total_checked"], 1)
             )
             * 100,
         }
@@ -463,7 +478,9 @@ class AIAssistant:
         self.ai_client = get_ai_client()
         self.conversation_history = {}
 
-    async def get_response(self, user_id: int, message: str, context: str = None) -> str:
+    async def get_response(
+        self, user_id: int, message: str, context: str = None
+    ) -> str:
         """Get AI response for user message"""
         if not self.ai_client:
             return "I'm sorry, the AI assistant is currently unavailable."

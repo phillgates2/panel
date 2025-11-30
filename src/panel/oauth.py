@@ -4,9 +4,10 @@ Supports Google, GitHub, and Discord authentication
 """
 
 import os
-from flask import Flask, url_for, session, redirect, flash, current_app
-from authlib.integrations.flask_client import OAuth
+
 from authlib.integrations.base_client import OAuthError
+from authlib.integrations.flask_client import OAuth
+from flask import Flask, current_app, flash, redirect, session, url_for
 from werkzeug.security import generate_password_hash
 
 from src.panel import db
@@ -107,7 +108,10 @@ class OAuthHandler:
                 # New user - create account
                 user = OAuthHandler._create_oauth_user(provider, user_info, token)
                 session["user_id"] = user.id
-                flash(f"Welcome, {user.display_name}! Your account has been created.", "success")
+                flash(
+                    f"Welcome, {user.display_name}! Your account has been created.",
+                    "success",
+                )
 
             return user
 

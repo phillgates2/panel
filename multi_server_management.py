@@ -82,8 +82,12 @@ class ServerNode(db.Model):
     __tablename__ = "server_nodes"
 
     id = db.Column(db.Integer, primary_key=True)
-    server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False, unique=True)
-    cluster_id = db.Column(db.Integer, db.ForeignKey("server_clusters.id"), nullable=True)
+    server_id = db.Column(
+        db.Integer, db.ForeignKey("server.id"), nullable=False, unique=True
+    )
+    cluster_id = db.Column(
+        db.Integer, db.ForeignKey("server_clusters.id"), nullable=True
+    )
 
     # Physical/Virtual server details
     hostname = db.Column(db.String(255), nullable=True)
@@ -127,10 +131,14 @@ class ServerDeployment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=False)
-    cluster_id = db.Column(db.Integer, db.ForeignKey("server_clusters.id"), nullable=True)
+    cluster_id = db.Column(
+        db.Integer, db.ForeignKey("server_clusters.id"), nullable=True
+    )
 
     # Deployment details
-    deployment_type = db.Column(db.String(50), nullable=False)  # update, config, restart, etc.
+    deployment_type = db.Column(
+        db.String(50), nullable=False
+    )  # update, config, restart, etc.
     version = db.Column(db.String(50), nullable=True)
     status = db.Column(db.Enum(DeploymentStatus), default=DeploymentStatus.PENDING)
 
@@ -165,10 +173,14 @@ class LoadBalancerRule(db.Model):
     __tablename__ = "load_balancer_rules"
 
     id = db.Column(db.Integer, primary_key=True)
-    cluster_id = db.Column(db.Integer, db.ForeignKey("server_clusters.id"), nullable=False)
+    cluster_id = db.Column(
+        db.Integer, db.ForeignKey("server_clusters.id"), nullable=False
+    )
 
     name = db.Column(db.String(100), nullable=False)
-    rule_type = db.Column(db.String(50), nullable=False)  # round_robin, least_connections, etc.
+    rule_type = db.Column(
+        db.String(50), nullable=False
+    )  # round_robin, least_connections, etc.
     priority = db.Column(db.Integer, default=100)
 
     # Rule configuration
@@ -272,7 +284,9 @@ class ServerManager:
 
         # Basic ping test
         try:
-            sock = socket.create_connection((node.ip_address, node.server.port), timeout=5)
+            sock = socket.create_connection(
+                (node.ip_address, node.server.port), timeout=5
+            )
             sock.close()
             response_time = (time.time() - start_time) * 1000
             status = ServerStatus.ONLINE
@@ -372,7 +386,9 @@ class ClusterManager:
     def __init__(self):
         self.server_manager = ServerManager()
 
-    def get_cluster_health(self, cluster_id: int) -> Tuple[ClusterStats, List[ServerHealth]]:
+    def get_cluster_health(
+        self, cluster_id: int
+    ) -> Tuple[ClusterStats, List[ServerHealth]]:
         """Get comprehensive cluster health information."""
         cluster = db.session.query(ServerCluster).get(cluster_id)
         if not cluster:
@@ -401,7 +417,9 @@ class ClusterManager:
         # Calculate averages
         avg_cpu = total_cpu / online_count if online_count > 0 else 0
         avg_memory = total_memory / online_count if online_count > 0 else 0
-        avg_response_time = total_response_time / online_count if online_count > 0 else 0
+        avg_response_time = (
+            total_response_time / online_count if online_count > 0 else 0
+        )
 
         stats = ClusterStats(
             total_servers=len(nodes),
@@ -470,13 +488,17 @@ class DeploymentManager:
     def __init__(self):
         self.server_manager = ServerManager()
 
-    def create_deployment(self, server_ids: List[int], deployment_type: str, config: dict) -> int:
+    def create_deployment(
+        self, server_ids: List[int], deployment_type: str, config: dict
+    ) -> int:
         """Create a new deployment."""
         deployment = ServerDeployment(
             deployment_type=deployment_type,
             config_data=config,
             initiated_by=(
-                current_user.email if current_user and current_user.is_authenticated else "system"
+                current_user.email
+                if current_user and current_user.is_authenticated
+                else "system"
             ),
             total_steps=len(server_ids) * 3,  # stop, update, start
         )
@@ -506,7 +528,9 @@ class DeploymentManager:
 
         try:
             for server_id in server_ids:
-                node = db.session.query(ServerNode).filter_by(server_id=server_id).first()
+                node = (
+                    db.session.query(ServerNode).filter_by(server_id=server_id).first()
+                )
                 if not node:
                     continue
 
@@ -567,7 +591,9 @@ def cluster_dashboard():
 
     for cluster in clusters:
         stats, health_checks = cluster_manager.get_cluster_health(cluster.id)
-        cluster_data.append({"cluster": cluster, "stats": stats, "health": health_checks})
+        cluster_data.append(
+            {"cluster": cluster, "stats": stats, "health": health_checks}
+        )
 
     # Get recent deployments
     recent_deployments = (

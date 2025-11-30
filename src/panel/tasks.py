@@ -91,6 +91,7 @@ def send_email_task(to_email, subject, body, html_body=None):
     """Send email asynchronously"""
     try:
         from flask_mail import Message
+
         from src.panel import mail
 
         msg = Message(subject=subject, recipients=[to_email], body=body)
@@ -184,7 +185,9 @@ def run_autodeploy_task(download_url=None):
     _log("autodeploy", f"Starting autodeploy (download_url={download_url})")
 
     try:
-        proc = subprocess.run([script_path], capture_output=True, text=True, env=env, timeout=3600)
+        proc = subprocess.run(
+            [script_path], capture_output=True, text=True, env=env, timeout=3600
+        )
         _log("autodeploy", "STDOUT:\n" + proc.stdout)
         _log("autodeploy", "STDERR:\n" + proc.stderr)
 
@@ -270,7 +273,9 @@ def data_retention_task():
         cutoff = datetime.now(timezone.utc) - timedelta(days=365)  # 1 year
 
         # Delete old audit logs
-        old_audits = models.AuditLog.query.filter(models.AuditLog.created_at < cutoff).delete()
+        old_audits = models.AuditLog.query.filter(
+            models.AuditLog.created_at < cutoff
+        ).delete()
         db.session.commit()
 
         _log("retention", f"Deleted {old_audits} old audit logs")

@@ -5,11 +5,12 @@ This module provides comprehensive load testing capabilities using Locust
 to simulate real-world usage patterns and stress test the application.
 """
 
-from locust import HttpUser, task, between, SequentialTaskSet
-import random
 import json
+import random
 import time
 from datetime import datetime
+
+from locust import HttpUser, SequentialTaskSet, between, task
 
 
 class PanelUserBehavior(SequentialTaskSet):
@@ -26,7 +27,7 @@ class PanelUserBehavior(SequentialTaskSet):
             self.jwt_login,
             self.oauth_login_google,
             self.oauth_login_github,
-            self.api_key_login
+            self.api_key_login,
         ]
 
         # Randomly select login method
@@ -35,10 +36,13 @@ class PanelUserBehavior(SequentialTaskSet):
 
     def jwt_login(self):
         """JWT token-based login"""
-        response = self.client.post("/auth/jwt/login", json={
-            "email": f"user{random.randint(1, 1000)}@example.com",
-            "password": "password123"
-        })
+        response = self.client.post(
+            "/auth/jwt/login",
+            json={
+                "email": f"user{random.randint(1, 1000)}@example.com",
+                "password": "password123",
+            },
+        )
 
         if response.status_code == 200:
             self.token = response.json().get("access_token")
@@ -73,7 +77,7 @@ class PanelUserBehavior(SequentialTaskSet):
         params = {
             "page": random.randint(1, 5),
             "per_page": random.randint(10, 50),
-            "status": random.choice(["online", "offline", "starting", "stopping"])
+            "status": random.choice(["online", "offline", "starting", "stopping"]),
         }
         self.client.get("/api/v2/servers", params=params)
 
@@ -101,8 +105,8 @@ class PanelUserBehavior(SequentialTaskSet):
             "settings": {
                 "difficulty": random.choice(["easy", "normal", "hard"]),
                 "pvp": random.choice([True, False]),
-                "whitelist": random.choice([True, False])
-            }
+                "whitelist": random.choice([True, False]),
+            },
         }
         self.client.post("/api/v2/servers", json=server_data)
 
@@ -112,9 +116,7 @@ class PanelUserBehavior(SequentialTaskSet):
         server_id = random.randint(1, 1000)
         update_data = {
             "max_players": random.randint(10, 100),
-            "settings": {
-                "difficulty": random.choice(["easy", "normal", "hard"])
-            }
+            "settings": {"difficulty": random.choice(["easy", "normal", "hard"])},
         }
         self.client.put(f"/api/v2/servers/{server_id}", json=update_data)
 
@@ -132,8 +134,10 @@ class PanelUserBehavior(SequentialTaskSet):
         params = {
             "page": random.randint(1, 10),
             "per_page": 20,
-            "action": random.choice(["server_start", "server_stop", "user_login", "server_create"]),
-            "user_id": random.randint(1, 100)
+            "action": random.choice(
+                ["server_start", "server_stop", "user_login", "server_create"]
+            ),
+            "user_id": random.randint(1, 100),
         }
         self.client.get("/api/v2/audit", params=params)
 
@@ -161,6 +165,7 @@ class PanelUserBehavior(SequentialTaskSet):
 
 class PanelUser(HttpUser):
     """Main user class for load testing"""
+
     tasks = [PanelUserBehavior]
     wait_time = between(1, 5)  # Wait 1-5 seconds between tasks
 
@@ -170,19 +175,20 @@ class PanelUser(HttpUser):
 
 class AdminUser(HttpUser):
     """Administrative user with higher privileges"""
+
     tasks = [PanelUserBehavior]
     wait_time = between(0.5, 2)  # Faster actions for admin users
 
     def on_start(self):
         """Admin login"""
-        self.client.post("/auth/jwt/login", json={
-            "email": "admin@panel.com",
-            "password": "admin123"
-        })
+        self.client.post(
+            "/auth/jwt/login", json={"email": "admin@panel.com", "password": "admin123"}
+        )
 
 
 class ReadOnlyUser(HttpUser):
     """Read-only user for testing public endpoints"""
+
     wait_time = between(2, 8)
 
     @task(5)
@@ -212,7 +218,7 @@ class LoadTestConfig:
             "users": 1,
             "spawn_rate": 1,
             "run_time": "1m",
-            "description": "Smoke test to verify basic functionality"
+            "description": "Smoke test to verify basic functionality",
         }
 
     @staticmethod
@@ -222,7 +228,7 @@ class LoadTestConfig:
             "users": 50,
             "spawn_rate": 5,
             "run_time": "5m",
-            "description": "Standard load test for normal usage"
+            "description": "Standard load test for normal usage",
         }
 
     @staticmethod
@@ -232,7 +238,7 @@ class LoadTestConfig:
             "users": 200,
             "spawn_rate": 10,
             "run_time": "10m",
-            "description": "Stress test to find breaking points"
+            "description": "Stress test to find breaking points",
         }
 
     @staticmethod
@@ -242,7 +248,7 @@ class LoadTestConfig:
             "users": 100,
             "spawn_rate": 50,  # Fast ramp-up
             "run_time": "3m",
-            "description": "Spike test for sudden traffic increases"
+            "description": "Spike test for sudden traffic increases",
         }
 
     @staticmethod
@@ -252,12 +258,13 @@ class LoadTestConfig:
             "users": 30,
             "spawn_rate": 2,
             "run_time": "30m",
-            "description": "Endurance test for sustained performance"
+            "description": "Endurance test for sustained performance",
         }
 
 
 # Custom metrics and monitoring
 from locust import events
+
 
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
@@ -267,6 +274,7 @@ def on_test_start(environment, **kwargs):
     print(f"Number of users: {environment.parsed_options.num_users}")
     print("-" * 50)
 
+
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
     """Generate test summary"""
@@ -275,8 +283,12 @@ def on_test_stop(environment, **kwargs):
     print(f"Total requests: {environment.stats.total.num_requests}")
     print(".2f")
     print(f"Median response time: {environment.stats.total.median_response_time}ms")
-    print(f"95th percentile: {environment.stats.total.get_response_time_percentile(0.95)}ms")
-    print(f"99th percentile: {environment.stats.total.get_response_time_percentile(0.99)}ms")
+    print(
+        f"95th percentile: {environment.stats.total.get_response_time_percentile(0.95)}ms"
+    )
+    print(
+        f"99th percentile: {environment.stats.total.get_response_time_percentile(0.99)}ms"
+    )
 
     # Check for failures
     if environment.stats.total.num_failures > 0:
@@ -299,10 +311,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Panel Load Testing Configuration")
-    parser.add_argument("--config", choices=["smoke", "load", "stress", "spike", "endurance"],
-                       default="load", help="Test configuration to use")
-    parser.add_argument("--host", default="http://localhost:8080",
-                       help="Target host URL")
+    parser.add_argument(
+        "--config",
+        choices=["smoke", "load", "stress", "spike", "endurance"],
+        default="load",
+        help="Test configuration to use",
+    )
+    parser.add_argument(
+        "--host", default="http://localhost:8080", help="Target host URL"
+    )
 
     args = parser.parse_args()
 
@@ -314,4 +331,6 @@ if __name__ == "__main__":
     print(f"Run Time: {config['run_time']}")
     print(f"Host: {args.host}")
     print("\nRun with:")
-    print(f"locust -f load_testing.py --host {args.host} --users {config['users']} --spawn-rate {config['spawn_rate']} --run-time {config['run_time']}")
+    print(
+        f"locust -f load_testing.py --host {args.host} --users {config['users']} --spawn-rate {config['spawn_rate']} --run-time {config['run_time']}"
+    )

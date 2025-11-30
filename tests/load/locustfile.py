@@ -90,7 +90,9 @@ class AuthenticatedUser(FastHttpUser):
             "captcha": "TEST123",
         }
 
-        with self.client.post("/login", data=login_data, catch_response=True) as response:
+        with self.client.post(
+            "/login", data=login_data, catch_response=True
+        ) as response:
             if response.status_code == 302:  # Redirect after successful login
                 response.success()
                 # Store session cookies
@@ -171,7 +173,9 @@ class APIUser(FastHttpUser):
             "captcha": "TEST123",
         }
 
-        with self.client.post("/login", json=login_data, catch_response=True) as response:
+        with self.client.post(
+            "/login", json=login_data, catch_response=True
+        ) as response:
             if response.status_code == 200:
                 # Extract token from response (adjust based on your auth system)
                 data = response.json()
@@ -246,7 +250,9 @@ class AdminUser(FastHttpUser):
             "captcha": "TEST123",
         }
 
-        with self.client.post("/login", data=login_data, catch_response=True) as response:
+        with self.client.post(
+            "/login", data=login_data, catch_response=True
+        ) as response:
             if response.status_code == 302:
                 response.success()
                 self.admin_logged_in = True
@@ -302,7 +308,13 @@ class StressTestUser(FastHttpUser):
     @task
     def stress_test_endpoint(self):
         """Hit endpoints rapidly for stress testing"""
-        endpoints = ["/", "/forum", "/api/health", "/static/css/style.css", "/static/manifest.json"]
+        endpoints = [
+            "/",
+            "/forum",
+            "/api/health",
+            "/static/css/style.css",
+            "/static/manifest.json",
+        ]
 
         import random
 
@@ -312,7 +324,9 @@ class StressTestUser(FastHttpUser):
             if response.status_code == 200:
                 response.success()
             else:
-                response.failure(f"Stress test {endpoint} failed: {response.status_code}")
+                response.failure(
+                    f"Stress test {endpoint} failed: {response.status_code}"
+                )
 
 
 # Custom event handlers for monitoring
@@ -334,7 +348,14 @@ def on_test_stop(environment, **kwargs):
 
 @events.request.add_listener
 def on_request(
-    request_type, name, response_time, response_length, response, context, exception, **kwargs
+    request_type,
+    name,
+    response_time,
+    response_length,
+    response,
+    context,
+    exception,
+    **kwargs,
 ):
     """Called for each request"""
     if exception:
@@ -434,7 +455,14 @@ performance_monitor = PerformanceMonitor()
 
 @events.request.add_listener
 def record_performance(
-    request_type, name, response_time, response_length, response, context, exception, **kwargs
+    request_type,
+    name,
+    response_time,
+    response_length,
+    response,
+    context,
+    exception,
+    **kwargs,
 ):
     """Record performance metrics"""
     performance_monitor.record_response_time(response_time)

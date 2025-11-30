@@ -21,7 +21,12 @@ def run_installer_with_config(tmp_path, config_text, config_name, extra_env=None
     # Run the installer pointing to the repo-local script
     cmd = ["bash", "install.sh", "--config", str(config_file)]
     proc = subprocess.run(
-        cmd, cwd=os.getcwd(), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        cmd,
+        cwd=os.getcwd(),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     return proc, install_dir
 

@@ -52,7 +52,9 @@ class ConfigVersion(db.Model):
     deployed_at = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=False)
 
-    server = db.relationship("Server", backref=db.backref("config_versions", lazy="dynamic"))
+    server = db.relationship(
+        "Server", backref=db.backref("config_versions", lazy="dynamic")
+    )
     creator = db.relationship("User", foreign_keys=[created_by])
 
 
@@ -62,7 +64,9 @@ class ConfigDeployment(db.Model):
     __tablename__ = "config_deployment"
 
     id = db.Column(db.Integer, primary_key=True)
-    config_version_id = db.Column(db.Integer, db.ForeignKey("config_version.id"), nullable=False)
+    config_version_id = db.Column(
+        db.Integer, db.ForeignKey("config_version.id"), nullable=False
+    )
     deployment_status = db.Column(
         db.String(32), nullable=False
     )  # pending, success, failed, rollback
@@ -85,7 +89,9 @@ class ConfigManager:
 
     def get_current_config(self):
         """Get the currently active configuration."""
-        return ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).first()
+        return ConfigVersion.query.filter_by(
+            server_id=self.server_id, is_active=True
+        ).first()
 
     def create_version(self, config_data, user_id, change_summary=None):
         """Create a new configuration version."""
@@ -148,9 +154,9 @@ class ConfigManager:
 
             if success:
                 # Mark as active and deactivate others
-                ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).update(
-                    {"is_active": False}
-                )
+                ConfigVersion.query.filter_by(
+                    server_id=self.server_id, is_active=True
+                ).update({"is_active": False})
 
                 version.is_active = True
                 version.deployed_at = datetime.now(timezone.utc)
@@ -193,13 +199,15 @@ class ConfigManager:
 
             if success:
                 # Mark as active
-                ConfigVersion.query.filter_by(server_id=self.server_id, is_active=True).update(
-                    {"is_active": False}
-                )
+                ConfigVersion.query.filter_by(
+                    server_id=self.server_id, is_active=True
+                ).update({"is_active": False})
 
                 version.is_active = True
                 deployment.deployment_status = "success"
-                deployment.deployment_log = f"Rolled back to version {version.version_number}"
+                deployment.deployment_log = (
+                    f"Rolled back to version {version.version_number}"
+                )
             else:
                 deployment.deployment_status = "failed"
                 deployment.deployment_log = "Rollback failed"
@@ -282,7 +290,9 @@ class ConfigManager:
             if key not in config1:
                 differences.append({"type": "added", "key": key, "value": config2[key]})
             elif key not in config2:
-                differences.append({"type": "removed", "key": key, "value": config1[key]})
+                differences.append(
+                    {"type": "removed", "key": key, "value": config1[key]}
+                )
             elif config1[key] != config2[key]:
                 differences.append(
                     {
@@ -431,7 +441,9 @@ scriptlist maps/erdenberg_t2.script
         ]
 
         for template_data in templates:
-            existing = ConfigTemplate.query.filter_by(name=template_data["name"]).first()
+            existing = ConfigTemplate.query.filter_by(
+                name=template_data["name"]
+            ).first()
             if not existing:
                 template = ConfigTemplate(
                     name=template_data["name"],

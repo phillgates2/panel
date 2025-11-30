@@ -82,7 +82,9 @@ def migrate_users_to_rbac():
 
             elif user.role == "server_admin":
                 # Server admins get Administrator role
-                if not UserRole.query.filter_by(user_id=user.id, role_id=admin_role.id).first():
+                if not UserRole.query.filter_by(
+                    user_id=user.id, role_id=admin_role.id
+                ).first():
                     user_role_assignment = UserRole(
                         user_id=user.id, role_id=admin_role.id, assigned_by=user.id
                     )
@@ -96,7 +98,9 @@ def migrate_users_to_rbac():
                     user_id=user.id, role_id=server_manager_role.id
                 ).first():
                     user_role_assignment = UserRole(
-                        user_id=user.id, role_id=server_manager_role.id, assigned_by=user.id
+                        user_id=user.id,
+                        role_id=server_manager_role.id,
+                        assigned_by=user.id,
                     )
                     db.session.add(user_role_assignment)
                     assigned_roles.append("Server Manager")
@@ -104,7 +108,9 @@ def migrate_users_to_rbac():
 
             else:
                 # Regular users get User role
-                if not UserRole.query.filter_by(user_id=user.id, role_id=user_role.id).first():
+                if not UserRole.query.filter_by(
+                    user_id=user.id, role_id=user_role.id
+                ).first():
                     user_role_assignment = UserRole(
                         user_id=user.id, role_id=user_role.id, assigned_by=user.id
                     )
@@ -124,7 +130,12 @@ def migrate_users_to_rbac():
 
             # Show role distribution
             print("\nRole Distribution:")
-            for role_name in ["Super Administrator", "Administrator", "Server Manager", "User"]:
+            for role_name in [
+                "Super Administrator",
+                "Administrator",
+                "Server Manager",
+                "User",
+            ]:
                 role = Role.query.filter_by(name=role_name).first()
                 if role:
                     count = role.user_roles.count()

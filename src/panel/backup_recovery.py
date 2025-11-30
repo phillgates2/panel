@@ -3,19 +3,20 @@ Backup & Disaster Recovery Automation
 Automated backup creation, management, and disaster recovery procedures
 """
 
+import gzip
+import json
+import logging
 import os
 import shutil
 import subprocess
+import tarfile
+import threading
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-import json
-import logging
-import gzip
-import tarfile
-from dataclasses import dataclass, field
-import threading
+from typing import Any, Dict, List, Optional
+
 import schedule
 from flask import Flask
 
@@ -80,7 +81,9 @@ class BackupManager:
             return
 
         self._running = True
-        self._scheduler_thread = threading.Thread(target=self._run_scheduler, daemon=True)
+        self._scheduler_thread = threading.Thread(
+            target=self._run_scheduler, daemon=True
+        )
         self._scheduler_thread.start()
         self.logger.info("Backup scheduler started")
 
@@ -121,7 +124,9 @@ class BackupManager:
                 results.append(result)
             except Exception as e:
                 self.logger.error(f"Scheduled backup failed for {backup_type}: {e}")
-                results.append({"type": backup_type, "status": "failed", "error": str(e)})
+                results.append(
+                    {"type": backup_type, "status": "failed", "error": str(e)}
+                )
 
         # Send notification if enabled
         if self.config.notification_enabled:
@@ -139,7 +144,10 @@ class BackupManager:
             job_id = f"{name}_{job_id}"
 
         job = BackupJob(
-            id=job_id, name=name or f"{backup_type}_backup", type=backup_type, status="running"
+            id=job_id,
+            name=name or f"{backup_type}_backup",
+            type=backup_type,
+            status="running",
         )
 
         self.backup_jobs[job_id] = job
@@ -272,7 +280,9 @@ class BackupManager:
 
     def _compress_backup(self, file_path: Path, job_id: str) -> Path:
         """Compress a backup file"""
-        compressed_path = file_path.with_suffix(f"{file_path.suffix}.{self.config.compression}")
+        compressed_path = file_path.with_suffix(
+            f"{file_path.suffix}.{self.config.compression}"
+        )
 
         if self.config.compression == "gzip":
             with open(file_path, "rb") as f_in:
@@ -360,7 +370,9 @@ class BackupManager:
         success_count = sum(1 for r in results if r.get("status") == "completed")
         total_count = len(results)
 
-        self.logger.info(f"Backup notification: {success_count}/{total_count} backups completed")
+        self.logger.info(
+            f"Backup notification: {success_count}/{total_count} backups completed"
+        )
 
         # TODO: Integrate with email, Slack, etc.
         # from src.panel.notifications import send_notification
@@ -484,7 +496,17 @@ class DatabaseBackup:
         user = parsed.username
         password = parsed.password
 
-        cmd = ["mysqldump", "-h", host, "-P", str(port), "-u", user, f"-p{password}", db_name]
+        cmd = [
+            "mysqldump",
+            "-h",
+            host,
+            "-P",
+            str(port),
+            "-u",
+            user,
+            f"-p{password}",
+            db_name,
+        ]
 
         with open(output_file, "w") as f:
             result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
@@ -502,7 +524,17 @@ class DatabaseBackup:
         user = parsed.username
         password = parsed.password
 
-        cmd = ["mysql", "-h", host, "-P", str(port), "-u", user, f"-p{password}", db_name]
+        cmd = [
+            "mysql",
+            "-h",
+            host,
+            "-P",
+            str(port),
+            "-u",
+            user,
+            f"-p{password}",
+            db_name,
+        ]
 
         with open(backup_file, "r") as f:
             result = subprocess.run(cmd, stdin=f, stderr=subprocess.PIPE, text=True)
@@ -722,7 +754,9 @@ class ConfigurationBackup:
 
                     # Backup existing file
                     if target_path.exists():
-                        backup_file = target_path.with_suffix(f"{target_path.suffix}.backup")
+                        backup_file = target_path.with_suffix(
+                            f"{target_path.suffix}.backup"
+                        )
                         shutil.copy2(target_path, backup_file)
 
                     # Copy new file

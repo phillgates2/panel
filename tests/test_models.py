@@ -5,7 +5,8 @@ from datetime import date
 
 import pytest
 
-from app import Server, ServerUser, User, app, db, user_can_edit_server, user_server_role
+from app import (Server, ServerUser, User, app, db, user_can_edit_server,
+                 user_server_role)
 
 
 @pytest.fixture()

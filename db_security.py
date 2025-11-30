@@ -122,7 +122,9 @@ def require_db_admin(f):
             return jsonify({"error": "Authentication required"}), 401
 
         # Check rate limiting
-        allowed, message = DatabaseSecurity.rate_limit_check(session["user_id"], "login")
+        allowed, message = DatabaseSecurity.rate_limit_check(
+            session["user_id"], "login"
+        )
         if not allowed:
             return jsonify({"error": message}), 429
 

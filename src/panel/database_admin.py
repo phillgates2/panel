@@ -67,9 +67,9 @@ class DatabaseAdmin:
             else:
                 cursor = conn.cursor()
                 cursor.execute(query, params or ())
-                if query.strip().upper().startswith("SELECT") or query.strip().upper().startswith(
-                    "PRAGMA"
-                ):
+                if query.strip().upper().startswith(
+                    "SELECT"
+                ) or query.strip().upper().startswith("PRAGMA"):
                     results = [dict(row) for row in cursor.fetchall()]
                     conn.close()
                     return {"success": True, "data": results}
@@ -92,7 +92,9 @@ class DatabaseAdmin:
             if result["success"]:
                 return [row["tablename"] for row in result["data"]]
         else:
-            result = self.execute_query("SELECT name FROM sqlite_master WHERE type='table'")
+            result = self.execute_query(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
             if result["success"]:
                 return [row["name"] for row in result["data"]]
         return []

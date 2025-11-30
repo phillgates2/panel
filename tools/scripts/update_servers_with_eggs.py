@@ -52,7 +52,9 @@ def find_matching_templates(game_type):
         if not templates:
             # Try partial match
             templates = (
-                ConfigTemplate.query.filter(ConfigTemplate.game_type.like(f"%{game_type}%"))
+                ConfigTemplate.query.filter(
+                    ConfigTemplate.game_type.like(f"%{game_type}%")
+                )
                 .filter(ConfigTemplate.name.like("%(Ptero-Eggs)%"))
                 .all()
             )
@@ -93,7 +95,9 @@ def update_server(server_id, template_id, dry_run=True):
 
         if hasattr(server, "game_type"):
             if server.game_type != template.game_type:
-                updates.append(f"  game_type: {server.game_type} → {template.game_type}")
+                updates.append(
+                    f"  game_type: {server.game_type} → {template.game_type}"
+                )
 
         if "startup_command" in config:
             updates.append(f"  startup_command: {config['startup_command'][:60]}...")
@@ -102,7 +106,9 @@ def update_server(server_id, template_id, dry_run=True):
             updates.append(f"  stop_command: {config['stop_command']}")
 
         if "variables" in config:
-            updates.append(f"  variables: {len(config['variables'])} configuration variables")
+            updates.append(
+                f"  variables: {len(config['variables'])} configuration variables"
+            )
 
         if updates:
             print("Changes to be applied:")
@@ -130,7 +136,12 @@ def update_server(server_id, template_id, dry_run=True):
                 server_config["ptero_egg_applied_at"] = str(db.func.current_timestamp())
 
                 # Merge egg configuration
-                for key in ["startup_command", "stop_command", "variables", "docker_images"]:
+                for key in [
+                    "startup_command",
+                    "stop_command",
+                    "variables",
+                    "docker_images",
+                ]:
                     if key in config:
                         server_config[key] = config[key]
 
@@ -182,7 +193,9 @@ def match_servers_to_templates():
 
         print("=" * 80)
         print("\nTo update a server, run:")
-        print("  python3 scripts/update_servers_with_eggs.py update <server_id> <template_id>")
+        print(
+            "  python3 scripts/update_servers_with_eggs.py update <server_id> <template_id>"
+        )
 
 
 def main():
@@ -216,11 +229,15 @@ Examples:
     subparsers.add_parser("match", help="Find template matches for servers")
 
     # Update command
-    update_parser = subparsers.add_parser("update", help="Update a server with a template")
+    update_parser = subparsers.add_parser(
+        "update", help="Update a server with a template"
+    )
     update_parser.add_argument("server_id", type=int, help="Server ID to update")
     update_parser.add_argument("template_id", type=int, help="Template ID to apply")
     update_parser.add_argument(
-        "--apply", action="store_true", help="Actually apply changes (default is dry run)"
+        "--apply",
+        action="store_true",
+        help="Actually apply changes (default is dry run)",
     )
 
     args = parser.parse_args()

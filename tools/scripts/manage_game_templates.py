@@ -26,7 +26,9 @@ def list_templates():
         print(f"\n{'ID':<5} {'Game Type':<15} {'Name':<40} {'Default'}")
         print("-" * 80)
         for t in templates:
-            print(f"{t.id:<5} {t.game_type:<15} {t.name:<40} {'Yes' if t.is_default else 'No'}")
+            print(
+                f"{t.id:<5} {t.game_type:<15} {t.name:<40} {'Yes' if t.is_default else 'No'}"
+            )
         print()
 
 
@@ -346,7 +348,8 @@ cd /opt/servers/rust
             "game_type": "palworld",
             "name": "Palworld Standard Server",
             "description": (
-                "Palworld multiplayer survival and crafting game server " "(based on Ptero-Eggs)"
+                "Palworld multiplayer survival and crafting game server "
+                "(based on Ptero-Eggs)"
             ),
             "config": {
                 "server_cfg": """# Palworld Server Configuration
@@ -457,7 +460,9 @@ cd /opt/servers/openra
     print("\nAdding common game templates...\n")
     success_count = 0
     for game in games:
-        if add_template(game["game_type"], game["name"], game["description"], game["config"]):
+        if add_template(
+            game["game_type"], game["name"], game["description"], game["config"]
+        ):
             success_count += 1
 
     print(f"\n✅ Successfully added {success_count}/{len(games)} templates")
@@ -490,7 +495,9 @@ For importing 240+ game templates from Ptero-Eggs, see:
     add_parser.add_argument("game_type", help="Game type identifier (e.g., 'css')")
     add_parser.add_argument("name", help="Template name")
     add_parser.add_argument("--description", default="", help="Template description")
-    add_parser.add_argument("--config-file", required=True, help="JSON file with config data")
+    add_parser.add_argument(
+        "--config-file", required=True, help="JSON file with config data"
+    )
 
     args = parser.parse_args()
 

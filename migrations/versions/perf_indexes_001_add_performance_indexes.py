@@ -7,6 +7,7 @@ Create Date: 2025-11-21 12:00:00.000000
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -23,7 +24,9 @@ def upgrade() -> None:
     with op.batch_alter_table("user", schema=None) as batch_op:
         batch_op.create_index("idx_user_email", ["email"], unique=False)
         batch_op.create_index("idx_user_is_active", ["is_active"], unique=False)
-        batch_op.create_index("idx_user_is_system_admin", ["is_system_admin"], unique=False)
+        batch_op.create_index(
+            "idx_user_is_system_admin", ["is_system_admin"], unique=False
+        )
         batch_op.create_index("idx_user_created_at", ["created_at"], unique=False)
 
     # Server table indexes
@@ -38,7 +41,9 @@ def upgrade() -> None:
         batch_op.create_index("idx_audit_log_user_id", ["user_id"], unique=False)
         batch_op.create_index("idx_audit_log_action", ["action"], unique=False)
         batch_op.create_index("idx_audit_log_created_at", ["created_at"], unique=False)
-        batch_op.create_index("idx_audit_log_user_action", ["user_id", "action"], unique=False)
+        batch_op.create_index(
+            "idx_audit_log_user_action", ["user_id", "action"], unique=False
+        )
         batch_op.create_index("idx_audit_log_timestamp", ["created_at"], unique=False)
 
     # User session indexes
@@ -55,15 +60,25 @@ def upgrade() -> None:
 
     # Server metrics indexes
     with op.batch_alter_table("server_metrics", schema=None) as batch_op:
-        batch_op.create_index("idx_server_metrics_server_id", ["server_id"], unique=False)
-        batch_op.create_index("idx_server_metrics_timestamp", ["timestamp"], unique=False)
+        batch_op.create_index(
+            "idx_server_metrics_server_id", ["server_id"], unique=False
+        )
+        batch_op.create_index(
+            "idx_server_metrics_timestamp", ["timestamp"], unique=False
+        )
         batch_op.create_index("idx_server_metrics_cpu", ["cpu_usage"], unique=False)
 
     # Player session indexes
     with op.batch_alter_table("player_session", schema=None) as batch_op:
-        batch_op.create_index("idx_player_session_server_id", ["server_id"], unique=False)
-        batch_op.create_index("idx_player_session_player_id", ["player_id"], unique=False)
-        batch_op.create_index("idx_player_session_start_time", ["start_time"], unique=False)
+        batch_op.create_index(
+            "idx_player_session_server_id", ["server_id"], unique=False
+        )
+        batch_op.create_index(
+            "idx_player_session_player_id", ["player_id"], unique=False
+        )
+        batch_op.create_index(
+            "idx_player_session_start_time", ["start_time"], unique=False
+        )
         batch_op.create_index("idx_player_session_end_time", ["end_time"], unique=False)
 
 

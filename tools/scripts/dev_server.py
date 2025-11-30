@@ -9,9 +9,9 @@ import time
 from pathlib import Path
 from typing import Set
 
-from werkzeug.serving import make_server
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+from werkzeug.serving import make_server
 
 
 class ReloadHandler(FileSystemEventHandler):
@@ -21,7 +21,11 @@ class ReloadHandler(FileSystemEventHandler):
         self.server = server
         self.watch_paths = watch_paths
         self.ignore_patterns = ignore_patterns or {
-            '.git', '__pycache__', '.venv', 'venv', 'node_modules'
+            ".git",
+            "__pycache__",
+            ".venv",
+            "venv",
+            "node_modules",
         }
         self.last_reload = time.time()
         self.reload_delay = 1.0  # Minimum delay between reloads
@@ -41,11 +45,11 @@ class ReloadHandler(FileSystemEventHandler):
 
         # Only reload on Python files, templates, and config
         path_obj = Path(path)
-        if path_obj.suffix in {'.py', '.html', '.jinja2', '.cfg', '.ini'}:
+        if path_obj.suffix in {".py", ".html", ".jinja2", ".cfg", ".ini"}:
             return True
 
         # Reload on config files
-        if path_obj.name in {'config.py', 'requirements.txt', 'pyproject.toml'}:
+        if path_obj.name in {"config.py", "requirements.txt", "pyproject.toml"}:
             return True
 
         return False
@@ -62,16 +66,16 @@ class ReloadHandler(FileSystemEventHandler):
                 os._exit(3)  # Special exit code for reload
 
 
-def create_development_server(app, host='127.0.0.1', port=8080, use_reloader=True):
+def create_development_server(app, host="127.0.0.1", port=8080, use_reloader=True):
     """Create development server with enhanced file watching"""
 
     if use_reloader:
         # Set up file watching
         watch_paths = {
-            '.',  # Current directory
-            'src',  # Source code
-            'templates',  # Templates
-            'static',  # Static files
+            ".",  # Current directory
+            "src",  # Source code
+            "templates",  # Templates
+            "static",  # Static files
         }
 
         # Create observer
@@ -123,10 +127,10 @@ def main():
     from app import create_app
 
     # Get configuration from environment
-    host = os.environ.get('FLASK_HOST', '127.0.0.1')
-    port = int(os.environ.get('FLASK_PORT', '8080'))
-    debug = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
-    use_reloader = os.environ.get('FLASK_USE_RELOADER', 'True').lower() == 'true'
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", "8080"))
+    debug = os.environ.get("FLASK_DEBUG", "True").lower() == "true"
+    use_reloader = os.environ.get("FLASK_USE_RELOADER", "True").lower() == "true"
 
     # Create Flask app
     app = create_app()
@@ -149,6 +153,7 @@ def main():
             print(f"? Server error: {e}")
             if debug:
                 import traceback
+
                 traceback.print_exc()
             break
 

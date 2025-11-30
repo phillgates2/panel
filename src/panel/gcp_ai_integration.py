@@ -3,12 +3,13 @@ GCP AI Integration with Vertex AI
 Google Cloud Platform AI services integration
 """
 
-import os
-import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
 import logging
-from typing import Dict, List, Optional, Any
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import vertexai
+from vertexai.generative_models import GenerationConfig, GenerativeModel
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ class GCPAIAgent:
                 location=os.getenv("GOOGLE_CLOUD_REGION", "us-central1"),
             )
             self.model = GenerativeModel("gemini-1.5-pro")
-            self.vision_model = GenerativeModel("gemini-1.5-pro-vision")  # For image analysis
+            self.vision_model = GenerativeModel(
+                "gemini-1.5-pro-vision"
+            )  # For image analysis
             logger.info("GCP Vertex AI initialized")
         except Exception as e:
             logger.error(f"Failed to initialize GCP Vertex AI: {e}")
@@ -95,7 +98,9 @@ Format your response as a structured analysis."""
             return {
                 "predictions": response.text,
                 "interests": analysis.get("interests", []),
-                "engagement": analysis.get("engagement", {"level": "medium", "confidence": 0.5}),
+                "engagement": analysis.get(
+                    "engagement", {"level": "medium", "confidence": 0.5}
+                ),
                 "recommendations": analysis.get("recommendations", []),
                 "churn_risk": analysis.get(
                     "churn_risk", {"level": "medium", "reasoning": "Analysis completed"}
@@ -122,7 +127,9 @@ Format your response as a structured analysis."""
                 "explanation": "Explain clearly and simply.",
             }
 
-            instruction = type_instructions.get(content_type, "Generate helpful content")
+            instruction = type_instructions.get(
+                content_type, "Generate helpful content"
+            )
             full_prompt = f"{instruction}\n\n{prompt}"
 
             response = await self.model.generate_content(
@@ -144,9 +151,7 @@ Format your response as a structured analysis."""
             # Summarize posts for analysis
             post_summaries = []
             for post in posts[:20]:  # Limit to 20 posts
-                summary = (
-                    f"Title: {post.get('title', '')}\nContent: {post.get('content', '')[:200]}..."
-                )
+                summary = f"Title: {post.get('title', '')}\nContent: {post.get('content', '')[:200]}..."
                 post_summaries.append(summary)
 
             combined_content = "\n\n".join(post_summaries)
@@ -191,7 +196,9 @@ Structure your analysis clearly."""
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-    async def classify_content(self, content: str, categories: List[str]) -> Dict[str, Any]:
+    async def classify_content(
+        self, content: str, categories: List[str]
+    ) -> Dict[str, Any]:
         """Classify content into categories using Vertex AI"""
         try:
             categories_str = ", ".join(categories)
@@ -217,7 +224,9 @@ Be precise and justify your classification."""
                     "primary", categories[0] if categories else "unknown"
                 ),
                 "confidence": classification.get("confidence", 0.5),
-                "explanation": classification.get("explanation", "Classification completed"),
+                "explanation": classification.get(
+                    "explanation", "Classification completed"
+                ),
                 "secondary_categories": classification.get("secondary", []),
                 "timestamp": datetime.utcnow().isoformat(),
             }
@@ -255,7 +264,15 @@ Be precise and justify your classification."""
         potential_tags = []
 
         # Look for gaming-related terms
-        gaming_terms = ["gaming", "game", "server", "player", "community", "forum", "chat"]
+        gaming_terms = [
+            "gaming",
+            "game",
+            "server",
+            "player",
+            "community",
+            "forum",
+            "chat",
+        ]
         for term in gaming_terms:
             if term in words:
                 potential_tags.append(term)

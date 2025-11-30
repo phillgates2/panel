@@ -33,20 +33,28 @@ def test_rbac_logic():
         print("✓ RBAC imports successful")
 
         # Create mock permission objects
-        perm_user_view = Permission(name="user.view_own", description="View own profile")
+        perm_user_view = Permission(
+            name="user.view_own", description="View own profile"
+        )
         perm_server_view = Permission(
             name="server.view_assigned", description="View assigned servers"
         )
-        perm_admin_users = Permission(name="admin.user_management", description="Manage users")
+        perm_admin_users = Permission(
+            name="admin.user_management", description="Manage users"
+        )
         perm_admin_servers = Permission(
             name="admin.server_management", description="Manage servers"
         )
-        perm_admin_audit = Permission(name="admin.audit_view", description="View audit logs")
+        perm_admin_audit = Permission(
+            name="admin.audit_view", description="View audit logs"
+        )
 
         # Create mock role objects
         role_user = Role(name="User", description="Basic user role")
         role_admin = Role(name="Administrator", description="Server administrator")
-        role_super_admin = Role(name="Super Administrator", description="System administrator")
+        role_super_admin = Role(
+            name="Super Administrator", description="System administrator"
+        )
 
         # Assign permissions to roles (simulated)
         role_user.permissions = [perm_user_view, perm_server_view]
@@ -168,7 +176,8 @@ def test_route_integration():
 
                 has_rbac = "has_permission(" in route_content
                 has_old_check = (
-                    "is_system_admin_user(" in route_content or "is_admin_user(" in route_content
+                    "is_system_admin_user(" in route_content
+                    or "is_admin_user(" in route_content
                 )
 
                 if has_rbac and not has_old_check:

@@ -11,12 +11,13 @@ import re
 import time
 from typing import Dict, List, Optional, Set
 
+from simple_config import load_config
+
 # Flask imports moved to avoid module-level import issues during testing
 # from flask import Flask, Request, Response, g, request, session
 # from flask_limiter import Limiter
 # from flask_limiter.util import get_remote_address
 
-from simple_config import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ class SecurityHardening:
             user_id = session.get("user_id")
             if user_id:
                 try:
-                    from app import db, User
+                    from app import User, db
 
                     user = db.session.get(User, user_id)
                     if user:
@@ -260,9 +261,15 @@ class SecurityHardening:
             }, 429
 
         # Stricter limits for sensitive endpoints
-        limiter.limit("5 per minute")(self.app.view_functions.get("login", lambda: None))
-        limiter.limit("3 per minute")(self.app.view_functions.get("register", lambda: None))
-        limiter.limit("10 per minute")(self.app.view_functions.get("forgot_password", lambda: None))
+        limiter.limit("5 per minute")(
+            self.app.view_functions.get("login", lambda: None)
+        )
+        limiter.limit("3 per minute")(
+            self.app.view_functions.get("register", lambda: None)
+        )
+        limiter.limit("10 per minute")(
+            self.app.view_functions.get("forgot_password", lambda: None)
+        )
 
         # API endpoints with role-based limits
         limiter.limit(get_rate_limit_by_role)(
@@ -355,7 +362,9 @@ class SecurityHardening:
                 )
 
             # Monitor for potential security headers bypass attempts
-            if "X-Forwarded-For" in request.headers and self._is_internal_ip(get_remote_address()):
+            if "X-Forwarded-For" in request.headers and self._is_internal_ip(
+                get_remote_address()
+            ):
                 self._log_security_event(
                     "proxy_header_detected",
                     {
@@ -465,7 +474,9 @@ class SecurityHardening:
             "172.31.",
             "192.168.",
         ]
-        return any(ip.startswith(range) for range in private_ranges) or ip == "127.0.0.1"
+        return (
+            any(ip.startswith(range) for range in private_ranges) or ip == "127.0.0.1"
+        )
 
     def _is_suspicious_user_agent(self, user_agent: str) -> bool:
         """Check if user agent looks suspicious"""
@@ -485,7 +496,9 @@ class SecurityHardening:
             "owasp",
             "qualysguard",
         ]
-        return any(pattern.lower() in user_agent.lower() for pattern in suspicious_patterns)
+        return any(
+            pattern.lower() in user_agent.lower() for pattern in suspicious_patterns
+        )
 
     def get_security_report(self) -> Dict:
         """Get a security report"""
@@ -554,7 +567,9 @@ class SecurityValidationSchemas:
     def sanitize_html_content(content: str) -> str:
         """Sanitize HTML content to prevent XSS"""
         # Remove script tags and event handlers
-        content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        content = re.sub(
+            r"<script[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL
+        )
         content = re.sub(r"<[^>]+on\w+\s*=", "<", content, flags=re.IGNORECASE)
 
         # Remove javascript: URLs

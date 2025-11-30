@@ -7,6 +7,7 @@ Create Date: 2025-11-20 12:00:00.000000
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -30,7 +31,9 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
     )
-    op.create_index(op.f("ix_permission_category"), "permission", ["category"], unique=False)
+    op.create_index(
+        op.f("ix_permission_category"), "permission", ["category"], unique=False
+    )
 
     # Create role table
     op.create_table(

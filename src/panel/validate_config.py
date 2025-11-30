@@ -66,9 +66,13 @@ class ConfigValidator:
                     pass
                 self.warnings.append("Using default SECRET_KEY in dev mode")
             else:
-                self.errors.append("SECRET_KEY not set or using default value in production")
+                self.errors.append(
+                    "SECRET_KEY not set or using default value in production"
+                )
         elif len(secret) < 32:
-            self.warnings.append(f"SECRET_KEY is short ({len(secret)} chars), recommend 32+")
+            self.warnings.append(
+                f"SECRET_KEY is short ({len(secret)} chars), recommend 32+"
+            )
         else:
             self.info.append(f"✓ SECRET_KEY configured ({len(secret)} chars)")
 
@@ -80,7 +84,9 @@ class ConfigValidator:
             try:
                 import config
 
-                sqlite_uri = getattr(config, "SQLALCHEMY_DATABASE_URI", "sqlite:///panel_dev.db")
+                sqlite_uri = getattr(
+                    config, "SQLALCHEMY_DATABASE_URI", "sqlite:///panel_dev.db"
+                )
             except ImportError:
                 sqlite_uri = "sqlite:///panel_dev.db"
 
@@ -90,7 +96,9 @@ class ConfigValidator:
             if not db_path.startswith("/"):
                 db_path = Path(db_path)
                 if not db_path.parent.exists():
-                    self.warnings.append(f"SQLite directory doesn't exist: {db_path.parent}")
+                    self.warnings.append(
+                        f"SQLite directory doesn't exist: {db_path.parent}"
+                    )
 
     def check_redis_config(self):
         """Validate Redis configuration."""
@@ -116,7 +124,9 @@ class ConfigValidator:
             r.ping()
             self.info.append(f"✓ Redis connection successful ({redis_url})")
         except ImportError:
-            self.warnings.append("redis package not installed, skipping connection test")
+            self.warnings.append(
+                "redis package not installed, skipping connection test"
+            )
         except Exception as e:
             if is_dev_mode:
                 self.warnings.append(f"Redis connection failed (dev mode): {e}")
@@ -188,12 +198,16 @@ class ConfigValidator:
                 missing_optional.append(dep_name)
 
         if missing_required:
-            self.errors.append(f"Missing required dependencies: {', '.join(missing_required)}")
+            self.errors.append(
+                f"Missing required dependencies: {', '.join(missing_required)}"
+            )
         else:
             self.info.append("✓ Required dependencies installed")
 
         if missing_optional:
-            self.warnings.append(f"Missing optional dependencies: {', '.join(missing_optional)}")
+            self.warnings.append(
+                f"Missing optional dependencies: {', '.join(missing_optional)}"
+            )
         else:
             self.info.append("✓ Optional dependencies installed")
 
@@ -222,7 +236,9 @@ class ConfigValidator:
             p = Path(dir_name)
             if not p.exists():
                 if is_dev_mode:
-                    self.info.append(f"Optional directory missing (dev mode): {dir_name}")
+                    self.info.append(
+                        f"Optional directory missing (dev mode): {dir_name}"
+                    )
                 else:
                     self.warnings.append(f"Optional directory missing: {dir_name}")
             elif not p.is_dir():

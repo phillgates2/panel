@@ -88,7 +88,10 @@ def test_forum_thread_reply_edit_delete(client, app):
         from forum import Post
 
         post = (
-            db.session.query(Post).filter_by(thread_id=tid).order_by(Post.created_at.asc()).first()
+            db.session.query(Post)
+            .filter_by(thread_id=tid)
+            .order_by(Post.created_at.asc())
+            .first()
         )
         assert post is not None
         pid = post.id

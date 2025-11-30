@@ -210,7 +210,9 @@ class TestUserService:
             UserService.create_user(**user_data)
 
             # Authenticate
-            user, error = UserService.authenticate_user("john@example.com", "Password123!")
+            user, error = UserService.authenticate_user(
+                "john@example.com", "Password123!"
+            )
 
             assert user is not None
             assert error is None
@@ -219,7 +221,9 @@ class TestUserService:
     def test_authenticate_user_invalid_credentials(self, app):
         """Test invalid credentials handling"""
         with app.app_context():
-            user, error = UserService.authenticate_user("nonexistent@example.com", "password")
+            user, error = UserService.authenticate_user(
+                "nonexistent@example.com", "password"
+            )
 
             assert user is None
             assert error is not None
@@ -321,7 +325,9 @@ class TestPerformance:
         for _ in range(10):
             status_code, response_time = results.get()
             assert status_code == 200
-            assert response_time < 2.0  # Should respond within 2 seconds even under load
+            assert (
+                response_time < 2.0
+            )  # Should respond within 2 seconds even under load
 
 
 class TestFeatureFlags:

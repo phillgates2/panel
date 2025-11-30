@@ -13,7 +13,9 @@ def test_admin_dashboard_requires_login(client):
 def test_admin_dashboard_access_denied_for_regular_user(client, regular_user):
     """Test that regular users cannot access admin dashboard."""
     with client:
-        client.post("/login", data={"email": regular_user.email, "password": "password"})
+        client.post(
+            "/login", data={"email": regular_user.email, "password": "password"}
+        )
         response = client.get("/admin/teams")
         assert response.status_code == 302  # Redirect to dashboard with error
 
@@ -21,7 +23,9 @@ def test_admin_dashboard_access_denied_for_regular_user(client, regular_user):
 def test_admin_dashboard_access_granted_for_system_admin(client, system_admin):
     """Test that system admins can access admin dashboard."""
     with client:
-        client.post("/login", data={"email": system_admin.email, "password": "password"})
+        client.post(
+            "/login", data={"email": system_admin.email, "password": "password"}
+        )
         response = client.get("/admin/teams")
         assert response.status_code == 200
         assert b"Team Management" in response.data
@@ -30,9 +34,12 @@ def test_admin_dashboard_access_granted_for_system_admin(client, system_admin):
 def test_create_team(client, system_admin):
     """Test creating a new team."""
     with client:
-        client.post("/login", data={"email": system_admin.email, "password": "password"})
+        client.post(
+            "/login", data={"email": system_admin.email, "password": "password"}
+        )
         response = client.post(
-            "/admin/teams/create", data={"name": "Test Team", "description": "A test team"}
+            "/admin/teams/create",
+            data={"name": "Test Team", "description": "A test team"},
         )
         assert response.status_code == 302  # Redirect back
         # Check if team was created
@@ -46,9 +53,14 @@ def test_create_team(client, system_admin):
 def test_add_team_member(client, system_admin, regular_user):
     """Test adding a member to a team."""
     with client:
-        client.post("/login", data={"email": system_admin.email, "password": "password"})
+        client.post(
+            "/login", data={"email": system_admin.email, "password": "password"}
+        )
         # First create a team
-        client.post("/admin/teams/create", data={"name": "Test Team", "description": "A test team"})
+        client.post(
+            "/admin/teams/create",
+            data={"name": "Test Team", "description": "A test team"},
+        )
         team = models.UserGroup.query.filter_by(name="Test Team").first()
         # Add member
         response = client.post(

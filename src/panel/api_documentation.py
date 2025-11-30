@@ -3,11 +3,12 @@ Interactive API Documentation with Flask-RESTX
 Provides Swagger/OpenAPI documentation and interactive API explorer
 """
 
-from flask import Flask, Blueprint, request, jsonify
-from flask_restx import Api, Resource, fields, Namespace
-from werkzeug.exceptions import BadRequest, NotFound
 import json
 from datetime import datetime
+
+from flask import Blueprint, Flask, jsonify, request
+from flask_restx import Api, Namespace, Resource, fields
+from werkzeug.exceptions import BadRequest, NotFound
 
 # Create API blueprint
 api_bp = Blueprint("api_docs", __name__, url_prefix="/api/v1")
@@ -41,10 +42,16 @@ user_model = api.model(
         "email": fields.String(required=True, description="User email address"),
         "first_name": fields.String(required=True, description="User first name"),
         "last_name": fields.String(required=True, description="User last name"),
-        "role": fields.String(enum=["user", "moderator", "admin"], description="User role"),
+        "role": fields.String(
+            enum=["user", "moderator", "admin"], description="User role"
+        ),
         "is_active": fields.Boolean(description="User account status"),
-        "created_at": fields.DateTime(readonly=True, description="Account creation timestamp"),
-        "last_login": fields.DateTime(readonly=True, description="Last login timestamp"),
+        "created_at": fields.DateTime(
+            readonly=True, description="Account creation timestamp"
+        ),
+        "last_login": fields.DateTime(
+            readonly=True, description="Last login timestamp"
+        ),
     },
 )
 
@@ -79,7 +86,9 @@ thread_model = api.model(
         "is_pinned": fields.Boolean(description="Thread pinned status"),
         "is_locked": fields.Boolean(description="Thread locked status"),
         "created_at": fields.DateTime(readonly=True, description="Creation timestamp"),
-        "updated_at": fields.DateTime(readonly=True, description="Last update timestamp"),
+        "updated_at": fields.DateTime(
+            readonly=True, description="Last update timestamp"
+        ),
     },
 )
 
@@ -98,7 +107,8 @@ health_model = api.model(
     "Health",
     {
         "status": fields.String(
-            enum=["healthy", "degraded", "unhealthy"], description="System health status"
+            enum=["healthy", "degraded", "unhealthy"],
+            description="System health status",
         ),
         "timestamp": fields.DateTime(description="Health check timestamp"),
         "version": fields.String(description="API version"),
@@ -112,8 +122,12 @@ gdpr_export_model = api.model(
     "GDPRExport",
     {
         "user_id": fields.Integer(required=True, description="User ID for data export"),
-        "include_sensitive": fields.Boolean(default=False, description="Include sensitive data"),
-        "format": fields.String(enum=["json", "csv"], default="json", description="Export format"),
+        "include_sensitive": fields.Boolean(
+            default=False, description="Include sensitive data"
+        ),
+        "format": fields.String(
+            enum=["json", "csv"], default="json", description="Export format"
+        ),
     },
 )
 
@@ -517,8 +531,12 @@ class GDPRDelete(Resource):
         api.model(
             "GDPRDelete",
             {
-                "user_id": fields.Integer(required=True, description="User ID to delete"),
-                "confirmation": fields.String(required=True, description="Confirmation text"),
+                "user_id": fields.Integer(
+                    required=True, description="User ID to delete"
+                ),
+                "confirmation": fields.String(
+                    required=True, description="Confirmation text"
+                ),
             },
         )
     )

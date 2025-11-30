@@ -27,7 +27,9 @@ def browser_context_args(browser_context_args):
         **browser_context_args,
         "base_url": TEST_BASE_URL,
         "viewport": {"width": 1280, "height": 720},
-        "record_video_dir": "test-results/videos/" if os.getenv("RECORD_VIDEO") else None,
+        "record_video_dir": (
+            "test-results/videos/" if os.getenv("RECORD_VIDEO") else None
+        ),
         "record_har_path": "test-results/har/" if os.getenv("RECORD_HAR") else None,
         "permissions": ["notifications"] if os.getenv("ENABLE_NOTIFICATIONS") else [],
     }
@@ -154,7 +156,9 @@ def mock_api_responses(page):
         page.route(
             url_pattern,
             lambda route: route.fulfill(
-                status=status, content_type="application/json", body=json.dumps(response_data)
+                status=status,
+                content_type="application/json",
+                body=json.dumps(response_data),
             ),
         )
 
@@ -291,7 +295,9 @@ def check_accessibility(page):
             pass
 
     if low_contrast:
-        violations.append(f"Found {len(low_contrast)} elements with potential contrast issues")
+        violations.append(
+            f"Found {len(low_contrast)} elements with potential contrast issues"
+        )
 
     return violations
 

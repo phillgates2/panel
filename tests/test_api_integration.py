@@ -78,7 +78,9 @@ class TestAPIIntegration:
             "password_confirm": "Password123!",
             "dob": "1990-01-01",
         }
-        self.client.post("/register", data=json.dumps(data), content_type="application/json")
+        self.client.post(
+            "/register", data=json.dumps(data), content_type="application/json"
+        )
 
         # Now login
         login_data = {"email": "jane@example.com", "password": "Password123!"}

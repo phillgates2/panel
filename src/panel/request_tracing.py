@@ -5,8 +5,9 @@ Automatically generates unique IDs for each request and includes them in logs.
 """
 
 import uuid
-from flask import g, request
 from functools import wraps
+
+from flask import g, request
 
 
 class RequestTracer:
@@ -106,7 +107,9 @@ def traced_route(f):
 
             # Log request completion
             duration = time.time() - start_time
-            current_app.logger.info(f"Completed {request.method} {request.path} in {duration:.3f}s")
+            current_app.logger.info(
+                f"Completed {request.method} {request.path} in {duration:.3f}s"
+            )
 
             return result
 

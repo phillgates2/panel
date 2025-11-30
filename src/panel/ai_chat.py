@@ -3,16 +3,17 @@ Real-Time AI Chat Integration
 WebSocket-based AI chat with conversation memory and multi-modal support
 """
 
-import os
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from collections import defaultdict
+import os
 import uuid
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from flask_socketio import emit, join_room, leave_room, disconnect
+from flask_socketio import disconnect, emit, join_room, leave_room
+
 from src.panel.ai_integration import get_ai_client
 from src.panel.enhanced_ai import get_enhanced_ai_agent
 
@@ -28,7 +29,9 @@ class AIChatManager:
         self.typing_users = defaultdict(set)  # room -> set of typing users
         self.ai_client = get_ai_client()
         self.enhanced_ai = get_enhanced_ai_agent()
-        self.conversation_timeout = timedelta(hours=24)  # Keep conversations for 24 hours
+        self.conversation_timeout = timedelta(
+            hours=24
+        )  # Keep conversations for 24 hours
 
     def start_conversation(self, user_id: int, room: str = None) -> str:
         """Start a new AI conversation for user"""
@@ -63,7 +66,9 @@ class AIChatManager:
 
         return True
 
-    def get_conversation_history(self, user_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_conversation_history(
+        self, user_id: int, limit: int = 20
+    ) -> List[Dict[str, Any]]:
         """Get recent conversation history for user"""
         if user_id not in self.active_conversations:
             return []
@@ -184,12 +189,19 @@ Generate a helpful response that acknowledges the image and provides relevant as
         """Convert speech to text using AI services"""
         # Placeholder - would integrate with Azure Speech Services or Google Speech-to-Text
         # For now, return a mock transcription
-        return "This is a transcribed voice message. [Speech-to-text integration needed]"
+        return (
+            "This is a transcribed voice message. [Speech-to-text integration needed]"
+        )
 
     async def _analyze_voice_characteristics(self, audio_data: str) -> Dict[str, Any]:
         """Analyze voice characteristics like emotion, speed, etc."""
         # Placeholder - would integrate with voice analysis services
-        return {"emotion": "neutral", "confidence": 0.8, "speed": "normal", "clarity": "good"}
+        return {
+            "emotion": "neutral",
+            "confidence": 0.8,
+            "speed": "normal",
+            "clarity": "good",
+        }
 
     def end_conversation(self, user_id: int) -> bool:
         """End conversation for user"""
@@ -311,7 +323,9 @@ def register_ai_chat_handlers(socketio):
         )
 
         # Generate AI response
-        ai_response = await ai_chat_manager.generate_ai_response(user_id, message, message_type)
+        ai_response = await ai_chat_manager.generate_ai_response(
+            user_id, message, message_type
+        )
 
         # Emit AI response to room
         emit(

@@ -1,16 +1,7 @@
 from datetime import datetime, timezone
 
-from flask import (
-    Blueprint,
-    abort,
-    current_app,
-    flash,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
+from flask import (Blueprint, abort, current_app, flash, redirect,
+                   render_template, request, session, url_for)
 
 from app import User, db, verify_csrf
 
@@ -104,7 +95,9 @@ def index():
     except Exception:
         page = 1
     per_page = int(current_app.config.get("FORUM_PER_PAGE", 10))
-    q = db.session.query(Thread).order_by(Thread.is_pinned.desc(), Thread.created_at.desc())
+    q = db.session.query(Thread).order_by(
+        Thread.is_pinned.desc(), Thread.created_at.desc()
+    )
     total = q.count()
     threads = q.offset((page - 1) * per_page).limit(per_page).all()
 
@@ -139,7 +132,11 @@ def view_thread(thread_id):
     except Exception:
         page = 1
     per_page = int(current_app.config.get("FORUM_REPLIES_PER_PAGE", 20))
-    q = db.session.query(Post).filter_by(thread_id=thread_id).order_by(Post.created_at.asc())
+    q = (
+        db.session.query(Post)
+        .filter_by(thread_id=thread_id)
+        .order_by(Post.created_at.asc())
+    )
     total = q.count()
     posts = q.offset((page - 1) * per_page).limit(per_page).all()
 
@@ -159,7 +156,18 @@ def view_thread(thread_id):
                 p._html = bleach.clean(
                     raw,
                     tags=bleach.sanitizer.ALLOWED_TAGS
-                    + ["p", "pre", "code", "h1", "h2", "h3", "ul", "ol", "li", "blockquote"],
+                    + [
+                        "p",
+                        "pre",
+                        "code",
+                        "h1",
+                        "h2",
+                        "h3",
+                        "ul",
+                        "ol",
+                        "li",
+                        "blockquote",
+                    ],
                     strip=True,
                 )
             else:
@@ -320,7 +328,9 @@ def edit_thread(thread_id):
         return redirect(url_for("forum.view_thread", thread_id=thread_id))
 
     current_user = get_current_user()
-    return render_template("forum/edit_thread.html", thread=t, current_user=current_user)
+    return render_template(
+        "forum/edit_thread.html", thread=t, current_user=current_user
+    )
 
 
 @forum_bp.route("/thread/<int:thread_id>/delete", methods=["POST"])

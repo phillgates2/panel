@@ -18,7 +18,9 @@ class Permission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False, unique=True, index=True)
     description = db.Column(db.String(255), nullable=True)
-    category = db.Column(db.String(32), nullable=False, index=True)  # admin, user, server, etc.
+    category = db.Column(
+        db.String(32), nullable=False, index=True
+    )  # admin, user, server, etc.
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -46,12 +48,18 @@ class RolePermission(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     role_id = db.Column(db.Integer, db.ForeignKey("role.id"), nullable=False)
-    permission_id = db.Column(db.Integer, db.ForeignKey("permission.id"), nullable=False)
+    permission_id = db.Column(
+        db.Integer, db.ForeignKey("permission.id"), nullable=False
+    )
     granted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    __table_args__ = (db.UniqueConstraint("role_id", "permission_id", name="_role_permission_uc"),)
+    __table_args__ = (
+        db.UniqueConstraint("role_id", "permission_id", name="_role_permission_uc"),
+    )
 
-    role = db.relationship("Role", backref=db.backref("role_permissions", lazy="dynamic"))
+    role = db.relationship(
+        "Role", backref=db.backref("role_permissions", lazy="dynamic")
+    )
     permission = db.relationship(
         "Permission", backref=db.backref("role_permissions", lazy="dynamic")
     )
@@ -101,7 +109,9 @@ class RoleHierarchy(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        db.UniqueConstraint("parent_role_id", "child_role_id", name="_role_hierarchy_uc"),
+        db.UniqueConstraint(
+            "parent_role_id", "child_role_id", name="_role_hierarchy_uc"
+        ),
     )
 
     parent_role = db.relationship("Role", foreign_keys=[parent_role_id])
@@ -115,7 +125,9 @@ class UserPermissionOverride(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    permission_id = db.Column(db.Integer, db.ForeignKey("permission.id"), nullable=False)
+    permission_id = db.Column(
+        db.Integer, db.ForeignKey("permission.id"), nullable=False
+    )
     granted = db.Column(db.Boolean, nullable=False)  # True=grant, False=deny
     reason = db.Column(db.String(255), nullable=True)
     granted_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
@@ -123,7 +135,9 @@ class UserPermissionOverride(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
-        db.UniqueConstraint("user_id", "permission_id", name="_user_permission_override_uc"),
+        db.UniqueConstraint(
+            "user_id", "permission_id", name="_user_permission_override_uc"
+        ),
     )
 
     user = db.relationship("User", foreign_keys=[user_id])
@@ -147,7 +161,9 @@ def has_permission(user, permission_name):
 
     if override:
         # Check if override is still valid
-        if override.expires_at is None or override.expires_at > datetime.now(timezone.utc):
+        if override.expires_at is None or override.expires_at > datetime.now(
+            timezone.utc
+        ):
             return override.granted
 
     # Check role-based permissions
@@ -165,7 +181,9 @@ def get_user_permissions(user):
     # Get direct role permissions
     for user_role in user.user_roles:
         # Check if role assignment is still valid
-        if user_role.expires_at is None or user_role.expires_at > datetime.now(timezone.utc):
+        if user_role.expires_at is None or user_role.expires_at > datetime.now(
+            timezone.utc
+        ):
             role_permissions = get_role_permissions(user_role.role)
             permissions.update(role_permissions)
 
@@ -190,7 +208,9 @@ def get_role_permissions(role, visited_roles=None):
     # Inherited permissions from parent roles
     parent_roles = RoleHierarchy.query.filter_by(child_role_id=role.id).all()
     for hierarchy in parent_roles:
-        parent_permissions = get_role_permissions(hierarchy.parent_role, visited_roles.copy())
+        parent_permissions = get_role_permissions(
+            hierarchy.parent_role, visited_roles.copy()
+        )
         permissions.update(parent_permissions)
 
     return permissions
@@ -359,7 +379,9 @@ def create_default_roles():
             for perm_name in permission_names:
                 permission = Permission.query.filter_by(name=perm_name).first()
                 if permission:
-                    role_perm = RolePermission(role_id=role.id, permission_id=permission.id)
+                    role_perm = RolePermission(
+                        role_id=role.id, permission_id=permission.id
+                    )
                     db.session.add(role_perm)
 
     db.session.commit()

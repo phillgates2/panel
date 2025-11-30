@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app import create_app, db
-from src.panel.models import User, Server
+from src.panel.models import Server, User
 from src.panel.models_extended import UserGroup, UserGroupMembership
 
 
@@ -26,50 +26,50 @@ def create_sample_users():
             "last_name": "Administrator",
             "email": "admin@panel.local",
             "role": "system_admin",
-            "bio": "System administrator with full access"
+            "bio": "System administrator with full access",
         },
         {
             "first_name": "Server",
             "last_name": "Admin",
             "email": "serveradmin@panel.local",
             "role": "admin",
-            "bio": "Server administrator"
+            "bio": "Server administrator",
         },
         {
             "first_name": "Forum",
             "last_name": "Moderator",
             "email": "moderator@panel.local",
             "role": "moderator",
-            "bio": "Forum moderator"
+            "bio": "Forum moderator",
         },
         {
             "first_name": "Premium",
             "last_name": "User",
             "email": "premium@panel.local",
             "role": "premium",
-            "bio": "Premium user with enhanced features"
+            "bio": "Premium user with enhanced features",
         },
         {
             "first_name": "Regular",
             "last_name": "User",
             "email": "user@panel.local",
             "role": "user",
-            "bio": "Regular user"
+            "bio": "Regular user",
         },
         {
             "first_name": "John",
             "last_name": "Doe",
             "email": "john@example.com",
             "role": "user",
-            "bio": "Sample user for testing"
+            "bio": "Sample user for testing",
         },
         {
             "first_name": "Jane",
             "last_name": "Smith",
             "email": "jane@example.com",
             "role": "premium",
-            "bio": "Another sample user"
-        }
+            "bio": "Another sample user",
+        },
     ]
 
     users = []
@@ -82,7 +82,7 @@ def create_sample_users():
                 email=user_data["email"],
                 dob=datetime(1990, 1, 1, tzinfo=timezone.utc).date(),
                 role=user_data["role"],
-                bio=user_data["bio"]
+                bio=user_data["bio"],
             )
             user.set_password("password123")
             db.session.add(user)
@@ -108,7 +108,7 @@ def create_sample_servers(users):
             "host": "127.0.0.1",
             "port": 27960,
             "game_type": "etlegacy",
-            "owner_id": admin_user.id
+            "owner_id": admin_user.id,
         },
         {
             "name": "Casual Server",
@@ -116,7 +116,7 @@ def create_sample_servers(users):
             "host": "127.0.0.1",
             "port": 27961,
             "game_type": "etlegacy",
-            "owner_id": admin_user.id
+            "owner_id": admin_user.id,
         },
         {
             "name": "Test Server",
@@ -124,8 +124,8 @@ def create_sample_servers(users):
             "host": "127.0.0.1",
             "port": 27962,
             "game_type": "quake3",
-            "owner_id": admin_user.id
-        }
+            "owner_id": admin_user.id,
+        },
     ]
 
     servers = []
@@ -151,23 +151,23 @@ def create_sample_user_groups(users):
         {
             "name": "Administrators",
             "description": "System administrators with full access",
-            "permissions": ["system_config", "user_management", "server_management"]
+            "permissions": ["system_config", "user_management", "server_management"],
         },
         {
             "name": "Moderators",
             "description": "Forum and community moderators",
-            "permissions": ["moderate_forum", "edit_posts", "view_admin"]
+            "permissions": ["moderate_forum", "edit_posts", "view_admin"],
         },
         {
             "name": "Premium Users",
             "description": "Users with premium features",
-            "permissions": ["premium_features"]
+            "permissions": ["premium_features"],
         },
         {
             "name": "Beta Testers",
             "description": "Users testing new features",
-            "permissions": ["beta_access"]
-        }
+            "permissions": ["beta_access"],
+        },
     ]
 
     groups = []
@@ -177,7 +177,7 @@ def create_sample_user_groups(users):
             group = UserGroup(
                 name=group_data["name"],
                 description=group_data["description"],
-                permissions=str(group_data["permissions"])
+                permissions=str(group_data["permissions"]),
             )
             db.session.add(group)
             groups.append(group)
@@ -211,9 +211,7 @@ def create_sample_user_groups(users):
             user_id=mod_user.id, group_id=mod_group.id
         ).first()
         if not membership:
-            membership = UserGroupMembership(
-                user_id=mod_user.id, group_id=mod_group.id
-            )
+            membership = UserGroupMembership(user_id=mod_user.id, group_id=mod_group.id)
             db.session.add(membership)
             memberships.append(membership)
 
@@ -240,7 +238,7 @@ def create_sample_forum_content(users):
     """Create sample forum threads and posts"""
     print("Creating sample forum content...")
 
-    from src.panel.forum import Thread, Post
+    from src.panel.forum import Post, Thread
 
     # Create sample threads
     threads_data = [
@@ -248,26 +246,26 @@ def create_sample_forum_content(users):
             "title": "Welcome to the Panel Forum!",
             "content": "Welcome to our community forum! Discuss strategies, share experiences.",
             "author": users[0],  # admin
-            "is_pinned": True
+            "is_pinned": True,
         },
         {
             "title": "Server Rules and Guidelines",
             "content": "Please read and follow these rules to ensure a positive gaming experience.",
             "author": users[1],  # server admin
-            "is_pinned": True
+            "is_pinned": True,
         },
         {
             "title": "Best strategies for competitive play",
             "content": "Share your tips and strategies for winning matches!",
             "author": users[5],  # regular user
-            "is_pinned": False
+            "is_pinned": False,
         },
         {
             "title": "New update feedback",
             "content": "What do you think of the latest game update?",
             "author": users[6],  # another user
-            "is_pinned": False
-        }
+            "is_pinned": False,
+        },
     ]
 
     threads = []
@@ -275,7 +273,7 @@ def create_sample_forum_content(users):
         thread = Thread(
             title=thread_data["title"],
             author_id=thread_data["author"].id,
-            is_pinned=thread_data["is_pinned"]
+            is_pinned=thread_data["is_pinned"],
         )
         db.session.add(thread)
         db.session.flush()  # Get thread ID
@@ -284,7 +282,7 @@ def create_sample_forum_content(users):
         post = Post(
             thread_id=thread.id,
             author_id=thread_data["author"].id,
-            content=thread_data["content"]
+            content=thread_data["content"],
         )
         db.session.add(post)
 
@@ -294,7 +292,7 @@ def create_sample_forum_content(users):
                 reply = Post(
                     thread_id=thread.id,
                     author_id=reply_user.id,
-                    content=f"This is reply #{i+1} to the thread. Great discussion!"
+                    content=f"This is reply #{i+1} to the thread. Great discussion!",
                 )
                 db.session.add(reply)
 
@@ -317,7 +315,7 @@ def create_sample_blog_posts(users):
             "content": "Welcome to the official Panel blog! We'll share news, updates, highlights.",
             "excerpt": "Official welcome post for the Panel blog",
             "author": users[0],
-            "is_published": True
+            "is_published": True,
         },
         {
             "title": "Server Maintenance Schedule",
@@ -325,7 +323,7 @@ def create_sample_blog_posts(users):
             "content": "Scheduled maintenance windows and expected downtime information.",
             "excerpt": "Important maintenance schedule information",
             "author": users[1],
-            "is_published": True
+            "is_published": True,
         },
         {
             "title": "New Features Coming Soon",
@@ -333,7 +331,7 @@ def create_sample_blog_posts(users):
             "content": "Preview of upcoming features and improvements.",
             "excerpt": "Sneak peek at future updates",
             "author": users[0],
-            "is_published": False  # Draft
+            "is_published": False,  # Draft
         },
         {
             "title": "Community Tournament Results",
@@ -341,8 +339,8 @@ def create_sample_blog_posts(users):
             "content": "Results and highlights from the recent community tournament.",
             "excerpt": "Tournament winners and memorable moments",
             "author": users[2],
-            "is_published": True
-        }
+            "is_published": True,
+        },
     ]
 
     posts = []
@@ -355,7 +353,7 @@ def create_sample_blog_posts(users):
                 content=post_data["content"],
                 excerpt=post_data["excerpt"],
                 author_id=post_data["author"].id,
-                is_published=post_data["is_published"]
+                is_published=post_data["is_published"],
             )
             db.session.add(post)
             posts.append(post)

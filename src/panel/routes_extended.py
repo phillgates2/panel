@@ -18,18 +18,13 @@ from datetime import datetime, timezone
 
 import pyotp
 import qrcode
-from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import (abort, flash, jsonify, redirect, render_template, request,
+                   url_for)
 
 from app import AuditLog, Server, User, app, db
 from app import session as flask_session
-from models_extended import (
-    ApiKey,
-    Notification,
-    ServerTemplate,
-    TwoFactorAuth,
-    UserActivity,
-    UserSession,
-)
+from models_extended import (ApiKey, Notification, ServerTemplate,
+                             TwoFactorAuth, UserActivity, UserSession)
 
 # import psutil  # Temporarily commented for testing
 
@@ -198,7 +193,9 @@ def account_sessions():
 
     current_token = flask_session.get("session_token")
 
-    return render_template("account_sessions.html", sessions=sessions, current_token=current_token)
+    return render_template(
+        "account_sessions.html", sessions=sessions, current_token=current_token
+    )
 
 
 @app.route("/account/sessions/<int:session_id>/revoke", methods=["POST"])
@@ -292,7 +289,9 @@ def account_api_keys():
     if not user_id:
         return redirect(url_for("login"))
 
-    keys = ApiKey.query.filter_by(user_id=user_id).order_by(ApiKey.created_at.desc()).all()
+    keys = (
+        ApiKey.query.filter_by(user_id=user_id).order_by(ApiKey.created_at.desc()).all()
+    )
 
     return render_template("account_api_keys.html", api_keys=keys)
 
@@ -318,7 +317,9 @@ def create_api_key():
     db.session.commit()
 
     # Show key ONCE to user
-    flash(f"API Key created: {key_value} (save this, it won't be shown again!)", "success")
+    flash(
+        f"API Key created: {key_value} (save this, it won't be shown again!)", "success"
+    )
     return redirect(url_for("account_api_keys"))
 
 
@@ -662,7 +663,9 @@ def create_server_from_template(template_id):
         name = request.form.get("name", "").strip()
         if not name:
             flash("Server name required", "error")
-            return redirect(url_for("create_server_from_template", template_id=template_id))
+            return redirect(
+                url_for("create_server_from_template", template_id=template_id)
+            )
 
         # Create server from template
         server = Server(
@@ -787,11 +790,15 @@ def api_security_report():
         )
 
         # Count active user sessions
-        active_sessions = db.session.query(UserSession).filter_by(is_active=True).count()
+        active_sessions = (
+            db.session.query(UserSession).filter_by(is_active=True).count()
+        )
 
         # Count API keys created in last 7 days
         week_ago = datetime.now() - timedelta(days=7)
-        new_api_keys = db.session.query(ApiKey).filter(ApiKey.created_at >= week_ago).count()
+        new_api_keys = (
+            db.session.query(ApiKey).filter(ApiKey.created_at >= week_ago).count()
+        )
 
         security_report.update(
             {
@@ -857,7 +864,12 @@ def api_security_events():
             )
 
         return jsonify(
-            {"events": events_data, "total": len(events_data), "limit": limit, "offset": offset}
+            {
+                "events": events_data,
+                "total": len(events_data),
+                "limit": limit,
+                "offset": offset,
+            }
         )
 
     except Exception as e:
@@ -889,7 +901,10 @@ def security_settings():
                 settings_updated.append("Strict input validation")
 
             if settings_updated:
-                flash(f"Security settings updated: {', '.join(settings_updated)}", "success")
+                flash(
+                    f"Security settings updated: {', '.join(settings_updated)}",
+                    "success",
+                )
 
                 # Log the security settings change
                 user_id = flask_session.get("user_id")
@@ -920,5 +935,7 @@ def security_settings():
     }
 
     return render_template(
-        "security_settings.html", current_settings=current_settings, title="Security Settings"
+        "security_settings.html",
+        current_settings=current_settings,
+        title="Security Settings",
     )

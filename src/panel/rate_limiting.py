@@ -3,14 +3,14 @@ Advanced API Rate Limiting & Abuse Prevention
 Implements sophisticated rate limiting with IP blocking, behavior analysis, and external integrations
 """
 
+import json
 import logging
 import time
-import json
 from collections import defaultdict, deque
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
-from flask import Flask, request, g
+from flask import Flask, g, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -36,7 +36,11 @@ class IPBlocklist:
                 key,
                 ttl,
                 json.dumps(
-                    {"reason": reason, "blocked_at": datetime.utcnow().isoformat(), "ttl": ttl}
+                    {
+                        "reason": reason,
+                        "blocked_at": datetime.utcnow().isoformat(),
+                        "ttl": ttl,
+                    }
                 ),
             )
         else:
@@ -70,7 +74,9 @@ class IPBlocklist:
 
             # Use fail2ban-client to ban IP
             subprocess.run(
-                ["fail2ban-client", "set", "panel", "banip", ip], capture_output=True, timeout=10
+                ["fail2ban-client", "set", "panel", "banip", ip],
+                capture_output=True,
+                timeout=10,
             )
             logger.info(f"Fail2ban ban triggered for IP: {ip}")
         except Exception as e:
@@ -108,10 +114,14 @@ class BehaviorAnalyzer:
             count = self.redis.zcount(key, window_start, now)
             return (count / window) * 60  # requests per minute
         else:
-            recent_requests = [t for t in self.request_history[identifier] if t > window_start]
+            recent_requests = [
+                t for t in self.request_history[identifier] if t > window_start
+            ]
             return (len(recent_requests) / window) * 60
 
-    def detect_anomaly(self, identifier: str, current_rate: float, threshold: float = 10.0) -> bool:
+    def detect_anomaly(
+        self, identifier: str, current_rate: float, threshold: float = 10.0
+    ) -> bool:
         """Detect anomalous behavior based on request rate"""
         # Simple threshold-based anomaly detection
         # In production, this could use statistical methods or ML
@@ -187,7 +197,9 @@ class CloudflareIntegration:
             }
 
             response = requests.get(
-                f"{self.base_url}/zones/{self.zone_id}/firewall/rules", headers=headers, timeout=10
+                f"{self.base_url}/zones/{self.zone_id}/firewall/rules",
+                headers=headers,
+                timeout=10,
             )
 
             if response.status_code == 200:
@@ -221,7 +233,9 @@ class AdvancedRateLimiter:
         self.cloudflare = None
 
         # Configuration
-        self.abuse_threshold = float(app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", "10.0"))
+        self.abuse_threshold = float(
+            app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", "10.0")
+        )
         self.block_duration = int(app.config.get("RATE_LIMIT_BLOCK_DURATION", "3600"))
 
         # Initialize components
@@ -268,7 +282,9 @@ class AdvancedRateLimiter:
 
         # Check for anomalous behavior
         current_rate = self.behavior_analyzer.get_request_rate(identifier, 60)
-        if self.behavior_analyzer.detect_anomaly(identifier, current_rate, self.abuse_threshold):
+        if self.behavior_analyzer.detect_anomaly(
+            identifier, current_rate, self.abuse_threshold
+        ):
             # Block the IP
             reason = f"Anomalous behavior detected (rate: {current_rate:.1f} req/min)"
             self.block_ip(ip, reason)
@@ -292,7 +308,9 @@ class AdvancedRateLimiter:
         """Get rate limiting statistics"""
         return {
             "blocked_ips_count": (
-                len(self.ip_blocklist.local_blocklist) if not self.redis else "redis-backed"
+                len(self.ip_blocklist.local_blocklist)
+                if not self.redis
+                else "redis-backed"
             ),
             "cloudflare_enabled": self.cloudflare is not None,
             "abuse_threshold": self.abuse_threshold,
@@ -374,7 +392,10 @@ def setup_rate_limiting(app: Flask):
         allowed, reason = advanced_limiter.check_request()
         if not allowed:
             logger.warning(f"Request blocked: {get_remote_address()} - {reason}")
-            return {"error": "Access denied", "message": reason or "Request blocked"}, 403
+            return {
+                "error": "Access denied",
+                "message": reason or "Request blocked",
+            }, 403
 
     # Specific limits for sensitive endpoints
     limiter.limit("5 per minute")(app.view_functions.get("login", lambda: None))

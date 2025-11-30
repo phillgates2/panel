@@ -4,14 +4,14 @@ Provides Redis-based caching for improved performance and scalability.
 Includes response caching, query result caching, and cache invalidation.
 """
 
-import json
 import hashlib
+import json
 from functools import wraps
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
 
-from flask import request, g
-from flask_caching import Cache
 import redis
+from flask import g, request
+from flask_caching import Cache
 
 from simple_config import load_config
 
@@ -32,13 +32,13 @@ class AdvancedCache:
         config = load_config()
 
         # Redis configuration
-        redis_url = config.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
+        redis_url = config.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
         cache_config = {
-            'CACHE_TYPE': 'redis',
-            'CACHE_REDIS_URL': redis_url,
-            'CACHE_DEFAULT_TIMEOUT': 300,  # 5 minutes default
-            'CACHE_KEY_PREFIX': 'panel_cache:',
+            "CACHE_TYPE": "redis",
+            "CACHE_REDIS_URL": redis_url,
+            "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+            "CACHE_KEY_PREFIX": "panel_cache:",
         }
 
         self.cache = Cache(app, config=cache_config)
@@ -49,8 +49,11 @@ class AdvancedCache:
         # Register with app
         app.advanced_cache = self
 
-    def memoize(self, timeout: int = 300, key_prefix: str = None, unless: Callable = None):
+    def memoize(
+        self, timeout: int = 300, key_prefix: str = None, unless: Callable = None
+    ):
         """Enhanced memoize decorator with custom key generation."""
+
         def decorator(f):
             @wraps(f)
             def decorated_function(*args, **kwargs):
@@ -72,6 +75,7 @@ class AdvancedCache:
                 return result
 
             return decorated_function
+
         return decorator
 
     def _make_cache_key(self, f, args, kwargs, key_prefix=None):
@@ -84,7 +88,7 @@ class AdvancedCache:
             key_parts.insert(0, key_prefix)
 
         # Add user ID if available (for user-specific caching)
-        if hasattr(g, 'user') and g.user:
+        if hasattr(g, "user") and g.user:
             key_parts.append(f"user_{g.user.id}")
 
         # Add relevant args/kwargs (skip 'self' for methods)
@@ -93,7 +97,7 @@ class AdvancedCache:
         for arg in args[start_idx:]:
             if isinstance(arg, (str, int, float, bool)):
                 key_parts.append(str(arg))
-            elif hasattr(arg, 'id'):
+            elif hasattr(arg, "id"):
                 key_parts.append(f"id_{arg.id}")
             else:
                 # Hash complex objects
@@ -106,7 +110,7 @@ class AdvancedCache:
             else:
                 key_parts.append(f"{k}_{hashlib.md5(str(v).encode()).hexdigest()[:8]}")
 
-        return ':'.join(key_parts)
+        return ":".join(key_parts)
 
     def invalidate_pattern(self, pattern: str):
         """Invalidate all keys matching a pattern."""
@@ -131,15 +135,15 @@ class AdvancedCache:
             info = self.redis_client.info()
             keys = len(self.redis_client.keys("panel_cache:*"))
             return {
-                'total_keys': keys,
-                'redis_info': {
-                    'used_memory': info.get('used_memory_human', 'N/A'),
-                    'connected_clients': info.get('connected_clients', 0),
-                    'uptime_days': info.get('uptime_in_days', 0),
-                }
+                "total_keys": keys,
+                "redis_info": {
+                    "used_memory": info.get("used_memory_human", "N/A"),
+                    "connected_clients": info.get("connected_clients", 0),
+                    "uptime_days": info.get("uptime_in_days", 0),
+                },
             }
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
 
 # Global cache instance
@@ -148,56 +152,66 @@ advanced_cache = AdvancedCache()
 
 # ===== Cached Functions =====
 
-@advanced_cache.memoize(timeout=300, key_prefix='servers')
+
+@advanced_cache.memoize(timeout=300, key_prefix="servers")
 def get_user_servers_cached(user_id: int):
     """Cached version of user servers query."""
-    from app import db
     from models import Server, User
+
+    from app import db
 
     user = db.session.get(User, user_id)
     if not user:
         return []
 
-    return [{
-        'id': s.id,
-        'name': s.name,
-        'status': s.status,
-        'host': s.host,
-        'port': s.port,
-        'created_at': s.created_at.isoformat() if s.created_at else None
-    } for s in user.servers]
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "status": s.status,
+            "host": s.host,
+            "port": s.port,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in user.servers
+    ]
 
 
-@advanced_cache.memoize(timeout=60, key_prefix='server_details')
+@advanced_cache.memoize(timeout=60, key_prefix="server_details")
 def get_server_details_cached(server_id: int):
     """Cached server details with metrics."""
-    from app import db
     from models import Server
+
+    from app import db
 
     server = db.session.get(Server, server_id)
     if not server:
         return None
 
     server_data = {
-        'id': server.id,
-        'name': server.name,
-        'status': server.status,
-        'host': server.host,
-        'port': server.port,
-        'created_at': server.created_at.isoformat() if server.created_at else None,
+        "id": server.id,
+        "name": server.name,
+        "status": server.status,
+        "host": server.host,
+        "port": server.port,
+        "created_at": server.created_at.isoformat() if server.created_at else None,
     }
 
     # Add latest metrics if available
     try:
         from monitoring_system import ServerMetrics
-        latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
-            .order_by(ServerMetrics.timestamp.desc()).first()
+
+        latest_metric = (
+            ServerMetrics.query.filter_by(server_id=server.id)
+            .order_by(ServerMetrics.timestamp.desc())
+            .first()
+        )
         if latest_metric:
-            server_data['metrics'] = {
-                'cpu_usage': latest_metric.cpu_usage,
-                'memory_usage': latest_metric.memory_usage,
-                'player_count': latest_metric.player_count,
-                'timestamp': latest_metric.timestamp.isoformat()
+            server_data["metrics"] = {
+                "cpu_usage": latest_metric.cpu_usage,
+                "memory_usage": latest_metric.memory_usage,
+                "player_count": latest_metric.player_count,
+                "timestamp": latest_metric.timestamp.isoformat(),
             }
     except:
         pass
@@ -205,21 +219,23 @@ def get_server_details_cached(server_id: int):
     return server_data
 
 
-@advanced_cache.memoize(timeout=600, key_prefix='system_stats')
+@advanced_cache.memoize(timeout=600, key_prefix="system_stats")
 def get_system_stats_cached():
     """Cached system statistics."""
+    from models import Server, User
+
     from app import db
-    from models import User, Server
 
     return {
-        'total_users': User.query.count(),
-        'active_users': User.query.filter_by(is_active=True).count(),
-        'total_servers': Server.query.count(),
-        'online_servers': Server.query.filter_by(status='online').count(),
+        "total_users": User.query.count(),
+        "active_users": User.query.filter_by(is_active=True).count(),
+        "total_servers": Server.query.count(),
+        "online_servers": Server.query.filter_by(status="online").count(),
     }
 
 
 # ===== Cache Invalidation Helpers =====
+
 
 def invalidate_user_servers_cache(user_id: int):
     """Invalidate cached server list for a user."""
@@ -240,8 +256,10 @@ def invalidate_system_stats_cache():
 
 # ===== Response Caching =====
 
+
 def cache_response(timeout: int = 300, key_prefix: str = None):
     """Decorator to cache API responses."""
+
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -262,34 +280,42 @@ def cache_response(timeout: int = 300, key_prefix: str = None):
             response = f(*args, **kwargs)
 
             # Only cache successful JSON responses
-            if hasattr(response, 'status_code') and response.status_code == 200:
+            if hasattr(response, "status_code") and response.status_code == 200:
                 try:
                     # Cache the response data, not the Response object
-                    response_data = response.get_json() if hasattr(response, 'get_json') else None
+                    response_data = (
+                        response.get_json() if hasattr(response, "get_json") else None
+                    )
                     if response_data:
-                        advanced_cache.cache.set(cache_key, response_data, timeout=timeout)
+                        advanced_cache.cache.set(
+                            cache_key, response_data, timeout=timeout
+                        )
                 except:
                     pass
 
             return response
 
         return decorated_function
+
     return decorator
 
 
 # ===== Cache Management Routes =====
 
+
 def init_cache_routes(app):
     """Initialize cache management routes."""
     from flask import Blueprint, jsonify, request
+
     from app import db
 
-    cache_bp = Blueprint('cache', __name__, url_prefix='/api/cache')
+    cache_bp = Blueprint("cache", __name__, url_prefix="/api/cache")
 
-    @cache_bp.route('/info')
+    @cache_bp.route("/info")
     def cache_info():
         """Get cache information."""
         from flask import session
+
         from app import User
 
         uid = session.get("user_id")
@@ -302,10 +328,11 @@ def init_cache_routes(app):
 
         return jsonify(advanced_cache.get_cache_info())
 
-    @cache_bp.route('/clear', methods=['POST'])
+    @cache_bp.route("/clear", methods=["POST"])
     def clear_cache():
         """Clear all cache."""
         from flask import session
+
         from app import User
 
         uid = session.get("user_id")
@@ -322,10 +349,11 @@ def init_cache_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to clear cache: {str(e)}"}), 500
 
-    @cache_bp.route('/invalidate/user/<int:user_id>', methods=['POST'])
+    @cache_bp.route("/invalidate/user/<int:user_id>", methods=["POST"])
     def invalidate_user(user_id):
         """Invalidate cache for specific user."""
         from flask import session
+
         from app import User
 
         uid = session.get("user_id")
@@ -350,7 +378,7 @@ def init_advanced_caching(app):
     # Add cache headers to responses
     @app.after_request
     def add_cache_headers(response):
-        if request.path.startswith('/api/'):
+        if request.path.startswith("/api/"):
             # Add cache control headers for API responses
-            response.headers['Cache-Control'] = 'private, max-age=300'
+            response.headers["Cache-Control"] = "private, max-age=300"
         return response

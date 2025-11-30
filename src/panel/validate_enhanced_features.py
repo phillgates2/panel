@@ -4,14 +4,16 @@ Basic validation script for enhanced features
 Tests core functionality without requiring full test framework
 """
 
-import sys
-import os
 import json
+import os
+import sys
 import time
 from unittest.mock import Mock
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 
 def test_input_validation():
@@ -19,7 +21,8 @@ def test_input_validation():
     print("Testing input validation...")
 
     try:
-        from input_validation import LoginSchema, RegisterSchema, validate_request
+        from input_validation import (LoginSchema, RegisterSchema,
+                                      validate_request)
 
         # Test valid login
         data = {"email": "test@example.com", "password": "Password123!"}
@@ -194,7 +197,9 @@ def test_performance():
         end_time = time.time()
         duration = end_time - start_time
 
-        assert duration < 1.0, f"Operation should complete in less than 1 second, took {duration}"
+        assert (
+            duration < 1.0
+        ), f"Operation should complete in less than 1 second, took {duration}"
         print(f"✓ Performance test passed in {duration:.2f} seconds")
         return True
     except Exception as e:

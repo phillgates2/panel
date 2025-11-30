@@ -175,7 +175,5 @@ def log_security_event(event_type, message, user_id=None, ip_address=None, **kwa
         **kwargs,
     }
 
-    log_message = (
-        f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
-    )
+    log_message = f"{message} | {' | '.join(f'{k}={v}' for k, v in details.items() if v is not None)}"
     audit_logger.info(log_message)

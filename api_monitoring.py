@@ -137,7 +137,9 @@ def get_server_metrics(server_id):
         # Get metrics for the server
         metrics = (
             db.session.query(ServerMetrics)
-            .filter(ServerMetrics.server_id == server_id, ServerMetrics.timestamp >= since)
+            .filter(
+                ServerMetrics.server_id == server_id, ServerMetrics.timestamp >= since
+            )
             .order_by(ServerMetrics.timestamp)
             .all()
         )
@@ -185,7 +187,9 @@ def get_server_alerts(server_id):
 
         alerts = (
             db.session.query(ServerAlert)
-            .filter(ServerAlert.server_id == server_id, ServerAlert.triggered_at >= since)
+            .filter(
+                ServerAlert.server_id == server_id, ServerAlert.triggered_at >= since
+            )
             .order_by(desc(ServerAlert.triggered_at))
             .limit(50)
             .all()
@@ -201,7 +205,9 @@ def get_server_alerts(server_id):
                     "severity": alert.severity,
                     "message": alert.message,
                     "triggered_at": alert.triggered_at.isoformat(),
-                    "resolved_at": (alert.resolved_at.isoformat() if alert.resolved_at else None),
+                    "resolved_at": (
+                        alert.resolved_at.isoformat() if alert.resolved_at else None
+                    ),
                     "is_resolved": bool(alert.resolved_at),
                 }
             )
@@ -210,7 +216,9 @@ def get_server_alerts(server_id):
 
     except Exception as e:
         return (
-            jsonify({"success": False, "message": f"Error fetching server alerts: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error fetching server alerts: {str(e)}"}
+            ),
             500,
         )
 
@@ -257,7 +265,9 @@ def get_recent_alerts():
 
     except Exception as e:
         return (
-            jsonify({"success": False, "message": f"Error fetching recent alerts: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error fetching recent alerts: {str(e)}"}
+            ),
             500,
         )
 
@@ -326,16 +336,24 @@ def get_system_status():
         )
 
         online_servers = sum(
-            1 for s in server_statuses if s.is_online and s.timestamp >= recent_threshold
+            1
+            for s in server_statuses
+            if s.is_online and s.timestamp >= recent_threshold
         )
         offline_servers = sum(
-            1 for s in server_statuses if not s.is_online or s.timestamp < recent_threshold
+            1
+            for s in server_statuses
+            if not s.is_online or s.timestamp < recent_threshold
         )
-        stale_servers = sum(1 for s in server_statuses if s.timestamp < recent_threshold)
+        stale_servers = sum(
+            1 for s in server_statuses if s.timestamp < recent_threshold
+        )
 
         # Get active alerts count
         active_alerts = (
-            db.session.query(ServerAlert).filter(ServerAlert.resolved_at.is_(None)).count()
+            db.session.query(ServerAlert)
+            .filter(ServerAlert.resolved_at.is_(None))
+            .count()
         )
 
         # Get total player count
@@ -367,6 +385,8 @@ def get_system_status():
 
     except Exception as e:
         return (
-            jsonify({"success": False, "message": f"Error fetching system status: {str(e)}"}),
+            jsonify(
+                {"success": False, "message": f"Error fetching system status: {str(e)}"}
+            ),
             500,
         )

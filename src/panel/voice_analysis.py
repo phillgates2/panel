@@ -67,7 +67,9 @@ class VoiceAnalyzer:
             # Use AI to analyze emotional content
             analysis_prompt = f"Analyze voice emotion: {json.dumps(features)}\nReturn JSON: emotion, confidence, secondary_emotions, explanation"
             if self.enhanced_ai:
-                analysis_text = await self.enhanced_ai.generate_response(analysis_prompt)
+                analysis_text = await self.enhanced_ai.generate_response(
+                    analysis_prompt
+                )
             else:
                 analysis_text = '{"emotion": "neutral", "confidence": 0.5, "secondary_emotions": [], "explanation": "AI analysis unavailable"}'
 
@@ -111,7 +113,9 @@ Return JSON: language, confidence, alternatives"""
             if self.enhanced_ai:
                 result_text = await self.enhanced_ai.generate_response(prompt)
             else:
-                result_text = '{"language": "unknown", "confidence": 0.0, "alternatives": []}'
+                result_text = (
+                    '{"language": "unknown", "confidence": 0.0, "alternatives": []}'
+                )
 
             try:
                 result = json.loads(result_text)
@@ -222,7 +226,9 @@ Return JSON: language, confidence, alternatives"""
                 "timestamp": datetime.datetime.utcnow().isoformat(),
             }
 
-    async def _azure_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
+    async def _azure_speech_to_text(
+        self, audio_data: bytes, language: str
+    ) -> Dict[str, Any]:
         """Azure Speech Services integration"""
         # Placeholder - would integrate with Azure Speech SDK
         return {
@@ -233,7 +239,9 @@ Return JSON: language, confidence, alternatives"""
             "timestamp": datetime.datetime.utcnow().isoformat(),
         }
 
-    async def _google_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
+    async def _google_speech_to_text(
+        self, audio_data: bytes, language: str
+    ) -> Dict[str, Any]:
         """Google Speech-to-Text integration"""
         # Placeholder - would integrate with Google Cloud Speech-to-Text
         return {
@@ -244,7 +252,9 @@ Return JSON: language, confidence, alternatives"""
             "timestamp": datetime.datetime.utcnow().isoformat(),
         }
 
-    async def _fallback_speech_to_text(self, audio_data: bytes, language: str) -> Dict[str, Any]:
+    async def _fallback_speech_to_text(
+        self, audio_data: bytes, language: str
+    ) -> Dict[str, Any]:
         """Fallback speech-to-text using AI models"""
         try:
             # Use AI model for basic transcription
@@ -298,13 +308,16 @@ Return JSON: language, confidence, alternatives"""
             try:
                 with io.BytesIO(audio_data) as audio_buffer:
                     with wave.open(audio_buffer, "rb") as wav_file:
-                        features.update({
-                            "format": "wav",
-                            "channels": wav_file.getnchannels(),
-                            "sample_rate": wav_file.getframerate(),
-                            "duration": wav_file.getnframes() / wav_file.getframerate(),
-                            "sample_width": wav_file.getsampwidth(),
-                        })
+                        features.update(
+                            {
+                                "format": "wav",
+                                "channels": wav_file.getnchannels(),
+                                "sample_rate": wav_file.getframerate(),
+                                "duration": wav_file.getnframes()
+                                / wav_file.getframerate(),
+                                "sample_width": wav_file.getsampwidth(),
+                            }
+                        )
 
                         # Calculate RMS volume
                         frames = wav_file.readframes(wav_file.getnframes())

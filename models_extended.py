@@ -1,10 +1,13 @@
 """Extended models for Panel."""
 
-from src.panel.models import db
 from datetime import datetime, timezone
+
+from src.panel.models import db
+
 
 class UserActivity(db.Model):
     """User activity tracking."""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_type = db.Column(db.String(50), nullable=False)
@@ -13,8 +16,10 @@ class UserActivity(db.Model):
     details = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+
 class UserSession(db.Model):
     """User session tracking."""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     session_token = db.Column(db.String(128), nullable=False)

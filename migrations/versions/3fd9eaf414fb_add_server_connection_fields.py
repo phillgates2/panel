@@ -7,6 +7,7 @@ Create Date: 2025-11-20 07:37:48.037536
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -21,7 +22,9 @@ def upgrade() -> None:
     with op.batch_alter_table("server", schema=None) as batch_op:
         batch_op.add_column(sa.Column("host", sa.String(length=128), nullable=True))
         batch_op.add_column(sa.Column("port", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("rcon_password", sa.String(length=128), nullable=True))
+        batch_op.add_column(
+            sa.Column("rcon_password", sa.String(length=128), nullable=True)
+        )
     # ### end Alembic commands ###
 
 

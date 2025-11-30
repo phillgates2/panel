@@ -4,16 +4,17 @@ Provides modular service structure and API gateway preparation
 """
 
 import os
-from flask import Flask, Blueprint, request, jsonify
+
+from flask import Blueprint, Flask, jsonify, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import run_simple
 
-# Service blueprints
-from src.panel.auth_service import auth_bp
-from src.panel.forum_service import forum_bp
-from src.panel.cms_service import cms_bp
 from src.panel.admin_service import admin_bp
 from src.panel.api_gateway import api_bp
+# Service blueprints
+from src.panel.auth_service import auth_bp
+from src.panel.cms_service import cms_bp
+from src.panel.forum_service import forum_bp
 
 
 class MicroservicesManager:
@@ -102,7 +103,10 @@ class APIGateway:
                 {
                     "services": list(self.services.keys()),
                     "details": {
-                        name: {"routes": len(service["routes"]), "prefix": service.get("prefix")}
+                        name: {
+                            "routes": len(service["routes"]),
+                            "prefix": service.get("prefix"),
+                        }
                         for name, service in self.services.items()
                     },
                 }
@@ -117,22 +121,30 @@ class APIGateway:
             return jsonify(all_routes)
 
         # Service-specific routes
-        @self.blueprint.route("/auth/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+        @self.blueprint.route(
+            "/auth/<path:path>", methods=["GET", "POST", "PUT", "DELETE"]
+        )
         def auth_proxy(path):
             """Proxy auth service requests"""
             return self._proxy_request("auth", path)
 
-        @self.blueprint.route("/forum/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+        @self.blueprint.route(
+            "/forum/<path:path>", methods=["GET", "POST", "PUT", "DELETE"]
+        )
         def forum_proxy(path):
             """Proxy forum service requests"""
             return self._proxy_request("forum", path)
 
-        @self.blueprint.route("/cms/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+        @self.blueprint.route(
+            "/cms/<path:path>", methods=["GET", "POST", "PUT", "DELETE"]
+        )
         def cms_proxy(path):
             """Proxy CMS service requests"""
             return self._proxy_request("cms", path)
 
-        @self.blueprint.route("/admin/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+        @self.blueprint.route(
+            "/admin/<path:path>", methods=["GET", "POST", "PUT", "DELETE"]
+        )
         def admin_proxy(path):
             """Proxy admin service requests"""
             return self._proxy_request("admin", path)
@@ -159,7 +171,10 @@ class APIGateway:
                 }
             )
         except Exception as e:
-            return jsonify({"error": f"Service {service_name} error", "details": str(e)}), 500
+            return (
+                jsonify({"error": f"Service {service_name} error", "details": str(e)}),
+                500,
+            )
 
 
 # Service separation preparation

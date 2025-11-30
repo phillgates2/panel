@@ -4,8 +4,8 @@ Simple test runner for the panel application
 Runs tests without requiring pytest installation
 """
 
-import sys
 import os
+import sys
 import unittest
 from pathlib import Path
 

@@ -3,16 +3,16 @@ Backup Monitoring and Alerting
 Monitor backup health and send alerts for issues
 """
 
-import os
-import time
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
-import logging
 import json
+import logging
+import os
+import smtplib
+import time
+from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from src.panel.backup_recovery import get_backup_manager
 
@@ -31,7 +31,9 @@ class BackupMonitor:
             "alert_cooldown_hours": 6,  # Don't send same alert more than once every 6 hours
             "email_enabled": app.config.get("BACKUP_EMAIL_ALERTS", True),
             "email_recipients": app.config.get("BACKUP_ALERT_EMAILS", "").split(","),
-            "email_sender": app.config.get("BACKUP_EMAIL_SENDER", "noreply@panel.local"),
+            "email_sender": app.config.get(
+                "BACKUP_EMAIL_SENDER", "noreply@panel.local"
+            ),
             "smtp_server": app.config.get("SMTP_SERVER", "localhost"),
             "smtp_port": app.config.get("SMTP_PORT", 587),
             "smtp_username": app.config.get("SMTP_USERNAME"),
@@ -83,13 +85,20 @@ class BackupMonitor:
             last_backup_dt = datetime.fromisoformat(
                 health_report["last_backup_time"].replace("Z", "+00:00")
             )
-            hours_since_last_backup = (datetime.utcnow() - last_backup_dt).total_seconds() / 3600
+            hours_since_last_backup = (
+                datetime.utcnow() - last_backup_dt
+            ).total_seconds() / 3600
 
             if hours_since_last_backup > self.monitoring_config["max_backup_age_hours"]:
-                issues.append(f"No successful backup in {hours_since_last_backup:.1f} hours")
+                issues.append(
+                    f"No successful backup in {hours_since_last_backup:.1f} hours"
+                )
 
         # Check success rate
-        if health_report["backup_success_rate"] < self.monitoring_config["min_backup_success_rate"]:
+        if (
+            health_report["backup_success_rate"]
+            < self.monitoring_config["min_backup_success_rate"]
+        ):
             success_percent = health_report["backup_success_rate"] * 100
             issues.append(f"Backup success rate is only {success_percent:.1f}%")
 
@@ -97,12 +106,16 @@ class BackupMonitor:
         recent_failures = []
         one_day_ago = datetime.utcnow() - timedelta(days=1)
         for backup in failed_backups:
-            backup_time = datetime.fromisoformat(backup["created_at"].replace("Z", "+00:00"))
+            backup_time = datetime.fromisoformat(
+                backup["created_at"].replace("Z", "+00:00")
+            )
             if backup_time > one_day_ago:
                 recent_failures.append(backup)
 
         if recent_failures:
-            issues.append(f"{len(recent_failures)} backup(s) failed in the last 24 hours")
+            issues.append(
+                f"{len(recent_failures)} backup(s) failed in the last 24 hours"
+            )
 
         # Check backup types coverage
         backup_types = set(b["type"] for b in completed_backups)
@@ -159,7 +172,10 @@ class BackupMonitor:
         backup_files = [f for f in backup_files if f.is_file()]
 
         if not backup_files:
-            return {"status": "warning", "issues": ["No backup files found in storage directory"]}
+            return {
+                "status": "warning",
+                "issues": ["No backup files found in storage directory"],
+            }
 
         storage_report["file_count"] = len(backup_files)
 
@@ -188,7 +204,9 @@ class BackupMonitor:
                 )
                 storage_report["status"] = "warning"
             elif disk_usage_percent > 95:
-                storage_report["issues"].append(f"Critical disk usage: {disk_usage_percent:.1f}%")
+                storage_report["issues"].append(
+                    f"Critical disk usage: {disk_usage_percent:.1f}%"
+                )
                 storage_report["status"] = "error"
         except OSError:
             storage_report["issues"].append("Unable to check disk usage")
@@ -235,13 +253,15 @@ class BackupMonitor:
             msg.attach(MIMEText(message, "plain"))
 
             server = smtplib.SMTP(
-                self.monitoring_config["smtp_server"], self.monitoring_config["smtp_port"]
+                self.monitoring_config["smtp_server"],
+                self.monitoring_config["smtp_port"],
             )
 
             if self.monitoring_config["smtp_username"]:
                 server.starttls()
                 server.login(
-                    self.monitoring_config["smtp_username"], self.monitoring_config["smtp_password"]
+                    self.monitoring_config["smtp_username"],
+                    self.monitoring_config["smtp_password"],
                 )
 
             server.send_message(msg)
@@ -268,17 +288,24 @@ class BackupMonitor:
         overall_status = "healthy"
         if backup_health["status"] == "error" or storage_health["status"] == "error":
             overall_status = "error"
-        elif backup_health["status"] == "warning" or storage_health["status"] == "warning":
+        elif (
+            backup_health["status"] == "warning"
+            or storage_health["status"] == "warning"
+        ):
             overall_status = "warning"
 
         status_icon = {"healthy": "?", "warning": "??", "error": "?"}[overall_status]
-        report_lines.append(f"## Overall Status: {status_icon} {overall_status.upper()}")
+        report_lines.append(
+            f"## Overall Status: {status_icon} {overall_status.upper()}"
+        )
         report_lines.append("")
 
         # Backup health
         report_lines.append("## Backup Health")
         report_lines.append(f"- Total backups: {backup_health['total_backups']}")
-        report_lines.append(f"- Success rate: {backup_health['backup_success_rate']*100:.1f}%")
+        report_lines.append(
+            f"- Success rate: {backup_health['backup_success_rate']*100:.1f}%"
+        )
 
         if backup_health["last_backup_time"]:
             report_lines.append(f"- Last backup: {backup_health['last_backup_time']}")
@@ -302,9 +329,15 @@ class BackupMonitor:
             size_gb = storage_health["total_size_bytes"] / (1024 * 1024 * 1024)
             report_lines.append(f"- Total size: {size_gb:.2f} GB")
 
-        report_lines.append(f"- Oldest backup: {storage_health['oldest_backup_days']:.1f} days ago")
-        report_lines.append(f"- Newest backup: {storage_health['newest_backup_days']:.1f} days ago")
-        report_lines.append(f"- Disk usage: {storage_health['disk_usage_percent']:.1f}%")
+        report_lines.append(
+            f"- Oldest backup: {storage_health['oldest_backup_days']:.1f} days ago"
+        )
+        report_lines.append(
+            f"- Newest backup: {storage_health['newest_backup_days']:.1f} days ago"
+        )
+        report_lines.append(
+            f"- Disk usage: {storage_health['disk_usage_percent']:.1f}%"
+        )
 
         report_lines.append("")
 

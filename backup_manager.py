@@ -130,7 +130,9 @@ class BackupManager:
     def create_server_backup(self, server_id, server_data, name=None):
         """Create a backup of server configuration and data."""
         if not name:
-            name = f"server_{server_id}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            name = (
+                f"server_{server_id}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
 
         backup_file = self.server_backups / f"{name}.json"
 
@@ -229,7 +231,9 @@ class BackupManager:
                     target_path = Path(item.name)
                     if target_path.exists():
                         # Create backup of current file
-                        backup_current = target_path.with_suffix(f"{target_path.suffix}.backup")
+                        backup_current = target_path.with_suffix(
+                            f"{target_path.suffix}.backup"
+                        )
                         shutil.copy2(target_path, backup_current)
 
                     shutil.copy2(item, target_path)
@@ -295,11 +299,13 @@ class BackupManager:
             stats["file_count"] += type_stats["count"]
 
             if type_stats["oldest"] and (
-                stats["oldest_backup"] is None or type_stats["oldest"] < stats["oldest_backup"]
+                stats["oldest_backup"] is None
+                or type_stats["oldest"] < stats["oldest_backup"]
             ):
                 stats["oldest_backup"] = type_stats["oldest"]
             if type_stats["newest"] and (
-                stats["newest_backup"] is None or type_stats["newest"] > stats["newest_backup"]
+                stats["newest_backup"] is None
+                or type_stats["newest"] > stats["newest_backup"]
             ):
                 stats["newest_backup"] = type_stats["newest"]
 

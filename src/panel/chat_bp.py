@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import current_user
+
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
 
@@ -17,7 +18,9 @@ def chat_messages(room):
         data = request.json
         message = data["message"]
         moderated = moderate_message(message)
-        user_id = getattr(current_user, "id", None) if current_user.is_authenticated else None
+        user_id = (
+            getattr(current_user, "id", None) if current_user.is_authenticated else None
+        )
         msg = ChatMessage(
             room=room,
             user_id=user_id,
@@ -92,7 +95,9 @@ def admin_chat_messages():
             .all()
         )
     else:
-        messages = ChatMessage.query.order_by(ChatMessage.timestamp.desc()).limit(50).all()
+        messages = (
+            ChatMessage.query.order_by(ChatMessage.timestamp.desc()).limit(50).all()
+        )
 
     return {
         "messages": [

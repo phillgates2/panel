@@ -1,10 +1,12 @@
 # src/admin.py - Admin management routes
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import (Blueprint, flash, redirect, render_template, request,
+                   session, url_for)
 from sqlalchemy import text
 
 from .models import User
-from .models_extended import IpAccessControl, UserGroup, UserGroupMembership, UserActivity
+from .models_extended import (IpAccessControl, UserActivity, UserGroup,
+                              UserGroupMembership)
 from .structured_logging import log_security_event
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -38,7 +40,9 @@ def teams_dashboard():
             if member_user:
                 member_users.append(member_user)
 
-        team_data.append({"team": team, "members": member_users, "member_count": len(member_users)})
+        team_data.append(
+            {"team": team, "members": member_users, "member_count": len(member_users)}
+        )
 
     return render_template("teams.html", user=user, teams=team_data)
 
@@ -109,7 +113,9 @@ def add_team_member(team_id):
         return redirect(url_for("admin.teams_dashboard"))
 
     # Check if already a member
-    existing = UserGroupMembership.query.filter_by(user_id=member_user.id, group_id=team_id).first()
+    existing = UserGroupMembership.query.filter_by(
+        user_id=member_user.id, group_id=team_id
+    ).first()
     if existing:
         flash("User is already a member of this team", "warning")
         return redirect(url_for("admin.teams_dashboard"))
@@ -147,9 +153,15 @@ def security_dashboard():
         return redirect(url_for("dashboard"))
 
     # Get security data
-    whitelist = IpAccessControl.query.filter_by(list_type='whitelist', is_active=True).all()
-    blacklist = IpAccessControl.query.filter_by(list_type='blacklist', is_active=True).all()
-    recent_events = UserActivity.query.order_by(UserActivity.created_at.desc()).limit(20).all()
+    whitelist = IpAccessControl.query.filter_by(
+        list_type="whitelist", is_active=True
+    ).all()
+    blacklist = IpAccessControl.query.filter_by(
+        list_type="blacklist", is_active=True
+    ).all()
+    recent_events = (
+        UserActivity.query.order_by(UserActivity.created_at.desc()).limit(20).all()
+    )
 
     return render_template(
         "security.html",
@@ -190,7 +202,10 @@ def add_to_whitelist():
 
     try:
         whitelist_entry = IpAccessControl(
-            ip_address=ip_address, list_type='whitelist', description=description, created_by=user.id
+            ip_address=ip_address,
+            list_type="whitelist",
+            description=description,
+            created_by=user.id,
         )
         db.session.add(whitelist_entry)
         db.session.commit()
@@ -237,13 +252,21 @@ def add_to_blacklist():
         return redirect(url_for("admin.security_dashboard"))
 
     try:
-        blacklist_entry = IpAccessControl(ip_address=ip_address, list_type='blacklist', reason=reason, created_by=user.id)
+        blacklist_entry = IpAccessControl(
+            ip_address=ip_address,
+            list_type="blacklist",
+            reason=reason,
+            created_by=user.id,
+        )
         db.session.add(blacklist_entry)
         db.session.commit()
 
         # Log security event
         log_security_event(
-            "ip_blacklisted", ip_address, user.id, f"IP {ip_address} blacklisted: {reason}"
+            "ip_blacklisted",
+            ip_address,
+            user.id,
+            f"IP {ip_address} blacklisted: {reason}",
         )
 
         flash(f"IP {ip_address} added to blacklist", "success")

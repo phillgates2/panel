@@ -3,15 +3,16 @@ Multi-Environment Configuration Management
 Secure configuration handling for different environments
 """
 
-import os
+import base64
+import hashlib
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional, List
+import os
 from dataclasses import dataclass, field
 from enum import Enum
-import hashlib
-import base64
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -255,8 +256,12 @@ class ConfigManager:
 
         # Add OAuth providers
         for provider, settings in config.oauth_providers.items():
-            flask_config[f"{provider.upper()}_CLIENT_ID"] = settings.get("client_id", "")
-            flask_config[f"{provider.upper()}_CLIENT_SECRET"] = settings.get("client_secret", "")
+            flask_config[f"{provider.upper()}_CLIENT_ID"] = settings.get(
+                "client_id", ""
+            )
+            flask_config[f"{provider.upper()}_CLIENT_SECRET"] = settings.get(
+                "client_secret", ""
+            )
 
         # Add feature flags
         for feature, enabled in config.features.items():
@@ -272,7 +277,9 @@ class ConfigManager:
         flask_config["API_GATEWAY_ENABLED"] = config.api_gateway_enabled
 
         # Add monitoring settings
-        flask_config["PERFORMANCE_MONITORING_ENABLED"] = config.performance_monitoring_enabled
+        flask_config["PERFORMANCE_MONITORING_ENABLED"] = (
+            config.performance_monitoring_enabled
+        )
 
         # Add load testing settings
         flask_config["LOAD_TEST_USERS"] = config.load_test_users
@@ -344,7 +351,9 @@ class ConfigManager:
 
         # Feature flags
         for feature, enabled in config.features.items():
-            env_vars.append(f"{feature.upper()}_ENABLED={'true' if enabled else 'false'}")
+            env_vars.append(
+                f"{feature.upper()}_ENABLED={'true' if enabled else 'false'}"
+            )
 
         # Write to file
         with open(env_file, "w") as f:

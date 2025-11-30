@@ -27,7 +27,9 @@ class PteroEggsUpdateMetadata(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     repository_url = db.Column(
-        db.String(255), nullable=False, default="https://github.com/Ptero-Eggs/game-eggs.git"
+        db.String(255),
+        nullable=False,
+        default="https://github.com/Ptero-Eggs/game-eggs.git",
     )
     last_sync_at = db.Column(db.DateTime, nullable=True)
     last_commit_hash = db.Column(db.String(64), nullable=True)
@@ -53,7 +55,9 @@ class PteroEggsTemplateVersion(db.Model):
     __tablename__ = "ptero_eggs_template_version"
 
     id = db.Column(db.Integer, primary_key=True)
-    template_id = db.Column(db.Integer, db.ForeignKey("config_template.id"), nullable=False)
+    template_id = db.Column(
+        db.Integer, db.ForeignKey("config_template.id"), nullable=False
+    )
     version_number = db.Column(db.Integer, nullable=False)
     commit_hash = db.Column(db.String(64), nullable=True)
     template_data_snapshot = db.Column(db.Text, nullable=False)  # JSON snapshot
@@ -178,7 +182,8 @@ class PteroEggsUpdater:
         Returns:
             Tuple of (status, template_id) where status is 'added', 'updated', 'unchanged', or 'error'
         """
-        from scripts.import_ptero_eggs import clean_game_type, extract_config_from_egg
+        from scripts.import_ptero_eggs import (clean_game_type,
+                                               extract_config_from_egg)
 
         try:
             with open(egg_path, "r", encoding="utf-8") as f:
@@ -229,7 +234,9 @@ class PteroEggsUpdater:
 
                 # Update template
                 existing.template_data = template_data_json
-                existing.description = f"{description}\n\nSource: Ptero-Eggs\nAuthor: {author}"
+                existing.description = (
+                    f"{description}\n\nSource: Ptero-Eggs\nAuthor: {author}"
+                )
                 existing.updated_at = datetime.now(timezone.utc)
 
                 db.session.add(new_version)
@@ -345,9 +352,9 @@ class PteroEggsUpdater:
             db.session.commit()
 
             stats["success"] = True
-            stats[
-                "message"
-            ] = f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['unchanged']} unchanged, {stats['errors']} errors"
+            stats["message"] = (
+                f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['unchanged']} unchanged, {stats['errors']} errors"
+            )
 
             logger.info(f"Ptero-Eggs sync completed: {stats['message']}")
 
@@ -402,7 +409,9 @@ def schedule_auto_update():
             from redis import Redis
             from rq_scheduler import Scheduler
 
-            redis_conn = Redis.from_url(app.config.get("REDIS_URL", "redis://localhost:6379/0"))
+            redis_conn = Redis.from_url(
+                app.config.get("REDIS_URL", "redis://localhost:6379/0")
+            )
             scheduler = Scheduler(connection=redis_conn)
 
             # Schedule daily updates at 3 AM

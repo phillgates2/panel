@@ -20,13 +20,13 @@ class FeatureFlags:
         """Load feature flags from environment variables and config"""
         # Load from environment variables (FEATURE_FLAG_*)
         for key, value in os.environ.items():
-            if key.startswith('FEATURE_FLAG_'):
+            if key.startswith("FEATURE_FLAG_"):
                 flag_name = key[13:].lower()  # Remove FEATURE_FLAG_ prefix
                 self._flags[flag_name] = self._parse_value(value)
 
         # Load from app config if available
         if current_app:
-            config_flags = current_app.config.get('FEATURE_FLAGS', {})
+            config_flags = current_app.config.get("FEATURE_FLAGS", {})
             self._flags.update(config_flags)
 
     def _parse_value(self, value: str) -> Any:
@@ -34,9 +34,9 @@ class FeatureFlags:
         value = value.strip()
 
         # Boolean values
-        if value.lower() in ('true', '1', 'yes', 'on'):
+        if value.lower() in ("true", "1", "yes", "on"):
             return True
-        elif value.lower() in ('false', '0', 'no', 'off'):
+        elif value.lower() in ("false", "0", "no", "off"):
             return False
 
         # Try to parse as int

@@ -99,14 +99,18 @@ class TestForumFeatures:
 
         # Fill thread form
         authenticated_page.fill('input[name="title"]', "Test Thread")
-        authenticated_page.fill('textarea[name="content"]', "This is a test thread content.")
+        authenticated_page.fill(
+            'textarea[name="content"]', "This is a test thread content."
+        )
 
         # Submit form
         authenticated_page.click('button[type="submit"]')
 
         # Verify thread creation
         expect(authenticated_page.locator("h1")).to_contain_text("Test Thread")
-        expect(authenticated_page.locator(".post-content")).to_contain_text("test thread content")
+        expect(authenticated_page.locator(".post-content")).to_contain_text(
+            "test thread content"
+        )
 
     def test_post_reply(self, authenticated_page: Page):
         """Test posting a reply to a thread"""
@@ -120,7 +124,9 @@ class TestForumFeatures:
         authenticated_page.click('button[type="submit"]')
 
         # Verify reply appears
-        expect(authenticated_page.locator(".post-content")).to_contain_text("test reply")
+        expect(authenticated_page.locator(".post-content")).to_contain_text(
+            "test reply"
+        )
 
     def test_forum_search(self, page: Page, test_server):
         """Test forum search functionality"""

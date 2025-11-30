@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import current_user
+
 from src.panel.models import ROLE_HIERARCHY, ROLE_PERMISSIONS
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -45,7 +46,9 @@ def get_permissions():
         "roles": ROLE_HIERARCHY,
         "permissions": ROLE_PERMISSIONS,
         "user_permissions": (
-            current_user.get_available_permissions() if current_user.is_authenticated else []
+            current_user.get_available_permissions()
+            if current_user.is_authenticated
+            else []
         ),
     }
 

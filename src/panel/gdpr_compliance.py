@@ -3,18 +3,18 @@ GDPR Compliance and Data Protection
 Provides data export, deletion, consent management, and audit trails
 """
 
-import json
 import csv
-import zipfile
 import io
+import json
+import zipfile
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from flask import Flask, request, jsonify, current_app, send_file
+from flask import Flask, current_app, jsonify, request, send_file
 from werkzeug.exceptions import BadRequest, NotFound
 
 from src.panel import db
-from src.panel.models import User, AuditLog
+from src.panel.models import AuditLog, User
 from src.panel.tasks import send_email_task
 
 
@@ -46,7 +46,9 @@ class GDPRCompliance:
                 "bio": user.bio,
                 "role": user.role,
                 "is_active": user.is_active,
-                "created_at": user.dob.isoformat() if hasattr(user, "created_at") else None,
+                "created_at": (
+                    user.dob.isoformat() if hasattr(user, "created_at") else None
+                ),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
             },
             "oauth_accounts": [],
@@ -63,7 +65,9 @@ class GDPRCompliance:
                 {
                     "provider": user.oauth_provider,
                     "linked_at": (
-                        user.oauth_token_expires.isoformat() if user.oauth_token_expires else None
+                        user.oauth_token_expires.isoformat()
+                        if user.oauth_token_expires
+                        else None
                     ),
                 }
             )
@@ -79,7 +83,7 @@ class GDPRCompliance:
             )
 
         # Forum activity
-        from src.panel.forum import Thread, Post
+        from src.panel.forum import Post, Thread
 
         threads = Thread.query.filter_by(author_id=user_id).all()
         posts = Post.query.filter_by(author_id=user_id).all()
@@ -135,7 +139,7 @@ class GDPRCompliance:
             )
 
         # Security events
-        from src.panel.models_extended import UserActivity, SecurityEvent
+        from src.panel.models_extended import SecurityEvent, UserActivity
 
         activities = UserActivity.query.filter_by(user_id=user_id).all()
         security_events = SecurityEvent.query.filter_by(user_id=user_id).all()
@@ -164,7 +168,9 @@ class GDPRCompliance:
 
         return export_data
 
-    def delete_user_data(self, user_id: int, reason: str = "user_request") -> Dict[str, Any]:
+    def delete_user_data(
+        self, user_id: int, reason: str = "user_request"
+    ) -> Dict[str, Any]:
         """Delete all user data for GDPR Article 17 (right to erasure)"""
         user = User.query.get(user_id)
         if not user:
@@ -180,13 +186,15 @@ class GDPRCompliance:
 
         try:
             # Delete forum content
-            from src.panel.forum import Thread, Post
+            from src.panel.forum import Post, Thread
 
             threads_deleted = Thread.query.filter_by(author_id=user_id).delete()
             posts_deleted = Post.query.filter_by(author_id=user_id).delete()
 
             if threads_deleted > 0:
-                deletion_summary["data_removed"].append(f"{threads_deleted} forum threads")
+                deletion_summary["data_removed"].append(
+                    f"{threads_deleted} forum threads"
+                )
             if posts_deleted > 0:
                 deletion_summary["data_removed"].append(f"{posts_deleted} forum posts")
 
@@ -196,7 +204,9 @@ class GDPRCompliance:
                 db.session.delete(post)
 
             if blog_posts_deleted > 0:
-                deletion_summary["data_removed"].append(f"{blog_posts_deleted} blog posts")
+                deletion_summary["data_removed"].append(
+                    f"{blog_posts_deleted} blog posts"
+                )
 
             # Delete API tokens
             from src.panel.models_extended import ApiKey
@@ -204,24 +214,32 @@ class GDPRCompliance:
             api_keys_deleted = ApiKey.query.filter_by(user_id=user_id).delete()
 
             if api_keys_deleted > 0:
-                deletion_summary["data_removed"].append(f"{api_keys_deleted} API tokens")
+                deletion_summary["data_removed"].append(
+                    f"{api_keys_deleted} API tokens"
+                )
 
             # Delete audit logs
             audit_logs_deleted = AuditLog.query.filter_by(actor_id=user_id).delete()
 
             if audit_logs_deleted > 0:
-                deletion_summary["data_removed"].append(f"{audit_logs_deleted} audit log entries")
+                deletion_summary["data_removed"].append(
+                    f"{audit_logs_deleted} audit log entries"
+                )
 
             # Delete user activities and security events
-            from src.panel.models_extended import UserActivity, SecurityEvent
+            from src.panel.models_extended import SecurityEvent, UserActivity
 
             activities_deleted = UserActivity.query.filter_by(user_id=user_id).delete()
             security_deleted = SecurityEvent.query.filter_by(user_id=user_id).delete()
 
             if activities_deleted > 0:
-                deletion_summary["data_removed"].append(f"{activities_deleted} user activities")
+                deletion_summary["data_removed"].append(
+                    f"{activities_deleted} user activities"
+                )
             if security_deleted > 0:
-                deletion_summary["data_removed"].append(f"{security_deleted} security events")
+                deletion_summary["data_removed"].append(
+                    f"{security_deleted} security events"
+                )
 
             # Anonymize user (don't delete completely to maintain referential integrity)
             user.first_name = "[DELETED]"
@@ -258,7 +276,9 @@ class GDPRCompliance:
 
         # Delete old audit logs
         cutoff = now - self.retention_periods["audit_logs"]
-        deleted_counts["audit_logs"] = AuditLog.query.filter(AuditLog.created_at < cutoff).delete()
+        deleted_counts["audit_logs"] = AuditLog.query.filter(
+            AuditLog.created_at < cutoff
+        ).delete()
 
         # Delete old user activities
         cutoff = now - self.retention_periods["user_activity"]

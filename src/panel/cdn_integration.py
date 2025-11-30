@@ -5,9 +5,10 @@ Provides global asset delivery and performance optimization
 
 import os
 import re
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
+
 from flask import Flask, request, url_for
-from typing import Dict, List, Optional, Any
 
 
 class CDNManager:
@@ -219,7 +220,10 @@ class AWSCloudFrontCDN(CDNManager):
                 DistributionId=self.distribution_id,
                 InvalidationBatch={
                     "CallerReference": str(datetime.utcnow().timestamp()),
-                    "Paths": {"Quantity": len(invalidation_items), "Items": invalidation_items},
+                    "Paths": {
+                        "Quantity": len(invalidation_items),
+                        "Items": invalidation_items,
+                    },
                 },
             )
 

@@ -5,13 +5,14 @@ Provides live updates for forum, user status, and server monitoring
 
 import json
 from datetime import datetime
+
 from flask import request
-from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
+from flask_socketio import SocketIO, disconnect, emit, join_room, leave_room
 from sqlalchemy import desc
 
 from src.panel import db
-from src.panel.models import User, Server
-from src.panel.forum import Thread, Post
+from src.panel.forum import Post, Thread
+from src.panel.models import Server, User
 from src.panel.services.cache_service import get_cache_service
 
 socketio = SocketIO(cors_allowed_origins="*")
@@ -127,9 +128,13 @@ class RealTimeManager:
                 activity_data.append(
                     {
                         "id": post.id,
-                        "author": post.author.display_name if post.author else "Unknown",
+                        "author": (
+                            post.author.display_name if post.author else "Unknown"
+                        ),
                         "content": (
-                            post.content[:200] + "..." if len(post.content) > 200 else post.content
+                            post.content[:200] + "..."
+                            if len(post.content) > 200
+                            else post.content
                         ),
                         "timestamp": post.created_at.isoformat(),
                         "is_recent": True,
@@ -204,7 +209,10 @@ def handle_authenticate(data):
             realtime_manager.add_user_connection(user_id, request.sid)
             emit(
                 "authenticated",
-                {"status": "success", "online_users": len(realtime_manager.get_online_users())},
+                {
+                    "status": "success",
+                    "online_users": len(realtime_manager.get_online_users()),
+                },
             )
 
             # Send push notification if user just came online
@@ -274,7 +282,9 @@ def handle_forum_post(data):
                     "new_post",
                     {
                         "author": user.display_name,
-                        "content": content[:200] + "..." if len(content) > 200 else content,
+                        "content": (
+                            content[:200] + "..." if len(content) > 200 else content
+                        ),
                         "timestamp": datetime.utcnow().isoformat(),
                     },
                 )
@@ -312,7 +322,11 @@ def handle_typing_start(data):
                 room_name = f"forum_{thread_id}"
                 emit(
                     "user_typing",
-                    {"user_id": user_id, "username": user.display_name, "action": "start"},
+                    {
+                        "user_id": user_id,
+                        "username": user.display_name,
+                        "action": "start",
+                    },
                     room=room_name,
                     skip_sid=request.sid,
                 )
@@ -334,7 +348,11 @@ def handle_typing_stop(data):
                 room_name = f"forum_{thread_id}"
                 emit(
                     "user_typing",
-                    {"user_id": user_id, "username": user.display_name, "action": "stop"},
+                    {
+                        "user_id": user_id,
+                        "username": user.display_name,
+                        "action": "stop",
+                    },
                     room=room_name,
                     skip_sid=request.sid,
                 )

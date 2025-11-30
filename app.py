@@ -1,23 +1,25 @@
-from typing import Optional
-import time
 import os
-from flask import Flask, Blueprint, request, session, render_template, jsonify, redirect, url_for
+import time
+from typing import Optional
+
+import newrelic.agent
+from flask import (Blueprint, Flask, jsonify, redirect, render_template,
+                   request, session, url_for)
+from flask_login import current_user
+
+from app.context_processors import inject_user
+from app.db import db
+from app.error_handlers import internal_error, page_not_found
+from app.extensions import init_app_extensions
+from app.factory import create_app
 from config import config
 from src.panel import models
 from src.panel.admin import DatabaseAdmin
-from app.db import db
-from app.extensions import init_app_extensions
-from app.factory import create_app
-from app.context_processors import inject_user
-from app.error_handlers import page_not_found, internal_error
-
 # Import permissions
 from src.panel.models import ROLE_HIERARCHY, ROLE_PERMISSIONS
-from flask_login import current_user
-import newrelic.agent
 
 # Initialize New Relic APM
-newrelic.agent.initialize('newrelic.ini')
+newrelic.agent.initialize("newrelic.ini")
 
 # Initialize the Flask app
 app = Flask(__name__)
@@ -53,9 +55,11 @@ try:
 except Exception:
     admin_bp = None
 
+
 def _register_optional_blueprints(module_app: Flask) -> None:
     try:
         from src.panel import cms as _cms
+
         if hasattr(_cms, "cms_bp"):
             try:
                 module_app.register_blueprint(_cms.cms_bp)
@@ -65,6 +69,7 @@ def _register_optional_blueprints(module_app: Flask) -> None:
         pass
     try:
         from src.panel import forum as _forum
+
         if hasattr(_forum, "forum_bp"):
             try:
                 module_app.register_blueprint(_forum.forum_bp)
@@ -78,6 +83,7 @@ def _register_optional_blueprints(module_app: Flask) -> None:
     except Exception:
         pass
 
+
 # Register optional blueprints on the module-level app if available
 _register_optional_blueprints(app)
 
@@ -86,30 +92,31 @@ app.context_processor(inject_user)
 app.errorhandler(404)(page_not_found)
 app.errorhandler(500)(internal_error)
 
-# Import and register blueprints
-from src.panel.main_bp import main_bp
+from src.panel.admin_bp import admin_bp
 from src.panel.api_bp import api_bp
 from src.panel.chat_bp import chat_bp
+# Import and register blueprints
+from src.panel.main_bp import main_bp
 from src.panel.payment_bp import payment_bp
-from src.panel.admin_bp import admin_bp
 
 app.register_blueprint(main_bp)
-app.register_blueprint(api_bp, url_prefix='/api')
+app.register_blueprint(api_bp, url_prefix="/api")
 app.register_blueprint(chat_bp)
 app.register_blueprint(payment_bp)
 app.register_blueprint(admin_bp)
 
-SERVICE_NAME = os.environ.get('SERVICE_NAME', 'main')
+SERVICE_NAME = os.environ.get("SERVICE_NAME", "main")
 
-if SERVICE_NAME == 'auth':
+if SERVICE_NAME == "auth":
     # Auth service routes
-    @app.route('/auth/login')
+    @app.route("/auth/login")
     def auth_login() -> str:
         return "Auth service login"
-elif SERVICE_NAME == 'chat':
+
+elif SERVICE_NAME == "chat":
     # Chat service routes
     pass  # Chat routes are already in chat_bp
-elif SERVICE_NAME == 'payment':
+elif SERVICE_NAME == "payment":
     # Payment service routes
     pass  # Payment routes are already in payment_bp
 else:
