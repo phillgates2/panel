@@ -75,5 +75,5 @@ pydub>=0.25.1
 speechrecognition>=3.10.0
 
 # Development and Deployment
-setuptools==69.0.2
+setuptools==80.9.0
 wheel==0.42.0
