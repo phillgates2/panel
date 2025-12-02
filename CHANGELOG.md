@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed CI/CD workflows: updated all GitHub Actions to stable versions (v4/v5)
+- Fixed code-quality.yml: corrected paths to src/panel/, updated requirements paths, removed duplicate retention-days
+- Fixed security-monitoring.yml: added null-safe jq parsing, removed npm audit, added file existence checks
+- Fixed dependabot.yml: updated pip directory to /requirements/, added dependency groups, removed npm ecosystem
+- Fixed all remaining workflows: dependency-updates.yml, release.yml, e2e.yml, aws-deploy.yml, playwright-e2e.yml
+- Consolidated CI/CD: removed duplicate ci.yml, enhanced ci-cd.yml with matrix builds
+- Fixed typo in aws-deploy.yml: aws.cloudfront -> aws cloudfront
+- Moved .pre-commit-config.yaml to root directory for proper detection
+
 ### Added
 - Comprehensive interactive installer with multiple modes (Development, Production, Custom)
 - Advanced user engagement features: achievements, badges, notifications
