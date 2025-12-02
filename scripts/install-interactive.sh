@@ -9,6 +9,8 @@ set -e
 # Command line options
 DRY_RUN=false
 NON_INTERACTIVE=false
+DEV_MODE=false
+DOCKER_MODE=false
 
 for arg in "$@"; do
     case $arg in
@@ -20,12 +22,22 @@ for arg in "$@"; do
             NON_INTERACTIVE=true
             shift
             ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
+        --docker)
+            DOCKER_MODE=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --dry-run          Show what would be installed without making changes"
             echo "  --non-interactive  Use default values for all prompts"
+            echo "  --dev              Setup development environment"
+            echo "  --docker           Install via Docker Compose"
             echo "  --help, -h         Show this help message"
             exit 0
             ;;
@@ -149,6 +161,67 @@ if ! command -v git &> /dev/null; then
 fi
 GIT_VERSION=$(git --version | grep -oP '\d+\.\d+\.\d+' | head -1)
 log_success "Git $GIT_VERSION is available"
+
+# Handle Docker mode
+if [[ $DOCKER_MODE == true ]]; then
+    log_info "Installing Panel via Docker Compose..."
+    
+    # Check if Docker is installed
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker not found. Please install Docker first."
+        exit 1
+    fi
+    
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null 2>&1; then
+        log_error "Docker Compose not found. Please install Docker Compose first."
+        exit 1
+    fi
+    
+    INSTALL_DIR=${INSTALL_DIR:-~/panel}
+    INSTALL_DIR=$(eval echo $INSTALL_DIR)
+    
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    
+    # Clone or update
+    if [[ -d ".git" ]]; then
+        git pull origin main
+    else
+        git clone https://github.com/phillgates2/panel.git .
+    fi
+    
+    # Copy appropriate docker-compose file
+    if [[ $DEV_MODE == true ]]; then
+        cp deploy/docker-compose.dev.yml docker-compose.yml
+        log_info "Using development Docker Compose configuration"
+    else
+        cp docker-compose.yml docker-compose.production.yml
+        log_info "Using production Docker Compose configuration"
+    fi
+    
+    # Start services
+    log_info "Starting Docker containers..."
+    if command -v docker-compose &> /dev/null; then
+        docker-compose up -d
+    else
+        docker compose up -d
+    fi
+    
+    log_success "Panel installed via Docker!"
+    log_info "Access Panel at: http://localhost:5000"
+    log_info "Manage containers: docker-compose ps"
+    log_info "View logs: docker-compose logs -f"
+    exit 0
+fi
+
+# Handle Development mode
+if [[ $DEV_MODE == true ]]; then
+    log_info "Setting up development environment..."
+    NON_INTERACTIVE=false  # Allow prompts in dev mode for some options
+    ENV_CHOICE=1
+    DB_CHOICE=1  # Use SQLite for dev
+    INSTALL_REDIS="y"
+fi
 
 # Interactive prompts
 if [[ $NON_INTERACTIVE != true ]]; then
@@ -487,6 +560,71 @@ SESSION_COOKIE_SAMESITE=Lax
 # Logging
 LOG_LEVEL=$(if [[ $ENV_CHOICE -eq 1 ]]; then echo "DEBUG"; else echo "INFO"; fi)
 EOF
+
+# Add development-specific settings if in dev mode
+if [[ $DEV_MODE == true ]]; then
+    cat >> .env << 'EOF'
+
+# Development Mode Settings
+FLASK_DEBUG=True
+TESTING=False
+EXPLAIN_TEMPLATE_LOADING=True
+PRESERVE_CONTEXT_ON_EXCEPTION=True
+
+# Development Tools
+SQLALCHEMY_ECHO=True
+SQLALCHEMY_RECORD_QUERIES=True
+SEND_FILE_MAX_AGE_DEFAULT=0
+
+# Hot reload
+FLASK_RUN_RELOAD=True
+FLASK_RUN_DEBUGGER=True
+EOF
+    
+    # Install development dependencies
+    log_info "Installing development dependencies..."
+    pip install -q -r requirements/development.txt || pip install -q pytest pytest-cov black flake8 mypy
+    
+    # Create development helper scripts
+    cat > dev.sh << 'DEVSCRIPT'
+#!/bin/bash
+# Development helper script
+
+case "${1:-run}" in
+    run)
+        echo "Starting development server with hot reload..."
+        export FLASK_ENV=development
+        export FLASK_DEBUG=1
+        python -m flask run --reload --debugger
+        ;;
+    test)
+        echo "Running tests..."
+        pytest tests/ -v
+        ;;
+    lint)
+        echo "Running linters..."
+        black --check .
+        flake8 app tests
+        mypy app
+        ;;
+    format)
+        echo "Formatting code..."
+        black .
+        ;;
+    shell)
+        echo "Starting Flask shell..."
+        python -m flask shell
+        ;;
+    *)
+        echo "Usage: ./dev.sh [run|test|lint|format|shell]"
+        ;;
+esac
+DEVSCRIPT
+    
+    chmod +x dev.sh
+    log_success "Development mode configured"
+    log_info "Use ./dev.sh to run development server"
+fi
 
 log_success "Configuration file created at .env"
 
