@@ -2,13 +2,15 @@ version: 2
 updates:
   # Python dependencies
   - package-ecosystem: "pip"
-    directory: "/"
+    directory: "/requirements"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
     assignees:
+      - "phillgates2"
+    reviewers:
       - "phillgates2"
     commit-message:
       prefix: "deps"
@@ -17,6 +19,27 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    # Group non-security updates
+    groups:
+      flask-ecosystem:
+        patterns:
+          - "flask*"
+          - "werkzeug"
+          - "jinja2"
+          - "click"
+      database:
+        patterns:
+          - "sqlalchemy"
+          - "alembic"
+          - "psycopg2*"
+      testing:
+        patterns:
+          - "pytest*"
+          - "playwright"
+      security:
+        patterns:
+          - "cryptography"
+          - "pyotp"
     ignore:
       # Ignore major version updates for critical packages
       - dependency-name: "flask"
@@ -44,12 +67,18 @@ updates:
     open-pull-requests-limit: 5
     assignees:
       - "phillgates2"
+    reviewers:
+      - "phillgates2"
     commit-message:
       prefix: "ci"
       include: "scope"
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      github-actions:
+        patterns:
+          - "actions/*"
 
   # Docker (if Dockerfile exists)
   - package-ecosystem: "docker"
@@ -61,27 +90,17 @@ updates:
     open-pull-requests-limit: 3
     assignees:
       - "phillgates2"
+    reviewers:
+      - "phillgates2"
     commit-message:
       prefix: "docker"
       include: "scope"
     labels:
       - "dependencies"
       - "docker"
-
-  # NPM (for any frontend tools)
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    assignees:
-      - "phillgates2"
-    commit-message:
-      prefix: "deps"
-      prefix-development: "deps-dev"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "javascript"
+    groups:
+      base-images:
+        patterns:
+          - "python"
+          - "alpine"
+          - "postgres"
