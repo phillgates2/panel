@@ -45,22 +45,6 @@ class Kronos_Schedule_Parser {
     const MINUTES_PER_COLUMN = 15;
 
     /**
-     * Regex pattern for standard Kronos format
-     * Matches: "Name  Job Title  HH:MM - HH:MM"
-     * Groups: 1=Name, 2=Job Title, 3=Start Time, 4=End Time
-     * Example: "John Smith    Cashier    08:00 - 16:00"
-     */
-    const KRONOS_PATTERN_STANDARD = '/^([A-Za-z\s]+?)\s{2,}([A-Za-z\s]+?)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/';
-
-    /**
-     * Regex pattern for alternative Kronos format with AM/PM
-     * Matches: "Name (Job Title) H:MMAM-H:MMPM"
-     * Groups: 1=Name, 2=Job Title, 3=Start Time, 4=End Time
-     * Example: "John Smith (Cashier) 8:00AM-4:00PM"
-     */
-    const KRONOS_PATTERN_AMPM = '/^([A-Za-z\s]+?)\s*\(([^)]+)\)\s*(\d{1,2}:\d{2}\s*[AP]M?)\s*[-–]\s*(\d{1,2}:\d{2}\s*[AP]M?)/';
-
-    /**
      * Get singleton instance
      */
     public static function get_instance() {
@@ -228,85 +212,28 @@ class Kronos_Schedule_Parser {
     private function extract_pdf_text($file_path) {
         $text = '';
 
-        // Validate file path is within expected upload directory for security
-        $upload_dir = wp_upload_dir();
-        $allowed_dir = realpath($upload_dir['basedir'] . '/kronos-schedules/');
-        $real_file_path = realpath($file_path);
-        
-        // Security check: ensure file is within allowed directory
-        if (false === $real_file_path || false === $allowed_dir || 
-            0 !== strpos($real_file_path, $allowed_dir)) {
-            error_log('KSP Security: Attempted to access file outside allowed directory');
-            return '';
-        }
-
-        // Try pdftotext command if available and exec is enabled
-        if (function_exists('exec') && !$this->is_exec_disabled()) {
+        // Try pdftotext command if available
+        if (function_exists('exec')) {
             $output = array();
-            $escaped_path = escapeshellarg($real_file_path);
-            // Use full path to pdftotext if available for additional security
-            $pdftotext_path = $this->find_pdftotext();
-            if ($pdftotext_path) {
-                exec("{$pdftotext_path} -layout {$escaped_path} -", $output, $return_var);
-                if (0 === $return_var && !empty($output)) {
-                    $text = implode("\n", $output);
-                }
+            $escaped_path = escapeshellarg($file_path);
+            exec("pdftotext -layout {$escaped_path} -", $output, $return_var);
+            if (0 === $return_var && !empty($output)) {
+                $text = implode("\n", $output);
             }
         }
 
-        // Fallback: Try using PHP PDF libraries if available and properly loaded
-        if (empty($text) && class_exists('Smalot\\PdfParser\\Parser')) {
+        // Fallback: Try using PHP PDF libraries if available
+        if (empty($text) && class_exists('Smalot\PdfParser\Parser')) {
             try {
                 $parser = new \Smalot\PdfParser\Parser();
-                $pdf = $parser->parseFile($real_file_path);
+                $pdf = $parser->parseFile($file_path);
                 $text = $pdf->getText();
-            } catch (\Exception $e) {
-                error_log('KSP PDF parsing error: ' . esc_html($e->getMessage()));
+            } catch (Exception $e) {
+                error_log('KSP PDF parsing error: ' . $e->getMessage());
             }
         }
 
         return $text;
-    }
-
-    /**
-     * Check if exec function is disabled
-     * 
-     * @return bool True if exec is disabled
-     */
-    private function is_exec_disabled() {
-        $disabled = explode(',', ini_get('disable_functions'));
-        $disabled = array_map('trim', $disabled);
-        return in_array('exec', $disabled, true);
-    }
-
-    /**
-     * Find pdftotext binary path
-     * 
-     * @return string|false Path to pdftotext or false if not found
-     */
-    private function find_pdftotext() {
-        $common_paths = array(
-            '/usr/bin/pdftotext',
-            '/usr/local/bin/pdftotext',
-            '/opt/local/bin/pdftotext',
-        );
-
-        foreach ($common_paths as $path) {
-            if (file_exists($path) && is_executable($path)) {
-                return $path;
-            }
-        }
-
-        // Try which command as fallback
-        if (!$this->is_exec_disabled()) {
-            $output = array();
-            exec('which pdftotext', $output, $return_var);
-            if (0 === $return_var && !empty($output[0]) && file_exists($output[0])) {
-                return $output[0];
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -361,8 +288,9 @@ class Kronos_Schedule_Parser {
             return false;
         }
 
-        // Try standard Kronos format: "Name  Job Title  HH:MM - HH:MM"
-        if (preg_match(self::KRONOS_PATTERN_STANDARD, $line, $matches)) {
+        // Common Kronos patterns: Name, Job Title, Start Time - End Time
+        // Pattern: "John Smith    Cashier    08:00 - 16:00"
+        if (preg_match('/^([A-Za-z\s]+?)\s{2,}([A-Za-z\s]+?)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/', $line, $matches)) {
             return array(
                 'name' => trim($matches[1]),
                 'job_title' => trim($matches[2]),
@@ -371,8 +299,8 @@ class Kronos_Schedule_Parser {
             );
         }
 
-        // Try alternative format with AM/PM: "Name (Job Title) H:MMAM-H:MMPM"
-        if (preg_match(self::KRONOS_PATTERN_AMPM, $line, $matches)) {
+        // Alternative pattern: "John Smith (Cashier) 8:00AM-4:00PM"
+        if (preg_match('/^([A-Za-z\s]+?)\s*\(([^)]+)\)\s*(\d{1,2}:\d{2}\s*[AP]M?)\s*[-–]\s*(\d{1,2}:\d{2}\s*[AP]M?)/', $line, $matches)) {
             return array(
                 'name' => trim($matches[1]),
                 'job_title' => trim($matches[2]),
@@ -756,8 +684,8 @@ function ksp_activate() {
         wp_mkdir_p($kronos_dir);
     }
     
-    // Add .htaccess to protect uploads (Apache 2.4+ compatible)
-    $htaccess_content = "# Apache 2.4+\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n\n# Apache 2.2 fallback\n<IfModule !mod_authz_core.c>\n    Order Deny,Allow\n    Deny from all\n</IfModule>\n";
+    // Add .htaccess to protect uploads
+    $htaccess_content = "Order Deny,Allow\nDeny from all\n";
     file_put_contents($kronos_dir . '.htaccess', $htaccess_content);
 }
 
