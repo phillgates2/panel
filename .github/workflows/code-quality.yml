@@ -37,6 +37,7 @@ jobs:
         pip install -r requirements/requirements.txt
 
     - name: Install additional linting tools
+      if: always()
       continue-on-error: true
       run: |
         pip install \
@@ -50,11 +51,13 @@ jobs:
           mccabe || true
 
     - name: Run pre-commit hooks
+      if: always()
       run: |
         pip install pre-commit
         pre-commit run --all-files --show-diff-on-failure || true
 
     - name: Run mypy (type checking)
+      if: always()
       run: |
         mypy src/panel/ \
           --ignore-missing-imports \
@@ -63,12 +66,14 @@ jobs:
           --cache-dir .mypy_cache || true
 
     - name: Run pydocstyle (documentation linting)
+      if: always()
       run: |
         pydocstyle src/panel/ \
           --convention=google \
           --add-ignore=D100,D104,D105,D107 || true
 
     - name: Run radon (complexity analysis)
+      if: always()
       run: |
         echo "=== Cyclomatic Complexity ==="
         radon cc src/panel/ -a -i A,B,C || true
@@ -90,10 +95,12 @@ jobs:
         fi
 
     - name: Run vulture (dead code detection)
+      if: always()
       run: |
         vulture src/panel/ || true
 
     - name: Run flake8 with additional plugins
+      if: always()
       run: |
         flake8 src/panel/ \
           --max-line-length=100 \
@@ -102,6 +109,7 @@ jobs:
           --per-file-ignores="__init__.py:F401" || true
 
     - name: Run bandit (security linting)
+      if: always()
       run: |
         bandit -r src/panel/ \
           -f json \
@@ -120,6 +128,7 @@ jobs:
         fi
 
     - name: Generate code quality report
+      if: always()
       run: |
         echo "# Code Quality Report" > code-quality-report.md
         echo "" >> code-quality-report.md
