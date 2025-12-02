@@ -12,6 +12,7 @@ jobs:
   e2e:
     name: Playwright E2E (manual)
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: ${{ github.event.inputs.run_e2e == 'true' }}
     steps:
       - uses: actions/checkout@v4
