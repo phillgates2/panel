@@ -151,38 +151,46 @@ GIT_VERSION=$(git --version | grep -oP '\d+\.\d+\.\d+' | head -1)
 log_success "Git $GIT_VERSION is available"
 
 # Interactive prompts
-echo ""
-log_info "Please provide the following information for installation:"
-
-# Installation directory
-read -p "Installation directory (default: ~/panel): " INSTALL_DIR
-INSTALL_DIR=${INSTALL_DIR:-~/panel}
-INSTALL_DIR=$(eval echo $INSTALL_DIR)  # Expand ~ if used
-
-# Database choice
-echo ""
-echo "Database options:"
-echo "1. SQLite (default, easy setup)"
-echo "2. PostgreSQL (recommended for production)"
-read -p "Choose database [1-2]: " DB_CHOICE
-DB_CHOICE=${DB_CHOICE:-1}
-
-# Redis setup
-read -p "Install Redis locally? (y/n, default: y): " INSTALL_REDIS
-INSTALL_REDIS=${INSTALL_REDIS:-y}
-
-# Environment
-echo ""
-echo "Environment options:"
-echo "1. Development"
-echo "2. Production"
-read -p "Choose environment [1-2]: " ENV_CHOICE
-ENV_CHOICE=${ENV_CHOICE:-1}
-
-if [[ $ENV_CHOICE -eq 2 ]]; then
-    read -p "Domain name (for SSL): " DOMAIN
-    read -p "Email for SSL certificates: " SSL_EMAIL
+if [[ $NON_INTERACTIVE != true ]]; then
+    echo ""
+    log_info "Please provide the following information for installation:"
+    
+    # Installation directory
+    read -p "Installation directory (default: ~/panel): " INSTALL_DIR
+    INSTALL_DIR=${INSTALL_DIR:-~/panel}
+    
+    # Database choice
+    echo ""
+    echo "Database options:"
+    echo "1. SQLite (default, easy setup)"
+    echo "2. PostgreSQL (recommended for production)"
+    read -p "Choose database [1-2]: " DB_CHOICE
+    DB_CHOICE=${DB_CHOICE:-1}
+    
+    # Redis setup
+    read -p "Install Redis locally? (y/n, default: y): " INSTALL_REDIS
+    INSTALL_REDIS=${INSTALL_REDIS:-y}
+    
+    # Environment
+    echo ""
+    echo "Environment options:"
+    echo "1. Development"
+    echo "2. Production"
+    read -p "Choose environment [1-2]: " ENV_CHOICE
+    ENV_CHOICE=${ENV_CHOICE:-1}
+    
+    if [[ $ENV_CHOICE -eq 2 ]]; then
+        read -p "Domain name (for SSL): " DOMAIN
+        read -p "Email for SSL certificates: " SSL_EMAIL
+    fi
+else
+    log_info "Running in non-interactive mode with defaults"
+    INSTALL_DIR=${INSTALL_DIR:-~/panel}
+    DB_CHOICE=${DB_CHOICE:-1}
+    INSTALL_REDIS=${INSTALL_REDIS:-y}
+    ENV_CHOICE=${ENV_CHOICE:-1}
 fi
+INSTALL_DIR=$(eval echo $INSTALL_DIR)  # Expand ~ if used
 
 # Display configuration summary
 echo ""
@@ -217,8 +225,13 @@ fi
 log_info "Preparing installation directory..."
 if [[ -d "$INSTALL_DIR" ]]; then
     log_warning "Directory $INSTALL_DIR already exists."
-    read -p "Choose action: [1] Update existing, [2] Backup and reinstall, [3] Abort: " DIR_ACTION
-    DIR_ACTION=${DIR_ACTION:-1}
+    if [[ $NON_INTERACTIVE == true ]]; then
+        log_info "Non-interactive mode: updating existing installation"
+        DIR_ACTION=1
+    else
+        read -p "Choose action: [1] Update existing, [2] Backup and reinstall, [3] Abort: " DIR_ACTION
+        DIR_ACTION=${DIR_ACTION:-1}
+    fi
     
     case $DIR_ACTION in
         1)
@@ -352,10 +365,14 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
     # Check if database already exists
     if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw panel_db; then
         log_warning "Database 'panel_db' already exists"
-        read -p "Drop and recreate? (y/n): " DROP_DB
-        if [[ $DROP_DB == "y" ]]; then
-            sudo -u postgres dropdb panel_db
-            sudo -u postgres createdb -O panel_user panel_db
+        if [[ $NON_INTERACTIVE == true ]]; then
+            log_info "Non-interactive mode: using existing database"
+        else
+            read -p "Drop and recreate? (y/n): " DROP_DB
+            if [[ $DROP_DB == "y" ]]; then
+                sudo -u postgres dropdb panel_db
+                sudo -u postgres createdb -O panel_user panel_db
+            fi
         fi
     else
         sudo -u postgres createdb -O panel_user panel_db || {
@@ -523,8 +540,14 @@ log_success "Database ready"
 
 # Create admin user
 log_info "Setting up admin user..."
-read -p "Create admin user? (y/n, default: y): " CREATE_ADMIN
-CREATE_ADMIN=${CREATE_ADMIN:-y}
+if [[ $NON_INTERACTIVE == true ]]; then
+    log_info "Skipping admin user creation in non-interactive mode"
+    log_info "Create admin user after installation using the application"
+    CREATE_ADMIN=n
+else
+    read -p "Create admin user? (y/n, default: y): " CREATE_ADMIN
+    CREATE_ADMIN=${CREATE_ADMIN:-y}
+fi
 
 if [[ $CREATE_ADMIN == "y" ]]; then
     read -p "Admin username (default: admin): " ADMIN_USER
@@ -663,7 +686,19 @@ else
 fi
 EOF
 chmod +x test.sh
-log_success "Helper scripts created (start.sh, test.sh)"
+
+# Copy utility scripts from scripts directory
+log_info "Copying utility scripts..."
+if [[ -f "scripts/status.sh" ]]; then
+    cp scripts/status.sh ./status.sh
+    chmod +x status.sh
+fi
+if [[ -f "scripts/uninstall.sh" ]]; then
+    cp scripts/uninstall.sh ./uninstall.sh
+    chmod +x uninstall.sh
+fi
+
+log_success "Helper scripts created (start.sh, test.sh, status.sh, uninstall.sh)"
 
 # Success message
 echo ""
@@ -761,18 +796,24 @@ if [[ $ENV_CHOICE -eq 2 && -n "$DOMAIN" ]]; then
     echo "   🔒 https://$DOMAIN"
 fi
 echo ""
-echo "3️⃣  Run tests (optional):"
+echo "3️⃣  Check status:"
+echo "   ./status.sh"
+echo ""
+echo "4️⃣  Run tests (optional):"
 echo "   ./test.sh"
 echo ""
-echo "4️⃣  View logs:"
+echo "5️⃣  View logs:"
 echo "   tail -f logs/app.log"
 echo ""
-echo "5️⃣  Stop the application:"
+echo "6️⃣  Stop the application:"
 if [[ $ENV_CHOICE -eq 1 ]]; then
     echo "   Ctrl+C in the terminal running start.sh"
 else
     echo "   sudo systemctl stop panel"
 fi
+echo ""
+echo "7️⃣  Uninstall (if needed):"
+echo "   ./uninstall.sh"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
