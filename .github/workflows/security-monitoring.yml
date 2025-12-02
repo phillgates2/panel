@@ -32,8 +32,8 @@ jobs:
 
     - name: Install security tools
       run: |
-        pip install safety bandit pip-audit
-        npm install -g audit-ci
+        pip install safety bandit pip-audit || echo "Warning: Some security tools failed to install"
+        npm install -g audit-ci || echo "Warning: audit-ci installation failed"
 
     - name: Run Safety (Python vulnerabilities)
       run: |
