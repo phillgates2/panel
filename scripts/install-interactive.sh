@@ -1,9 +1,36 @@
 #!/bin/bash
 
 # Comprehensive Interactive Installer for Panel Application
-# Run with: curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/install-interactive.sh | bash
+# Run with: curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+# Or: bash install-interactive.sh [--dry-run] [--non-interactive]
 
 set -e
+
+# Command line options
+DRY_RUN=false
+NON_INTERACTIVE=false
+
+for arg in "$@"; do
+    case $arg in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --dry-run          Show what would be installed without making changes"
+            echo "  --non-interactive  Use default values for all prompts"
+            echo "  --help, -h         Show this help message"
+            exit 0
+            ;;
+    esac
+done
 
 # Colors for output
 RED='\033[0;31m'
@@ -45,6 +72,24 @@ echo ""
 
 # Check system requirements
 log_info "Checking system requirements..."
+
+# Check disk space (need at least 500MB)
+AVAIL_SPACE=$(df -m . | awk 'NR==2 {print $4}')
+if [[ $AVAIL_SPACE -lt 500 ]]; then
+    log_error "Insufficient disk space. Need at least 500MB, available: ${AVAIL_SPACE}MB"
+    exit 1
+fi
+log_success "Disk space check passed (${AVAIL_SPACE}MB available)"
+
+# Check memory (need at least 1GB)
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    TOTAL_MEM=$(free -m | awk 'NR==2 {print $2}')
+    if [[ $TOTAL_MEM -lt 1024 ]]; then
+        log_warning "Low memory detected: ${TOTAL_MEM}MB. Recommended: 2GB+"
+    else
+        log_success "Memory check passed (${TOTAL_MEM}MB)"
+    fi
+fi
 
 # Detect OS and package manager
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -139,6 +184,35 @@ if [[ $ENV_CHOICE -eq 2 ]]; then
     read -p "Email for SSL certificates: " SSL_EMAIL
 fi
 
+# Display configuration summary
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Installation Configuration Summary:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  📁 Install Directory: $INSTALL_DIR"
+echo "  🗄️  Database: $(if [[ $DB_CHOICE -eq 1 ]]; then echo 'SQLite (Development)'; else echo 'PostgreSQL (Production)'; fi)"
+echo "  ⚡ Redis: $(if [[ $INSTALL_REDIS == 'y' ]]; then echo 'Local Installation'; else echo 'External Connection'; fi)"
+echo "  🌍 Environment: $(if [[ $ENV_CHOICE -eq 1 ]]; then echo 'Development'; else echo 'Production'; fi)"
+if [[ $ENV_CHOICE -eq 2 && -n "$DOMAIN" ]]; then
+    echo "  🔒 Domain: $DOMAIN"
+    echo "  📧 SSL Email: $SSL_EMAIL"
+fi
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [[ $DRY_RUN == true ]]; then
+    log_info "DRY RUN MODE: Would install with above configuration"
+    exit 0
+fi
+
+if [[ $NON_INTERACTIVE != true ]]; then
+    read -p "Proceed with installation? (y/n): " PROCEED
+    if [[ $PROCEED != "y" ]]; then
+        log_info "Installation cancelled by user"
+        exit 0
+    fi
+fi
+
 # Validate and create installation directory
 log_info "Preparing installation directory..."
 if [[ -d "$INSTALL_DIR" ]]; then
@@ -213,13 +287,23 @@ else
     exit 1
 fi
 
+# Count packages
+PKG_COUNT=$(grep -v '^#' "$REQUIREMENTS_FILE" | grep -v '^$' | wc -l)
+log_info "Installing $PKG_COUNT packages from $REQUIREMENTS_FILE"
+
+# Start timer
+START_TIME=$(date +%s)
+
 pip install -r "$REQUIREMENTS_FILE" || {
     log_error "Failed to install Python dependencies"
     log_info "Try running: pip install -r $REQUIREMENTS_FILE manually"
     exit 1
 }
 
-log_success "Python dependencies installed successfully"
+# Calculate elapsed time
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+log_success "Python dependencies installed successfully ($ELAPSED seconds)"
 
 # Database setup
 if [[ $DB_CHOICE -eq 1 ]]; then
@@ -550,9 +634,36 @@ cat > start.sh << 'EOF'
 cd "$(dirname "$0")"
 source venv/bin/activate
 export $(cat .env | xargs)
+
+# Check if port 5000 is available
+if lsof -Pi :5000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "⚠️  Port 5000 is already in use"
+    echo "Stop the process using: kill \$(lsof -t -i:5000)"
+    exit 1
+fi
+
 python3 app.py
 EOF
 chmod +x start.sh
+
+# Create a quick test script
+log_info "Creating test script..."
+cat > test.sh << 'EOF'
+#!/bin/bash
+cd "$(dirname "$0")"
+source venv/bin/activate
+export $(cat .env | xargs)
+
+echo "Running application tests..."
+if command -v pytest &> /dev/null && [ -d "tests" ]; then
+    pytest tests/ -v --maxfail=3
+else
+    echo "⚠️  pytest not installed or tests directory not found"
+    echo "Install with: pip install pytest"
+fi
+EOF
+chmod +x test.sh
+log_success "Helper scripts created (start.sh, test.sh)"
 
 # Success message
 echo ""
@@ -629,56 +740,45 @@ echo "  - Configuration: $INSTALL_DIR/.env"
 echo "  - Database file: $INSTALL_DIR/panel.db (if using SQLite)"
 echo "  - Application logs when running"
 echo ""
-log_success "Happy coding with Panel! 🚀"
 
-ECHO_CHECKS=""
-
-# Check virtual environment
-if [[ -d "venv" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Virtual environment created\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}✗ Virtual environment missing\n"
-fi
-
-# Check .env file
-if [[ -f ".env" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Configuration file created\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}✗ Configuration file missing\n"
-fi
-
-# Check database
-if [[ $DB_CHOICE -eq 1 ]] && [[ -f "panel.db" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ SQLite database created\n"
-elif [[ $DB_CHOICE -eq 2 ]]; then
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw panel_db; then
-        ECHO_CHECKS="${ECHO_CHECKS}✓ PostgreSQL database exists\n"
-    else
-        ECHO_CHECKS="${ECHO_CHECKS}✗ PostgreSQL database not found\n"
-    fi
-fi
-
-# Check Redis connection
-if redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Redis connection working\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}⚠ Redis connection failed\n"
-fi
-
-echo -e "\n${ECHO_CHECKS}"
-
-log_info "Installation log saved to: $INSTALL_DIR/install.log"
-
-if [[ $ENV_CHOICE -eq 1 ]]; then
-    log_info "To start development server:"
-    echo "  cd $INSTALL_DIR"
-    echo "  source venv/bin/activate"
-    echo "  ./start.sh"
-fi
-
-log_info "For troubleshooting, check:"
-echo "  - Installation log: $INSTALL_DIR/install.log"
-echo "  - Application logs: $INSTALL_DIR/logs/"
-echo "  - Configuration: $INSTALL_DIR/.env"
+# Quick start guide
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "Quick Start Guide:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-log_success "Happy coding with Panel! 🚀"
+echo "1️⃣  Start the application:"
+echo "   cd $INSTALL_DIR"
+if [[ $ENV_CHOICE -eq 1 ]]; then
+    echo "   ./start.sh"
+else
+    echo "   sudo systemctl start panel"
+    echo "   sudo systemctl status panel"
+fi
+echo ""
+echo "2️⃣  Access the application:"
+echo "   🌐 http://localhost:5000"
+if [[ $ENV_CHOICE -eq 2 && -n "$DOMAIN" ]]; then
+    echo "   🔒 https://$DOMAIN"
+fi
+echo ""
+echo "3️⃣  Run tests (optional):"
+echo "   ./test.sh"
+echo ""
+echo "4️⃣  View logs:"
+echo "   tail -f logs/app.log"
+echo ""
+echo "5️⃣  Stop the application:"
+if [[ $ENV_CHOICE -eq 1 ]]; then
+    echo "   Ctrl+C in the terminal running start.sh"
+else
+    echo "   sudo systemctl stop panel"
+fi
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+log_success "🎉 Installation complete! Happy coding with Panel! 🚀"
+echo ""
+log_info "Need help? Check the documentation:"
+echo "   📖 https://github.com/phillgates2/panel/blob/main/README.md"
+echo "   💬 https://github.com/phillgates2/panel/discussions"
+echo ""
