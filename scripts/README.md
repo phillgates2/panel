@@ -20,6 +20,24 @@ bash scripts/install-interactive.sh --dev
 # Docker installation
 bash scripts/install-interactive.sh --docker
 
+# Configuration wizard
+bash scripts/install-interactive.sh --wizard
+
+# Cloud provider presets
+bash scripts/install-interactive.sh --cloud=aws
+bash scripts/install-interactive.sh --cloud=gcp
+bash scripts/install-interactive.sh --cloud=azure
+bash scripts/install-interactive.sh --cloud=digitalocean
+
+# Offline installation
+bash scripts/install-interactive.sh --offline
+
+# With integration tests
+bash scripts/install-interactive.sh --test
+
+# Migrate from another panel
+bash scripts/install-interactive.sh --migrate
+
 # Dry run (preview)
 bash scripts/install-interactive.sh --dry-run
 
@@ -29,22 +47,102 @@ bash scripts/install-interactive.sh --help
 
 **Features:**
 - Interactive prompts for configuration
-- System requirements validation
-- Database setup (SQLite or PostgreSQL)
-- Redis installation and configuration
+- System requirements validation (integrated preflight checks)
+- Multi-version Python support (3.8-3.12)
+- Database setup (SQLite, PostgreSQL, or external)
+- Redis installation and configuration (local, external, or cluster)
 - Virtual environment creation
 - Admin user creation
 - Production service setup (systemd, nginx, SSL)
 - Comprehensive health checks
 - Development mode with hot reload
 - Docker Compose installation
+- **Automatic rollback on failure**
+- **Progress tracking with visual progress bars**
+- **Installation timer and elapsed time display**
+- **Cloud provider optimization**
+- **Offline installation support**
+- **Integration testing**
+- **Migration from other panels**
+- **Dependency conflict resolution**
+- **Configuration wizard mode**
 
 **Options:**
 - `--dry-run` - Show what would be installed
 - `--non-interactive` - Use defaults for automation
 - `--dev` - Setup development environment with debugging tools
 - `--docker` - Install using Docker Compose
+- `--wizard` - Advanced configuration wizard with performance tuning, security, monitoring, backups
+- `--cloud=PROVIDER` - Optimize for cloud provider (aws, gcp, azure, digitalocean)
+- `--offline` - Install from offline package cache (requires create-offline-cache.sh)
+- `--test` - Run integration tests after installation
+- `--migrate` - Import configuration from another panel (Pterodactyl, cPanel, Plesk, etc.)
 - `--help` - Display usage information
+
+**Rollback Capability:**
+- Automatic rollback on any error
+- Tracks all changes (directories, services, database)
+- Restores previous state on failure
+- Manual cleanup if needed
+
+**Multi-Version Python:**
+- Automatically detects Python 3.8-3.12
+- Searches for alternative installations
+- Interactive selection if current version incompatible
+- Version-specific optimizations (PYTHONOPTIMIZE=2 for 3.11+)
+- Python 3.12 compatibility handling
+
+**Cloud Presets:**
+Each preset automatically configures:
+- Environment: Production
+- Database: PostgreSQL
+- Redis: Local installation
+- Cloud-specific environment variables
+- Optimized settings for the platform
+
+**Migration Sources:**
+1. Pterodactyl Panel
+2. ApisCP
+3. cPanel/WHM
+4. Plesk
+5. Custom (manual configuration)
+
+---
+
+### 🗄️ create-offline-cache.sh
+**Create offline package cache for air-gapped installations**
+
+```bash
+# Create offline cache in default location
+bash scripts/create-offline-cache.sh
+
+# Custom cache directory
+bash scripts/create-offline-cache.sh -d /path/to/cache
+
+# Specify Python version
+bash scripts/create-offline-cache.sh -p 3.11
+
+# All options
+bash scripts/create-offline-cache.sh -d offline-packages -r /path/to/repo -p 3.10
+```
+
+**Features:**
+- Downloads all Python dependencies
+- Includes development and production packages
+- Creates README with usage instructions
+- Reports cache size and file count
+- Supports custom Python version
+
+**Options:**
+- `-d, --dir DIR` - Output directory (default: offline-packages)
+- `-r, --repo DIR` - Repository directory (default: current)
+- `-p, --python VER` - Python version (default: 3.10)
+- `-h, --help` - Show help
+
+**Usage Workflow:**
+1. On connected machine: `./scripts/create-offline-cache.sh`
+2. Copy `offline-packages/` to target machine
+3. On target machine: `./scripts/install-interactive.sh --offline`
 
 ---
 
