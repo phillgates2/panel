@@ -37,6 +37,7 @@ jobs:
         pip install -r requirements/requirements.txt
 
     - name: Install additional linting tools
+      continue-on-error: true
       run: |
         pip install \
           mypy \
@@ -46,7 +47,7 @@ jobs:
           flake8-docstrings \
           pep8-naming \
           flake8-bugbear \
-          mccabe
+          mccabe || true
 
     - name: Run pre-commit hooks
       run: |

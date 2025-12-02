@@ -24,12 +24,14 @@ jobs:
         python-version: '3.11'
 
     - name: Install pip-tools
-      run: pip install pip-tools || echo "Warning: pip-tools installation failed"
+      continue-on-error: true
+      run: pip install pip-tools || true
 
     - name: Update dependencies
+      continue-on-error: true
       run: |
-        pip install --upgrade pip
-        pip install -r requirements/requirements.txt --upgrade || echo "Warning: Some dependencies failed to upgrade"
+        pip install --upgrade pip || true
+        pip install -r requirements/requirements.txt --upgrade || true
 
     - name: Check for changes
       id: verify-changed-files

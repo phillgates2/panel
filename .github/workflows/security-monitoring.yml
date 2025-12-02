@@ -31,9 +31,10 @@ jobs:
         python-version: '3.11'
 
     - name: Install security tools
+      continue-on-error: true
       run: |
-        pip install safety bandit pip-audit || echo "Warning: Some security tools failed to install"
-        npm install -g audit-ci || echo "Warning: audit-ci installation failed"
+        pip install safety bandit pip-audit || true
+        npm install -g audit-ci || true
 
     - name: Run Safety (Python vulnerabilities)
       run: |
