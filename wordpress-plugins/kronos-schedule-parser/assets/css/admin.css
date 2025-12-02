@@ -1,0 +1,261 @@
+/**
+ * Kronos Schedule Parser - Admin Styles
+ */
+
+/* Container styles */
+.ksp-admin-container {
+    max-width: 100%;
+    margin: 20px 20px 20px 0;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.ksp-admin-container h1 {
+    margin-top: 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Upload form */
+.ksp-upload-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 2px dashed #c3c4c7;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.ksp-upload-section:hover {
+    border-color: #2271b1;
+    background: #f0f6fc;
+}
+
+.ksp-upload-section input[type="file"] {
+    margin: 10px 0;
+}
+
+.ksp-upload-section .button {
+    margin-top: 10px;
+}
+
+/* Schedule container */
+.ksp-schedule-container {
+    margin-top: 30px;
+    overflow-x: auto;
+}
+
+/* Date header */
+.ksp-date-header {
+    font-size: 18px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f0f6fc;
+    border-left: 4px solid #2271b1;
+}
+
+/* Schedule table */
+.ksp-schedule-table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 1200px;
+    font-size: 12px;
+}
+
+.ksp-schedule-table th,
+.ksp-schedule-table td {
+    border: 1px solid #ddd;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.ksp-schedule-table th {
+    background: #f0f0f1;
+    font-weight: 600;
+    padding: 8px 2px;
+    white-space: nowrap;
+}
+
+.ksp-employee-header {
+    min-width: 150px;
+    text-align: left !important;
+    padding-left: 10px !important;
+}
+
+.ksp-time-header {
+    min-width: 20px;
+    font-size: 10px;
+}
+
+.ksp-hour-marker {
+    background: #e0e0e0 !important;
+    font-weight: bold !important;
+}
+
+/* Employee info cell */
+.ksp-employee-info {
+    text-align: left !important;
+    padding: 8px 10px !important;
+    min-width: 150px;
+    background: #fff;
+}
+
+.ksp-employee-name {
+    font-weight: 600;
+    color: #1d2327;
+    margin-bottom: 2px;
+}
+
+.ksp-job-title {
+    font-size: 11px;
+    color: #787c82;
+    font-style: italic;
+}
+
+/* Time cells */
+.ksp-time-cell {
+    padding: 8px 2px;
+    min-width: 20px;
+    height: 35px;
+}
+
+/* Shift styling - greyed out */
+.ksp-shift {
+    background: #c8c8c8;
+}
+
+/* Tea break styling */
+.ksp-tea-break {
+    background: #90EE90 !important;
+    color: #1e4620;
+    font-weight: bold;
+}
+
+/* Lunch break styling */
+.ksp-lunch-break {
+    background: #ffd700 !important;
+    color: #5c4b00;
+    font-weight: bold;
+}
+
+/* Legend */
+.ksp-legend {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.ksp-legend h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.ksp-legend ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.ksp-legend li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ksp-legend-shift,
+.ksp-legend-tea,
+.ksp-legend-lunch {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.ksp-legend-shift {
+    background: #c8c8c8;
+}
+
+.ksp-legend-tea {
+    background: #90EE90;
+    color: #1e4620;
+    font-weight: bold;
+}
+
+.ksp-legend-lunch {
+    background: #ffd700;
+    color: #5c4b00;
+    font-weight: bold;
+}
+
+/* Loading indicator */
+.ksp-loading {
+    text-align: center;
+    padding: 30px;
+}
+
+.ksp-loading .spinner {
+    float: none;
+    margin: 0 auto 10px;
+}
+
+/* Messages */
+.ksp-message {
+    padding: 12px 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+}
+
+.ksp-message-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.ksp-message-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* Shortcode info */
+.ksp-shortcode-info {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+}
+
+.ksp-shortcode-info code {
+    background: #fff;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .ksp-admin-container {
+        margin-right: 10px;
+        padding: 15px;
+    }
+    
+    .ksp-schedule-table {
+        font-size: 10px;
+    }
+    
+    .ksp-legend ul {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
