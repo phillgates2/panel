@@ -9,7 +9,7 @@ gunicorn==23.0.0
 werkzeug==3.0.1
 
 # Task Queue and Caching
-rq==1.16.2
+rq==2.6.1
 redis==7.1.0
 
 # HTTP and Networking
