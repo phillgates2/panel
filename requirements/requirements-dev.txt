@@ -43,7 +43,7 @@ mkdocs-material==9.7.0
 
 # Security scanning
 safety==2.3.5
-pip-audit==2.6.3
+pip-audit==2.10.0
 
 # Performance profiling
 py-spy==0.4.1
