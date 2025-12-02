@@ -11,6 +11,15 @@ DRY_RUN=false
 NON_INTERACTIVE=false
 DEV_MODE=false
 DOCKER_MODE=false
+WIZARD_MODE=false
+CLOUD_PRESET=""
+OFFLINE_MODE=false
+RUN_TESTS=false
+MIGRATION_MODE=false
+
+# Rollback tracking
+ROLLBACK_STEPS=()
+INSTALL_START_TIME=$(date +%s)
 
 for arg in "$@"; do
     case $arg in
@@ -30,6 +39,26 @@ for arg in "$@"; do
             DOCKER_MODE=true
             shift
             ;;
+        --wizard)
+            WIZARD_MODE=true
+            shift
+            ;;
+        --cloud=*)
+            CLOUD_PRESET="${arg#*=}"
+            shift
+            ;;
+        --offline)
+            OFFLINE_MODE=true
+            shift
+            ;;
+        --test)
+            RUN_TESTS=true
+            shift
+            ;;
+        --migrate)
+            MIGRATION_MODE=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -38,6 +67,11 @@ for arg in "$@"; do
             echo "  --non-interactive  Use default values for all prompts"
             echo "  --dev              Setup development environment"
             echo "  --docker           Install via Docker Compose"
+            echo "  --wizard           Advanced configuration wizard"
+            echo "  --cloud=PROVIDER   Cloud preset (aws, gcp, azure, digitalocean)"
+            echo "  --offline          Install from offline package cache"
+            echo "  --test             Run integration tests after installation"
+            echo "  --migrate          Migrate from another panel"
             echo "  --help, -h         Show this help message"
             exit 0
             ;;
@@ -68,6 +102,59 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Progress tracking function
+show_progress() {
+    local current=$1
+    local total=$2
+    local message=$3
+    local percent=$((current * 100 / total))
+    local filled=$((current * 50 / total))
+    local empty=$((50 - filled))
+    
+    printf "\r[%s%s] %d%% - %s" \
+        "$(printf '█%.0s' $(seq 1 $filled))" \
+        "$(printf '░%.0s' $(seq 1 $empty))" \
+        "$percent" "$message"
+    
+    if [[ $current -eq $total ]]; then
+        echo ""
+    fi
+}
+
+# Add rollback step
+add_rollback_step() {
+    ROLLBACK_STEPS+=("$1")
+}
+
+# Rollback installation on failure
+rollback_installation() {
+    if [[ ${#ROLLBACK_STEPS[@]} -eq 0 ]]; then
+        return
+    fi
+    
+    log_error "Installation failed. Rolling back changes..."
+    
+    for ((i=${#ROLLBACK_STEPS[@]}-1; i>=0; i--)); do
+        log_info "Rolling back: ${ROLLBACK_STEPS[$i]}"
+        eval "${ROLLBACK_STEPS[$i]}" 2>/dev/null || true
+    done
+    
+    log_success "Rollback completed"
+    exit 1
+}
+
+# Show elapsed time
+show_elapsed_time() {
+    local end_time=$(date +%s)
+    local elapsed=$((end_time - INSTALL_START_TIME))
+    local minutes=$((elapsed / 60))
+    local seconds=$((elapsed % 60))
+    log_info "Installation took ${minutes}m ${seconds}s"
+}
+
+# Set trap for automatic rollback on error
+trap 'rollback_installation' ERR
+
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
    log_error "This script should not be run as root. Please run as a regular user with sudo access."
@@ -81,6 +168,94 @@ echo "========================================"
 echo ""
 log_info "Welcome to the interactive installer for the Panel application!"
 echo ""
+
+# Pre-installation validation
+if [[ $OFFLINE_MODE != true ]]; then
+    log_info "Running pre-installation checks..."
+    if [[ -f "scripts/preflight-check.sh" ]]; then
+        bash scripts/preflight-check.sh || {
+            log_warning "Pre-installation checks failed"
+            read -p "Continue anyway? (y/n): " CONTINUE_ANYWAY
+            if [[ $CONTINUE_ANYWAY != "y" ]]; then
+                exit 1
+            fi
+        }
+    else
+        log_warning "Preflight check script not found, skipping validation"
+    fi
+fi
+
+# Cloud provider presets
+if [[ -n "$CLOUD_PRESET" ]]; then
+    log_info "Applying $CLOUD_PRESET cloud preset..."
+    case $CLOUD_PRESET in
+        aws)
+            ENV_CHOICE=2
+            DB_CHOICE=2
+            INSTALL_REDIS="y"
+            export AWS_CLOUD=true
+            log_success "AWS preset applied"
+            ;;
+        gcp)
+            ENV_CHOICE=2
+            DB_CHOICE=2
+            INSTALL_REDIS="y"
+            export GCP_CLOUD=true
+            log_success "GCP preset applied"
+            ;;
+        azure)
+            ENV_CHOICE=2
+            DB_CHOICE=2
+            INSTALL_REDIS="y"
+            export AZURE_CLOUD=true
+            log_success "Azure preset applied"
+            ;;
+        digitalocean)
+            ENV_CHOICE=2
+            DB_CHOICE=2
+            INSTALL_REDIS="y"
+            export DO_CLOUD=true
+            log_success "DigitalOcean preset applied"
+            ;;
+        *)
+            log_error "Unknown cloud preset: $CLOUD_PRESET"
+            exit 1
+            ;;
+    esac
+fi
+
+# Migration mode
+if [[ $MIGRATION_MODE == true ]]; then
+    log_info "Migration mode enabled"
+    echo "Select source panel:"
+    echo "  1. Pterodactyl Panel"
+    echo "  2. ApisCP"
+    echo "  3. cPanel/WHM"
+    echo "  4. Plesk"
+    echo "  5. Custom"
+    read -p "Select source [1-5]: " MIGRATION_SOURCE
+    
+    case $MIGRATION_SOURCE in
+        1)
+            log_info "Migrating from Pterodactyl Panel"
+            PTERO_DIR="/var/www/pterodactyl"
+            if [[ -d "$PTERO_DIR" ]]; then
+                log_success "Found Pterodactyl installation at $PTERO_DIR"
+                # Extract database credentials
+                if [[ -f "$PTERO_DIR/.env" ]]; then
+                    source "$PTERO_DIR/.env"
+                    log_info "Extracted database configuration"
+                fi
+            else
+                log_warning "Pterodactyl directory not found at $PTERO_DIR"
+                read -p "Enter Pterodactyl installation directory: " PTERO_DIR
+            fi
+            ;;
+        2|3|4|5)
+            log_info "Migration for selected panel type will be handled manually"
+            ;;
+    esac
+fi
 
 # Check system requirements
 log_info "Checking system requirements..."
@@ -228,33 +403,177 @@ if [[ $NON_INTERACTIVE != true ]]; then
     echo ""
     log_info "Please provide the following information for installation:"
     
-    # Installation directory
-    read -p "Installation directory (default: ~/panel): " INSTALL_DIR
-    INSTALL_DIR=${INSTALL_DIR:-~/panel}
-    
-    # Database choice
-    echo ""
-    echo "Database options:"
-    echo "1. SQLite (default, easy setup)"
-    echo "2. PostgreSQL (recommended for production)"
-    read -p "Choose database [1-2]: " DB_CHOICE
-    DB_CHOICE=${DB_CHOICE:-1}
-    
-    # Redis setup
-    read -p "Install Redis locally? (y/n, default: y): " INSTALL_REDIS
-    INSTALL_REDIS=${INSTALL_REDIS:-y}
-    
-    # Environment
-    echo ""
-    echo "Environment options:"
-    echo "1. Development"
-    echo "2. Production"
-    read -p "Choose environment [1-2]: " ENV_CHOICE
-    ENV_CHOICE=${ENV_CHOICE:-1}
-    
-    if [[ $ENV_CHOICE -eq 2 ]]; then
-        read -p "Domain name (for SSL): " DOMAIN
-        read -p "Email for SSL certificates: " SSL_EMAIL
+    # Configuration Wizard Mode
+    if [[ $WIZARD_MODE == true ]]; then
+        echo ""
+        echo "╔══════════════════════════════════════════════════╗"
+        echo "║      Advanced Configuration Wizard              ║"
+        echo "╚══════════════════════════════════════════════════╝"
+        echo ""
+        
+        # Installation directory
+        read -p "Installation directory (default: ~/panel): " INSTALL_DIR
+        INSTALL_DIR=${INSTALL_DIR:-~/panel}
+        
+        # Deployment type
+        echo ""
+        echo "Deployment Type:"
+        echo "  1. Development (single server, SQLite)"
+        echo "  2. Production (single server, PostgreSQL)"
+        echo "  3. High Availability (multiple servers, load balanced)"
+        echo "  4. Container (Docker/Kubernetes)"
+        read -p "Select deployment type [1-4]: " DEPLOY_TYPE
+        DEPLOY_TYPE=${DEPLOY_TYPE:-1}
+        
+        case $DEPLOY_TYPE in
+            1)
+                ENV_CHOICE=1
+                DB_CHOICE=1
+                INSTALL_REDIS="y"
+                ;;
+            2)
+                ENV_CHOICE=2
+                DB_CHOICE=2
+                INSTALL_REDIS="y"
+                ;;
+            3)
+                ENV_CHOICE=2
+                DB_CHOICE=2
+                INSTALL_REDIS="n"
+                read -p "Number of application servers: " NUM_APP_SERVERS
+                read -p "Database server host: " DB_HOST
+                read -p "Redis server host: " REDIS_HOST
+                read -p "Load balancer domain: " DOMAIN
+                HA_MODE=true
+                ;;
+            4)
+                DOCKER_MODE=true
+                ;;
+        esac
+        
+        if [[ $DOCKER_MODE != true && $HA_MODE != true ]]; then
+            # Database choice
+            echo ""
+            echo "Database Configuration:"
+            echo "  1. SQLite (file-based, easy)"
+            echo "  2. PostgreSQL (recommended)"
+            echo "  3. External PostgreSQL"
+            read -p "Choose database [1-3]: " DB_CHOICE
+            DB_CHOICE=${DB_CHOICE:-1}
+            
+            if [[ $DB_CHOICE -eq 3 ]]; then
+                read -p "Database host: " EXTERNAL_DB_HOST
+                read -p "Database port [5432]: " EXTERNAL_DB_PORT
+                EXTERNAL_DB_PORT=${EXTERNAL_DB_PORT:-5432}
+                read -p "Database name: " EXTERNAL_DB_NAME
+                read -p "Database user: " EXTERNAL_DB_USER
+                read -sp "Database password: " EXTERNAL_DB_PASS
+                echo ""
+            fi
+            
+            # Redis configuration
+            echo ""
+            echo "Redis Configuration:"
+            echo "  1. Install locally"
+            echo "  2. External Redis server"
+            echo "  3. Redis Cluster"
+            read -p "Choose Redis setup [1-3]: " REDIS_CHOICE
+            
+            case $REDIS_CHOICE in
+                1)
+                    INSTALL_REDIS="y"
+                    ;;
+                2)
+                    INSTALL_REDIS="n"
+                    read -p "Redis host: " REDIS_HOST
+                    read -p "Redis port [6379]: " REDIS_PORT
+                    REDIS_PORT=${REDIS_PORT:-6379}
+                    read -p "Redis password (optional): " -s REDIS_PASSWORD
+                    echo ""
+                    ;;
+                3)
+                    INSTALL_REDIS="n"
+                    read -p "Redis cluster nodes (comma-separated): " REDIS_CLUSTER
+                    ;;
+            esac
+            
+            # Performance tuning
+            echo ""
+            echo "Performance Tuning:"
+            read -p "Number of worker processes [auto]: " WORKER_PROCESSES
+            WORKER_PROCESSES=${WORKER_PROCESSES:-auto}
+            read -p "Worker connections [1000]: " WORKER_CONNECTIONS
+            WORKER_CONNECTIONS=${WORKER_CONNECTIONS:-1000}
+            
+            # Security options
+            echo ""
+            echo "Security Options:"
+            read -p "Enable firewall configuration? (y/n) [y]: " SETUP_FIREWALL
+            SETUP_FIREWALL=${SETUP_FIREWALL:-y}
+            read -p "Enable fail2ban? (y/n) [y]: " SETUP_FAIL2BAN
+            SETUP_FAIL2BAN=${SETUP_FAIL2BAN:-y}
+            read -p "Run security hardening? (y/n) [y]: " SETUP_HARDENING
+            SETUP_HARDENING=${SETUP_HARDENING:-y}
+            
+            # Monitoring
+            echo ""
+            echo "Monitoring:"
+            read -p "Setup Prometheus & Grafana? (y/n) [n]: " SETUP_MONITORING
+            SETUP_MONITORING=${SETUP_MONITORING:-n}
+            
+            # Backup configuration
+            echo ""
+            echo "Backup Configuration:"
+            read -p "Enable automated backups? (y/n) [y]: " SETUP_BACKUPS
+            SETUP_BACKUPS=${SETUP_BACKUPS:-y}
+            if [[ $SETUP_BACKUPS == "y" ]]; then
+                read -p "Backup retention days [30]: " BACKUP_RETENTION
+                BACKUP_RETENTION=${BACKUP_RETENTION:-30}
+                read -p "Backup directory [/var/backups/panel]: " BACKUP_DIR
+                BACKUP_DIR=${BACKUP_DIR:-/var/backups/panel}
+            fi
+        fi
+        
+        # SSL/TLS
+        if [[ $ENV_CHOICE -eq 2 ]]; then
+            echo ""
+            echo "SSL/TLS Configuration:"
+            read -p "Domain name: " DOMAIN
+            read -p "Email for SSL certificates: " SSL_EMAIL
+            read -p "Use Let's Encrypt? (y/n) [y]: " USE_LETSENCRYPT
+            USE_LETSENCRYPT=${USE_LETSENCRYPT:-y}
+        fi
+        
+    else
+        # Standard installation prompts
+        # Installation directory
+        read -p "Installation directory (default: ~/panel): " INSTALL_DIR
+        INSTALL_DIR=${INSTALL_DIR:-~/panel}
+        
+        # Database choice
+        echo ""
+        echo "Database options:"
+        echo "1. SQLite (default, easy setup)"
+        echo "2. PostgreSQL (recommended for production)"
+        read -p "Choose database [1-2]: " DB_CHOICE
+        DB_CHOICE=${DB_CHOICE:-1}
+        
+        # Redis setup
+        read -p "Install Redis locally? (y/n, default: y): " INSTALL_REDIS
+        INSTALL_REDIS=${INSTALL_REDIS:-y}
+        
+        # Environment
+        echo ""
+        echo "Environment options:"
+        echo "1. Development"
+        echo "2. Production"
+        read -p "Choose environment [1-2]: " ENV_CHOICE
+        ENV_CHOICE=${ENV_CHOICE:-1}
+        
+        if [[ $ENV_CHOICE -eq 2 ]]; then
+            read -p "Domain name (for SSL): " DOMAIN
+            read -p "Email for SSL certificates: " SSL_EMAIL
+        fi
     fi
 else
     log_info "Running in non-interactive mode with defaults"
@@ -344,24 +663,52 @@ if [[ -d "$INSTALL_DIR" ]]; then
     esac
 else
     log_info "Cloning Panel repository..."
+    show_progress 1 10 "Cloning repository..."
     git clone https://github.com/phillgates2/panel.git "$INSTALL_DIR" || {
         log_error "Failed to clone repository"
         exit 1
     }
     cd "$INSTALL_DIR"
+    add_rollback_step "rm -rf '$INSTALL_DIR'"
+    show_progress 2 10 "Repository cloned"
 fi
 
 # Create virtual environment
 log_info "Setting up Python virtual environment..."
-python3 -m venv venv
+show_progress 3 10 "Creating virtual environment..."
+$PYTHON_CMD -m venv venv
 source venv/bin/activate
+add_rollback_step "rm -rf '$INSTALL_DIR/venv'"
+show_progress 4 10 "Virtual environment ready"
 
 # Install dependencies
 log_info "Installing Python dependencies..."
-pip install --upgrade pip || {
-    log_error "Failed to upgrade pip"
-    exit 1
-}
+show_progress 5 10 "Upgrading pip..."
+
+# Offline installation mode
+if [[ $OFFLINE_MODE == true ]]; then
+    log_info "Offline installation mode enabled"
+    
+    # Check for offline package cache
+    OFFLINE_CACHE="$INSTALL_DIR/offline-packages"
+    if [[ ! -d "$OFFLINE_CACHE" ]]; then
+        log_error "Offline package cache not found at $OFFLINE_CACHE"
+        log_info "To create offline cache, run on connected machine:"
+        log_info "  mkdir -p offline-packages"
+        log_info "  pip download -r requirements.txt -d offline-packages"
+        exit 1
+    fi
+    
+    log_info "Using offline package cache from $OFFLINE_CACHE"
+    pip install --upgrade --no-index --find-links="$OFFLINE_CACHE" pip || {
+        log_warning "Failed to upgrade pip offline"
+    }
+else
+    pip install --upgrade pip || {
+        log_error "Failed to upgrade pip"
+        exit 1
+    }
+fi
 
 log_info "Installing required packages (this may take a few minutes)..."
 if [[ -f "requirements/requirements.txt" ]]; then
@@ -380,18 +727,41 @@ log_info "Installing $PKG_COUNT packages from $REQUIREMENTS_FILE"
 # Start timer
 START_TIME=$(date +%s)
 
-pip install -r "$REQUIREMENTS_FILE" || {
-    log_error "Failed to install Python dependencies"
-    log_info "Try running: pip install -r $REQUIREMENTS_FILE manually"
-    exit 1
-}
+# Dependency conflict detection and resolution
+if [[ -f "requirements/production.txt" && $OFFLINE_MODE != true ]]; then
+    log_info "Checking for dependency conflicts..."
+    pip install pip-tools 2>/dev/null || true
+    if command -v pip-compile >/dev/null 2>&1; then
+        pip-compile --generate-hashes requirements/production.txt 2>&1 | grep -i "conflict\|incompatible" && {
+            log_warning "Dependency conflicts detected. Attempting resolution..."
+            pip-compile --upgrade --generate-hashes requirements/production.txt
+        }
+    fi
+fi
+
+show_progress 6 10 "Installing dependencies ($PKG_COUNT packages)..."
+if [[ $OFFLINE_MODE == true ]]; then
+    pip install --no-index --find-links="$OFFLINE_CACHE" -r "$REQUIREMENTS_FILE" || {
+        log_error "Failed to install Python dependencies from offline cache"
+        log_info "Ensure all dependencies are downloaded in $OFFLINE_CACHE"
+        exit 1
+    }
+else
+    pip install -r "$REQUIREMENTS_FILE" || {
+        log_error "Failed to install Python dependencies"
+        log_info "Try running: pip install -r $REQUIREMENTS_FILE manually"
+        exit 1
+    }
+fi
 
 # Calculate elapsed time
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 log_success "Python dependencies installed successfully ($ELAPSED seconds)"
+show_progress 7 10 "Dependencies installed"
 
 # Database setup
+show_progress 8 10 "Configuring database..."
 if [[ $DB_CHOICE -eq 1 ]]; then
     log_info "Using SQLite database"
     export PANEL_DATABASE_URI="sqlite:///$INSTALL_DIR/panel.db"
@@ -410,6 +780,7 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
             }
             sudo systemctl enable postgresql
             sudo systemctl start postgresql
+            add_rollback_step "sudo systemctl stop postgresql && sudo systemctl disable postgresql"
         elif [[ "$OSTYPE" == "darwin"* ]]; then
             $PKG_INSTALL postgresql || {
                 log_error "Failed to install PostgreSQL"
@@ -433,6 +804,7 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
             log_error "Failed to create database user"
             exit 1
         }
+        add_rollback_step "sudo -u postgres psql -c \"DROP USER IF EXISTS panel_user;\""
     fi
     
     # Check if database already exists
@@ -452,6 +824,7 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
             log_error "Failed to create database"
             exit 1
         }
+        add_rollback_step "sudo -u postgres dropdb panel_db"
     fi
     
     read -p "PostgreSQL password for panel_user (press Enter for default 'changeme'): " -s DB_PASSWORD
@@ -465,9 +838,14 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
     
     export PANEL_DATABASE_URI="postgresql://panel_user:$DB_PASSWORD@localhost/panel_db"
     log_success "PostgreSQL database configured"
+elif [[ $DB_CHOICE -eq 3 ]]; then
+    log_info "Using external PostgreSQL database"
+    export PANEL_DATABASE_URI="postgresql://$EXTERNAL_DB_USER:$EXTERNAL_DB_PASS@$EXTERNAL_DB_HOST:$EXTERNAL_DB_PORT/$EXTERNAL_DB_NAME"
+    log_success "External database configured"
 fi
 
 # Redis setup
+show_progress 9 10 "Setting up Redis..."
 if [[ $INSTALL_REDIS == "y" ]]; then
     if ! command -v redis-cli &> /dev/null; then
         log_info "Installing Redis..."
@@ -479,6 +857,7 @@ if [[ $INSTALL_REDIS == "y" ]]; then
             }
             sudo systemctl enable redis-server
             sudo systemctl start redis-server
+            add_rollback_step "sudo systemctl stop redis-server && sudo systemctl disable redis-server"
             sleep 2
         elif [[ "$OSTYPE" == "darwin"* ]]; then
             $PKG_INSTALL redis || {
@@ -486,6 +865,7 @@ if [[ $INSTALL_REDIS == "y" ]]; then
                 exit 1
             }
             brew services start redis
+            add_rollback_step "brew services stop redis"
             sleep 2
         fi
     fi
@@ -634,10 +1014,7 @@ log_info "Initializing database..."
 # Check if migrations directory exists
 if [[ -d "migrations" ]]; then
     log_info "Running database migrations..."
-    python3 << EOF || {
-        log_error "Database migration failed"
-        exit 1
-    }
+    python3 << 'EOF'
 try:
     from flask_migrate import upgrade
     from app import create_app
@@ -657,11 +1034,12 @@ except Exception as e:
     print(f'✗ Error: {e}')
     exit(1)
 EOF
-else
-    python3 << EOF || {
-        log_error "Database initialization failed"
+    if [[ $? -ne 0 ]]; then
+        log_error "Database migration failed"
         exit 1
-    }
+    fi
+else
+    python3 << 'EOF'
 try:
     from app import create_app, db
     app = create_app()
@@ -672,6 +1050,10 @@ except Exception as e:
     print(f'✗ Error: {e}')
     exit(1)
 EOF
+    if [[ $? -ne 0 ]]; then
+        log_error "Database initialization failed"
+        exit 1
+    fi
 fi
 
 log_success "Database ready"
@@ -840,13 +1222,57 @@ log_success "Helper scripts created (start.sh, test.sh, status.sh, uninstall.sh)
 
 # Success message
 echo ""
+show_progress 10 10 "Installation complete!"
+show_elapsed_time
 log_success "Panel installation completed!"
 echo ""
 echo "Installation Summary:"
 echo "- Installed in: $INSTALL_DIR"
-echo "- Database: $(if [[ $DB_CHOICE -eq 1 ]]; then echo 'SQLite'; else echo 'PostgreSQL'; fi)"
+echo "- Database: $(if [[ $DB_CHOICE -eq 1 ]]; then echo 'SQLite'; elif [[ $DB_CHOICE -eq 2 ]]; then echo 'PostgreSQL'; else echo 'External PostgreSQL'; fi)"
 echo "- Redis: $(if [[ $INSTALL_REDIS == 'y' ]]; then echo 'Local'; else echo 'External'; fi)"
 echo "- Environment: $(if [[ $ENV_CHOICE -eq 1 ]]; then echo 'Development'; else echo 'Production'; fi)"
+echo "- Python: $($PYTHON_CMD --version)"
+if [[ -n "$CLOUD_PRESET" ]]; then
+    echo "- Cloud: $CLOUD_PRESET"
+fi
+echo ""
+
+# Integration testing
+if [[ $RUN_TESTS == true ]]; then
+    log_info "Running integration tests..."
+    echo ""
+    
+    # Activate virtual environment
+    source venv/bin/activate
+    
+    # Run post-installation test script if available
+    if [[ -f "scripts/post-install-test.sh" ]]; then
+        bash scripts/post-install-test.sh || log_warning "Some tests failed (non-critical)"
+    fi
+    
+    # Run Python tests if pytest is available
+    if command -v pytest &> /dev/null; then
+        log_info "Running unit tests..."
+        pytest tests/ -v --tb=short || log_warning "Some unit tests failed"
+    fi
+    
+    # Check application startup
+    log_info "Testing application startup..."
+    timeout 10s python app.py &
+    APP_PID=$!
+    sleep 5
+    
+    if kill -0 $APP_PID 2>/dev/null; then
+        log_success "Application starts successfully"
+        kill $APP_PID
+    else
+        log_warning "Application failed to start"
+    fi
+    
+    echo ""
+    log_success "Integration testing completed"
+fi
+
 echo ""
 echo "To start the application:"
 if [[ $ENV_CHOICE -eq 1 ]]; then
