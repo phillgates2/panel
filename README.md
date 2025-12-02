@@ -1,6 +1,6 @@
 # Panel - Enterprise Game Server Management Platform
 
-[![CI/CD](https://github.com/phillgates2/panel/actions/workflows/ci.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml)
 [![Code Quality](https://github.com/phillgates2/panel/actions/workflows/code-quality.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/code-quality.yml)
 [![Security](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
