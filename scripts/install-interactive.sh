@@ -23,6 +23,43 @@ SSL_KEY_FILE=""
 MONITORING=false
 FIREWALL=true
 BACKUPS=true
+GUNICORN_WORKERS=""
+GUNICORN_THREADS=""
+GUNICORN_MAX_REQUESTS=""
+MEMORY_LIMIT=""
+ENABLE_SELINUX=false
+ENABLE_APPARMOR=false
+ENABLE_FAIL2BAN=false
+ENABLE_CLAMAV=false
+AWS_PROFILE=""
+GCP_PROJECT=""
+AZURE_SUBSCRIPTION=""
+USE_TERRAFORM=false
+BACKUP_METHOD="rsync"
+REMOTE_BACKUP_URL=""
+BACKUP_ENCRYPTION_KEY=""
+RETENTION_POLICY="30"
+ENABLE_GDPR=false
+ENABLE_HIPAA=false
+ENABLE_SOC2=false
+AUDIT_LOG_DESTINATION=""
+PLUGINS_TO_INSTALL=""
+PLUGIN_REPOSITORY=""
+CUSTOM_PLUGIN_DIR=""
+DATADOG_API_KEY=""
+NEWRELIC_LICENSE=""
+ENABLE_OPENTELEMETRY=false
+ENABLE_DISTRIBUTED_TRACING=false
+SYSTEM_LOCALE=""
+SYSTEM_TIMEZONE=""
+LOCALES_TO_INSTALL=""
+LOAD_BALANCER_TYPE=""
+SSL_TERMINATION=""
+CDN_PROVIDER=""
+ENABLE_WAF=false
+K8S_NAMESPACE=""
+HELM_VALUES_FILE=""
+INGRESS_CONTROLLER=""
 
 # Rollback tracking
 ROLLBACK_STEPS=()
@@ -109,6 +146,154 @@ for arg in "$@"; do
             BACKUPS=false
             shift
             ;;
+        --workers=*)
+            GUNICORN_WORKERS="${arg#*=}"
+            shift
+            ;;
+        --threads=*)
+            GUNICORN_THREADS="${arg#*=}"
+            shift
+            ;;
+        --max-requests=*)
+            GUNICORN_MAX_REQUESTS="${arg#*=}"
+            shift
+            ;;
+        --memory-limit=*)
+            MEMORY_LIMIT="${arg#*=}"
+            shift
+            ;;
+        --selinux)
+            ENABLE_SELINUX=true
+            shift
+            ;;
+        --apparmor)
+            ENABLE_APPARMOR=true
+            shift
+            ;;
+        --fail2ban)
+            ENABLE_FAIL2BAN=true
+            shift
+            ;;
+        --clamav)
+            ENABLE_CLAMAV=true
+            shift
+            ;;
+        --aws-profile=*)
+            AWS_PROFILE="${arg#*=}"
+            shift
+            ;;
+        --gcp-project=*)
+            GCP_PROJECT="${arg#*=}"
+            shift
+            ;;
+        --azure-subscription=*)
+            AZURE_SUBSCRIPTION="${arg#*=}"
+            shift
+            ;;
+        --terraform)
+            USE_TERRAFORM=true
+            shift
+            ;;
+        --backup-method=*)
+            BACKUP_METHOD="${arg#*=}"
+            shift
+            ;;
+        --remote-backup=*)
+            REMOTE_BACKUP_URL="${arg#*=}"
+            shift
+            ;;
+        --encryption-key=*)
+            BACKUP_ENCRYPTION_KEY="${arg#*=}"
+            shift
+            ;;
+        --retention-policy=*)
+            RETENTION_POLICY="${arg#*=}"
+            shift
+            ;;
+        --gdpr)
+            ENABLE_GDPR=true
+            shift
+            ;;
+        --hipaa)
+            ENABLE_HIPAA=true
+            shift
+            ;;
+        --soc2)
+            ENABLE_SOC2=true
+            shift
+            ;;
+        --audit-log=*)
+            AUDIT_LOG_DESTINATION="${arg#*=}"
+            shift
+            ;;
+        --install-plugins=*)
+            PLUGINS_TO_INSTALL="${arg#*=}"
+            shift
+            ;;
+        --plugin-repo=*)
+            PLUGIN_REPOSITORY="${arg#*=}"
+            shift
+            ;;
+        --custom-plugins=*)
+            CUSTOM_PLUGIN_DIR="${arg#*=}"
+            shift
+            ;;
+        --datadog-api-key=*)
+            DATADOG_API_KEY="${arg#*=}"
+            shift
+            ;;
+        --newrelic-license=*)
+            NEWRELIC_LICENSE="${arg#*=}"
+            shift
+            ;;
+        --opentelemetry)
+            ENABLE_OPENTELEMETRY=true
+            shift
+            ;;
+        --distributed-tracing)
+            ENABLE_DISTRIBUTED_TRACING=true
+            shift
+            ;;
+        --locale=*)
+            SYSTEM_LOCALE="${arg#*=}"
+            shift
+            ;;
+        --timezone=*)
+            SYSTEM_TIMEZONE="${arg#*=}"
+            shift
+            ;;
+        --install-locales=*)
+            LOCALES_TO_INSTALL="${arg#*=}"
+            shift
+            ;;
+        --load-balancer=*)
+            LOAD_BALANCER_TYPE="${arg#*=}"
+            shift
+            ;;
+        --ssl-termination=*)
+            SSL_TERMINATION="${arg#*=}"
+            shift
+            ;;
+        --cdn-integration=*)
+            CDN_PROVIDER="${arg#*=}"
+            shift
+            ;;
+        --waf)
+            ENABLE_WAF=true
+            shift
+            ;;
+        --k8s-namespace=*)
+            K8S_NAMESPACE="${arg#*=}"
+            shift
+            ;;
+        --helm-values=*)
+            HELM_VALUES_FILE="${arg#*=}"
+            shift
+            ;;
+        --ingress-controller=*)
+            INGRESS_CONTROLLER="${arg#*=}"
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -129,6 +314,43 @@ for arg in "$@"; do
             echo "  --monitoring       Setup Prometheus & Grafana"
             echo "  --no-firewall      Skip firewall configuration"
             echo "  --no-backups       Skip backup setup"
+            echo "  --workers=N        Set Gunicorn worker processes"
+            echo "  --threads=N        Set Gunicorn worker threads"
+            echo "  --max-requests=N   Set Gunicorn max requests"
+            echo "  --memory-limit=N   Set memory limit"
+            echo "  --selinux          Enable SELinux"
+            echo "  --apparmor         Enable AppArmor"
+            echo "  --fail2ban         Enable Fail2ban"
+            echo "  --clamav           Enable ClamAV antivirus"
+            echo "  --aws-profile=P    AWS profile for deployment"
+            echo "  --gcp-project=P    GCP project for deployment"
+            echo "  --azure-sub=N      Azure subscription"
+            echo "  --terraform        Enable Terraform support"
+            echo "  --backup-method=M  Backup method (rsync/borg/restic)"
+            echo "  --remote-backup=U  Remote backup URL"
+            echo "  --encryption-key=K Backup encryption key"
+            echo "  --retention-policy=P Backup retention policy"
+            echo "  --gdpr             Enable GDPR compliance"
+            echo "  --hipaa            Enable HIPAA compliance"
+            echo "  --soc2             Enable SOC2 compliance"
+            echo "  --audit-log=D      Audit log destination"
+            echo "  --install-plugins=P Plugins to install"
+            echo "  --plugin-repo=R    Plugin repository URL"
+            echo "  --custom-plugins=D Custom plugin directory"
+            echo "  --datadog-api-key=K DataDog API key"
+            echo "  --newrelic-license=L New Relic license"
+            echo "  --opentelemetry    Enable OpenTelemetry"
+            echo "  --distributed-tracing Enable distributed tracing"
+            echo "  --locale=L         System locale"
+            echo "  --timezone=T       System timezone"
+            echo "  --install-locales=L Locales to install"
+            echo "  --load-balancer=T  Load balancer type"
+            echo "  --ssl-termination=T SSL termination method"
+            echo "  --cdn-integration=P CDN provider"
+            echo "  --waf              Enable Web Application Firewall"
+            echo "  --k8s-namespace=N  Kubernetes namespace"
+            echo "  --helm-values=F    Helm values file"
+            echo "  --ingress-controller=C Ingress controller type"
             echo "  --help, -h         Show this help message"
             exit 0
             ;;
@@ -160,7 +382,7 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" >> install.log 2>/dev/null || true
+    echo "[$(date '+%Y-%m-%d %H:%M:%S")] ERROR: $1" >> install.log 2>/dev/null || true
 }
 
 log_debug() {
@@ -1152,10 +1374,10 @@ DEVSCRIPT
     log_info "Use ./dev.sh to run development server"
 fi
 
-# Initialize admin user
+# Interactive admin user setup
 if [[ $NON_INTERACTIVE != true ]]; then
     echo ""
-    log_info "Please create an admin user for the application:"
+    log_info "Creating admin user for the application:"
     while true; do
         read -p "Admin username: " ADMIN_USERNAME
         ADMIN_USERNAME=$(sanitize_input "$ADMIN_USERNAME")
@@ -1251,859 +1473,14 @@ if [[ $MONITORING == true ]]; then
     log_info "Prometheus metrics available at: http://localhost:9090"
 fi
 
-# Configure firewall if requested
-if [[ $FIREWALL == true ]]; then
-    log_info "Configuring firewall..."
-    if command -v ufw &> /dev/null; then
-        # Enable UFW and allow necessary ports
-        sudo ufw allow 22/tcp
-        sudo ufw allow 5000/tcp
-        sudo ufw enable
-        log_success "UFW firewall configured"
-    elif command -v firewall-cmd &> /dev/null; then
-        # Enable Firewalld and allow necessary ports
-        sudo firewall-cmd --zone=public --add-port=22/tcp --permanent
-        sudo firewall-cmd --zone=public --add-port=5000/tcp --permanent
-        sudo firewall-cmd --reload
-        log_success "Firewalld configured"
-    else
-        log_warning "No supported firewall manager found (ufw, firewalld)"
-    fi
-fi
-
-# Backup configuration
-if [[ $BACKUPS == true ]]; then
-    log_info "Configuring automated backups..."
-    if command -v certbot &> /dev/null; then
-        # Backup Certbot certificates
-        certbot renew --dry-run
-    else
-        log_warning "Certbot not found, skipping SSL backup"
-    fi
-    
-    # Create backup script
-    cat > backup.sh << 'EOF'
-#!/bin/bash
-# Backup script for Panel application
-
-# Configurable parameters
-BACKUP_DIR="/var/backups/panel"
-DB_NAME="panel_db"
-DUMP_FILE=""
-REDIS_SENDMAIL="/usr/bin/redis-cli -h localhost -p 6379"
-
-# Create backup directory if not exists
-mkdir -p "$BACKUP_DIR"
-
-# Backup database
-if [ -f "/usr/bin/pg_dump" ]; then
-    DUMP_FILE="$BACKUP_DIR/db_$(date +%Y%m%d%H%M%S).sql"
-    log_info "Backing up PostgreSQL database to $DUMP_FILE"
-    pg_dump -U panel_user -h localhost -p 5432 $DB_NAME > "$DUMP_FILE" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo "✓ Database backup successful"
-    else
-        echo "✗ Database backup failed"
-    fi
-else
-    echo "⚠️  pg_dump not found, database backup skipped"
-fi
-
-# Backup Redis data
-if command -v redis-cli &> /dev/null; then
-    REDIS_DUMP_FILE="$BACKUP_DIR/redis_$(date +%Y%m%d%H%M%S).rdb"
-    log_info "Backing up Redis data to $REDIS_DUMP_FILE"
-    $REDIS_SENDMAIL --rdb "$REDIS_DUMP_FILE"
-    if [ $? -eq 0 ]; then
-        echo "✓ Redis backup successful"
-    else
-        echo "✗ Redis backup failed"
-    fi
-else
-    echo "⚠️  redis-cli not found, Redis backup skipped"
-fi
-
-# Send notification email
-EMAIL="admin@example.com"
-SUBJECT="Panel Backup Report - $(date +'%Y-%m-%d')"
-BODY="Backup completed: $(date)\n\nFiles:\n"
-BODY+="$(ls -lh $BACKUP_DIR)\n\n"
-BODY+="PostgreSQL Dump: $DUMP_FILE\n"
-BODY+="Redis Dump: $REDIS_DUMP_FILE\n"
-
-echo -e "$BODY" | mail -s "$SUBJECT" "$EMAIL"
-
-echo "Backup process completed."
-
-EOF
-
-    chmod +x backup.sh
-    log_success "Backup script created: backup.sh"
-fi
-
-# SSL configuration
-if [[ $ENV_CHOICE -eq 2 && -n "$SSL_CERT_FILE" && -n "$SSL_KEY_FILE" ]]; then
-    log_info "Configuring SSL with custom certificate..."
-    sudo mkdir -p /etc/ssl/private
-    sudo cp "$SSL_CERT_FILE" /etc/ssl/certs/panel.crt
-    sudo cp "$SSL_KEY_FILE" /etc/ssl/private/panel.key
-    sudo chmod 640 /etc/ssl/private/panel.key
-    
-    # Update Nginx configuration
-    sudo tee /etc/nginx/sites-available/panel > /dev/null << EOF
-server {
-    listen 80;
-    server_name $DOMAIN;
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    listen 443 ssl;
-    ssl_certificate /etc/ssl/certs/panel.crt;
-    ssl_certificate_key /etc/ssl/private/panel.key;
-}
-EOF
-
-    sudo ln -sf /etc/nginx/sites-available/panel /etc/nginx/sites-enabled/
-    sudo nginx -t
-    sudo systemctl reload nginx
-
-    log_success "SSL configured with custom certificate"
-fi
-
-# Create systemd service for production
-if [[ $ENV_CHOICE -eq 2 ]]; then
-    log_info "Setting up production service..."
-
-    # Create service file
-    sudo tee /etc/systemd/system/panel.service > /dev/null << EOF
-[Unit]
-Description=Panel Application
-After=network.target
-
-[Service]
-User=$USER
-WorkingDirectory=$INSTALL_DIR
-Environment=PATH=$INSTALL_DIR/venv/bin
-ExecStart=$INSTALL_DIR/venv/bin/python3 app.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable panel
-    sudo systemctl start panel
-
-    # Setup nginx
-    if ! command -v nginx &> /dev/null; then
-        sudo apt-get install -y nginx
-    fi
-
-    sudo tee /etc/nginx/sites-available/panel > /dev/null << EOF
-server {
-    listen 80;
-    server_name $DOMAIN;
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF
-
-    sudo ln -sf /etc/nginx/sites-available/panel /etc/nginx/sites-enabled/
-    sudo nginx -t
-    sudo systemctl reload nginx
-
-    # SSL with Let's Encrypt
-    if [[ -n "$DOMAIN" && -n "$SSL_EMAIL" ]]; then
-        sudo apt-get install -y certbot python3-certbot-nginx
-        sudo certbot --nginx -d $DOMAIN --email $SSL_EMAIL --agree-tos --non-interactive
-    fi
-fi
-
-# Create start script
-log_info "Creating start script..."
-cat > start.sh << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-source venv/bin/activate
-export $(cat .env | xargs)
-
-# Check if port 5000 is available
-if lsof -Pi :5000 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "⚠️  Port 5000 is already in use"
-    echo "Stop the process using: kill \$(lsof -t -i:5000)"
-    exit 1
-fi
-
-python3 app.py
-EOF
-chmod +x start.sh
-
-# Create a quick test script
-log_info "Creating test script..."
-cat > test.sh << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-source venv/bin/activate
-export $(cat .env | xargs)
-
-echo "Running application tests..."
-if command -v pytest &> /dev/null && [ -d "tests" ]; then
-    pytest tests/ -v --maxfail=3
-else
-    echo "⚠️  pytest not installed or tests directory not found"
-    echo "Install with: pip install pytest"
-fi
-EOF
-chmod +x test.sh
-
-# Copy utility scripts from scripts directory
-log_info "Copying utility scripts..."
-if [[ -f "scripts/status.sh" ]]; then
-    cp scripts/status.sh ./status.sh
-    chmod +x status.sh
-fi
-if [[ -f "scripts/uninstall.sh" ]]; then
-    cp scripts/uninstall.sh ./uninstall.sh
-    chmod +x uninstall.sh
-fi
-
-log_success "Helper scripts created (start.sh, test.sh, status.sh, uninstall.sh)"
-
-# Backup and restore functionality
-create_installation_backup() {
-    if [[ -d "$INSTALL_DIR" ]]; then
-        BACKUP_NAME="pre_install_backup_$(date +%Y%m%d_%H%M%S)"
-        log_info "Creating backup: $BACKUP_NAME"
-        tar -czf "$BACKUP_NAME.tar.gz" -C "$(dirname "$INSTALL_DIR")" "$(basename "$INSTALL_DIR")"
-        log_success "Backup created: $BACKUP_NAME.tar.gz"
-    fi
-}
-
-restore_from_backup() {
-    local backup_file=$1
-    if [[ -f "$backup_file" ]]; then
-        log_info "Restoring from backup: $backup_file"
-        mkdir -p "$INSTALL_DIR"
-        tar -xzf "$backup_file" -C "$(dirname "$INSTALL_DIR")"
-        log_success "Backup restored successfully"
-    else
-        log_error "Backup file not found: $backup_file"
-        return 1
-    fi
-}
-
-# Interactive help system
-show_context_help() {
-    local context=$1
-    case $context in
-        database)
-            echo "Database Configuration Help:"
-            echo "- SQLite: Simple file-based database, no setup required"
-            echo "- PostgreSQL: Recommended for production, requires server setup"
-            echo "- External: Connect to existing PostgreSQL server"
-            ;;
-        redis)
-            echo "Redis Configuration Help:"
-            echo "- Local: Install and configure Redis on this server"
-            echo "- External: Connect to existing Redis server"
-            echo "- Cluster: Use Redis Cluster for high availability"
-            ;;
-        ssl)
-            echo "SSL Configuration Help:"
-            echo "- Let's Encrypt: Automatic SSL certificates (requires domain)"
-            echo "- Custom: Provide your own SSL certificate files"
-            echo "- None: HTTP only (not recommended for production)"
-            ;;
-        monitoring)
-            echo "Monitoring Configuration Help:"
-            echo "- Prometheus: Metrics collection and alerting"
-            echo "- Grafana: Dashboard visualization"
-            echo "- Both provide comprehensive system monitoring"
-            ;;
-    esac
-}
-
-prompt_with_help() {
-    local prompt=$1
-    local help_context=$2
-    local default=$3
-    
-    while true; do
-        read -p "$prompt (type 'help' for more info) [$default]: " input
-        input=${input:-$default}
-        
-        if [[ $input == "help" ]]; then
-            show_context_help "$help_context"
-            continue
-        fi
-        
-        echo "$input"
-        break
-    done
-}
-
-# Improved system compatibility
-detect_package_manager() {
-    if command -v apt-get &> /dev/null; then
-        echo "apt"
-    elif command -v yum &> /dev/null; then
-        echo "yum"
-    elif command -v dnf &> /dev/null; then
-        echo "dnf"
-    elif command -v zypper &> /dev/null; then
-        echo "zypper"
-    elif command -v pacman &> /dev/null; then
-        echo "pacman"
-    elif command -v brew &> /dev/null; then
-        echo "brew"
-    else
-        echo "unknown"
-    fi
-}
-
-install_dependencies_arch() {
-    log_info "Installing for Arch Linux..."
-    sudo pacman -Syu --noconfirm
-    sudo pacman -S --noconfirm python python-pip postgresql redis nginx git base-devel
-}
-
-install_dependencies_alpine() {
-    log_info "Installing for Alpine Linux..."
-    apk update
-    apk add python3 py3-pip postgresql redis nginx git build-base
-}
-
-# Configuration validation and testing
-validate_configuration() {
-    log_info "Validating configuration..."
-    
-    # Check database connectivity
-    if [[ $DB_CHOICE -eq 2 ]]; then
-        if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" &> /dev/null; then
-            log_error "Database connection failed"
-            return 1
-        fi
-    fi
-    
-    # Check Redis connectivity
-    if ! redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null; then
-        log_error "Redis connection failed"
-        return 1
-    fi
-    
-    # Test Python imports
-    if ! python3 -c "import flask, sqlalchemy, redis" &> /dev/null; then
-        log_error "Python dependencies not properly installed"
-        return 1
-    fi
-    
-    log_success "Configuration validation passed"
-    return 0
-}
-
-run_post_install_tests() {
-    log_info "Running post-installation tests..."
-    
-    # Test application startup
-    timeout 30s python3 app.py &
-    APP_PID=$!
-    sleep 10
-    
-    if kill -0 $APP_PID 2>/dev/null; then
-        log_success "Application starts successfully"
-        kill $APP_PID
-    else
-        log_error "Application failed to start"
-        return 1
-    fi
-    
-    # Test basic endpoints
-    if curl -f http://localhost:5000/health &> /dev/null; then
-        log_success "Health check endpoint responds"
-    else
-        log_warning "Health check endpoint not responding"
-    fi
-}
-
-# Troubleshooting guide generation
-generate_troubleshooting_guide() {
-    cat > troubleshooting.md << EOF
-# Troubleshooting Guide
-
-## Installation Issues
-
-### Database Connection Failed
-**Symptoms:** Database errors during startup
-**Solutions:**
-1. Check database service: \`sudo systemctl status postgresql\`
-2. Verify credentials in \`.env\` file
-3. Test connection: \`psql -U panel_user -d panel_db\`
-
-### Redis Connection Failed
-**Symptoms:** Caching errors
-**Solutions:**
-1. Check Redis service: \`redis-cli ping\`
-2. Verify REDIS_URL in \`.env\` file
-3. Check firewall settings
-
-### Application Won't Start
-**Symptoms:** Port 5000 not listening
-**Solutions:**
-1. Check logs: \`tail -f logs/app.log\`
-2. Verify Python environment: \`source venv/bin/activate && python app.py\`
-3. Check dependencies: \`pip list | grep flask\`
-
-## Common Commands
-- Start: \`./start.sh\`
-- Stop: \`pkill -f "python app.py"\`
-- Logs: \`tail -f logs/app.log\`
-- Status: \`./status.sh\`
-EOF
-}
-
-# Backup existing installation
-create_installation_backup
-
-# Execute installation steps
-{
-    # Package manager updates
-    log_info "Updating package manager indices..."
-    $PKG_UPDATE
-    
-    # Install required packages
-    log_info "Installing required packages..."
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if [[ $PKG_MANAGER == "pacman" ]]; then
-            install_dependencies_arch
-        elif [[ $PKG_MANAGER == "apk" ]]; then
-            install_dependencies_alpine
-        else
-            $PKG_INSTALL curl wget gnupg2 ca-certificates lsb-release || true
-        fi
-    fi
-    
-    # Step 1: System validation and requirements check
-    log_info "Running system validation..."
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if ! command -v curl &> /dev/null; then
-            log_error "curl is not installed. Installing..."
-            $PKG_INSTALL curl
-        fi
-        if ! command -v wget &> /dev/null; then
-            log_error "wget is not installed. Installing..."
-            $PKG_INSTALL wget
-        fi
-    fi
-    
-    # Step 2: Package manager detection and updates (handled earlier)
-    
-    # Step 3: System dependencies installation (handled in one step)
-    
-    # Step 4: Python environment setup
-    log_info "Setting up Python environment..."
-    if [[ ! -d "venv" ]]; then
-        python3 -m venv venv
-    fi
-    source venv/bin/activate
-    
-    # Step 5: Repository cloning and updates
-    log_info "Cloning or updating Panel repository..."
-    if [[ -d ".git" ]]; then
-        git pull origin main
-    else
-        git clone https://github.com/phillgates2/panel.git .
-    fi
-    
-    # Step 6: Python dependencies installation
-    log_info "Installing Python dependencies..."
-    pip install -r requirements.txt
-    
-    # Step 7: Database configuration and setup
-    show_progress_with_eta 8 10 "Configuring database..." $(date +%s)
-    if [[ $DB_CHOICE -eq 1 ]]; then
-        log_info "Using SQLite database"
-        export PANEL_DATABASE_URI="sqlite:///$INSTALL_DIR/panel.db"
-        log_success "SQLite database will be created at: $INSTALL_DIR/panel.db"
-    elif [[ $DB_CHOICE -eq 2 ]]; then
-        log_info "Setting up PostgreSQL..."
-        
-        # Install PostgreSQL if not present
-        if ! command -v psql &> /dev/null; then
-            log_warning "PostgreSQL not found. Installing..."
-            $PKG_UPDATE
-            if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                $PKG_INSTALL postgresql postgresql-contrib || {
-                    log_error "Failed to install PostgreSQL"
-                    exit 1
-                }
-                sudo systemctl enable postgresql
-                sudo systemctl start postgresql
-                add_rollback_step "sudo systemctl stop postgresql && sudo systemctl disable postgresql"
-            elif [[ "$OSTYPE" == "darwin"* ]]; then
-                $PKG_INSTALL postgresql || {
-                    log_error "Failed to install PostgreSQL"
-                    exit 1
-                }
-                brew services start postgresql
-            fi
-            sleep 2  # Wait for PostgreSQL to start
-        fi
-        
-        log_success "PostgreSQL is available"
-        
-        # Create database and user
-        log_info "Creating database and user..."
-        
-        # Check if user already exists
-        if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='panel_user'" | grep -q 1; then
-            log_warning "User 'panel_user' already exists"
-        else
-            sudo -u postgres psql -c "CREATE USER panel_user WITH CREATEDB PASSWORD 'changeme';" || {
-                log_error "Failed to create database user"
-                exit 1
-            }
-            add_rollback_step "sudo -u postgres psql -c \"DROP USER IF EXISTS panel_user;\""
-        fi
-        
-        # Check if database already exists
-        if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw panel_db; then
-            log_warning "Database 'panel_db' already exists"
-            if [[ $NON_INTERACTIVE == true ]]; then
-                log_info "Non-interactive mode: using existing database"
-            else
-                read -p "Drop and recreate? (y/n): " DROP_DB
-                if [[ $DROP_DB == "y" ]]; then
-                    sudo -u postgres dropdb panel_db
-                    sudo -u postgres createdb -O panel_user panel_db
-                fi
-            fi
-        else
-            sudo -u postgres createdb -O panel_user panel_db || {
-                log_error "Failed to create database"
-                exit 1
-            }
-            add_rollback_step "sudo -u postgres dropdb panel_db"
-        fi
-        
-        read -p "PostgreSQL password for panel_user (press Enter for default 'changeme'): " -s DB_PASSWORD
-        echo ""
-        DB_PASSWORD=${DB_PASSWORD:-changeme}
-        
-        # Update user password if changed
-        if [[ "$DB_PASSWORD" != "changeme" ]]; then
-            sudo -u postgres psql -c "ALTER USER panel_user WITH PASSWORD '$DB_PASSWORD';"
-        fi
-        
-        export PANEL_DATABASE_URI="postgresql://panel_user:$DB_PASSWORD@localhost/panel_db"
-        log_success "PostgreSQL database configured"
-    elif [[ $DB_CHOICE -eq 3 ]]; then
-        log_info "Using external PostgreSQL database"
-        export PANEL_DATABASE_URI="postgresql://$EXTERNAL_DB_USER:$EXTERNAL_DB_PASS@$EXTERNAL_DB_HOST:$EXTERNAL_DB_PORT/$EXTERNAL_DB_NAME"
-        log_success "External database configured"
-    fi
-    
-    # Step 8: Redis configuration and setup
-    show_progress_with_eta 9 10 "Setting up Redis..." $(date +%s)
-    if [[ $INSTALL_REDIS == "y" ]]; then
-        if ! command -v redis-cli &> /dev/null; then
-            log_info "Installing Redis..."
-            $PKG_UPDATE
-            if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                $PKG_INSTALL redis-server || {
-                    log_error "Failed to install Redis"
-                    exit 1
-                }
-                sudo systemctl enable redis-server
-                sudo systemctl start redis-server
-                add_rollback_step "sudo systemctl stop redis-server && sudo systemctl disable redis-server"
-                sleep 2
-            elif [[ "$OSTYPE" == "darwin"* ]]; then
-                $PKG_INSTALL redis || {
-                    log_error "Failed to install Redis"
-                    exit 1
-                }
-                brew services start redis
-                add_rollback_step "brew services stop redis"
-                sleep 2
-            fi
-        fi
-        
-        # Verify Redis is running
-        if redis-cli ping &> /dev/null; then
-            REDIS_VERSION=$(redis-cli --version | grep -oP '\d+\.\d+\.\d+' | head -1)
-            log_success "Redis $REDIS_VERSION is running"
-        else
-            log_error "Redis is installed but not responding"
-            exit 1
-        fi
-        
-        export PANEL_REDIS_URL="redis://localhost:6379/0"
-    else
-        read -p "Redis URL (default: redis://localhost:6379/0): " REDIS_URL
-        export PANEL_REDIS_URL=${REDIS_URL:-redis://localhost:6379/0}
-        
-        # Test Redis connection
-        log_info "Testing Redis connection..."
-        if timeout 3 redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null; then
-            log_success "Redis connection successful"
-        else
-            log_warning "Could not connect to Redis at $PANEL_REDIS_URL"
-            read -p "Continue anyway? (y/n): " CONTINUE
-            if [[ $CONTINUE != "y" ]]; then
-                exit 1
-            fi
-        fi
-    fi
-    
-    # Step 9: Application configuration
-    log_info "Configuring application..."
-    SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-    export PANEL_SECRET_KEY="$SECRET_KEY"
-    
-    cat > .env << EOF
-# Database Configuration
-DATABASE_URL=$PANEL_DATABASE_URI
-PANEL_DATABASE_URI=$PANEL_DATABASE_URI
-
-# Redis Configuration
-REDIS_URL=$PANEL_REDIS_URL
-PANEL_REDIS_URL=$PANEL_REDIS_URL
-
-# Application Configuration
-SECRET_KEY=$SECRET_KEY
-PANEL_SECRET_KEY=$SECRET_KEY
-FLASK_ENV=production
-PANEL_ENV=production
-
-# Server Configuration
-FLASK_APP=app.py
-HOST=0.0.0.0
-PORT=5000
-
-# Security
-SESSION_COOKIE_SECURE=True
-SESSION_COOKIE_HTTPONLY=True
-SESSION_COOKIE_SAMESITE=Lax
-
-# Logging
-LOG_LEVEL=INFO
-EOF
-    
-    # Step 10: Service setup and startup
-    log_info "Setting up system service..."
-    sudo tee /etc/systemd/system/panel.service > /dev/null << EOF
-[Unit]
-Description=Panel Application
-After=network.target
-
-[Service]
-User=$USER
-WorkingDirectory=$INSTALL_DIR
-Environment=PATH=$INSTALL_DIR/venv/bin
-ExecStart=$INSTALL_DIR/venv/bin/python3 app.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable panel
-    sudo systemctl start panel
-    
-    log_success "Installation completed successfully!"
-} | tee >(sed "s/^/[STEP] /" >&2) | {
-    # Catch and handle errors in the installation steps
-    while IFS= read -r line; do
-        if [[ $line == *"[ERROR]"* ]]; then
-            handle_error 1 ${BASH_LINENO[0]}
-        fi
-        echo "$line"
-    done
-}
-
-# Configuration validation
-validate_configuration
-
-# Post-installation testing
-run_post_install_tests
-
-# Generate troubleshooting guide
-generate_troubleshooting_guide
-
-# Success message
-echo ""
-show_progress_with_eta 10 10 "Installation complete!" $(date +%s)
-show_elapsed_time
-log_success "Panel installation completed!"
-echo ""
-echo "Installation Summary:"
-echo "- Installed in: $INSTALL_DIR"
-echo "- Database: $(if [[ $DB_CHOICE -eq 1 ]]; then echo 'SQLite'; elif [[ $DB_CHOICE -eq 2 ]]; then echo 'PostgreSQL'; else echo 'External PostgreSQL'; fi)"
-echo "- Redis: $(if [[ $INSTALL_REDIS == 'y' ]]; then echo 'Local'; else echo 'External'; fi)"
-echo "- Environment: $(if [[ $ENV_CHOICE -eq 1 ]]; then echo 'Development'; else echo 'Production'; fi)"
-echo "- Python: $($PYTHON_CMD --version)"
-if [[ -n "$CLOUD_PRESET" ]]; then
-    echo "- Cloud: $CLOUD_PRESET"
-fi
-echo ""
-
-# Integration testing
-if [[ $RUN_TESTS == true ]]; then
-    log_info "Running integration tests..."
-    echo ""
-    
-    # Activate virtual environment
-    source venv/bin/activate
-    
-    # Run post-installation test script if available
-    if [[ -f "scripts/post-install-test.sh" ]]; then
-        bash scripts/post-install-test.sh || log_warning "Some tests failed (non-critical)"
-    fi
-    
-    # Run Python tests if pytest is available
-    if command -v pytest &> /dev/null; then
-        log_info "Running unit tests..."
-        pytest tests/ -v --tb=short || log_warning "Some unit tests failed"
-    fi
-    
-    # Check application startup
-    log_info "Testing application startup..."
-    timeout 10s python app.py &
-    APP_PID=$!
-    sleep 5
-    
-    if kill -0 $APP_PID 2>/dev/null; then
-        log_success "Application starts successfully"
-        kill $APP_PID
-    else
-        log_warning "Application failed to start"
-    fi
-    
-    echo ""
-    log_success "Integration testing completed"
-fi
-
-echo ""
-echo "To start the application:"
-if [[ $ENV_CHOICE -eq 1 ]]; then
-    echo "  cd $INSTALL_DIR && ./start.sh"
-else
-    echo "  sudo systemctl status panel"
-fi
-echo ""
-echo "Access the application at: http://localhost:5000"
-if [[ $ENV_CHOICE -eq 2 && -n "$DOMAIN" ]]; then
-    echo "Or with SSL at: https://$DOMAIN"
-fi
-echo ""
-# Post-installation health check
-log_info "Running post-installation checks..."
-
-ECHO_CHECKS=""
-
-# Check virtual environment
-if [[ -d "venv" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Virtual environment created\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}✗ Virtual environment missing\n"
-fi
-
-# Check .env file
-if [[ -f ".env" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Configuration file created\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}✗ Configuration file missing\n"
-fi
-
-# Check database
-if [[ $DB_CHOICE -eq 1 ]] && [[ -f "panel.db" ]]; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ SQLite database created\n"
-elif [[ $DB_CHOICE -eq 2 ]]; then
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw panel_db; then
-        ECHO_CHECKS="${ECHO_CHECKS}✓ PostgreSQL database exists\n"
-    else
-        ECHO_CHECKS="${ECHO_CHECKS}✗ PostgreSQL database not found\n"
-    fi
-fi
-
-# Check Redis connection
-if redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null 2>&1; then
-    ECHO_CHECKS="${ECHO_CHECKS}✓ Redis connection working\n"
-else
-    ECHO_CHECKS="${ECHO_CHECKS}⚠ Redis connection failed\n"
-fi
-
-echo -e "\n${ECHO_CHECKS}"
-
-log_info "Installation log available in current directory"
-
-if [[ $ENV_CHOICE -eq 1 ]]; then
-    log_info "To start development server:"
-    echo "  cd $INSTALL_DIR"
-    echo "  source venv/bin/activate"
-    echo "  ./start.sh"
-fi
-
-log_info "For troubleshooting, check:"
-echo "  - Configuration: $INSTALL_DIR/.env"
-echo "  - Database file: $INSTALL_DIR/panel.db (if using SQLite)"
-echo "  - Application logs when running"
-echo ""
-
-# Quick start guide
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "Quick Start Guide:"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "1️⃣  Start the application:"
-echo "   cd $INSTALL_DIR"
-if [[ $ENV_CHOICE -eq 1 ]]; then
-    echo "   ./start.sh"
-else
-    echo "   sudo systemctl start panel"
-    echo "   sudo systemctl status panel"
-fi
-echo ""
-echo "2️⃣  Access the application:"
-echo "   🌐 http://localhost:5000"
-if [[ $ENV_CHOICE -eq 2 && -n "$DOMAIN" ]]; then
-    echo "   🔒 https://$DOMAIN"
-fi
-echo ""
-echo "3️⃣  Check status:"
-echo "   ./status.sh"
-echo ""
-echo "4️⃣  Run tests (optional):"
-echo "   ./test.sh"
-echo ""
-echo "5️⃣  View logs:"
-echo "   tail -f logs/app.log"
-echo ""
-echo "6️⃣  Stop the application:"
-if [[ $ENV_CHOICE -eq 1 ]]; then
-    echo "   Ctrl+C in the terminal running start.sh"
-else
-    echo "   sudo systemctl stop panel"
-fi
-echo ""
-echo "7️⃣  Uninstall (if needed):"
-echo "   ./uninstall.sh"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-log_success "🎉 Installation complete! Happy coding with Panel! 🚀"
-echo ""
-log_info "Need help? Check the documentation:"
-echo "   📖 https://github.com/phillgates2/panel/blob/main/README.md"
-echo "   💬 https://github.com/phillgates2/panel/discussions"
-echo ""
+# Setup advanced features
+setup_security_hardening
+setup_multi_cloud
+setup_advanced_backup
+setup_compliance
+setup_plugin_system
+setup_advanced_monitoring
+setup_internationalization
+setup_advanced_networking
+setup_container_orchestration
+setup_performance_optimization
