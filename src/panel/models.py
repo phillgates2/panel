@@ -442,7 +442,9 @@ class ServerUser(db.Model):
     role = db.Column(db.String(32), nullable=False)  # 'server_admin' or 'server_mod'
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    __table_args__ = (db.Index("idx_server_user_server_user", "server_id", "user_id"),)
+    __table_args__ = (
+        db.UniqueConstraint("server_id", "user_id", name="_server_user_uc"),
+    )
 
 
 class Server(db.Model):
