@@ -1,0 +1,1 @@
+# global_networking module initialization
