@@ -75,7 +75,7 @@ jobs:
           ### 🔗 Links
           - [Docker Image](https://hub.docker.com/r/panel/panel/tags)
           - [Documentation](https://panel.readthedocs.io/)
-          - [Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          - [Changelog](https://github.com/${{ github.repository }}/blob/main/docs/CHANGELOG.md)
 
           ### 📦 Installation
           \`\`\`bash
