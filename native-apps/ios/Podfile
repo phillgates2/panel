@@ -1,0 +1,42 @@
+# iOS Podfile for Panel App
+
+platform :ios, '15.0'
+use_frameworks!
+
+target 'Panel' do
+  # Firebase
+  pod 'Firebase/Core'
+  pod 'Firebase/Messaging'
+  pod 'Firebase/Analytics'
+  pod 'Firebase/Crashlytics'
+  
+  # Networking
+  pod 'Alamofire', '~> 5.8'
+  pod 'Starscream', '~> 4.0'
+  
+  # UI
+  pod 'SDWebImageSwiftUI', '~> 2.2'
+  pod 'Lottie', '~> 4.3'
+  
+  # Security
+  pod 'KeychainAccess', '~> 4.2'
+  
+  # Utilities
+  pod 'SwiftyJSON', '~> 5.0'
+  
+  target 'PanelTests' do
+    inherit! :search_paths
+  end
+
+  target 'PanelUITests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
+end
