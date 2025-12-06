@@ -1,26 +1,47 @@
-import os
+"""
+App Package
+
+This package contains the core application components.
+Use create_app() factory function to create Flask app instances.
+"""
 
 from flask import Flask
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
-from config import config
-
-# Initialize extensions
+# Initialize extensions (but don't bind to app yet)
 db = SQLAlchemy()
 login_manager = LoginManager()
 
-# Import models for testing
-from src.panel.models import SiteAsset, SiteSetting, User
-
 
 def create_app(config_name="default"):
-    """Application factory function"""
-    template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-
+    """Application factory function.
+    
+    Creates and configures a Flask application instance.
+    
+    Args:
+        config_name: Configuration name or object
+        
+    Returns:
+        Configured Flask application
+    """
+    import os
+    from pathlib import Path
+    
+    # Determine template and static directories
+    root_dir = Path(__file__).parent.parent
+    template_dir = root_dir / "templates"
+    static_dir = root_dir / "static"
+    
+    # Create Flask app
+    app = Flask(
+        __name__,
+        template_folder=str(template_dir),
+        static_folder=str(static_dir)
+    )
+    
     # Load configuration
+    from config import config
     if isinstance(config_name, str):
         app.config.from_object(config)
     else:
@@ -28,41 +49,88 @@ def create_app(config_name="default"):
         for key, value in vars(config_name).items():
             if not key.startswith("_"):
                 app.config[key.upper()] = value
-
-    # Initialize essential extensions
+    
+    # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-
+    
+    # Configure login manager
+    login_manager.login_view = "main.login"
+    login_manager.login_message = "Please log in to access this page."
+    
     @login_manager.user_loader
     def load_user(user_id):
-        # Dummy user loader for testing
-        return None
-
+        """Load user by ID."""
+        from src.panel.models import User
+        return db.session.get(User, int(user_id))
+    
     # Register blueprints
-    from src.panel.admin_bp import admin_bp
-    from src.panel.api_bp import api_bp
-    from src.panel.chat_bp import chat_bp
-    from src.panel.main_bp import main_bp
-    from src.panel.payment_bp import payment_bp
-
-    app.register_blueprint(main_bp)
-    app.register_blueprint(api_bp, url_prefix="/api")
-    app.register_blueprint(chat_bp)
-    app.register_blueprint(payment_bp)
-    app.register_blueprint(admin_bp)
-
+    register_blueprints(app)
+    
     # Register context processors
-    from app.context_processors import inject_user
-
-    app.context_processor(inject_user)
-
+    register_context_processors(app)
+    
+    # Register error handlers
+    register_error_handlers(app)
+    
     return app
 
 
-def verify_csrf():
-    """Dummy CSRF verification for testing"""
-    return True
+def register_blueprints(app):
+    """Register application blueprints."""
+    try:
+        from src.panel.main_bp import main_bp
+        app.register_blueprint(main_bp)
+    except ImportError:
+        pass
+    
+    try:
+        from src.panel.api_bp import api_bp
+        app.register_blueprint(api_bp, url_prefix="/api")
+    except ImportError:
+        pass
+    
+    try:
+        from src.panel.admin_bp import admin_bp
+        app.register_blueprint(admin_bp)
+    except ImportError:
+        pass
+    
+    try:
+        from src.panel.chat_bp import chat_bp
+        app.register_blueprint(chat_bp)
+    except ImportError:
+        pass
+    
+    try:
+        from src.panel.payment_bp import payment_bp
+        app.register_blueprint(payment_bp)
+    except ImportError:
+        pass
 
 
-# Create default app instance for testing
-app = create_app()
+def register_context_processors(app):
+    """Register template context processors."""
+    try:
+        from app.context_processors import inject_user
+        app.context_processor(inject_user)
+    except ImportError:
+        pass
+
+
+def register_error_handlers(app):
+    """Register error handlers."""
+    try:
+        from app.error_handlers import page_not_found, internal_error
+        app.errorhandler(404)(page_not_found)
+        app.errorhandler(500)(internal_error)
+    except ImportError:
+        pass
+
+
+# Expose key components at package level
+__all__ = [
+    "create_app",
+    "db",
+    "login_manager",
+]

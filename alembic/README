@@ -1,1 +1,324 @@
-Generic single-database configuration.
+# Alembic Database Migrations
+
+This directory contains the Alembic migration configuration for the Panel application.
+
+## ?? IMPORTANT: Migration Directory Structure
+
+The Panel application uses **TWO** Alembic directories:
+
+1. **`/alembic/`** - Base Alembic configuration (THIS FOLDER)
+2. **`/migrations/`** - Actual migration scripts and working environment
+
+The `alembic.ini` file in the root directory points to `/migrations/` as the script location.
+
+## Setup and Usage
+
+### Initial Setup
+
+1. **Initialize database (first time only)**:
+   ```bash
+   flask db init
+   ```
+
+2. **Create initial migration**:
+   ```bash
+   flask db migrate -m "Initial migration"
+   ```
+
+3. **Apply migrations**:
+   ```bash
+   flask db upgrade
+   ```
+
+### Creating New Migrations
+
+```bash
+# Auto-generate migration from model changes
+flask db migrate -m "Description of changes"
+
+# Review the generated migration file in migrations/versions/
+# Edit if necessary, then apply:
+flask db upgrade
+```
+
+### Common Commands
+
+```bash
+# Show current revision
+flask db current
+
+# Show migration history
+flask db history
+
+# Upgrade to specific revision
+flask db upgrade <revision_id>
+
+# Downgrade one revision
+flask db downgrade -1
+
+# Downgrade to specific revision
+flask db downgrade <revision_id>
+
+# Show migration status
+flask db show <revision_id>
+```
+
+## Migration Chain Issues
+
+### Problem: Multiple Root Migrations
+
+If you see errors like "Multiple head revisions are present", it means multiple migrations have `down_revision = None`.
+
+**Fix using the migration chain repair script**:
+
+```bash
+# Dry run (check what would be fixed)
+python tools/scripts/fix_migration_chain.py
+
+# Apply fixes
+python tools/scripts/fix_migration_chain.py --fix
+```
+
+### Manual Fix
+
+1. Identify all migrations with `down_revision = None`:
+   ```bash
+   grep -r "down_revision = None" migrations/versions/
+   ```
+
+2. Keep only the **FIRST** migration with `down_revision = None`
+
+3. For all other migrations, set their `down_revision` to the revision ID of the previous migration:
+   ```python
+   # In migration file:
+   revision = 'abc123'
+   down_revision = 'xyz789'  # ID of previous migration
+   ```
+
+## Migration Best Practices
+
+### 1. Always Review Auto-Generated Migrations
+
+Alembic's autogenerate is helpful but not perfect. Always review generated migrations before applying:
+
+```bash
+flask db migrate -m "Add user table"
+# Review: migrations/versions/xxxx_add_user_table.py
+flask db upgrade
+```
+
+### 2. Test Migrations
+
+Test both upgrade and downgrade:
+
+```bash
+# Upgrade
+flask db upgrade
+# Test application
+
+# Downgrade
+flask db downgrade -1
+# Verify downgrade worked
+
+# Re-upgrade
+flask db upgrade
+```
+
+### 3. Migration Naming Convention
+
+Use descriptive names:
+- ? Good: `add_user_oauth_fields`
+- ? Good: `create_forum_tables`
+- ? Bad: `migration_1`
+- ? Bad: `update_db`
+
+### 4. Keep Migrations Atomic
+
+One logical change per migration:
+- ? Good: One migration for adding OAuth fields
+- ? Bad: One migration for OAuth, forum tables, and cache setup
+
+### 5. Handle Data Migrations Carefully
+
+For data migrations, use `op.execute()`:
+
+```python
+def upgrade():
+    # Add column
+    op.add_column('user', sa.Column('status', sa.String(32)))
+    
+    # Migrate data
+    op.execute("UPDATE user SET status = 'active' WHERE is_active = 1")
+    
+    # Set not null
+    op.alter_column('user', 'status', nullable=False)
+```
+
+## Troubleshooting
+
+### Error: "Can't locate revision identified by 'xxxxx'"
+
+**Cause**: Missing migration file or broken chain.
+
+**Fix**:
+1. Check if all migration files are present in `migrations/versions/`
+2. Run the fix script: `python tools/scripts/fix_migration_chain.py --fix`
+3. If still broken, restore from version control
+
+### Error: "Multiple head revisions are present"
+
+**Cause**: Multiple migrations have `down_revision = None`.
+
+**Fix**:
+```bash
+python tools/scripts/fix_migration_chain.py --fix
+```
+
+### Error: "Target database is not up to date"
+
+**Cause**: Database state doesn't match migration state.
+
+**Fix**:
+```bash
+# Check current revision
+flask db current
+
+# Check history
+flask db history
+
+# Force stamp to specific revision (USE WITH CAUTION)
+flask db stamp head
+```
+
+### Error: "Can't drop table 'xxx': foreign key constraint fails"
+
+**Cause**: Foreign key references prevent table deletion.
+
+**Fix**: Ensure downgrade() drops tables in reverse dependency order:
+
+```python
+def downgrade():
+    # Drop dependent tables first
+    op.drop_table('server_user')  # Has FK to server
+    op.drop_table('server')       # Has FK to user
+    op.drop_table('user')         # No dependencies
+```
+
+## Environment Configuration
+
+The `env.py` file configures how Alembic connects to the database. It imports the Flask app and SQLAlchemy metadata:
+
+```python
+# migrations/env.py
+from app import app, db
+target_metadata = db.metadata
+```
+
+This allows autogenerate to detect model changes.
+
+## Production Deployment
+
+### Pre-deployment Checklist
+
+1. ? All migrations tested locally
+2. ? Backup production database
+3. ? Test migrations on staging
+4. ? Have rollback plan ready
+
+### Deployment Steps
+
+```bash
+# 1. Backup database
+pg_dump -h localhost -U user -d panel_db > backup.sql
+
+# 2. Apply migrations
+flask db upgrade
+
+# 3. Verify application
+curl http://localhost:8080/health
+
+# 4. If issues, rollback
+flask db downgrade <previous_revision>
+```
+
+### Zero-Downtime Migrations
+
+For production deployments with zero downtime:
+
+1. **Phase 1**: Add new column (nullable)
+   ```python
+   op.add_column('user', sa.Column('new_field', sa.String(100)))
+   ```
+
+2. **Deploy code** that writes to both old and new fields
+
+3. **Phase 2**: Migrate data
+   ```python
+   op.execute("UPDATE user SET new_field = old_field WHERE new_field IS NULL")
+   ```
+
+4. **Phase 3**: Make required and remove old column
+   ```python
+   op.alter_column('user', 'new_field', nullable=False)
+   op.drop_column('user', 'old_field')
+   ```
+
+## Development Workflow
+
+### Daily Development
+
+```bash
+# 1. Pull latest code
+git pull
+
+# 2. Apply any new migrations
+flask db upgrade
+
+# 3. Make model changes
+# Edit app/models.py
+
+# 4. Generate migration
+flask db migrate -m "Add user profile fields"
+
+# 5. Review and edit migration
+# Check migrations/versions/xxxx_add_user_profile_fields.py
+
+# 6. Apply migration
+flask db upgrade
+
+# 7. Test application
+python -m pytest
+
+# 8. Commit
+git add migrations/versions/xxxx_add_user_profile_fields.py
+git commit -m "Add user profile fields migration"
+```
+
+### Collaborative Development
+
+When multiple developers create migrations:
+
+1. **Always pull before creating migrations**
+2. **If conflicts occur**, resolve by:
+   ```bash
+   # Check for multiple heads
+   flask db heads
+   
+   # Merge branches
+   flask db merge -m "Merge migration branches" <rev1> <rev2>
+   ```
+
+## Additional Resources
+
+- [Alembic Documentation](https://alembic.sqlalchemy.org/)
+- [Flask-Migrate Documentation](https://flask-migrate.readthedocs.io/)
+- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
+
+## Getting Help
+
+For migration issues:
+1. Check this README first
+2. Run `python tools/scripts/fix_migration_chain.py` for chain issues
+3. Check `migrations/env.py` for configuration
+4. Review migration history: `flask db history`
+5. Ask in team chat or create an issue

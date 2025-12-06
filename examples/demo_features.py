@@ -1,3 +1,9 @@
+"""
+WARNING: This is demo/showcase code moved from app/advanced_features.py
+This code demonstrates features but has import errors and should not be used in production.
+Many of the imported modules don't exist at the specified paths.
+"""
+
 # app/advanced_features.py
 
 """

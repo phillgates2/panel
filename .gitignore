@@ -14,14 +14,7 @@ build/
 dist/
 *.egg-info/
 
-# Editor directories and files
-.vscode/
-.idea/
-*.swp
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
 *.so
 .Python
 env/
@@ -54,12 +47,26 @@ deploy/nginx_panel.conf
 .install_secrets
 tests_tmp_*/
 
-# IDE
+# IDE - Visual Studio
+.vs/
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Configuration files with potential secrets
+config/config.*.json
+config/config.local.py
 
 # OS
 .DS_Store
@@ -102,5 +109,8 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# Local repository backup bundle (kept outside the repo in /tmp)
-panel-repo-backup.bundleinstance/*.db
+# Backups
+backups/
+
+# Local repository backup bundle
+panel-repo-backup.bundle

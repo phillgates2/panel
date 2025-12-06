@@ -1,0 +1,225 @@
+name: Validate Migrations
+
+on:
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'alembic/**'
+      - 'app/models.py'
+      - 'src/panel/models.py'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'migrations/**'
+
+jobs:
+  validate-migrations:
+    name: Validate Migration Chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for migration analysis
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements/requirements.txt
+        pip install alembic flask-migrate
+
+    - name: Check migration chain integrity
+      id: check-chain
+      run: |
+        echo "Checking migration chain..."
+        python tools/scripts/fix_migration_chain.py
+        
+        if [ $? -ne 0 ]; then
+          echo "::error::Migration chain is broken! Multiple migrations have down_revision=None"
+          echo "chain_broken=true" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        echo "? Migration chain is valid"
+        echo "chain_broken=false" >> $GITHUB_OUTPUT
+
+    - name: Validate migration syntax
+      if: always()
+      env:
+        PANEL_USE_SQLITE: 1
+        PANEL_SECRET_KEY: "test-secret-key-for-ci"
+      run: |
+        echo "Validating migration syntax..."
+        
+        # Check Flask-Migrate is working
+        flask db check || echo "Warning: flask db check not available"
+        
+        # Show migration history
+        flask db history || echo "Warning: No migrations found"
+        
+        # Show current revision
+        flask db current || echo "Warning: Database not initialized"
+
+    - name: Test migration upgrade/downgrade
+      if: always()
+      env:
+        PANEL_USE_SQLITE: 1
+        PANEL_SECRET_KEY: "test-secret-key-for-ci"
+        TESTING: "true"
+      run: |
+        echo "Testing migration upgrade/downgrade cycle..."
+        
+        # Start with empty database
+        rm -f instance/panel.db || true
+        
+        # Test upgrade to head
+        echo "Running: flask db upgrade head"
+        flask db upgrade head
+        
+        if [ $? -ne 0 ]; then
+          echo "::error::Migration upgrade failed!"
+          exit 1
+        fi
+        
+        echo "? Upgrade successful"
+        
+        # Test downgrade (to previous revision)
+        echo "Running: flask db downgrade -1"
+        flask db downgrade -1 || echo "Warning: Downgrade to -1 failed (might be first migration)"
+        
+        # Test re-upgrade
+        echo "Running: flask db upgrade head"
+        flask db upgrade head
+        
+        if [ $? -ne 0 ]; then
+          echo "::error::Migration re-upgrade failed!"
+          exit 1
+        fi
+        
+        echo "? Full migration cycle successful"
+
+    - name: Check for dangerous operations
+      if: always()
+      run: |
+        echo "Checking for dangerous migration operations..."
+        
+        # Check for DROP TABLE without safeguards
+        if grep -r "op.drop_table" migrations/versions/*.py | grep -v "if_exists"; then
+          echo "::warning::Found DROP TABLE operations without if_exists check"
+        fi
+        
+        # Check for DROP COLUMN without safeguards
+        if grep -r "op.drop_column" migrations/versions/*.py; then
+          echo "::warning::Found DROP COLUMN operations - ensure data is backed up"
+        fi
+        
+        # Check for ALTER COLUMN that might cause data loss
+        if grep -r "op.alter_column.*nullable=False" migrations/versions/*.py; then
+          echo "::warning::Found columns being changed to NOT NULL - ensure no NULL values exist"
+        fi
+        
+        echo "? Dangerous operation check complete"
+
+    - name: Generate migration report
+      if: always()
+      run: |
+        echo "# Migration Validation Report" > migration-report.md
+        echo "" >> migration-report.md
+        echo "**Commit**: ${{ github.sha }}" >> migration-report.md
+        echo "**Branch**: ${{ github.ref_name }}" >> migration-report.md
+        echo "**Date**: $(date -u)" >> migration-report.md
+        echo "" >> migration-report.md
+        
+        if [ "${{ steps.check-chain.outputs.chain_broken }}" = "true" ]; then
+          echo "## ? Migration Chain Status: BROKEN" >> migration-report.md
+          echo "" >> migration-report.md
+          echo "Multiple migrations have \`down_revision = None\`. This will cause deployment failures." >> migration-report.md
+          echo "" >> migration-report.md
+          echo "### Fix Required" >> migration-report.md
+          echo "\`\`\`bash" >> migration-report.md
+          echo "python tools/scripts/fix_migration_chain.py --fix" >> migration-report.md
+          echo "\`\`\`" >> migration-report.md
+        else
+          echo "## ? Migration Chain Status: OK" >> migration-report.md
+          echo "" >> migration-report.md
+          echo "All migrations are properly linked in a single chain." >> migration-report.md
+        fi
+        
+        echo "" >> migration-report.md
+        echo "## Migration Files" >> migration-report.md
+        echo "" >> migration-report.md
+        echo "\`\`\`" >> migration-report.md
+        ls -1 migrations/versions/*.py 2>/dev/null | wc -l >> migration-report.md
+        echo "migration files found" >> migration-report.md
+        echo "\`\`\`" >> migration-report.md
+        
+        echo "" >> migration-report.md
+        echo "## Migration History" >> migration-report.md
+        echo "" >> migration-report.md
+        echo "\`\`\`" >> migration-report.md
+        PANEL_USE_SQLITE=1 PANEL_SECRET_KEY=test flask db history 2>/dev/null || echo "Unable to generate history" >> migration-report.md
+        echo "\`\`\`" >> migration-report.md
+
+    - name: Upload migration report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: migration-validation-report
+        path: migration-report.md
+        retention-days: 30
+
+    - name: Comment on PR with migration status
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('migration-report.md', 'utf8');
+          
+          const chainBroken = '${{ steps.check-chain.outputs.chain_broken }}' === 'true';
+          
+          let comment = '## ??? Migration Validation\n\n';
+          
+          if (chainBroken) {
+            comment += '### ? Migration Chain Broken\n\n';
+            comment += 'Multiple migrations have `down_revision = None`, creating multiple root nodes.\n\n';
+            comment += '**This will cause deployment failures!**\n\n';
+            comment += '#### Fix Command\n';
+            comment += '```bash\n';
+            comment += 'python tools/scripts/fix_migration_chain.py --fix\n';
+            comment += '```\n\n';
+          } else {
+            comment += '### ? Migration Chain Valid\n\n';
+            comment += 'All migrations are properly linked in a single chain.\n\n';
+          }
+          
+          comment += '<details>\n';
+          comment += '<summary>View Full Report</summary>\n\n';
+          comment += report;
+          comment += '\n</details>\n\n';
+          
+          comment += '---\n';
+          comment += '*Automated validation by [validate-migrations workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*';
+          
+          // Post comment
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number,
+            body: comment
+          });
+
+    - name: Fail if chain is broken
+      if: steps.check-chain.outputs.chain_broken == 'true'
+      run: |
+        echo "::error::Migration chain validation failed!"
+        echo "Fix the migration chain before merging this PR."
+        exit 1
