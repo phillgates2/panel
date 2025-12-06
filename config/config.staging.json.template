@@ -2,13 +2,13 @@
   "name": "staging",
   "debug": false,
   "testing": false,
-  "database_url": "postgresql://panel:staging_password@staging-db:5432/panel",
-  "redis_url": "redis://staging-redis:6379/0",
-  "mail_server": "smtp.staging.panel.com",
+  "database_url": "${DATABASE_URL}",
+  "redis_url": "${REDIS_URL}",
+  "mail_server": "${MAIL_SERVER}",
   "mail_port": 587,
   "mail_use_tls": true,
   "cdn_enabled": true,
-  "cdn_url": "https://cdn-staging.panel.com",
+  "cdn_url": "${CDN_URL}",
   "cdn_provider": "cloudflare",
   "microservices_enabled": false,
   "api_gateway_enabled": false,
@@ -34,12 +34,12 @@
   },
   "oauth_providers": {
     "google": {
-      "client_id": "staging-google-client-id",
-      "client_secret": "staging-google-client-secret"
+      "client_id": "${GOOGLE_CLIENT_ID}",
+      "client_secret": "${GOOGLE_CLIENT_SECRET}"
     },
     "github": {
-      "client_id": "staging-github-client-id",
-      "client_secret": "staging-github-client-secret"
+      "client_id": "${GITHUB_CLIENT_ID}",
+      "client_secret": "${GITHUB_CLIENT_SECRET}"
     }
   }
 }

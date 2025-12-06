@@ -2,13 +2,13 @@
   "name": "production",
   "debug": false,
   "testing": false,
-  "database_url": "postgresql://panel:prod_password@prod-db:5432/panel",
-  "redis_url": "redis://prod-redis:6379/0",
-  "mail_server": "smtp.panel.com",
+  "database_url": "${DATABASE_URL}",
+  "redis_url": "${REDIS_URL}",
+  "mail_server": "${MAIL_SERVER}",
   "mail_port": 587,
   "mail_use_tls": true,
   "cdn_enabled": true,
-  "cdn_url": "https://cdn.panel.com",
+  "cdn_url": "${CDN_URL}",
   "cdn_provider": "cloudflare",
   "microservices_enabled": true,
   "api_gateway_enabled": true,
@@ -34,12 +34,12 @@
   },
   "oauth_providers": {
     "google": {
-      "client_id": "prod-google-client-id",
-      "client_secret": "prod-google-client-secret"
+      "client_id": "${GOOGLE_CLIENT_ID}",
+      "client_secret": "${GOOGLE_CLIENT_SECRET}"
     },
     "github": {
-      "client_id": "prod-github-client-id",
-      "client_secret": "prod-github-client-secret"
+      "client_id": "${GITHUB_CLIENT_ID}",
+      "client_secret": "${GITHUB_CLIENT_SECRET}"
     }
   }
 }
