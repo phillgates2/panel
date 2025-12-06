@@ -12,7 +12,6 @@ jobs:
   e2e:
     name: Playwright E2E (manual)
     runs-on: ubuntu-latest
-    continue-on-error: true
     if: ${{ github.event.inputs.run_e2e == 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -23,20 +22,18 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        continue-on-error: true
         run: |
-          python -m venv .venv || true
-          source .venv/bin/activate || true
-          python -m pip install --upgrade pip || true
-          pip install -r requirements/requirements.txt || true
-          pip install -r requirements/requirements-test.txt || true
-          pip install pytest pytest-playwright || true
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements/requirements.txt
+          pip install -r requirements/requirements-test.txt
+          pip install pytest pytest-playwright
 
       - name: Install Playwright browsers
-        continue-on-error: true
         run: |
-          source .venv/bin/activate || true
-          python -m playwright install --with-deps || true
+          source .venv/bin/activate
+          python -m playwright install --with-deps
 
       - name: Run Playwright E2E tests
         env:
@@ -45,7 +42,7 @@ jobs:
         run: |
           source .venv/bin/activate
           if [ -f "tests/test_modal_e2e.py" ]; then
-            pytest -q tests/test_modal_e2e.py || echo "Warning: Some E2E tests failed"
+            pytest -q tests/test_modal_e2e.py
           else
             echo "⚠️  E2E test file not found. Skipping tests."
             exit 0

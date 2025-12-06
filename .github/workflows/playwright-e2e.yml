@@ -9,7 +9,6 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,32 +18,30 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install system deps (optional)
+      - name: Install system deps
         continue-on-error: true
         run: |
-          sudo apt-get update || true
-          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libgtk-3.0 libxss1 libasound2 fonts-liberation libx11-xcb1 libgbm1 libpangocairo-1.0-0 || true
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libgtk-3.0 libxss1 libasound2 fonts-liberation libx11-xcb1 libgbm1 libpangocairo-1.0-0
 
       - name: Install project dependencies
-        continue-on-error: true
         run: |
-          python -m pip install --upgrade pip || true
-          pip install -r requirements/requirements.txt || true
-          pip install -r requirements/requirements-test.txt || true
-          pip install pytest pytest-playwright || true
+          python -m pip install --upgrade pip
+          pip install -r requirements/requirements.txt
+          pip install -r requirements/requirements-test.txt
+          pip install pytest pytest-playwright
 
       - name: Install Playwright and browsers
-        continue-on-error: true
         run: |
-          python -m pip install playwright || true
-          npx -y playwright@latest install --with-deps || true
+          python -m pip install playwright
+          npx -y playwright@latest install --with-deps
 
       - name: Run tests (including e2e)
         env:
           CI: true
         run: |
           if [ -d "tests" ] && command -v pytest >/dev/null 2>&1; then
-            python -m pytest -q || echo "⚠️  Some tests failed, but continuing"
+            python -m pytest -q
           else
             echo "⚠️  Tests directory not found or pytest not installed. Skipping E2E tests."
             exit 0

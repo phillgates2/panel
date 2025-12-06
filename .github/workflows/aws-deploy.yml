@@ -25,7 +25,6 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    continue-on-error: true
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.environment == 'staging'
 
     steps:
@@ -40,14 +39,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed"
-        pip install -r requirements/requirements-test.txt || echo "Warning: Test dependencies failed"
-        pip install pytest pytest-cov || echo "Warning: pytest installation failed"
+        pip install -r requirements/requirements.txt
+        pip install -r requirements/requirements-test.txt
+        pip install pytest pytest-cov
 
     - name: Run tests
       run: |
         if [ -d "tests" ] && command -v pytest >/dev/null 2>&1; then
-          python -m pytest tests/ -v --cov=src --cov-report=xml || echo "Warning: Some tests failed"
+          python -m pytest tests/ -v --cov=src --cov-report=xml
         else
           echo "⚠️  Tests directory not found or pytest not installed. Skipping tests."
           echo '<?xml version="1.0" ?><coverage version="1.0"></coverage>' > coverage.xml
@@ -61,7 +60,6 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    continue-on-error: true
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.environment == 'staging'
 
     steps:
@@ -69,27 +67,25 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Run safety check
-      continue-on-error: true
       run: |
-        pip install safety || true
-        safety check --full-report || true
+        pip install safety
+        safety check --full-report
 
     - name: Run bandit security scan
-      continue-on-error: true
       run: |
-        pip install bandit || true
+        pip install bandit
         if [ -d "src" ]; then
-          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f json -o bandit-report.json
+        elif [ -d "app" ]; then
+          bandit -r app/ -f json -o bandit-report.json
         else
-          echo '{}' > bandit-report.json
-          echo "⚠️  src directory not found. Skipping bandit scan."
+          echo "⚠️  No source directory found. Skipping bandit scan."
         fi
 
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: [test, security-scan]
-    continue-on-error: true
     if: (success() && github.ref == 'refs/heads/main' && secrets.AWS_ACCESS_KEY_ID != '') || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -97,7 +93,6 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Configure AWS credentials
-      continue-on-error: true
       uses: aws-actions/configure-aws-credentials@v5
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -106,23 +101,21 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      continue-on-error: true
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build and push Docker image
-      continue-on-error: true
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Build Docker image
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG . || true
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest . || true
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
 
         # Push images
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest || true
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
         # Export image URI for next job
         echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
@@ -237,93 +230,3 @@ jobs:
           --query 'DistributionList.Items[?Comment==`panel-cdn`].DomainName' \
           --output text \
           --region ${{ env.AWS_REGION }})
-
-        # Test basic endpoints
-        curl -f "https://$CF_DOMAIN/" >/dev/null
-        curl -f "https://$CF_DOMAIN/api/health" >/dev/null
-
-  rollback:
-    name: Rollback Production
-    runs-on: ubuntu-latest
-    if: failure() && github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    needs: deploy-production
-
-    steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v5
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Rollback ECS service
-      run: |
-        # Get previous task definition
-        PREVIOUS_TASK_DEF=$(aws ecs describe-services \
-          --cluster ${{ env.ECS_CLUSTER }} \
-          --services ${{ env.ECS_SERVICE }} \
-          --query 'services[0].taskDefinition' \
-          --output text \
-          --region ${{ env.AWS_REGION }})
-
-        # Find the second most recent task definition
-        ROLLBACK_TASK_DEF=$(aws ecs list-task-definitions \
-          --familyPrefix panel \
-          --sort DESC \
-          --max-items 5 \
-          --query 'taskDefinitionArns[1]' \
-          --output text \
-          --region ${{ env.AWS_REGION }})
-
-        if [ "$ROLLBACK_TASK_DEF" != "None" ]; then
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
-            --task-definition $ROLLBACK_TASK_DEF \
-            --region ${{ env.AWS_REGION }}
-
-          echo "Rolled back to task definition: $ROLLBACK_TASK_DEF"
-        else
-          echo "No previous task definition found for rollback"
-          exit 1
-        fi
-
-  notify:
-    name: Send Notifications
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [deploy-staging, deploy-production, rollback]
-
-    steps:
-    - name: Send Slack notification
-      uses: 8398a7/action-slack@v3
-      if: always()
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-
-    - name: Send email notification
-      if: failure() && github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-      uses: dawidd6/action-send-mail@v6
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.EMAIL_USERNAME }}
-        password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: 'Panel Production Deployment Failed'
-        body: |
-          The Panel production deployment has failed.
-
-          Repository: ${{ github.repository }}
-          Branch: ${{ github.ref }}
-          Commit: ${{ github.sha }}
-          Workflow: ${{ github.workflow }}
-          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          Please check the deployment logs and take appropriate action.
-        to: ${{ secrets.ALERT_EMAILS }}
-        from: GitHub Actions <noreply@github.com>

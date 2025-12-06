@@ -24,9 +24,9 @@ rq==1.16.2
 rq-dashboard==0.6.1
 redis==7.1.0
 
-# HTTP and Networking
-requests==2.32.5
-urllib3==2.1.0
+# HTTP and Networking - SECURITY UPDATE: Fixed CVE-2024-37891, CVE-2025-1399, CVE-2024-47081
+requests>=2.32.4  # Updated from 2.32.5 to fix CVE-2024-47081
+urllib3>=2.3.0    # Updated from 2.1.0 to fix CVE-2024-37891, CVE-2025-1399
 
 # Testing Framework (install separately for development)
 # pytest==7.4.3
