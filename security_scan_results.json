@@ -1,0 +1,4265 @@
+﻿
+
++===========================================================================================================================================================================================+
+
+
+DEPRECATED: this command (`check`) has been DEPRECATED, and will be unsupported beyond 01 June 2024.
+
+
+We highly encourage switching to the new `scan` command which is easier to use, more powerful, and can be set up to mimic the deprecated command if required.
+
+
++===========================================================================================================================================================================================+
+
+
+{
+    "report_meta": {
+        "scan_target": "environment",
+        "scanned": [
+            "C:\\Python313\\Lib\\site-packages"
+        ],
+        "scanned_full_path": [
+            "C:\\Python313\\Lib\\site-packages"
+        ],
+        "target_languages": [
+            "python"
+        ],
+        "policy_file": null,
+        "policy_file_source": "local",
+        "audit_and_monitor": false,
+        "api_key": false,
+        "account": "",
+        "local_database_path": null,
+        "safety_version": "3.7.0",
+        "timestamp": "2025-12-06 12:56:01",
+        "packages_found": 248,
+        "vulnerabilities_found": 3,
+        "vulnerabilities_ignored": 0,
+        "remediations_recommended": 0,
+        "telemetry": {
+            "safety_options": {
+                "json": {
+                    "--json": 1
+                }
+            },
+            "safety_version": "3.7.0",
+            "safety_source": "cli",
+            "os_type": "Windows",
+            "os_release": "11",
+            "os_description": "Windows-11-10.0.22631-SP0",
+            "python_version": "3.13.3",
+            "safety_command": "check"
+        },
+        "git": {
+            "branch": "main",
+            "tag": "",
+            "commit": "87a6949e304cf94f7719e9b2fd45cac5780e967c",
+            "dirty": "False",
+            "origin": "https://github.com/phillgates2/panel"
+        },
+        "project": null,
+        "json_version": "1.1",
+        "remediations_attempted": 0,
+        "remediations_completed": 0,
+        "remediation_mode": "NON_INTERACTIVE"
+    },
+    "scanned_packages": {
+        "acres": {
+            "name": "acres",
+            "version": "0.3.0",
+            "requirements": [
+                {
+                    "raw": "acres==0.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "acres",
+                    "specifier": "==0.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\acres-0.3.0.dist-info"
+                }
+            ]
+        },
+        "aiofiles": {
+            "name": "aiofiles",
+            "version": "24.1.0",
+            "requirements": [
+                {
+                    "raw": "aiofiles==24.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aiofiles",
+                    "specifier": "==24.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\aiofiles-24.1.0.dist-info"
+                }
+            ]
+        },
+        "aiohappyeyeballs": {
+            "name": "aiohappyeyeballs",
+            "version": "2.6.1",
+            "requirements": [
+                {
+                    "raw": "aiohappyeyeballs==2.6.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aiohappyeyeballs",
+                    "specifier": "==2.6.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\aiohappyeyeballs-2.6.1.dist-info"
+                }
+            ]
+        },
+        "aiohttp": {
+            "name": "aiohttp",
+            "version": "3.13.2",
+            "requirements": [
+                {
+                    "raw": "aiohttp==3.13.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aiohttp",
+                    "specifier": "==3.13.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\aiohttp-3.13.2.dist-info"
+                }
+            ]
+        },
+        "aiosignal": {
+            "name": "aiosignal",
+            "version": "1.4.0",
+            "requirements": [
+                {
+                    "raw": "aiosignal==1.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aiosignal",
+                    "specifier": "==1.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\aiosignal-1.4.0.dist-info"
+                }
+            ]
+        },
+        "alembic": {
+            "name": "alembic",
+            "version": "1.17.2",
+            "requirements": [
+                {
+                    "raw": "alembic==1.17.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "alembic",
+                    "specifier": "==1.17.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\alembic-1.17.2.dist-info"
+                }
+            ]
+        },
+        "altair": {
+            "name": "altair",
+            "version": "5.5.0",
+            "requirements": [
+                {
+                    "raw": "altair==5.5.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "altair",
+                    "specifier": "==5.5.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\altair-5.5.0.dist-info"
+                }
+            ]
+        },
+        "altgraph": {
+            "name": "altgraph",
+            "version": "0.17.4",
+            "requirements": [
+                {
+                    "raw": "altgraph==0.17.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "altgraph",
+                    "specifier": "==0.17.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\altgraph-0.17.4.dist-info"
+                }
+            ]
+        },
+        "amqp": {
+            "name": "amqp",
+            "version": "5.3.1",
+            "requirements": [
+                {
+                    "raw": "amqp==5.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "amqp",
+                    "specifier": "==5.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\amqp-5.3.1.dist-info"
+                }
+            ]
+        },
+        "aniso8601": {
+            "name": "aniso8601",
+            "version": "10.0.1",
+            "requirements": [
+                {
+                    "raw": "aniso8601==10.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aniso8601",
+                    "specifier": "==10.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\aniso8601-10.0.1.dist-info"
+                }
+            ]
+        },
+        "annotated-doc": {
+            "name": "annotated-doc",
+            "version": "0.0.4",
+            "requirements": [
+                {
+                    "raw": "annotated-doc==0.0.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "annotated-doc",
+                    "specifier": "==0.0.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\annotated_doc-0.0.4.dist-info"
+                }
+            ]
+        },
+        "annotated-types": {
+            "name": "annotated-types",
+            "version": "0.7.0",
+            "requirements": [
+                {
+                    "raw": "annotated-types==0.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "annotated-types",
+                    "specifier": "==0.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\annotated_types-0.7.0.dist-info"
+                }
+            ]
+        },
+        "anyio": {
+            "name": "anyio",
+            "version": "4.9.0",
+            "requirements": [
+                {
+                    "raw": "anyio==4.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "anyio",
+                    "specifier": "==4.9.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\anyio-4.9.0.dist-info"
+                }
+            ]
+        },
+        "astroid": {
+            "name": "astroid",
+            "version": "4.0.2",
+            "requirements": [
+                {
+                    "raw": "astroid==4.0.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "astroid",
+                    "specifier": "==4.0.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\astroid-4.0.2.dist-info"
+                }
+            ]
+        },
+        "attrs": {
+            "name": "attrs",
+            "version": "25.4.0",
+            "requirements": [
+                {
+                    "raw": "attrs==25.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "attrs",
+                    "specifier": "==25.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\attrs-25.4.0.dist-info"
+                }
+            ]
+        },
+        "Authlib": {
+            "name": "Authlib",
+            "version": "1.6.5",
+            "requirements": [
+                {
+                    "raw": "Authlib==1.6.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Authlib",
+                    "specifier": "==1.6.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\authlib-1.6.5.dist-info"
+                }
+            ]
+        },
+        "babel": {
+            "name": "babel",
+            "version": "2.17.0",
+            "requirements": [
+                {
+                    "raw": "babel==2.17.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "babel",
+                    "specifier": "==2.17.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\babel-2.17.0.dist-info"
+                }
+            ]
+        },
+        "backports.zstd": {
+            "name": "backports.zstd",
+            "version": "1.1.0",
+            "requirements": [
+                {
+                    "raw": "backports.zstd==1.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "backports.zstd",
+                    "specifier": "==1.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\backports_zstd-1.1.0.dist-info"
+                }
+            ]
+        },
+        "bidict": {
+            "name": "bidict",
+            "version": "0.23.1",
+            "requirements": [
+                {
+                    "raw": "bidict==0.23.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "bidict",
+                    "specifier": "==0.23.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\bidict-0.23.1.dist-info"
+                }
+            ]
+        },
+        "billiard": {
+            "name": "billiard",
+            "version": "4.2.3",
+            "requirements": [
+                {
+                    "raw": "billiard==4.2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "billiard",
+                    "specifier": "==4.2.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\billiard-4.2.3.dist-info"
+                }
+            ]
+        },
+        "black": {
+            "name": "black",
+            "version": "25.11.0",
+            "requirements": [
+                {
+                    "raw": "black==25.11.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "black",
+                    "specifier": "==25.11.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\black-25.11.0.dist-info"
+                }
+            ]
+        },
+        "blinker": {
+            "name": "blinker",
+            "version": "1.9.0",
+            "requirements": [
+                {
+                    "raw": "blinker==1.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "blinker",
+                    "specifier": "==1.9.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\blinker-1.9.0.dist-info"
+                }
+            ]
+        },
+        "brotli": {
+            "name": "brotli",
+            "version": "1.2.0",
+            "requirements": [
+                {
+                    "raw": "brotli==1.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "brotli",
+                    "specifier": "==1.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\brotli-1.2.0.dist-info"
+                }
+            ]
+        },
+        "cachelib": {
+            "name": "cachelib",
+            "version": "0.13.0",
+            "requirements": [
+                {
+                    "raw": "cachelib==0.13.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cachelib",
+                    "specifier": "==0.13.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\cachelib-0.13.0.dist-info"
+                }
+            ]
+        },
+        "cachetools": {
+            "name": "cachetools",
+            "version": "6.2.0",
+            "requirements": [
+                {
+                    "raw": "cachetools==6.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cachetools",
+                    "specifier": "==6.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\cachetools-6.2.0.dist-info"
+                }
+            ]
+        },
+        "celery": {
+            "name": "celery",
+            "version": "5.5.3",
+            "requirements": [
+                {
+                    "raw": "celery==5.5.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "celery",
+                    "specifier": "==5.5.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\celery-5.5.3.dist-info"
+                }
+            ]
+        },
+        "certifi": {
+            "name": "certifi",
+            "version": "2025.4.26",
+            "requirements": [
+                {
+                    "raw": "certifi==2025.4.26",
+                    "extras": [],
+                    "marker": null,
+                    "name": "certifi",
+                    "specifier": "==2025.4.26",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\certifi-2025.4.26.dist-info"
+                }
+            ]
+        },
+        "cffi": {
+            "name": "cffi",
+            "version": "1.17.1",
+            "requirements": [
+                {
+                    "raw": "cffi==1.17.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cffi",
+                    "specifier": "==1.17.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\cffi-1.17.1.dist-info"
+                }
+            ]
+        },
+        "charset-normalizer": {
+            "name": "charset-normalizer",
+            "version": "3.4.2",
+            "requirements": [
+                {
+                    "raw": "charset-normalizer==3.4.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "charset-normalizer",
+                    "specifier": "==3.4.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\charset_normalizer-3.4.2.dist-info"
+                }
+            ]
+        },
+        "ci-info": {
+            "name": "ci-info",
+            "version": "0.3.0",
+            "requirements": [
+                {
+                    "raw": "ci-info==0.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ci-info",
+                    "specifier": "==0.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ci_info-0.3.0.dist-info"
+                }
+            ]
+        },
+        "click": {
+            "name": "click",
+            "version": "8.3.1",
+            "requirements": [
+                {
+                    "raw": "click==8.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "click",
+                    "specifier": "==8.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\click-8.3.1.dist-info"
+                }
+            ]
+        },
+        "click-didyoumean": {
+            "name": "click-didyoumean",
+            "version": "0.3.1",
+            "requirements": [
+                {
+                    "raw": "click-didyoumean==0.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "click-didyoumean",
+                    "specifier": "==0.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\click_didyoumean-0.3.1.dist-info"
+                }
+            ]
+        },
+        "click-plugins": {
+            "name": "click-plugins",
+            "version": "1.1.1.2",
+            "requirements": [
+                {
+                    "raw": "click-plugins==1.1.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "click-plugins",
+                    "specifier": "==1.1.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\click_plugins-1.1.1.2.dist-info"
+                }
+            ]
+        },
+        "click-repl": {
+            "name": "click-repl",
+            "version": "0.3.0",
+            "requirements": [
+                {
+                    "raw": "click-repl==0.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "click-repl",
+                    "specifier": "==0.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\click_repl-0.3.0.dist-info"
+                }
+            ]
+        },
+        "colorama": {
+            "name": "colorama",
+            "version": "0.4.6",
+            "requirements": [
+                {
+                    "raw": "colorama==0.4.6",
+                    "extras": [],
+                    "marker": null,
+                    "name": "colorama",
+                    "specifier": "==0.4.6",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\colorama-0.4.6.dist-info"
+                }
+            ]
+        },
+        "ConfigArgParse": {
+            "name": "ConfigArgParse",
+            "version": "1.7.1",
+            "requirements": [
+                {
+                    "raw": "ConfigArgParse==1.7.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ConfigArgParse",
+                    "specifier": "==1.7.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\configargparse-1.7.1.dist-info"
+                }
+            ]
+        },
+        "configobj": {
+            "name": "configobj",
+            "version": "5.0.9",
+            "requirements": [
+                {
+                    "raw": "configobj==5.0.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "configobj",
+                    "specifier": "==5.0.9",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\configobj-5.0.9.dist-info"
+                }
+            ]
+        },
+        "configparser": {
+            "name": "configparser",
+            "version": "7.2.0",
+            "requirements": [
+                {
+                    "raw": "configparser==7.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "configparser",
+                    "specifier": "==7.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\configparser-7.2.0.dist-info"
+                }
+            ]
+        },
+        "contourpy": {
+            "name": "contourpy",
+            "version": "1.3.3",
+            "requirements": [
+                {
+                    "raw": "contourpy==1.3.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "contourpy",
+                    "specifier": "==1.3.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\contourpy-1.3.3.dist-info"
+                }
+            ]
+        },
+        "coverage": {
+            "name": "coverage",
+            "version": "7.12.0",
+            "requirements": [
+                {
+                    "raw": "coverage==7.12.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "coverage",
+                    "specifier": "==7.12.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\coverage-7.12.0.dist-info"
+                }
+            ]
+        },
+        "cryptography": {
+            "name": "cryptography",
+            "version": "44.0.3",
+            "requirements": [
+                {
+                    "raw": "cryptography==44.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cryptography",
+                    "specifier": "==44.0.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\cryptography-44.0.3.dist-info"
+                }
+            ]
+        },
+        "cycler": {
+            "name": "cycler",
+            "version": "0.12.1",
+            "requirements": [
+                {
+                    "raw": "cycler==0.12.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cycler",
+                    "specifier": "==0.12.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\cycler-0.12.1.dist-info"
+                }
+            ]
+        },
+        "Deprecated": {
+            "name": "Deprecated",
+            "version": "1.3.1",
+            "requirements": [
+                {
+                    "raw": "Deprecated==1.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Deprecated",
+                    "specifier": "==1.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\deprecated-1.3.1.dist-info"
+                }
+            ]
+        },
+        "dill": {
+            "name": "dill",
+            "version": "0.4.0",
+            "requirements": [
+                {
+                    "raw": "dill==0.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "dill",
+                    "specifier": "==0.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\dill-0.4.0.dist-info"
+                }
+            ]
+        },
+        "distro": {
+            "name": "distro",
+            "version": "1.9.0",
+            "requirements": [
+                {
+                    "raw": "distro==1.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "distro",
+                    "specifier": "==1.9.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\distro-1.9.0.dist-info"
+                }
+            ]
+        },
+        "docutils": {
+            "name": "docutils",
+            "version": "0.22.3",
+            "requirements": [
+                {
+                    "raw": "docutils==0.22.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "docutils",
+                    "specifier": "==0.22.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\docutils-0.22.3.dist-info"
+                }
+            ]
+        },
+        "dparse": {
+            "name": "dparse",
+            "version": "0.6.4",
+            "requirements": [
+                {
+                    "raw": "dparse==0.6.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "dparse",
+                    "specifier": "==0.6.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\dparse-0.6.4.dist-info"
+                }
+            ]
+        },
+        "etelemetry": {
+            "name": "etelemetry",
+            "version": "0.3.1",
+            "requirements": [
+                {
+                    "raw": "etelemetry==0.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "etelemetry",
+                    "specifier": "==0.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\etelemetry-0.3.1.dist-info"
+                }
+            ]
+        },
+        "et_xmlfile": {
+            "name": "et_xmlfile",
+            "version": "2.0.0",
+            "requirements": [
+                {
+                    "raw": "et_xmlfile==2.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "et_xmlfile",
+                    "specifier": "==2.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\et_xmlfile-2.0.0.dist-info"
+                }
+            ]
+        },
+        "fastapi": {
+            "name": "fastapi",
+            "version": "0.122.0",
+            "requirements": [
+                {
+                    "raw": "fastapi==0.122.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fastapi",
+                    "specifier": "==0.122.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\fastapi-0.122.0.dist-info"
+                }
+            ]
+        },
+        "filelock": {
+            "name": "filelock",
+            "version": "3.18.0",
+            "requirements": [
+                {
+                    "raw": "filelock==3.18.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "filelock",
+                    "specifier": "==3.18.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\filelock-3.18.0.dist-info"
+                }
+            ]
+        },
+        "fitz": {
+            "name": "fitz",
+            "version": "0.0.1.dev2",
+            "requirements": [
+                {
+                    "raw": "fitz==0.0.1.dev2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fitz",
+                    "specifier": "==0.0.1.dev2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\fitz-0.0.1.dev2.dist-info"
+                }
+            ]
+        },
+        "flake8": {
+            "name": "flake8",
+            "version": "7.3.0",
+            "requirements": [
+                {
+                    "raw": "flake8==7.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "flake8",
+                    "specifier": "==7.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flake8-7.3.0.dist-info"
+                }
+            ]
+        },
+        "Flask": {
+            "name": "Flask",
+            "version": "3.1.2",
+            "requirements": [
+                {
+                    "raw": "Flask==3.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask",
+                    "specifier": "==3.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask-3.1.2.dist-info"
+                }
+            ]
+        },
+        "flask-babel": {
+            "name": "flask-babel",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "flask-babel==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "flask-babel",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_babel-4.0.0.dist-info"
+                }
+            ]
+        },
+        "Flask-Caching": {
+            "name": "Flask-Caching",
+            "version": "2.3.1",
+            "requirements": [
+                {
+                    "raw": "Flask-Caching==2.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Caching",
+                    "specifier": "==2.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\Flask_Caching-2.3.1.dist-info"
+                }
+            ]
+        },
+        "Flask-Compress": {
+            "name": "Flask-Compress",
+            "version": "1.23",
+            "requirements": [
+                {
+                    "raw": "Flask-Compress==1.23",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Compress",
+                    "specifier": "==1.23",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_compress-1.23.dist-info"
+                }
+            ]
+        },
+        "flask-cors": {
+            "name": "flask-cors",
+            "version": "6.0.1",
+            "requirements": [
+                {
+                    "raw": "flask-cors==6.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "flask-cors",
+                    "specifier": "==6.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_cors-6.0.1.dist-info"
+                }
+            ]
+        },
+        "Flask-GraphQL": {
+            "name": "Flask-GraphQL",
+            "version": "2.0.1",
+            "requirements": [
+                {
+                    "raw": "Flask-GraphQL==2.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-GraphQL",
+                    "specifier": "==2.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_graphql-2.0.1.dist-info"
+                }
+            ]
+        },
+        "Flask-JWT-Extended": {
+            "name": "Flask-JWT-Extended",
+            "version": "4.7.1",
+            "requirements": [
+                {
+                    "raw": "Flask-JWT-Extended==4.7.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-JWT-Extended",
+                    "specifier": "==4.7.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\Flask_JWT_Extended-4.7.1.dist-info"
+                }
+            ]
+        },
+        "Flask-Limiter": {
+            "name": "Flask-Limiter",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "Flask-Limiter==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Limiter",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_limiter-4.0.0.dist-info"
+                }
+            ]
+        },
+        "Flask-Login": {
+            "name": "Flask-Login",
+            "version": "0.6.3",
+            "requirements": [
+                {
+                    "raw": "Flask-Login==0.6.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Login",
+                    "specifier": "==0.6.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\Flask_Login-0.6.3.dist-info"
+                }
+            ]
+        },
+        "Flask-Migrate": {
+            "name": "Flask-Migrate",
+            "version": "4.1.0",
+            "requirements": [
+                {
+                    "raw": "Flask-Migrate==4.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Migrate",
+                    "specifier": "==4.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\Flask_Migrate-4.1.0.dist-info"
+                }
+            ]
+        },
+        "Flask-Principal": {
+            "name": "Flask-Principal",
+            "version": "0.4.0",
+            "requirements": [
+                {
+                    "raw": "Flask-Principal==0.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-Principal",
+                    "specifier": "==0.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_principal-0.4.0.dist-info"
+                }
+            ]
+        },
+        "flask-restx": {
+            "name": "flask-restx",
+            "version": "1.3.2",
+            "requirements": [
+                {
+                    "raw": "flask-restx==1.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "flask-restx",
+                    "specifier": "==1.3.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_restx-1.3.2.dist-info"
+                }
+            ]
+        },
+        "Flask-SocketIO": {
+            "name": "Flask-SocketIO",
+            "version": "5.5.1",
+            "requirements": [
+                {
+                    "raw": "Flask-SocketIO==5.5.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-SocketIO",
+                    "specifier": "==5.5.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\Flask_SocketIO-5.5.1.dist-info"
+                }
+            ]
+        },
+        "Flask-SQLAlchemy": {
+            "name": "Flask-SQLAlchemy",
+            "version": "3.1.1",
+            "requirements": [
+                {
+                    "raw": "Flask-SQLAlchemy==3.1.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Flask-SQLAlchemy",
+                    "specifier": "==3.1.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_sqlalchemy-3.1.1.dist-info"
+                }
+            ]
+        },
+        "flask-swagger-ui": {
+            "name": "flask-swagger-ui",
+            "version": "5.21.0",
+            "requirements": [
+                {
+                    "raw": "flask-swagger-ui==5.21.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "flask-swagger-ui",
+                    "specifier": "==5.21.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\flask_swagger_ui-5.21.0.dist-info"
+                }
+            ]
+        },
+        "fonttools": {
+            "name": "fonttools",
+            "version": "4.60.1",
+            "requirements": [
+                {
+                    "raw": "fonttools==4.60.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fonttools",
+                    "specifier": "==4.60.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\fonttools-4.60.1.dist-info"
+                }
+            ]
+        },
+        "fpdf": {
+            "name": "fpdf",
+            "version": "1.7.2",
+            "requirements": [
+                {
+                    "raw": "fpdf==1.7.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fpdf",
+                    "specifier": "==1.7.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\fpdf-1.7.2.dist-info"
+                }
+            ]
+        },
+        "frontend": {
+            "name": "frontend",
+            "version": "0.0.3",
+            "requirements": [
+                {
+                    "raw": "frontend==0.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "frontend",
+                    "specifier": "==0.0.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\frontend-0.0.3.dist-info"
+                }
+            ]
+        },
+        "frozenlist": {
+            "name": "frozenlist",
+            "version": "1.8.0",
+            "requirements": [
+                {
+                    "raw": "frozenlist==1.8.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "frozenlist",
+                    "specifier": "==1.8.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\frozenlist-1.8.0.dist-info"
+                }
+            ]
+        },
+        "fsspec": {
+            "name": "fsspec",
+            "version": "2025.10.0",
+            "requirements": [
+                {
+                    "raw": "fsspec==2025.10.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fsspec",
+                    "specifier": "==2025.10.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\fsspec-2025.10.0.dist-info"
+                }
+            ]
+        },
+        "gevent": {
+            "name": "gevent",
+            "version": "25.9.1",
+            "requirements": [
+                {
+                    "raw": "gevent==25.9.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "gevent",
+                    "specifier": "==25.9.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\gevent-25.9.1.dist-info"
+                }
+            ]
+        },
+        "geventhttpclient": {
+            "name": "geventhttpclient",
+            "version": "2.3.5",
+            "requirements": [
+                {
+                    "raw": "geventhttpclient==2.3.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "geventhttpclient",
+                    "specifier": "==2.3.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\geventhttpclient-2.3.5.dist-info"
+                }
+            ]
+        },
+        "gitdb": {
+            "name": "gitdb",
+            "version": "4.0.12",
+            "requirements": [
+                {
+                    "raw": "gitdb==4.0.12",
+                    "extras": [],
+                    "marker": null,
+                    "name": "gitdb",
+                    "specifier": "==4.0.12",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\gitdb-4.0.12.dist-info"
+                }
+            ]
+        },
+        "GitPython": {
+            "name": "GitPython",
+            "version": "3.1.45",
+            "requirements": [
+                {
+                    "raw": "GitPython==3.1.45",
+                    "extras": [],
+                    "marker": null,
+                    "name": "GitPython",
+                    "specifier": "==3.1.45",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\gitpython-3.1.45.dist-info"
+                }
+            ]
+        },
+        "graphene": {
+            "name": "graphene",
+            "version": "3.4.3",
+            "requirements": [
+                {
+                    "raw": "graphene==3.4.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "graphene",
+                    "specifier": "==3.4.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\graphene-3.4.3.dist-info"
+                }
+            ]
+        },
+        "graphql-core": {
+            "name": "graphql-core",
+            "version": "3.2.7",
+            "requirements": [
+                {
+                    "raw": "graphql-core==3.2.7",
+                    "extras": [],
+                    "marker": null,
+                    "name": "graphql-core",
+                    "specifier": "==3.2.7",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\graphql_core-3.2.7.dist-info"
+                }
+            ]
+        },
+        "graphql-relay": {
+            "name": "graphql-relay",
+            "version": "3.2.0",
+            "requirements": [
+                {
+                    "raw": "graphql-relay==3.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "graphql-relay",
+                    "specifier": "==3.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\graphql_relay-3.2.0.dist-info"
+                }
+            ]
+        },
+        "graphql-server-core": {
+            "name": "graphql-server-core",
+            "version": "1.2.0",
+            "requirements": [
+                {
+                    "raw": "graphql-server-core==1.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "graphql-server-core",
+                    "specifier": "==1.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\graphql_server_core-1.2.0.dist-info"
+                }
+            ]
+        },
+        "greenlet": {
+            "name": "greenlet",
+            "version": "3.2.4",
+            "requirements": [
+                {
+                    "raw": "greenlet==3.2.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "greenlet",
+                    "specifier": "==3.2.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\greenlet-3.2.4.dist-info"
+                }
+            ]
+        },
+        "h11": {
+            "name": "h11",
+            "version": "0.16.0",
+            "requirements": [
+                {
+                    "raw": "h11==0.16.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "h11",
+                    "specifier": "==0.16.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\h11-0.16.0.dist-info"
+                }
+            ]
+        },
+        "htmx": {
+            "name": "htmx",
+            "version": "0.0.0",
+            "requirements": [
+                {
+                    "raw": "htmx==0.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "htmx",
+                    "specifier": "==0.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\htmx-0.0.0.dist-info"
+                }
+            ]
+        },
+        "httpcore": {
+            "name": "httpcore",
+            "version": "1.0.9",
+            "requirements": [
+                {
+                    "raw": "httpcore==1.0.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httpcore",
+                    "specifier": "==1.0.9",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\httpcore-1.0.9.dist-info"
+                }
+            ]
+        },
+        "httplib2": {
+            "name": "httplib2",
+            "version": "0.22.0",
+            "requirements": [
+                {
+                    "raw": "httplib2==0.22.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httplib2",
+                    "specifier": "==0.22.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\httplib2-0.22.0.dist-info"
+                }
+            ]
+        },
+        "httptools": {
+            "name": "httptools",
+            "version": "0.7.1",
+            "requirements": [
+                {
+                    "raw": "httptools==0.7.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httptools",
+                    "specifier": "==0.7.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\httptools-0.7.1.dist-info"
+                }
+            ]
+        },
+        "httpx": {
+            "name": "httpx",
+            "version": "0.28.1",
+            "requirements": [
+                {
+                    "raw": "httpx==0.28.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httpx",
+                    "specifier": "==0.28.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\httpx-0.28.1.dist-info"
+                }
+            ]
+        },
+        "http_ece": {
+            "name": "http_ece",
+            "version": "1.2.1",
+            "requirements": [
+                {
+                    "raw": "http_ece==1.2.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "http_ece",
+                    "specifier": "==1.2.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\http_ece-1.2.1.dist-info"
+                }
+            ]
+        },
+        "huggingface-hub": {
+            "name": "huggingface-hub",
+            "version": "0.36.0",
+            "requirements": [
+                {
+                    "raw": "huggingface-hub==0.36.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "huggingface-hub",
+                    "specifier": "==0.36.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\huggingface_hub-0.36.0.dist-info"
+                }
+            ]
+        },
+        "idna": {
+            "name": "idna",
+            "version": "3.10",
+            "requirements": [
+                {
+                    "raw": "idna==3.10",
+                    "extras": [],
+                    "marker": null,
+                    "name": "idna",
+                    "specifier": "==3.10",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\idna-3.10.dist-info"
+                }
+            ]
+        },
+        "ifaddr": {
+            "name": "ifaddr",
+            "version": "0.2.0",
+            "requirements": [
+                {
+                    "raw": "ifaddr==0.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ifaddr",
+                    "specifier": "==0.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ifaddr-0.2.0.dist-info"
+                }
+            ]
+        },
+        "importlib_resources": {
+            "name": "importlib_resources",
+            "version": "6.5.2",
+            "requirements": [
+                {
+                    "raw": "importlib_resources==6.5.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "importlib_resources",
+                    "specifier": "==6.5.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\importlib_resources-6.5.2.dist-info"
+                }
+            ]
+        },
+        "iniconfig": {
+            "name": "iniconfig",
+            "version": "2.3.0",
+            "requirements": [
+                {
+                    "raw": "iniconfig==2.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "iniconfig",
+                    "specifier": "==2.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\iniconfig-2.3.0.dist-info"
+                }
+            ]
+        },
+        "isodate": {
+            "name": "isodate",
+            "version": "0.6.1",
+            "requirements": [
+                {
+                    "raw": "isodate==0.6.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "isodate",
+                    "specifier": "==0.6.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\isodate-0.6.1.dist-info"
+                }
+            ]
+        },
+        "isort": {
+            "name": "isort",
+            "version": "7.0.0",
+            "requirements": [
+                {
+                    "raw": "isort==7.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "isort",
+                    "specifier": "==7.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\isort-7.0.0.dist-info"
+                }
+            ]
+        },
+        "itsdangerous": {
+            "name": "itsdangerous",
+            "version": "2.2.0",
+            "requirements": [
+                {
+                    "raw": "itsdangerous==2.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "itsdangerous",
+                    "specifier": "==2.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\itsdangerous-2.2.0.dist-info"
+                }
+            ]
+        },
+        "Jinja2": {
+            "name": "Jinja2",
+            "version": "3.1.6",
+            "requirements": [
+                {
+                    "raw": "Jinja2==3.1.6",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Jinja2",
+                    "specifier": "==3.1.6",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\jinja2-3.1.6.dist-info"
+                }
+            ]
+        },
+        "jiter": {
+            "name": "jiter",
+            "version": "0.12.0",
+            "requirements": [
+                {
+                    "raw": "jiter==0.12.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jiter",
+                    "specifier": "==0.12.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\jiter-0.12.0.dist-info"
+                }
+            ]
+        },
+        "joblib": {
+            "name": "joblib",
+            "version": "1.5.2",
+            "requirements": [
+                {
+                    "raw": "joblib==1.5.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "joblib",
+                    "specifier": "==1.5.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\joblib-1.5.2.dist-info"
+                }
+            ]
+        },
+        "jsonschema": {
+            "name": "jsonschema",
+            "version": "4.25.1",
+            "requirements": [
+                {
+                    "raw": "jsonschema==4.25.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonschema",
+                    "specifier": "==4.25.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\jsonschema-4.25.1.dist-info"
+                }
+            ]
+        },
+        "jsonschema-specifications": {
+            "name": "jsonschema-specifications",
+            "version": "2025.9.1",
+            "requirements": [
+                {
+                    "raw": "jsonschema-specifications==2025.9.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonschema-specifications",
+                    "specifier": "==2025.9.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\jsonschema_specifications-2025.9.1.dist-info"
+                }
+            ]
+        },
+        "kiwisolver": {
+            "name": "kiwisolver",
+            "version": "1.4.9",
+            "requirements": [
+                {
+                    "raw": "kiwisolver==1.4.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "kiwisolver",
+                    "specifier": "==1.4.9",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\kiwisolver-1.4.9.dist-info"
+                }
+            ]
+        },
+        "kombu": {
+            "name": "kombu",
+            "version": "5.5.4",
+            "requirements": [
+                {
+                    "raw": "kombu==5.5.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "kombu",
+                    "specifier": "==5.5.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\kombu-5.5.4.dist-info"
+                }
+            ]
+        },
+        "limits": {
+            "name": "limits",
+            "version": "5.6.0",
+            "requirements": [
+                {
+                    "raw": "limits==5.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "limits",
+                    "specifier": "==5.6.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\limits-5.6.0.dist-info"
+                }
+            ]
+        },
+        "locust": {
+            "name": "locust",
+            "version": "2.42.5",
+            "requirements": [
+                {
+                    "raw": "locust==2.42.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "locust",
+                    "specifier": "==2.42.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\locust-2.42.5.dist-info"
+                }
+            ]
+        },
+        "locust-cloud": {
+            "name": "locust-cloud",
+            "version": "1.29.4",
+            "requirements": [
+                {
+                    "raw": "locust-cloud==1.29.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "locust-cloud",
+                    "specifier": "==1.29.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\locust_cloud-1.29.4.dist-info"
+                }
+            ]
+        },
+        "looseversion": {
+            "name": "looseversion",
+            "version": "1.3.0",
+            "requirements": [
+                {
+                    "raw": "looseversion==1.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "looseversion",
+                    "specifier": "==1.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\looseversion-1.3.0.dist-info"
+                }
+            ]
+        },
+        "lxml": {
+            "name": "lxml",
+            "version": "5.4.0",
+            "requirements": [
+                {
+                    "raw": "lxml==5.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "lxml",
+                    "specifier": "==5.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\lxml-5.4.0.dist-info"
+                }
+            ]
+        },
+        "Mako": {
+            "name": "Mako",
+            "version": "1.3.10",
+            "requirements": [
+                {
+                    "raw": "Mako==1.3.10",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Mako",
+                    "specifier": "==1.3.10",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\mako-1.3.10.dist-info"
+                }
+            ]
+        },
+        "markdown2": {
+            "name": "markdown2",
+            "version": "2.5.4",
+            "requirements": [
+                {
+                    "raw": "markdown2==2.5.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "markdown2",
+                    "specifier": "==2.5.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\markdown2-2.5.4.dist-info"
+                }
+            ]
+        },
+        "markdown-it-py": {
+            "name": "markdown-it-py",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "markdown-it-py==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "markdown-it-py",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\markdown_it_py-4.0.0.dist-info"
+                }
+            ]
+        },
+        "MarkupSafe": {
+            "name": "MarkupSafe",
+            "version": "3.0.3",
+            "requirements": [
+                {
+                    "raw": "MarkupSafe==3.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "MarkupSafe",
+                    "specifier": "==3.0.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\markupsafe-3.0.3.dist-info"
+                }
+            ]
+        },
+        "marshmallow": {
+            "name": "marshmallow",
+            "version": "4.1.0",
+            "requirements": [
+                {
+                    "raw": "marshmallow==4.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "marshmallow",
+                    "specifier": "==4.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\marshmallow-4.1.0.dist-info"
+                }
+            ]
+        },
+        "matplotlib": {
+            "name": "matplotlib",
+            "version": "3.10.7",
+            "requirements": [
+                {
+                    "raw": "matplotlib==3.10.7",
+                    "extras": [],
+                    "marker": null,
+                    "name": "matplotlib",
+                    "specifier": "==3.10.7",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\matplotlib-3.10.7.dist-info"
+                }
+            ]
+        },
+        "mccabe": {
+            "name": "mccabe",
+            "version": "0.7.0",
+            "requirements": [
+                {
+                    "raw": "mccabe==0.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mccabe",
+                    "specifier": "==0.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\mccabe-0.7.0.dist-info"
+                }
+            ]
+        },
+        "mdurl": {
+            "name": "mdurl",
+            "version": "0.1.2",
+            "requirements": [
+                {
+                    "raw": "mdurl==0.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mdurl",
+                    "specifier": "==0.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\mdurl-0.1.2.dist-info"
+                }
+            ]
+        },
+        "mpmath": {
+            "name": "mpmath",
+            "version": "1.3.0",
+            "requirements": [
+                {
+                    "raw": "mpmath==1.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mpmath",
+                    "specifier": "==1.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\mpmath-1.3.0.dist-info"
+                }
+            ]
+        },
+        "msgpack": {
+            "name": "msgpack",
+            "version": "1.1.2",
+            "requirements": [
+                {
+                    "raw": "msgpack==1.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "msgpack",
+                    "specifier": "==1.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\msgpack-1.1.2.dist-info"
+                }
+            ]
+        },
+        "multidict": {
+            "name": "multidict",
+            "version": "6.7.0",
+            "requirements": [
+                {
+                    "raw": "multidict==6.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "multidict",
+                    "specifier": "==6.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\multidict-6.7.0.dist-info"
+                }
+            ]
+        },
+        "mypy_extensions": {
+            "name": "mypy_extensions",
+            "version": "1.1.0",
+            "requirements": [
+                {
+                    "raw": "mypy_extensions==1.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mypy_extensions",
+                    "specifier": "==1.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\mypy_extensions-1.1.0.dist-info"
+                }
+            ]
+        },
+        "narwhals": {
+            "name": "narwhals",
+            "version": "2.7.0",
+            "requirements": [
+                {
+                    "raw": "narwhals==2.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "narwhals",
+                    "specifier": "==2.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\narwhals-2.7.0.dist-info"
+                }
+            ]
+        },
+        "networkx": {
+            "name": "networkx",
+            "version": "3.4.2",
+            "requirements": [
+                {
+                    "raw": "networkx==3.4.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "networkx",
+                    "specifier": "==3.4.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\networkx-3.4.2.dist-info"
+                }
+            ]
+        },
+        "newrelic": {
+            "name": "newrelic",
+            "version": "11.1.0",
+            "requirements": [
+                {
+                    "raw": "newrelic==11.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "newrelic",
+                    "specifier": "==11.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\newrelic-11.1.0.dist-info"
+                }
+            ]
+        },
+        "nibabel": {
+            "name": "nibabel",
+            "version": "5.3.2",
+            "requirements": [
+                {
+                    "raw": "nibabel==5.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nibabel",
+                    "specifier": "==5.3.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\nibabel-5.3.2.dist-info"
+                }
+            ]
+        },
+        "nicegui": {
+            "name": "nicegui",
+            "version": "3.3.1",
+            "requirements": [
+                {
+                    "raw": "nicegui==3.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nicegui",
+                    "specifier": "==3.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\nicegui-3.3.1.dist-info"
+                }
+            ]
+        },
+        "nipype": {
+            "name": "nipype",
+            "version": "1.10.0",
+            "requirements": [
+                {
+                    "raw": "nipype==1.10.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nipype",
+                    "specifier": "==1.10.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\nipype-1.10.0.dist-info"
+                }
+            ]
+        },
+        "nltk": {
+            "name": "nltk",
+            "version": "3.9.2",
+            "requirements": [
+                {
+                    "raw": "nltk==3.9.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nltk",
+                    "specifier": "==3.9.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\nltk-3.9.2.dist-info"
+                }
+            ]
+        },
+        "numpy": {
+            "name": "numpy",
+            "version": "2.2.5",
+            "requirements": [
+                {
+                    "raw": "numpy==2.2.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "numpy",
+                    "specifier": "==2.2.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\numpy-2.2.5.dist-info"
+                }
+            ]
+        },
+        "openai": {
+            "name": "openai",
+            "version": "2.8.1",
+            "requirements": [
+                {
+                    "raw": "openai==2.8.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "openai",
+                    "specifier": "==2.8.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\openai-2.8.1.dist-info"
+                }
+            ]
+        },
+        "openpyxl": {
+            "name": "openpyxl",
+            "version": "3.1.5",
+            "requirements": [
+                {
+                    "raw": "openpyxl==3.1.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "openpyxl",
+                    "specifier": "==3.1.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\openpyxl-3.1.5.dist-info"
+                }
+            ]
+        },
+        "ordered-set": {
+            "name": "ordered-set",
+            "version": "4.1.0",
+            "requirements": [
+                {
+                    "raw": "ordered-set==4.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ordered-set",
+                    "specifier": "==4.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ordered_set-4.1.0.dist-info"
+                }
+            ]
+        },
+        "orjson": {
+            "name": "orjson",
+            "version": "3.11.4",
+            "requirements": [
+                {
+                    "raw": "orjson==3.11.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "orjson",
+                    "specifier": "==3.11.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\orjson-3.11.4.dist-info"
+                }
+            ]
+        },
+        "packaging": {
+            "name": "packaging",
+            "version": "25.0",
+            "requirements": [
+                {
+                    "raw": "packaging==25.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "packaging",
+                    "specifier": "==25.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\packaging-25.0.dist-info"
+                }
+            ]
+        },
+        "pandas": {
+            "name": "pandas",
+            "version": "2.2.3",
+            "requirements": [
+                {
+                    "raw": "pandas==2.2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pandas",
+                    "specifier": "==2.2.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pandas-2.2.3.dist-info"
+                }
+            ]
+        },
+        "pathspec": {
+            "name": "pathspec",
+            "version": "0.12.1",
+            "requirements": [
+                {
+                    "raw": "pathspec==0.12.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pathspec",
+                    "specifier": "==0.12.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pathspec-0.12.1.dist-info"
+                }
+            ]
+        },
+        "pdfkit": {
+            "name": "pdfkit",
+            "version": "1.0.0",
+            "requirements": [
+                {
+                    "raw": "pdfkit==1.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pdfkit",
+                    "specifier": "==1.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pdfkit-1.0.0.dist-info"
+                }
+            ]
+        },
+        "pdfminer.six": {
+            "name": "pdfminer.six",
+            "version": "20250327",
+            "requirements": [
+                {
+                    "raw": "pdfminer.six==20250327",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pdfminer.six",
+                    "specifier": "==20250327",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pdfminer_six-20250327.dist-info"
+                }
+            ]
+        },
+        "pdfplumber": {
+            "name": "pdfplumber",
+            "version": "0.11.6",
+            "requirements": [
+                {
+                    "raw": "pdfplumber==0.11.6",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pdfplumber",
+                    "specifier": "==0.11.6",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pdfplumber-0.11.6.dist-info"
+                }
+            ]
+        },
+        "pefile": {
+            "name": "pefile",
+            "version": "2023.2.7",
+            "requirements": [
+                {
+                    "raw": "pefile==2023.2.7",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pefile",
+                    "specifier": "==2023.2.7",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pefile-2023.2.7.dist-info"
+                }
+            ]
+        },
+        "pillow": {
+            "name": "pillow",
+            "version": "10.4.0",
+            "requirements": [
+                {
+                    "raw": "pillow==10.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pillow",
+                    "specifier": "==10.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pillow-10.4.0.dist-info"
+                }
+            ]
+        },
+        "pip": {
+            "name": "pip",
+            "version": "25.3",
+            "requirements": [
+                {
+                    "raw": "pip==25.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pip",
+                    "specifier": "==25.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pip-25.3.dist-info"
+                }
+            ]
+        },
+        "platformdirs": {
+            "name": "platformdirs",
+            "version": "4.5.0",
+            "requirements": [
+                {
+                    "raw": "platformdirs==4.5.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "platformdirs",
+                    "specifier": "==4.5.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\platformdirs-4.5.0.dist-info"
+                }
+            ]
+        },
+        "plotly": {
+            "name": "plotly",
+            "version": "6.3.1",
+            "requirements": [
+                {
+                    "raw": "plotly==6.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "plotly",
+                    "specifier": "==6.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\plotly-6.3.1.dist-info"
+                }
+            ]
+        },
+        "pluggy": {
+            "name": "pluggy",
+            "version": "1.6.0",
+            "requirements": [
+                {
+                    "raw": "pluggy==1.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pluggy",
+                    "specifier": "==1.6.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pluggy-1.6.0.dist-info"
+                }
+            ]
+        },
+        "prometheus_client": {
+            "name": "prometheus_client",
+            "version": "0.23.1",
+            "requirements": [
+                {
+                    "raw": "prometheus_client==0.23.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prometheus_client",
+                    "specifier": "==0.23.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\prometheus_client-0.23.1.dist-info"
+                }
+            ]
+        },
+        "prometheus_flask_exporter": {
+            "name": "prometheus_flask_exporter",
+            "version": "0.23.2",
+            "requirements": [
+                {
+                    "raw": "prometheus_flask_exporter==0.23.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prometheus_flask_exporter",
+                    "specifier": "==0.23.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\prometheus_flask_exporter-0.23.2.dist-info"
+                }
+            ]
+        },
+        "promise": {
+            "name": "promise",
+            "version": "2.3",
+            "requirements": [
+                {
+                    "raw": "promise==2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "promise",
+                    "specifier": "==2.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\promise-2.3.dist-info"
+                }
+            ]
+        },
+        "prompt_toolkit": {
+            "name": "prompt_toolkit",
+            "version": "3.0.52",
+            "requirements": [
+                {
+                    "raw": "prompt_toolkit==3.0.52",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prompt_toolkit",
+                    "specifier": "==3.0.52",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\prompt_toolkit-3.0.52.dist-info"
+                }
+            ]
+        },
+        "propcache": {
+            "name": "propcache",
+            "version": "0.4.1",
+            "requirements": [
+                {
+                    "raw": "propcache==0.4.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "propcache",
+                    "specifier": "==0.4.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\propcache-0.4.1.dist-info"
+                }
+            ]
+        },
+        "protobuf": {
+            "name": "protobuf",
+            "version": "6.32.1",
+            "requirements": [
+                {
+                    "raw": "protobuf==6.32.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "protobuf",
+                    "specifier": "==6.32.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\protobuf-6.32.1.dist-info"
+                }
+            ]
+        },
+        "prov": {
+            "name": "prov",
+            "version": "2.0.1",
+            "requirements": [
+                {
+                    "raw": "prov==2.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prov",
+                    "specifier": "==2.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\prov-2.0.1.dist-info"
+                }
+            ]
+        },
+        "psutil": {
+            "name": "psutil",
+            "version": "7.1.3",
+            "requirements": [
+                {
+                    "raw": "psutil==7.1.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "psutil",
+                    "specifier": "==7.1.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\psutil-7.1.3.dist-info"
+                }
+            ]
+        },
+        "puremagic": {
+            "name": "puremagic",
+            "version": "1.29",
+            "requirements": [
+                {
+                    "raw": "puremagic==1.29",
+                    "extras": [],
+                    "marker": null,
+                    "name": "puremagic",
+                    "specifier": "==1.29",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\puremagic-1.29.dist-info"
+                }
+            ]
+        },
+        "pyarrow": {
+            "name": "pyarrow",
+            "version": "21.0.0",
+            "requirements": [
+                {
+                    "raw": "pyarrow==21.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyarrow",
+                    "specifier": "==21.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyarrow-21.0.0.dist-info"
+                }
+            ]
+        },
+        "pycodestyle": {
+            "name": "pycodestyle",
+            "version": "2.14.0",
+            "requirements": [
+                {
+                    "raw": "pycodestyle==2.14.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pycodestyle",
+                    "specifier": "==2.14.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pycodestyle-2.14.0.dist-info"
+                }
+            ]
+        },
+        "pycparser": {
+            "name": "pycparser",
+            "version": "2.22",
+            "requirements": [
+                {
+                    "raw": "pycparser==2.22",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pycparser",
+                    "specifier": "==2.22",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pycparser-2.22.dist-info"
+                }
+            ]
+        },
+        "pydantic": {
+            "name": "pydantic",
+            "version": "2.12.5",
+            "requirements": [
+                {
+                    "raw": "pydantic==2.12.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydantic",
+                    "specifier": "==2.12.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pydantic-2.12.5.dist-info"
+                }
+            ]
+        },
+        "pydantic_core": {
+            "name": "pydantic_core",
+            "version": "2.41.5",
+            "requirements": [
+                {
+                    "raw": "pydantic_core==2.41.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydantic_core",
+                    "specifier": "==2.41.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pydantic_core-2.41.5.dist-info"
+                }
+            ]
+        },
+        "pydeck": {
+            "name": "pydeck",
+            "version": "0.9.1",
+            "requirements": [
+                {
+                    "raw": "pydeck==0.9.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydeck",
+                    "specifier": "==0.9.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pydeck-0.9.1.dist-info"
+                }
+            ]
+        },
+        "pydot": {
+            "name": "pydot",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "pydot==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydot",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pydot-4.0.0.dist-info"
+                }
+            ]
+        },
+        "pyflakes": {
+            "name": "pyflakes",
+            "version": "3.4.0",
+            "requirements": [
+                {
+                    "raw": "pyflakes==3.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyflakes",
+                    "specifier": "==3.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyflakes-3.4.0.dist-info"
+                }
+            ]
+        },
+        "Pygments": {
+            "name": "Pygments",
+            "version": "2.19.2",
+            "requirements": [
+                {
+                    "raw": "Pygments==2.19.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Pygments",
+                    "specifier": "==2.19.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pygments-2.19.2.dist-info"
+                }
+            ]
+        },
+        "pyinstaller": {
+            "name": "pyinstaller",
+            "version": "6.13.0",
+            "requirements": [
+                {
+                    "raw": "pyinstaller==6.13.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyinstaller",
+                    "specifier": "==6.13.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyinstaller-6.13.0.dist-info"
+                }
+            ]
+        },
+        "pyinstaller-hooks-contrib": {
+            "name": "pyinstaller-hooks-contrib",
+            "version": "2025.4",
+            "requirements": [
+                {
+                    "raw": "pyinstaller-hooks-contrib==2025.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyinstaller-hooks-contrib",
+                    "specifier": "==2025.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyinstaller_hooks_contrib-2025.4.dist-info"
+                }
+            ]
+        },
+        "PyJWT": {
+            "name": "PyJWT",
+            "version": "2.10.1",
+            "requirements": [
+                {
+                    "raw": "PyJWT==2.10.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "PyJWT",
+                    "specifier": "==2.10.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\PyJWT-2.10.1.dist-info"
+                }
+            ]
+        },
+        "pylint": {
+            "name": "pylint",
+            "version": "4.0.3",
+            "requirements": [
+                {
+                    "raw": "pylint==4.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pylint",
+                    "specifier": "==4.0.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pylint-4.0.3.dist-info"
+                }
+            ]
+        },
+        "PyMuPDF": {
+            "name": "PyMuPDF",
+            "version": "1.25.5",
+            "requirements": [
+                {
+                    "raw": "PyMuPDF==1.25.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "PyMuPDF",
+                    "specifier": "==1.25.5",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pymupdf-1.25.5.dist-info"
+                }
+            ]
+        },
+        "pyotp": {
+            "name": "pyotp",
+            "version": "2.9.0",
+            "requirements": [
+                {
+                    "raw": "pyotp==2.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyotp",
+                    "specifier": "==2.9.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyotp-2.9.0.dist-info"
+                }
+            ]
+        },
+        "pyparsing": {
+            "name": "pyparsing",
+            "version": "3.2.3",
+            "requirements": [
+                {
+                    "raw": "pyparsing==3.2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyparsing",
+                    "specifier": "==3.2.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyparsing-3.2.3.dist-info"
+                }
+            ]
+        },
+        "pypdfium2": {
+            "name": "pypdfium2",
+            "version": "4.30.1",
+            "requirements": [
+                {
+                    "raw": "pypdfium2==4.30.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pypdfium2",
+                    "specifier": "==4.30.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pypdfium2-4.30.1.dist-info"
+                }
+            ]
+        },
+        "pytest": {
+            "name": "pytest",
+            "version": "9.0.1",
+            "requirements": [
+                {
+                    "raw": "pytest==9.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest",
+                    "specifier": "==9.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pytest-9.0.1.dist-info"
+                }
+            ]
+        },
+        "pytest-cov": {
+            "name": "pytest-cov",
+            "version": "7.0.0",
+            "requirements": [
+                {
+                    "raw": "pytest-cov==7.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest-cov",
+                    "specifier": "==7.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pytest_cov-7.0.0.dist-info"
+                }
+            ]
+        },
+        "python-dateutil": {
+            "name": "python-dateutil",
+            "version": "2.9.0.post0",
+            "requirements": [
+                {
+                    "raw": "python-dateutil==2.9.0.post0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-dateutil",
+                    "specifier": "==2.9.0.post0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_dateutil-2.9.0.post0.dist-info"
+                }
+            ]
+        },
+        "python-dotenv": {
+            "name": "python-dotenv",
+            "version": "1.2.1",
+            "requirements": [
+                {
+                    "raw": "python-dotenv==1.2.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-dotenv",
+                    "specifier": "==1.2.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_dotenv-1.2.1.dist-info"
+                }
+            ]
+        },
+        "python-engineio": {
+            "name": "python-engineio",
+            "version": "4.12.3",
+            "requirements": [
+                {
+                    "raw": "python-engineio==4.12.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-engineio",
+                    "specifier": "==4.12.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_engineio-4.12.3.dist-info"
+                }
+            ]
+        },
+        "python-json-logger": {
+            "name": "python-json-logger",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "python-json-logger==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-json-logger",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_json_logger-4.0.0.dist-info"
+                }
+            ]
+        },
+        "python-multipart": {
+            "name": "python-multipart",
+            "version": "0.0.20",
+            "requirements": [
+                {
+                    "raw": "python-multipart==0.0.20",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-multipart",
+                    "specifier": "==0.0.20",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_multipart-0.0.20.dist-info"
+                }
+            ]
+        },
+        "python-socketio": {
+            "name": "python-socketio",
+            "version": "5.15.0",
+            "requirements": [
+                {
+                    "raw": "python-socketio==5.15.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-socketio",
+                    "specifier": "==5.15.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\python_socketio-5.15.0.dist-info"
+                }
+            ]
+        },
+        "pytokens": {
+            "name": "pytokens",
+            "version": "0.3.0",
+            "requirements": [
+                {
+                    "raw": "pytokens==0.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytokens",
+                    "specifier": "==0.3.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pytokens-0.3.0.dist-info"
+                }
+            ]
+        },
+        "pytz": {
+            "name": "pytz",
+            "version": "2025.2",
+            "requirements": [
+                {
+                    "raw": "pytz==2025.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytz",
+                    "specifier": "==2025.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pytz-2025.2.dist-info"
+                }
+            ]
+        },
+        "pywebpush": {
+            "name": "pywebpush",
+            "version": "2.1.2",
+            "requirements": [
+                {
+                    "raw": "pywebpush==2.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pywebpush",
+                    "specifier": "==2.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pywebpush-2.1.2.dist-info"
+                }
+            ]
+        },
+        "pywin32": {
+            "name": "pywin32",
+            "version": "310",
+            "requirements": [
+                {
+                    "raw": "pywin32==310",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pywin32",
+                    "specifier": "==310",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pywin32-310.dist-info"
+                }
+            ]
+        },
+        "pywin32-ctypes": {
+            "name": "pywin32-ctypes",
+            "version": "0.2.3",
+            "requirements": [
+                {
+                    "raw": "pywin32-ctypes==0.2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pywin32-ctypes",
+                    "specifier": "==0.2.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pywin32_ctypes-0.2.3.dist-info"
+                }
+            ]
+        },
+        "pyxnat": {
+            "name": "pyxnat",
+            "version": "1.6.3",
+            "requirements": [
+                {
+                    "raw": "pyxnat==1.6.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyxnat",
+                    "specifier": "==1.6.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyxnat-1.6.3.dist-info"
+                }
+            ]
+        },
+        "PyYAML": {
+            "name": "PyYAML",
+            "version": "6.0.3",
+            "requirements": [
+                {
+                    "raw": "PyYAML==6.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "PyYAML",
+                    "specifier": "==6.0.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyyaml-6.0.3.dist-info"
+                }
+            ]
+        },
+        "pyzmq": {
+            "name": "pyzmq",
+            "version": "27.1.0",
+            "requirements": [
+                {
+                    "raw": "pyzmq==27.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyzmq",
+                    "specifier": "==27.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\pyzmq-27.1.0.dist-info"
+                }
+            ]
+        },
+        "py-vapid": {
+            "name": "py-vapid",
+            "version": "1.9.2",
+            "requirements": [
+                {
+                    "raw": "py-vapid==1.9.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "py-vapid",
+                    "specifier": "==1.9.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\py_vapid-1.9.2.dist-info"
+                }
+            ]
+        },
+        "rdflib": {
+            "name": "rdflib",
+            "version": "6.3.2",
+            "requirements": [
+                {
+                    "raw": "rdflib==6.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rdflib",
+                    "specifier": "==6.3.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\rdflib-6.3.2.dist-info"
+                }
+            ]
+        },
+        "redis": {
+            "name": "redis",
+            "version": "7.1.0",
+            "requirements": [
+                {
+                    "raw": "redis==7.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "redis",
+                    "specifier": "==7.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\redis-7.1.0.dist-info"
+                }
+            ]
+        },
+        "referencing": {
+            "name": "referencing",
+            "version": "0.36.2",
+            "requirements": [
+                {
+                    "raw": "referencing==0.36.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "referencing",
+                    "specifier": "==0.36.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\referencing-0.36.2.dist-info"
+                }
+            ]
+        },
+        "regex": {
+            "name": "regex",
+            "version": "2025.11.3",
+            "requirements": [
+                {
+                    "raw": "regex==2025.11.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "regex",
+                    "specifier": "==2025.11.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\regex-2025.11.3.dist-info"
+                }
+            ]
+        },
+        "requests": {
+            "name": "requests",
+            "version": "2.32.3",
+            "requirements": [
+                {
+                    "raw": "requests==2.32.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "requests",
+                    "specifier": "==2.32.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\requests-2.32.3.dist-info"
+                }
+            ]
+        },
+        "rich": {
+            "name": "rich",
+            "version": "14.2.0",
+            "requirements": [
+                {
+                    "raw": "rich==14.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rich",
+                    "specifier": "==14.2.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\rich-14.2.0.dist-info"
+                }
+            ]
+        },
+        "rpds-py": {
+            "name": "rpds-py",
+            "version": "0.27.1",
+            "requirements": [
+                {
+                    "raw": "rpds-py==0.27.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rpds-py",
+                    "specifier": "==0.27.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\rpds_py-0.27.1.dist-info"
+                }
+            ]
+        },
+        "ruamel.yaml": {
+            "name": "ruamel.yaml",
+            "version": "0.18.16",
+            "requirements": [
+                {
+                    "raw": "ruamel.yaml==0.18.16",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ruamel.yaml",
+                    "specifier": "==0.18.16",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ruamel.yaml-0.18.16.dist-info"
+                }
+            ]
+        },
+        "ruamel.yaml.clib": {
+            "name": "ruamel.yaml.clib",
+            "version": "0.2.15",
+            "requirements": [
+                {
+                    "raw": "ruamel.yaml.clib==0.2.15",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ruamel.yaml.clib",
+                    "specifier": "==0.2.15",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ruamel_yaml_clib-0.2.15.dist-info"
+                }
+            ]
+        },
+        "Rx": {
+            "name": "Rx",
+            "version": "1.6.3",
+            "requirements": [
+                {
+                    "raw": "Rx==1.6.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Rx",
+                    "specifier": "==1.6.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\rx-1.6.3.dist-info"
+                }
+            ]
+        },
+        "safetensors": {
+            "name": "safetensors",
+            "version": "0.7.0",
+            "requirements": [
+                {
+                    "raw": "safetensors==0.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "safetensors",
+                    "specifier": "==0.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\safetensors-0.7.0.dist-info"
+                }
+            ]
+        },
+        "safety": {
+            "name": "safety",
+            "version": "3.7.0",
+            "requirements": [
+                {
+                    "raw": "safety==3.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "safety",
+                    "specifier": "==3.7.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\safety-3.7.0.dist-info"
+                }
+            ]
+        },
+        "safety-schemas": {
+            "name": "safety-schemas",
+            "version": "0.0.16",
+            "requirements": [
+                {
+                    "raw": "safety-schemas==0.0.16",
+                    "extras": [],
+                    "marker": null,
+                    "name": "safety-schemas",
+                    "specifier": "==0.0.16",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\safety_schemas-0.0.16.dist-info"
+                }
+            ]
+        },
+        "schedule": {
+            "name": "schedule",
+            "version": "1.2.2",
+            "requirements": [
+                {
+                    "raw": "schedule==1.2.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "schedule",
+                    "specifier": "==1.2.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\schedule-1.2.2.dist-info"
+                }
+            ]
+        },
+        "scikit-learn": {
+            "name": "scikit-learn",
+            "version": "1.7.2",
+            "requirements": [
+                {
+                    "raw": "scikit-learn==1.7.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "scikit-learn",
+                    "specifier": "==1.7.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\scikit_learn-1.7.2.dist-info"
+                }
+            ]
+        },
+        "scipy": {
+            "name": "scipy",
+            "version": "1.15.3",
+            "requirements": [
+                {
+                    "raw": "scipy==1.15.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "scipy",
+                    "specifier": "==1.15.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\scipy-1.15.3.dist-info"
+                }
+            ]
+        },
+        "sentry-sdk": {
+            "name": "sentry-sdk",
+            "version": "2.46.0",
+            "requirements": [
+                {
+                    "raw": "sentry-sdk==2.46.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "sentry-sdk",
+                    "specifier": "==2.46.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\sentry_sdk-2.46.0.dist-info"
+                }
+            ]
+        },
+        "setuptools": {
+            "name": "setuptools",
+            "version": "80.4.0",
+            "requirements": [
+                {
+                    "raw": "setuptools==80.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "setuptools",
+                    "specifier": "==80.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\setuptools-80.4.0.dist-info"
+                }
+            ]
+        },
+        "shellingham": {
+            "name": "shellingham",
+            "version": "1.5.4",
+            "requirements": [
+                {
+                    "raw": "shellingham==1.5.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "shellingham",
+                    "specifier": "==1.5.4",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\shellingham-1.5.4.dist-info"
+                }
+            ]
+        },
+        "simplejson": {
+            "name": "simplejson",
+            "version": "3.20.1",
+            "requirements": [
+                {
+                    "raw": "simplejson==3.20.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "simplejson",
+                    "specifier": "==3.20.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\simplejson-3.20.1.dist-info"
+                }
+            ]
+        },
+        "simple-websocket": {
+            "name": "simple-websocket",
+            "version": "1.1.0",
+            "requirements": [
+                {
+                    "raw": "simple-websocket==1.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "simple-websocket",
+                    "specifier": "==1.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\simple_websocket-1.1.0.dist-info"
+                }
+            ]
+        },
+        "six": {
+            "name": "six",
+            "version": "1.17.0",
+            "requirements": [
+                {
+                    "raw": "six==1.17.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "six",
+                    "specifier": "==1.17.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\six-1.17.0.dist-info"
+                }
+            ]
+        },
+        "smmap": {
+            "name": "smmap",
+            "version": "5.0.2",
+            "requirements": [
+                {
+                    "raw": "smmap==5.0.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "smmap",
+                    "specifier": "==5.0.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\smmap-5.0.2.dist-info"
+                }
+            ]
+        },
+        "sniffio": {
+            "name": "sniffio",
+            "version": "1.3.1",
+            "requirements": [
+                {
+                    "raw": "sniffio==1.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "sniffio",
+                    "specifier": "==1.3.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\sniffio-1.3.1.dist-info"
+                }
+            ]
+        },
+        "SQLAlchemy": {
+            "name": "SQLAlchemy",
+            "version": "2.0.44",
+            "requirements": [
+                {
+                    "raw": "SQLAlchemy==2.0.44",
+                    "extras": [],
+                    "marker": null,
+                    "name": "SQLAlchemy",
+                    "specifier": "==2.0.44",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\sqlalchemy-2.0.44.dist-info"
+                }
+            ]
+        },
+        "starlette": {
+            "name": "starlette",
+            "version": "0.50.0",
+            "requirements": [
+                {
+                    "raw": "starlette==0.50.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "starlette",
+                    "specifier": "==0.50.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\starlette-0.50.0.dist-info"
+                }
+            ]
+        },
+        "streamlit": {
+            "name": "streamlit",
+            "version": "1.50.0",
+            "requirements": [
+                {
+                    "raw": "streamlit==1.50.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "streamlit",
+                    "specifier": "==1.50.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\streamlit-1.50.0.dist-info"
+                }
+            ]
+        },
+        "streamlit-week-calendar": {
+            "name": "streamlit-week-calendar",
+            "version": "0.0.5.post2",
+            "requirements": [
+                {
+                    "raw": "streamlit-week-calendar==0.0.5.post2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "streamlit-week-calendar",
+                    "specifier": "==0.0.5.post2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\streamlit_week_calendar-0.0.5.post2.dist-info"
+                }
+            ]
+        },
+        "stripe": {
+            "name": "stripe",
+            "version": "14.0.1",
+            "requirements": [
+                {
+                    "raw": "stripe==14.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "stripe",
+                    "specifier": "==14.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\stripe-14.0.1.dist-info"
+                }
+            ]
+        },
+        "sympy": {
+            "name": "sympy",
+            "version": "1.14.0",
+            "requirements": [
+                {
+                    "raw": "sympy==1.14.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "sympy",
+                    "specifier": "==1.14.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\sympy-1.14.0.dist-info"
+                }
+            ]
+        },
+        "tenacity": {
+            "name": "tenacity",
+            "version": "9.1.2",
+            "requirements": [
+                {
+                    "raw": "tenacity==9.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tenacity",
+                    "specifier": "==9.1.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tenacity-9.1.2.dist-info"
+                }
+            ]
+        },
+        "threadpoolctl": {
+            "name": "threadpoolctl",
+            "version": "3.6.0",
+            "requirements": [
+                {
+                    "raw": "threadpoolctl==3.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "threadpoolctl",
+                    "specifier": "==3.6.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\threadpoolctl-3.6.0.dist-info"
+                }
+            ]
+        },
+        "tk": {
+            "name": "tk",
+            "version": "0.1.0",
+            "requirements": [
+                {
+                    "raw": "tk==0.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tk",
+                    "specifier": "==0.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tk-0.1.0.dist-info"
+                }
+            ]
+        },
+        "tokenizers": {
+            "name": "tokenizers",
+            "version": "0.22.1",
+            "requirements": [
+                {
+                    "raw": "tokenizers==0.22.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tokenizers",
+                    "specifier": "==0.22.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tokenizers-0.22.1.dist-info"
+                }
+            ]
+        },
+        "toml": {
+            "name": "toml",
+            "version": "0.10.2",
+            "requirements": [
+                {
+                    "raw": "toml==0.10.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "toml",
+                    "specifier": "==0.10.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\toml-0.10.2.dist-info"
+                }
+            ]
+        },
+        "tomlkit": {
+            "name": "tomlkit",
+            "version": "0.13.3",
+            "requirements": [
+                {
+                    "raw": "tomlkit==0.13.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tomlkit",
+                    "specifier": "==0.13.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tomlkit-0.13.3.dist-info"
+                }
+            ]
+        },
+        "torch": {
+            "name": "torch",
+            "version": "2.9.1",
+            "requirements": [
+                {
+                    "raw": "torch==2.9.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "torch",
+                    "specifier": "==2.9.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\torch-2.9.1.dist-info"
+                }
+            ]
+        },
+        "tornado": {
+            "name": "tornado",
+            "version": "6.5.2",
+            "requirements": [
+                {
+                    "raw": "tornado==6.5.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tornado",
+                    "specifier": "==6.5.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tornado-6.5.2.dist-info"
+                }
+            ]
+        },
+        "tqdm": {
+            "name": "tqdm",
+            "version": "4.67.1",
+            "requirements": [
+                {
+                    "raw": "tqdm==4.67.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tqdm",
+                    "specifier": "==4.67.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tqdm-4.67.1.dist-info"
+                }
+            ]
+        },
+        "traits": {
+            "name": "traits",
+            "version": "7.0.2",
+            "requirements": [
+                {
+                    "raw": "traits==7.0.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "traits",
+                    "specifier": "==7.0.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\traits-7.0.2.dist-info"
+                }
+            ]
+        },
+        "transformers": {
+            "name": "transformers",
+            "version": "4.57.3",
+            "requirements": [
+                {
+                    "raw": "transformers==4.57.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "transformers",
+                    "specifier": "==4.57.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\transformers-4.57.3.dist-info"
+                }
+            ]
+        },
+        "ttkbootstrap": {
+            "name": "ttkbootstrap",
+            "version": "1.13.6",
+            "requirements": [
+                {
+                    "raw": "ttkbootstrap==1.13.6",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ttkbootstrap",
+                    "specifier": "==1.13.6",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\ttkbootstrap-1.13.6.dist-info"
+                }
+            ]
+        },
+        "typer": {
+            "name": "typer",
+            "version": "0.20.0",
+            "requirements": [
+                {
+                    "raw": "typer==0.20.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typer",
+                    "specifier": "==0.20.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\typer-0.20.0.dist-info"
+                }
+            ]
+        },
+        "typing_extensions": {
+            "name": "typing_extensions",
+            "version": "4.15.0",
+            "requirements": [
+                {
+                    "raw": "typing_extensions==4.15.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typing_extensions",
+                    "specifier": "==4.15.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\typing_extensions-4.15.0.dist-info"
+                }
+            ]
+        },
+        "typing-inspection": {
+            "name": "typing-inspection",
+            "version": "0.4.2",
+            "requirements": [
+                {
+                    "raw": "typing-inspection==0.4.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typing-inspection",
+                    "specifier": "==0.4.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info"
+                }
+            ]
+        },
+        "tzdata": {
+            "name": "tzdata",
+            "version": "2025.2",
+            "requirements": [
+                {
+                    "raw": "tzdata==2025.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tzdata",
+                    "specifier": "==2025.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\tzdata-2025.2.dist-info"
+                }
+            ]
+        },
+        "urllib3": {
+            "name": "urllib3",
+            "version": "2.4.0",
+            "requirements": [
+                {
+                    "raw": "urllib3==2.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "urllib3",
+                    "specifier": "==2.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\urllib3-2.4.0.dist-info"
+                }
+            ]
+        },
+        "uvicorn": {
+            "name": "uvicorn",
+            "version": "0.34.2",
+            "requirements": [
+                {
+                    "raw": "uvicorn==0.34.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "uvicorn",
+                    "specifier": "==0.34.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\uvicorn-0.34.2.dist-info"
+                }
+            ]
+        },
+        "vine": {
+            "name": "vine",
+            "version": "5.1.0",
+            "requirements": [
+                {
+                    "raw": "vine==5.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "vine",
+                    "specifier": "==5.1.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\vine-5.1.0.dist-info"
+                }
+            ]
+        },
+        "watchdog": {
+            "name": "watchdog",
+            "version": "6.0.0",
+            "requirements": [
+                {
+                    "raw": "watchdog==6.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "watchdog",
+                    "specifier": "==6.0.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\watchdog-6.0.0.dist-info"
+                }
+            ]
+        },
+        "watchfiles": {
+            "name": "watchfiles",
+            "version": "1.1.1",
+            "requirements": [
+                {
+                    "raw": "watchfiles==1.1.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "watchfiles",
+                    "specifier": "==1.1.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\watchfiles-1.1.1.dist-info"
+                }
+            ]
+        },
+        "wcwidth": {
+            "name": "wcwidth",
+            "version": "0.2.14",
+            "requirements": [
+                {
+                    "raw": "wcwidth==0.2.14",
+                    "extras": [],
+                    "marker": null,
+                    "name": "wcwidth",
+                    "specifier": "==0.2.14",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\wcwidth-0.2.14.dist-info"
+                }
+            ]
+        },
+        "websockets": {
+            "name": "websockets",
+            "version": "15.0.1",
+            "requirements": [
+                {
+                    "raw": "websockets==15.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "websockets",
+                    "specifier": "==15.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\websockets-15.0.1.dist-info"
+                }
+            ]
+        },
+        "websocket-client": {
+            "name": "websocket-client",
+            "version": "1.9.0",
+            "requirements": [
+                {
+                    "raw": "websocket-client==1.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "websocket-client",
+                    "specifier": "==1.9.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\websocket_client-1.9.0.dist-info"
+                }
+            ]
+        },
+        "Werkzeug": {
+            "name": "Werkzeug",
+            "version": "3.1.3",
+            "requirements": [
+                {
+                    "raw": "Werkzeug==3.1.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Werkzeug",
+                    "specifier": "==3.1.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\werkzeug-3.1.3.dist-info"
+                }
+            ]
+        },
+        "wrapt": {
+            "name": "wrapt",
+            "version": "2.0.1",
+            "requirements": [
+                {
+                    "raw": "wrapt==2.0.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "wrapt",
+                    "specifier": "==2.0.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\wrapt-2.0.1.dist-info"
+                }
+            ]
+        },
+        "wsproto": {
+            "name": "wsproto",
+            "version": "1.3.2",
+            "requirements": [
+                {
+                    "raw": "wsproto==1.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "wsproto",
+                    "specifier": "==1.3.2",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\wsproto-1.3.2.dist-info"
+                }
+            ]
+        },
+        "yarl": {
+            "name": "yarl",
+            "version": "1.22.0",
+            "requirements": [
+                {
+                    "raw": "yarl==1.22.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "yarl",
+                    "specifier": "==1.22.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\yarl-1.22.0.dist-info"
+                }
+            ]
+        },
+        "zope.event": {
+            "name": "zope.event",
+            "version": "6.1",
+            "requirements": [
+                {
+                    "raw": "zope.event==6.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "zope.event",
+                    "specifier": "==6.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\zope_event-6.1.dist-info"
+                }
+            ]
+        },
+        "zope.interface": {
+            "name": "zope.interface",
+            "version": "8.1.1",
+            "requirements": [
+                {
+                    "raw": "zope.interface==8.1.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "zope.interface",
+                    "specifier": "==8.1.1",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\zope_interface-8.1.1.dist-info"
+                }
+            ]
+        }
+    },
+    "affected_packages": {
+        "urllib3": {
+            "name": "urllib3",
+            "version": "2.4.0",
+            "requirements": [
+                {
+                    "raw": "urllib3==2.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "urllib3",
+                    "specifier": "==2.4.0",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\urllib3-2.4.0.dist-info"
+                }
+            ],
+            "found": null,
+            "insecure_versions": [
+                "0.2",
+                "0.3",
+                "0.3.1",
+                "0.4.0",
+                "0.4.1",
+                "1.0",
+                "1.0.1",
+                "1.0.2",
+                "1.1",
+                "1.10",
+                "1.10.1",
+                "1.10.2",
+                "1.10.3",
+                "1.10.4",
+                "1.11",
+                "1.12",
+                "1.13",
+                "1.13.1",
+                "1.14",
+                "1.15",
+                "1.15.1",
+                "1.16",
+                "1.17",
+                "1.18",
+                "1.18.1",
+                "1.19",
+                "1.19.1",
+                "1.2",
+                "1.20",
+                "1.21",
+                "1.2.1",
+                "1.21.1",
+                "1.22",
+                "1.2.2",
+                "1.23",
+                "1.24",
+                "1.24.1",
+                "1.24.2",
+                "1.24.3",
+                "1.25",
+                "1.25.1",
+                "1.25.10",
+                "1.25.11",
+                "1.25.2",
+                "1.25.3",
+                "1.25.4",
+                "1.25.5",
+                "1.25.6",
+                "1.25.7",
+                "1.25.8",
+                "1.25.9",
+                "1.26.0",
+                "1.26.1",
+                "1.26.10",
+                "1.26.11",
+                "1.26.12",
+                "1.26.13",
+                "1.26.14",
+                "1.26.15",
+                "1.26.16",
+                "1.26.17",
+                "1.26.18",
+                "1.26.19",
+                "1.26.2",
+                "1.26.20",
+                "1.26.3",
+                "1.26.4",
+                "1.26.5",
+                "1.26.6",
+                "1.26.7",
+                "1.26.8",
+                "1.26.9",
+                "1.3",
+                "1.4",
+                "1.5",
+                "1.6",
+                "1.7",
+                "1.7.1",
+                "1.8",
+                "1.8.2",
+                "1.8.3",
+                "1.9",
+                "1.9.1",
+                "2.0.0",
+                "2.0.0a1",
+                "2.0.0a2",
+                "2.0.0a3",
+                "2.0.0a4",
+                "2.0.1",
+                "2.0.2",
+                "2.0.3",
+                "2.0.4",
+                "2.0.5",
+                "2.0.6",
+                "2.0.7",
+                "2.1.0",
+                "2.2.0",
+                "2.2.1",
+                "2.2.2",
+                "2.2.3",
+                "2.3.0",
+                "2.4.0"
+            ],
+            "secure_versions": [
+                "2.5.0"
+            ],
+            "latest_version_without_known_vulnerabilities": "2.5.0",
+            "latest_version": "2.5.0",
+            "more_info_url": "https://data.safetycli.com/p/pypi/urllib3/97c/"
+        },
+        "requests": {
+            "name": "requests",
+            "version": "2.32.3",
+            "requirements": [
+                {
+                    "raw": "requests==2.32.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "requests",
+                    "specifier": "==2.32.3",
+                    "url": null,
+                    "found": "C:\\Python313\\Lib\\site-packages\\requests-2.32.3.dist-info"
+                }
+            ],
+            "found": null,
+            "insecure_versions": [
+                "0.0.1",
+                "0.10.0",
+                "0.10.1",
+                "0.10.2",
+                "0.10.3",
+                "0.10.4",
+                "0.10.6",
+                "0.10.7",
+                "0.10.8",
+                "0.11.1",
+                "0.11.2",
+                "0.12.0",
+                "0.12.1",
+                "0.13.0",
+                "0.13.1",
+                "0.13.2",
+                "0.13.3",
+                "0.13.4",
+                "0.13.5",
+                "0.13.6",
+                "0.13.7",
+                "0.13.8",
+                "0.13.9",
+                "0.14.0",
+                "0.14.1",
+                "0.14.2",
+                "0.2.0",
+                "0.2.1",
+                "0.2.2",
+                "0.2.3",
+                "0.2.4",
+                "0.3.0",
+                "0.3.1",
+                "0.3.2",
+                "0.3.3",
+                "0.3.4",
+                "0.4.0",
+                "0.4.1",
+                "0.5.0",
+                "0.5.1",
+                "0.6.0",
+                "0.6.1",
+                "0.6.2",
+                "0.6.3",
+                "0.6.4",
+                "0.6.5",
+                "0.6.6",
+                "0.7.0",
+                "0.7.1",
+                "0.7.2",
+                "0.7.3",
+                "0.7.4",
+                "0.7.5",
+                "0.7.6",
+                "0.8.0",
+                "0.8.1",
+                "0.8.2",
+                "0.8.3",
+                "0.8.4",
+                "0.8.5",
+                "0.8.6",
+                "0.8.7",
+                "0.8.8",
+                "0.8.9",
+                "0.9.0",
+                "0.9.1",
+                "0.9.2",
+                "0.9.3",
+                "1.0.0",
+                "1.0.1",
+                "1.0.2",
+                "1.0.3",
+                "1.0.4",
+                "1.1.0",
+                "1.2.0",
+                "1.2.1",
+                "1.2.2",
+                "1.2.3",
+                "2.0.0",
+                "2.0.1",
+                "2.1.0",
+                "2.10.0",
+                "2.11.0",
+                "2.11.1",
+                "2.12.0",
+                "2.12.1",
+                "2.12.2",
+                "2.12.3",
+                "2.12.4",
+                "2.12.5",
+                "2.13.0",
+                "2.14.0",
+                "2.14.1",
+                "2.14.2",
+                "2.15.0",
+                "2.15.1",
+                "2.16.0",
+                "2.16.1",
+                "2.16.2",
+                "2.16.3",
+                "2.16.4",
+                "2.16.5",
+                "2.17.0",
+                "2.17.1",
+                "2.17.2",
+                "2.17.3",
+                "2.18.0",
+                "2.18.1",
+                "2.18.2",
+                "2.18.3",
+                "2.18.4",
+                "2.19.0",
+                "2.19.1",
+                "2.2.0",
+                "2.20.0",
+                "2.20.1",
+                "2.2.1",
+                "2.21.0",
+                "2.22.0",
+                "2.23.0",
+                "2.24.0",
+                "2.25.0",
+                "2.25.1",
+                "2.26.0",
+                "2.27.0",
+                "2.27.1",
+                "2.28.0",
+                "2.28.1",
+                "2.28.2",
+                "2.29.0",
+                "2.3.0",
+                "2.30.0",
+                "2.31.0",
+                "2.32.0",
+                "2.32.1",
+                "2.32.2",
+                "2.32.3",
+                "2.4.0",
+                "2.4.1",
+                "2.4.2",
+                "2.4.3",
+                "2.5.0",
+                "2.5.1",
+                "2.5.2",
+                "2.5.3",
+                "2.6.0",
+                "2.6.1",
+                "2.6.2",
+                "2.7.0",
+                "2.8.0",
+                "2.8.1",
+                "2.9.0",
+                "2.9.1",
+                "2.9.2"
+            ],
+            "secure_versions": [
+                "2.32.5",
+                "2.32.4"
+            ],
+            "latest_version_without_known_vulnerabilities": "2.32.5",
+            "latest_version": "2.32.5",
+            "more_info_url": "https://data.safetycli.com/p/pypi/requests/97c/"
+        }
+    },
+    "announcements": [],
+    "vulnerabilities": [
+        {
+            "vulnerability_id": "77745",
+            "package_name": "urllib3",
+            "ignored": {},
+            "ignored_reason": null,
+            "ignored_expires": null,
+            "vulnerable_spec": [
+                ">=2.2.0,<2.5.0"
+            ],
+            "all_vulnerable_specs": [
+                ">=2.2.0,<2.5.0"
+            ],
+            "analyzed_version": "2.4.0",
+            "analyzed_requirement": {
+                "raw": "urllib3==2.4.0",
+                "extras": [],
+                "marker": null,
+                "name": "urllib3",
+                "specifier": "==2.4.0",
+                "url": null,
+                "found": "C:\\Python313\\Lib\\site-packages\\urllib3-2.4.0.dist-info"
+            },
+            "advisory": "Urllib3 is a user-friendly HTTP client library for Python. Starting in version 2.2.0 and before 2.5.0, urllib3 does not control redirects in browsers and Node.js. urllib3 supports being used in a Pyodide runtime, utilizing the JavaScript Fetch API or falling back on XMLHttpRequest. This means Python libraries can be used to make HTTP requests from a browser or Node.js. Additionally, urllib3 provides a mechanism to control redirects, but the retries and redirect parameters are ignored with Pyodide; the runtime itself determines redirect behaviour. This issue has been patched in version 2.5.0.",
+            "is_transitive": false,
+            "published_date": null,
+            "fixed_versions": [],
+            "closest_versions_without_known_vulnerabilities": [],
+            "resources": [],
+            "CVE": "CVE-2025-50182",
+            "severity": null,
+            "affected_versions": [],
+            "more_info_url": "https://data.safetycli.com/v/77745/97c"
+        },
+        {
+            "vulnerability_id": "77744",
+            "package_name": "urllib3",
+            "ignored": {},
+            "ignored_reason": null,
+            "ignored_expires": null,
+            "vulnerable_spec": [
+                "<2.5.0"
+            ],
+            "all_vulnerable_specs": [
+                "<2.5.0"
+            ],
+            "analyzed_version": "2.4.0",
+            "analyzed_requirement": {
+                "raw": "urllib3==2.4.0",
+                "extras": [],
+                "marker": null,
+                "name": "urllib3",
+                "specifier": "==2.4.0",
+                "url": null,
+                "found": "C:\\Python313\\Lib\\site-packages\\urllib3-2.4.0.dist-info"
+            },
+            "advisory": "urllib3 is a user-friendly HTTP client library for Python. Prior to 2.5.0, it is possible to disable redirects for all requests by instantiating a PoolManager and specifying retries in a way that disable redirects. By default, requests and botocore users are not affected. An application attempting to mitigate SSRF or open redirect vulnerabilities by disabling redirects at the PoolManager level will remain vulnerable. This issue has been patched in version 2.5.0.",
+            "is_transitive": false,
+            "published_date": null,
+            "fixed_versions": [],
+            "closest_versions_without_known_vulnerabilities": [],
+            "resources": [],
+            "CVE": "CVE-2025-50181",
+            "severity": null,
+            "affected_versions": [],
+            "more_info_url": "https://data.safetycli.com/v/77744/97c"
+        },
+        {
+            "vulnerability_id": "77680",
+            "package_name": "requests",
+            "ignored": {},
+            "ignored_reason": null,
+            "ignored_expires": null,
+            "vulnerable_spec": [
+                "<2.32.4"
+            ],
+            "all_vulnerable_specs": [
+                "<2.32.4"
+            ],
+            "analyzed_version": "2.32.3",
+            "analyzed_requirement": {
+                "raw": "requests==2.32.3",
+                "extras": [],
+                "marker": null,
+                "name": "requests",
+                "specifier": "==2.32.3",
+                "url": null,
+                "found": "C:\\Python313\\Lib\\site-packages\\requests-2.32.3.dist-info"
+            },
+            "advisory": "Requests is an HTTP library. Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs. Users should upgrade to version 2.32.4 to receive a fix. For older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on one's Requests Session.",
+            "is_transitive": false,
+            "published_date": null,
+            "fixed_versions": [],
+            "closest_versions_without_known_vulnerabilities": [],
+            "resources": [],
+            "CVE": "CVE-2024-47081",
+            "severity": null,
+            "affected_versions": [],
+            "more_info_url": "https://data.safetycli.com/v/77680/97c"
+        }
+    ],
+    "ignored_vulnerabilities": [],
+    "remediations": {
+        "urllib3": {
+            "requirements": {
+                "==2.4.0": {
+                    "vulnerabilities_found": 2,
+                    "version": "2.4.0",
+                    "requirement": {
+                        "raw": "urllib3==2.4.0",
+                        "extras": [],
+                        "marker": null,
+                        "name": "urllib3",
+                        "specifier": "==2.4.0",
+                        "url": null,
+                        "found": "C:\\Python313\\Lib\\site-packages\\urllib3-2.4.0.dist-info"
+                    },
+                    "more_info_url": "https://data.safetycli.com/p/pypi/urllib3/97c/"
+                }
+            },
+            "current_version": null,
+            "vulnerabilities_found": null,
+            "recommended_version": null,
+            "other_recommended_versions": [],
+            "more_info_url": null
+        },
+        "requests": {
+            "requirements": {
+                "==2.32.3": {
+                    "vulnerabilities_found": 1,
+                    "version": "2.32.3",
+                    "requirement": {
+                        "raw": "requests==2.32.3",
+                        "extras": [],
+                        "marker": null,
+                        "name": "requests",
+                        "specifier": "==2.32.3",
+                        "url": null,
+                        "found": "C:\\Python313\\Lib\\site-packages\\requests-2.32.3.dist-info"
+                    },
+                    "more_info_url": "https://data.safetycli.com/p/pypi/requests/97c/"
+                }
+            },
+            "current_version": null,
+            "vulnerabilities_found": null,
+            "recommended_version": null,
+            "other_recommended_versions": [],
+            "more_info_url": null
+        }
+    },
+    "remediations_results": {
+        "vulnerabilities_fixed": [],
+        "remediations_applied": {},
+        "remediations_skipped": {}
+    }
+}
+
+
++===========================================================================================================================================================================================+
+
+
+DEPRECATED: this command (`check`) has been DEPRECATED, and will be unsupported beyond 01 June 2024.
+
+
+We highly encourage switching to the new `scan` command which is easier to use, more powerful, and can be set up to mimic the deprecated command if required.
+
+
++===========================================================================================================================================================================================+
+
+
