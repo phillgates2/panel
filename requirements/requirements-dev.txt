@@ -36,7 +36,7 @@ ipdb==0.13.13
 flask-debugtoolbar==0.16.0
 
 # Documentation
-sphinx==7.2.6
+sphinx==9.0.4
 sphinx-rtd-theme==2.0.0
 mkdocs==1.6.1
 mkdocs-material==9.7.0
