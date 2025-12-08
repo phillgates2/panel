@@ -42,7 +42,7 @@ email-validator==2.1.0
 
 # Real-time Communication
 flask-socketio==5.5.1
-python-socketio==5.10.0
+python-socketio==5.15.0
 
 # Caching
 Flask-Caching==2.1.0
