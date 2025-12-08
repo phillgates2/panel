@@ -17,7 +17,7 @@ Flask-Limiter==3.5.0
 Flask-Talisman==1.1.0
 
 # Input Validation
-marshmallow==3.20.1
+marshmallow==4.1.1
 
 # Task Queue and Caching
 rq==1.16.2
