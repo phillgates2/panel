@@ -37,7 +37,7 @@ flask-debugtoolbar==0.16.0
 
 # Documentation
 sphinx==7.2.6
-sphinx-rtd-theme==2.0.0
+sphinx-rtd-theme==3.0.2
 mkdocs==1.6.1
 mkdocs-material==9.7.0
 
