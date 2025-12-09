@@ -10,8 +10,8 @@ log_info() {
     echo "[INFO] $1"
 }
 
-# Detect if running non-interactively (e.g., piped or automated)
-if [[ ! -t 0 ]]; then
+# Detect if running non-interactively (e.g., piped or automated), unless forced interactive
+if [[ ! -t 0 && ${FORCE_INTERACTIVE:-false} != true ]]; then
     NON_INTERACTIVE=true
     log_info "Running non-interactively, using default settings"
 fi
@@ -67,6 +67,8 @@ install_parse_args() {
         case $arg in
             --dry-run) DRY_RUN=true ;;
             --non-interactive) NON_INTERACTIVE=true ;;
+            --force-interactive) FORCE_INTERACTIVE=true ;;
+            --install-dir=*) INSTALL_DIR="${arg#*=}" ;;
             --dev) DEV_MODE=true ;;
             --docker) DOCKER_MODE=true ;;
             --wizard) WIZARD_MODE=true ;;
@@ -79,6 +81,8 @@ install_parse_args() {
                 echo "Usage: $0 [OPTIONS]"
                 echo "  --dry-run          Show what would be installed without making changes"
                 echo "  --non-interactive  Use default values for all prompts"
+                echo "  --force-interactive Force interactive mode even when piped"
+                echo "  --install-dir=PATH Specify installation directory"
                 echo "  --dev              Setup development environment"
                 echo "  --docker           Install via Docker Compose"
                 echo "  --wizard           Advanced configuration wizard"
