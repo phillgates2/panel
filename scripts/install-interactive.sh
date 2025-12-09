@@ -5,6 +5,11 @@
 
 set -e
 
+# Basic logging function for early use
+log_info() {
+    echo "[INFO] $1"
+}
+
 # Ensure we are in repo root when sourced remotely
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
