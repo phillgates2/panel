@@ -18,10 +18,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
       
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -65,7 +65,7 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     
     - name: Upload coverage reports
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v4
       if: always() && matrix.python-version == '3.11'
       with:
         name: coverage-reports
@@ -82,7 +82,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -108,7 +108,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Deploy application
       run: |
@@ -128,4 +128,4 @@ jobs:
           echo "✅ Deployment successful"
         else
           echo "❌ Deployment failed"
-        fi        fi
+        fi
