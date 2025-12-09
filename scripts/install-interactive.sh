@@ -36,6 +36,22 @@ cd "$REPO_ROOT" 2>/dev/null || true  # Ignore if repo not cloned yet
 . "$SCRIPT_DIR/50-config.sh"
 . "$SCRIPT_DIR/60-monitoring.sh"
 
+# Override logging functions for remote execution to avoid permission issues
+if [[ -n "$TEMP_DIR" ]]; then
+    log_info() {
+        echo "[INFO] $1"
+    }
+    log_warning() {
+        echo "[WARNING] $1"
+    }
+    log_error() {
+        echo "[ERROR] $1"
+    }
+    log_success() {
+        echo "[SUCCESS] $1"
+    }
+fi
+
 PYTHON_CMD="python3"
 
 install_parse_args() {
