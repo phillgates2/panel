@@ -10,6 +10,12 @@ log_info() {
     echo "[INFO] $1"
 }
 
+# Detect if running non-interactively (e.g., piped or automated)
+if [[ ! -t 0 ]]; then
+    NON_INTERACTIVE=true
+    log_info "Running non-interactively, using default settings"
+fi
+
 # Ensure we are in repo root when sourced remotely
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
