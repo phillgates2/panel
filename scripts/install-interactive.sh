@@ -23,6 +23,8 @@ if [[ ! -f "$SCRIPT_DIR/install/00-common.sh" ]]; then
         curl -fsSL "https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install/$script" -o "$TEMP_DIR/$script"
     done
     SCRIPT_DIR="$TEMP_DIR"
+    # Create log file in temp dir to avoid permission issues
+    touch "$TEMP_DIR/install.log"
 fi
 
 cd "$REPO_ROOT" 2>/dev/null || true  # Ignore if repo not cloned yet
