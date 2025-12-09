@@ -6,7 +6,7 @@ import json
 from unittest.mock import patch
 
 import pytest
-from models import User
+from app import User
 
 from app import create_app, db
 

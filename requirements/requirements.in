@@ -1,0 +1,79 @@
+# Core Flask Dependencies - Latest Stable Versions (Nov 2025)
+Flask==3.1.2
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+alembic==1.13.1
+Pillow==12.0.0
+gunicorn==23.0.0
+werkzeug==3.0.1
+
+# Database Drivers
+# Note: For Python 3.13+, psycopg2-binary 2.9.10+ is required
+# If build fails, try: pip install psycopg2-binary --only-binary :all:
+psycopg2-binary>=2.9.10  # PostgreSQL adapter
+
+# Security and Rate Limiting
+Flask-Limiter==3.5.0
+Flask-Talisman==1.1.0
+
+# Input Validation
+marshmallow==3.20.1
+
+# Task Queue and Caching
+rq==1.16.2
+rq-dashboard==0.6.1
+redis==7.1.0
+
+# HTTP and Networking - SECURITY UPDATE: Fixed CVE-2024-37891, CVE-2025-1399, CVE-2024-47081
+requests>=2.32.4  # Updated from 2.32.5 to fix CVE-2024-47081
+urllib3>=2.3.0    # Updated from 2.1.0 to fix CVE-2024-37891, CVE-2025-1399
+
+# Testing Framework (install separately for development)
+# pytest==7.4.3
+# pytest-playwright==0.4.3  # Requires playwright package (browser automation)
+# pytest-asyncio==0.21.1
+# playwright==1.40.0  # Optional - for browser automation testing
+
+# Authentication and Security
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+cryptography==46.0.3
+email-validator==2.1.0
+
+# Real-time Communication
+flask-socketio==5.5.1
+python-socketio==5.10.0
+
+# Caching
+Flask-Caching==2.1.0
+
+# Compression
+Flask-Compress==1.13
+
+# Monitoring and Metrics
+prometheus-flask-exporter==0.23.2
+
+# Enterprise Dependencies - Optimized Versions
+# psutil==5.9.6  # Commented out due to build issues in Alpine
+paramiko==3.4.0
+PyYAML==6.0.1
+python-dotenv==1.0.0
+
+# Optional ML/Analytics Dependencies (install only if needed)
+# numpy==1.25.2
+# scikit-learn==1.3.2
+# boto3==1.34.23
+
+# AI and Machine Learning Dependencies
+openai>=1.0.0
+google-cloud-aiplatform>=1.36.0
+azure-cognitiveservices-speech>=1.32.1
+azure-ai-formrecognizer>=3.3.0
+opencv-python-headless>=4.8.0
+moviepy>=1.0.3
+pydub>=0.25.1
+speechrecognition>=3.10.0
+
+# Development and Deployment
+setuptools==69.0.2
+wheel==0.42.0

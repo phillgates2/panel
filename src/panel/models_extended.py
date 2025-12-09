@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 from werkzeug.security import generate_password_hash
 
-from app import db
+from src.panel.models import db
 
 
 class UserSession(db.Model):
@@ -126,27 +126,6 @@ class IpAccessControl(db.Model):
     is_active = db.Column(db.Boolean, default=True, index=True)
 
 
-class Notification(db.Model):
-    """In-app notifications for users."""
-
-    __tablename__ = "notification"
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    title = db.Column(db.String(256), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    notification_type = db.Column(
-        db.String(32), nullable=False
-    )  # info, success, warning, error
-    link = db.Column(db.String(512), nullable=True)  # Optional action link
-    is_read = db.Column(db.Boolean, default=False, index=True)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
-
-    user = db.relationship("User", backref=db.backref("notifications", lazy="dynamic"))
-
-
 class ServerTemplate(db.Model):
     """Pre-configured server templates."""
 
@@ -198,8 +177,6 @@ class RconCommandHistory(db.Model):
     executed_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), index=True
     )
-
-    user = db.relationship("User", backref=db.backref("rcon_history", lazy="dynamic"))
 
 
 class PerformanceMetric(db.Model):

@@ -9,6 +9,11 @@ from flask import Flask
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
+# Import core models so tests and legacy code can use `from app import User, SiteAsset, SiteSetting`
+from src.panel.models import SiteAsset, SiteSetting, User, Server, ServerUser
+from src.panel.routes_rbac import user_can_edit_server, user_server_role
+from src.panel.csrf import verify_csrf
+
 # Initialize extensions (but don't bind to app yet)
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -61,7 +66,6 @@ def create_app(config_name="default"):
     @login_manager.user_loader
     def load_user(user_id):
         """Load user by ID."""
-        from src.panel.models import User
         return db.session.get(User, int(user_id))
     
     # Register blueprints
@@ -128,9 +132,23 @@ def register_error_handlers(app):
         pass
 
 
+# Legacy global app object for tests and older code paths
+# This allows imports like `from app import app` to continue working.
+app = create_app()
+
+
 # Expose key components at package level
 __all__ = [
     "create_app",
     "db",
     "login_manager",
+    "User",
+    "SiteAsset",
+    "SiteSetting",
+    "Server",
+    "ServerUser",
+    "user_can_edit_server",
+    "user_server_role",
+    "verify_csrf",
+    "app",
 ]
