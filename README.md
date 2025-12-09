@@ -75,9 +75,42 @@ Panel is a modern, scalable Flask application designed for managing game servers
 
 ## 🚀 Quick Start
 
-### One-Line Installation
+### Interactive Installer (Recommended)
+Panel includes a comprehensive interactive installer that handles all setup automatically:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/tools/scripts/install.sh | bash
+# One-line installation
+curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+
+# Or download and run locally
+wget https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh
+bash install-interactive.sh
+```
+
+#### Installer Options
+The installer supports various deployment scenarios:
+
+```bash
+# Development mode
+bash install-interactive.sh --dev
+
+# Production mode
+bash install-interactive.sh --non-interactive
+
+# Docker deployment
+bash install-interactive.sh --docker
+
+# Cloud presets (AWS, GCP, Azure)
+bash install-interactive.sh --cloud=aws
+
+# Offline installation
+bash install-interactive.sh --offline
+
+# Advanced configuration wizard
+bash install-interactive.sh --wizard
+
+# Show all options
+bash install-interactive.sh --help
 ```
 
 ### Docker Deployment
@@ -93,6 +126,8 @@ docker-compose up -d
 ```
 
 ### Manual Installation
+For advanced users or custom deployments:
+
 ```bash
 # Clone and setup
 git clone https://github.com/phillgates2/panel.git
@@ -115,9 +150,9 @@ python app.py
 ## 📖 Documentation
 
 ### 📚 Getting Started
-- [Installation Guide](docs/INSTALLER_GUIDE.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Deployment](docs/DEPLOYMENT.md)
+- [Interactive Installer Guide](docs/INSTALLER_ENHANCEMENTS_TODO.md)
+- [Configuration Guide](docs/CONFIGURATION.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
 
 ### 🎯 User Guides
 - [Server Management](docs/SERVER_MANAGEMENT.md)
@@ -126,9 +161,9 @@ python app.py
 
 ### 🔧 Developer Resources
 - [API Documentation](docs/API_DOCUMENTATION.md)
-- [Contributing](docs/CONTRIBUTING.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Testing](docs/TESTING.md)
+- [Contributing Guide](docs/CONTRIBUTING.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Testing Guide](docs/TESTING.md)
 
 ### 🚀 Advanced Topics
 - [Kubernetes Deployment](docs/KUBERNETES_DEPLOYMENT.md)
@@ -296,7 +331,7 @@ helm install panel ./helm
 ```bash
 # Automated installation
 PANEL_DOMAIN=yourdomain.com PANEL_ENABLE_SSL=true \
-bash tools/scripts/install.sh
+bash scripts/install-interactive.sh
 
 # Manual systemd setup
 sudo cp deploy/panel.service /etc/systemd/system/
@@ -450,4 +485,19 @@ See [CHANGELOG.md](docs/CHANGELOG.md) for detailed version history.
 
 **Panel** — Modern, secure, and scalable game server management platform.
 
-[🚀 Get Started](docs/INSTALLER_GUIDE.md) • [📖 Documentation](docs/README.md) • [🐛 Report Issues](https://github.com/phillgates2/panel/issues) • [💬 Community](https://github.com/phillgates2/panel/discussions)
+[🚀 Get Started](docs/INSTALLER_ENHANCEMENTS_TODO.md) • [📖 Documentation](docs/README.md) • [🐛 Report Issues](https://github.com/phillgates2/panel/issues) • [💬 Community](https://github.com/phillgates2/panel/discussions)
+
+## 🧹 Repository Cleanup (Optional)
+
+To remove Python caches, logs, and untracked build artifacts:
+
+```bash
+# Remove Python cache and log files
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -type f -name "*.pyc" -o -name "*.pyo" -o -name "*.log" -delete
+
+# Preview untracked files that can be removed
+git clean -n -d
+
+# Remove untracked files and directories (be careful)
+git clean -f -d
