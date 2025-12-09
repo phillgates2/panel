@@ -8,16 +8,28 @@ set -e
 # Ensure we are in repo root when sourced remotely
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_ROOT"
+
+# If running from pipe (e.g., curl | bash), SCRIPT_DIR might be wrong
+if [[ ! -f "$SCRIPT_DIR/install/00-common.sh" ]]; then
+    # Running remotely, download helper scripts to temp
+    TEMP_DIR=$(mktemp -d)
+    log_info "Running remotely, downloading helper scripts to $TEMP_DIR"
+    for script in 00-common.sh 10-env-checks.sh 20-deps.sh 30-database.sh 40-redis.sh 50-config.sh 60-monitoring.sh; do
+        curl -fsSL "https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install/$script" -o "$TEMP_DIR/$script"
+    done
+    SCRIPT_DIR="$TEMP_DIR"
+fi
+
+cd "$REPO_ROOT" 2>/dev/null || true  # Ignore if repo not cloned yet
 
 # Source shared and step scripts
-. "$SCRIPT_DIR/install/00-common.sh"
-. "$SCRIPT_DIR/install/10-env-checks.sh"
-. "$SCRIPT_DIR/install/20-deps.sh"
-. "$SCRIPT_DIR/install/30-database.sh"
-. "$SCRIPT_DIR/install/40-redis.sh"
-. "$SCRIPT_DIR/install/50-config.sh"
-. "$SCRIPT_DIR/install/60-monitoring.sh"
+. "$SCRIPT_DIR/00-common.sh"
+. "$SCRIPT_DIR/10-env-checks.sh"
+. "$SCRIPT_DIR/20-deps.sh"
+. "$SCRIPT_DIR/30-database.sh"
+. "$SCRIPT_DIR/40-redis.sh"
+. "$SCRIPT_DIR/50-config.sh"
+. "$SCRIPT_DIR/60-monitoring.sh"
 
 PYTHON_CMD="python3"
 
