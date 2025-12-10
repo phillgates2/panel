@@ -697,7 +697,7 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+PYTHON_VERSION=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
 if python3 -c 'import sys; exit(0 if sys.version_info >= (3, 8) else 1)'; then
     log_success "Python $PYTHON_VERSION detected"
 else
