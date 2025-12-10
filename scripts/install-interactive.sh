@@ -698,7 +698,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 PYTHON_VERSION=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
-if python3 -c 'import sys; exit(0 if sys.version_info >= (3, 8) else 1)'; then
+if python3 -c 'import sys; exit(if sys.version_info >= (3, 8) else 1)'; then
     log_success "Python $PYTHON_VERSION detected"
 else
     log_error "Python 3.8+ is required. Current version: $PYTHON_VERSION"
@@ -1438,9 +1438,7 @@ if [[ $NON_INTERACTIVE != true ]]; then
     log_info "Creating admin user in the database..."
     if [[ $DB_CHOICE -eq 1 ]]; then
         # SQLite
-        python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('$ADMIN_PASSWORD'))" > /tmp/hash.txt
-        PASSWORD_HASH=$(cat /tmp/hash.txt)
-        rm /tmp/hash.txt
+        PASSWORD_HASH=$(printf '%s\n' "$ADMIN_PASSWORD" | python3 -c "from werkzeug.security import generate_password_hash; import sys; print(generate_password_hash(sys.stdin.read().strip()))")
         ADMIN_CREATION_QUERY="INSERT INTO users (username, password_hash, is_admin) VALUES ('$ADMIN_USERNAME', '$PASSWORD_HASH', 1);"
         sqlite3 "$INSTALL_DIR/panel.db" "$ADMIN_CREATION_QUERY" || {
             log_error "Failed to create admin user"
