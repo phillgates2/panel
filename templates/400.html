@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>400 - Bad Request</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .error-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin: 10px 0 20px 0;
+        }
+        .error-message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        .error-details {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .error-details summary {
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">400</h1>
+        <h2 class="error-title">Bad Request</h2>
+        <p class="error-message">
+            The server cannot process your request due to a client error.
+            Please check your input and try again.
+        </p>
+
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">Go Home</a>
+            <button onclick="history.back()" class="btn btn-secondary">Go Back</button>
+            <a href="/contact" class="btn btn-secondary">Contact Support</a>
+        </div>
+
+        {% if error %}
+        <details class="error-details">
+            <summary>Technical Details</summary>
+            <pre>{{ error }}</pre>
+        </details>
+        {% endif %}
+    </div>
+
+    <script>
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-hide technical details after 10 seconds
+            const details = document.querySelector('.error-details');
+            if (details) {
+                setTimeout(() => {
+                    details.removeAttribute('open');
+                }, 10000);
+            }
+        });
+    </script>
+</body>
+</html>

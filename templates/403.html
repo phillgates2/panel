@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 - Forbidden</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff5722;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .error-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin: 10px 0 20px 0;
+        }
+        .error-message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        .permission-info {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .permission-info h4 {
+            margin: 0 0 10px 0;
+            color: #721c24;
+        }
+        .permission-info ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #721c24;
+        }
+        .permission-info li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">403</h1>
+        <h2 class="error-title">Forbidden</h2>
+        <p class="error-message">
+            You don't have permission to access this resource.
+            This action requires specific privileges that your account doesn't have.
+        </p>
+
+        <div class="permission-info">
+            <h4>?? Access Restricted</h4>
+            <p>This page requires one of the following permissions:</p>
+            <ul>
+                <li>Administrator privileges</li>
+                <li>Specific role-based access</li>
+                <li>Resource ownership</li>
+            </ul>
+            <p>If you believe this is an error, please contact an administrator.</p>
+        </div>
+
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">Go Home</a>
+            <a href="/profile" class="btn btn-secondary">My Profile</a>
+            <a href="/contact" class="btn btn-secondary">Contact Admin</a>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Try to get user permissions and display relevant info
+            fetch('/api/user/permissions', {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.permissions) {
+                    const permissionList = document.querySelector('.permission-info ul');
+                    if (permissionList) {
+                        permissionList.innerHTML = '<li>Your current permissions: ' + data.permissions.join(', ') + '</li>';
+                    }
+                }
+            })
+            .catch(() => {
+                // API not available, keep default message
+            });
+        });
+    </script>
+</body>
+</html>
