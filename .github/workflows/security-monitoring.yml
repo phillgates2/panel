@@ -32,13 +32,20 @@ jobs:
 
     - name: Install security tools
       run: |
-        pip install safety bandit pip-audit
-        # Install jq for JSON parsing (if not available)
+        pip install safety bandit pip-audit || true
+        # Install jq for JSON parsing
         if ! command -v jq >/dev/null 2>&1; then
           echo "Installing jq..."
-          sudo apt-get update && sudo apt-get install -y jq || echo "Warning: jq installation failed"
+          sudo apt-get update -y || true
+          sudo apt-get install -y jq || echo "Warning: jq installation failed"
         fi
-        npm install -g audit-ci
+        # Set up Node.js for audit-ci
+        if ! command -v node >/dev/null 2>&1; then
+          echo "Installing Node.js..."
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - || true
+          sudo apt-get install -y nodejs || echo "Warning: Node.js installation failed"
+        fi
+        npm install -g audit-ci || true
 
     - name: Run Safety (Python vulnerabilities)
       if: always()
@@ -125,7 +132,8 @@ jobs:
         fi
 
     - name: Run Trivy (container vulnerabilities)
-      uses: aquasecurity/trivy-action@master
+      # Pin to a stable version to avoid breaking changes
+      uses: aquasecurity/trivy-action@v0.16.1
       with:
         scan-type: 'fs'
         scan-ref: '.'
