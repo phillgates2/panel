@@ -20,7 +20,7 @@ iniconfig==2.3.0
     # via pytest
 packaging==25.0
     # via pytest
-playwright==1.57.0
+playwright==1.43.0
     # via pytest-playwright
 pluggy==1.6.0
     # via
@@ -30,7 +30,7 @@ pyee==13.0.0
     # via playwright
 pygments==2.19.2
     # via pytest
-pytest==9.0.2
+pytest==8.3.3
     # via
     #   -r requirements-test.in
     #   pytest-asyncio
@@ -43,7 +43,7 @@ pytest-base-url==2.1.0
     # via pytest-playwright
 pytest-cov==7.0.0
     # via -r requirements-test.in
-pytest-playwright==0.7.2
+pytest-playwright==0.5.8
     # via -r requirements-test.in
 python-slugify==8.0.4
     # via pytest-playwright
