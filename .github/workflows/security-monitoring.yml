@@ -33,6 +33,11 @@ jobs:
     - name: Install security tools
       run: |
         pip install safety bandit pip-audit
+        # Install jq for JSON parsing (if not available)
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "Installing jq..."
+          sudo apt-get update && sudo apt-get install -y jq || echo "Warning: jq installation failed"
+        fi
         npm install -g audit-ci
 
     - name: Run Safety (Python vulnerabilities)
@@ -44,15 +49,20 @@ jobs:
         if [ -f safety-report.json ]; then
           echo "✅ Safety check completed"
           # Check if file contains vulnerabilities
-          if jq -e '.vulnerabilities // [] | length > 0' safety-report.json 2>/dev/null; then
-            echo "⚠️ Vulnerabilities found, check report for details"
-            critical_count=$(jq '.vulnerabilities // [] | map(select(.vulnerability.severity == "high" or .vulnerability.severity == "critical")) | length' safety-report.json 2>/dev/null || echo "0")
-            if [ "$critical_count" -gt 0 ]; then
-              echo "🚨 High/Critical Python vulnerabilities found: $critical_count"
-              echo "high_vulns=true" >> $GITHUB_ENV
+          if command -v jq >/dev/null 2>&1; then
+            vuln_count=$(jq '.vulnerabilities // [] | length' safety-report.json 2>/dev/null || echo "0")
+            if [ "$vuln_count" -gt 0 ]; then
+              echo "⚠️ Vulnerabilities found: $vuln_count"
+              critical_count=$(jq '.vulnerabilities // [] | map(select(.vulnerability.severity == "high" or .vulnerability.severity == "critical")) | length' safety-report.json 2>/dev/null || echo "0")
+              if [ "$critical_count" -gt 0 ]; then
+                echo "🚨 High/Critical Python vulnerabilities found: $critical_count"
+                echo "high_vulns=true" >> $GITHUB_ENV
+              fi
+            else
+              echo "✅ No vulnerabilities found"
             fi
           else
-            echo "✅ No vulnerabilities found"
+            echo "⚠️ jq not available, skipping detailed vulnerability check"
           fi
         else
           echo "⚠️ Safety report not generated"
@@ -65,12 +75,21 @@ jobs:
         pip-audit --format json --output pip-audit-report.json || true
         # Check for vulnerabilities
         if [ -f pip-audit-report.json ]; then
-          vuln_count=$(jq 'if type == "array" then length elif type == "object" then (.dependencies // [] | length) else 0 end' pip-audit-report.json 2>/dev/null || echo "0")
-          if [ "$vuln_count" -gt 0 ]; then
-            echo "⚠️ pip-audit found $vuln_count issue(s)"
-            cat pip-audit-report.json | head -n 50
+          if command -v jq >/dev/null 2>&1; then
+            vuln_count=$(jq 'if type == "array" then length elif type == "object" then (.dependencies // [] | length) else 0 end' pip-audit-report.json 2>/dev/null || echo "0")
+            if [ "$vuln_count" -gt 0 ]; then
+              echo "⚠️ pip-audit found $vuln_count issue(s)"
+              cat pip-audit-report.json | head -n 50
+            else
+              echo "✅ No pip-audit issues found"
+            fi
           else
-            echo "✅ No pip-audit issues found"
+            echo "⚠️ jq not available, pip-audit results may contain issues"
+            if [ -s pip-audit-report.json ]; then
+              echo "⚠️ pip-audit report generated but cannot parse without jq"
+            else
+              echo "✅ pip-audit completed (empty report)"
+            fi
           fi
         else
           echo "⚠️ pip-audit report not generated"
@@ -83,17 +102,24 @@ jobs:
         bandit -r . -f json -o bandit-report.json --exclude ./tests,./venv,./.venv,./node_modules || true
         # Check for high-severity issues
         if [ -f bandit-report.json ]; then
-          high_issues=$(jq '.results // [] | map(select(.issue_severity == "HIGH")) | length' bandit-report.json 2>/dev/null || echo "0")
-          if [ "$high_issues" -gt 0 ]; then
-            echo "🚨 High-severity security issues found: $high_issues"
-            jq '.results // [] | map(select(.issue_severity == "HIGH"))' bandit-report.json | head -n 50
-            echo "bandit_high=true" >> $GITHUB_ENV
+          if command -v jq >/dev/null 2>&1; then
+            high_issues=$(jq '.results // [] | map(select(.issue_severity == "HIGH")) | length' bandit-report.json 2>/dev/null || echo "0")
+            if [ "$high_issues" -gt 0 ]; then
+              echo "🚨 High-severity security issues found: $high_issues"
+              jq '.results // [] | map(select(.issue_severity == "HIGH"))' bandit-report.json | head -n 50
+              echo "bandit_high=true" >> $GITHUB_ENV
+            else
+              echo "✅ No high-severity code security issues found"
+            fi
+            # Show summary
+            total_issues=$(jq '.results // [] | length' bandit-report.json 2>/dev/null || echo "0")
+            echo "Total issues found: $total_issues"
           else
-            echo "✅ No high-severity code security issues found"
+            echo "⚠️ jq not available, cannot parse Bandit results"
+            if [ -s bandit-report.json ]; then
+              echo "⚠️ Bandit report generated but cannot parse without jq"
+            fi
           fi
-          # Show summary
-          total_issues=$(jq '.results // [] | length' bandit-report.json 2>/dev/null || echo "0")
-          echo "Total issues found: $total_issues"
         else
           echo "⚠️ Bandit report not generated"
         fi
@@ -111,13 +137,20 @@ jobs:
       if: always()
       run: |
         if [ -f trivy-files-report.json ]; then
-          high_vulns=$(jq '[.Results // [] | .[] | .Vulnerabilities // [] | .[] | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' trivy-files-report.json 2>/dev/null || echo "0")
-          if [ "$high_vulns" -gt 0 ]; then
-            echo "🚨 High/Critical container vulnerabilities found!"
-            jq '[.Results // [] | .[] | .Vulnerabilities // [] | .[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | {Package: .PkgName, Version: .InstalledVersion, Severity: .Severity, Description: .Description}]' trivy-files-report.json
-            echo "trivy_high=true" >> $GITHUB_ENV
+          if command -v jq >/dev/null 2>&1; then
+            high_vulns=$(jq '[.Results // [] | .[] | .Vulnerabilities // [] | .[] | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' trivy-files-report.json 2>/dev/null || echo "0")
+            if [ "$high_vulns" -gt 0 ]; then
+              echo "🚨 High/Critical container vulnerabilities found!"
+              jq '[.Results // [] | .[] | .Vulnerabilities // [] | .[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | {Package: .PkgName, Version: .InstalledVersion, Severity: .Severity, Description: .Description}]' trivy-files-report.json
+              echo "trivy_high=true" >> $GITHUB_ENV
+            else
+              echo "✅ No high/critical container vulnerabilities found"
+            fi
           else
-            echo "✅ No high/critical container vulnerabilities found"
+            echo "⚠️ jq not available, cannot parse Trivy results"
+            if [ -s trivy-files-report.json ]; then
+              echo "⚠️ Trivy report generated but cannot parse without jq"
+            fi
           fi
         fi
 

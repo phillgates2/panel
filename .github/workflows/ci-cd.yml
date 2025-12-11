@@ -35,6 +35,8 @@ jobs:
     
     - name: Run tests with coverage
       run: |
+        export PANEL_SQLITE_URI="sqlite:///:memory:"
+        export FLASK_ENV="testing"
         if [ -d "tests" ] && command -v pytest >/dev/null 2>&1; then
           pytest tests/ \
             --cov=app \
