@@ -97,12 +97,12 @@ def init_monitoring_extensions(app: Flask) -> Dict[str, Any]:
         def status_update_loop():
             while True:
                 try:
-                    # Send status update every 30 minutes
+                    # Send status update every 5 minutes
                     send_server_status_task.delay()
-                    time.sleep(1800)  # 30 minutes
+                    time.sleep(300)  # 5 minutes
                 except Exception as e:
                     print(f"Server status update scheduling error: {e}")
-                    time.sleep(300)  # Retry in 5 minutes on error
+                    time.sleep(60)  # Retry in 1 minute on error
 
         # Start the status update loop in a background thread
         import threading
