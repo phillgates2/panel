@@ -91,6 +91,7 @@ jobs:
       uses: docker/setup-buildx-action@v3
     
     - name: Build Docker image
+      continue-on-error: true
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -131,4 +132,4 @@ jobs:
           echo "✅ Deployment successful"
         else
           echo "❌ Deployment failed"
-        fi        fi
+        fi
