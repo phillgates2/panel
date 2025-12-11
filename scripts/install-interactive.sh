@@ -1626,7 +1626,7 @@ if [[ $MONITORING == true ]]; then
     helm repo add grafana https://grafana.github.io/helm-charts
     helm repo update
     helm install grafana grafana/grafana --namespace monitoring --values values/grafana-values.yaml || {
-        log_ERROR "Failed to install Grafana"
+        log_error "Failed to install Grafana"
         exit 1
     }
     
