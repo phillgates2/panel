@@ -88,6 +88,30 @@ def init_monitoring_extensions(app: Flask) -> Dict[str, Any]:
             app._error_count += 1
         return response
 
+    # Schedule periodic server status updates
+    def schedule_server_status_updates():
+        """Schedule periodic Discord server status updates."""
+        from src.panel.tasks import send_server_status_task
+        import time
+
+        def status_update_loop():
+            while True:
+                try:
+                    # Send status update every 30 minutes
+                    send_server_status_task.delay()
+                    time.sleep(1800)  # 30 minutes
+                except Exception as e:
+                    print(f"Server status update scheduling error: {e}")
+                    time.sleep(300)  # Retry in 5 minutes on error
+
+        # Start the status update loop in a background thread
+        import threading
+        status_thread = threading.Thread(target=status_update_loop, daemon=True)
+        status_thread.start()
+
+    # Start periodic status updates
+    schedule_server_status_updates()
+
     # Configure monitoring settings
     monitoring_config = {
         'prometheus_enabled': True,

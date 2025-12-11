@@ -515,6 +515,11 @@ class ServerMonitor:
                 ],
             }
 
+            # Add server stats to the embed
+            server_stats = self._get_server_player_stats_for_alert(server)
+            if server_stats:
+                embed["fields"].extend(server_stats)
+
             payload = {"embeds": [embed]}
 
             requests.post(webhook_url, json=payload, timeout=10)
@@ -522,10 +527,49 @@ class ServerMonitor:
         except Exception as e:
             print(f"Discord notification error: {e}")
 
-    def _send_email_notification(self, alert, server, message, severity):
-        """Send email notification (placeholder for email integration)."""
-        # This would integrate with your email system
-        print(f"EMAIL ALERT: {message}")
+    def _get_server_player_stats_for_alert(self, target_server):
+        """Get player stats for all servers, highlighting the alerted server."""
+        try:
+            from app import Server
+            from monitoring_system import ServerMetrics
+
+            servers = Server.query.all()
+            fields = []
+
+            total_players = 0
+            online_servers = 0
+
+            for server in servers:
+                latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
+                    .order_by(ServerMetrics.timestamp.desc()).first()
+
+                if latest_metric and latest_metric.is_online:
+                    online_servers += 1
+                    player_count = latest_metric.player_count or 0
+                    max_players = latest_metric.max_players or 0
+                    total_players += player_count
+
+                    # Highlight the server that triggered the alert
+                    server_name = f"🎯 {server.name}" if server.id == target_server.id else f"🎮 {server.name}"
+
+                    fields.append({
+                        "name": server_name,
+                        "value": f"{player_count}/{max_players} players",
+                        "inline": True
+                    })
+
+            # Add summary
+            fields.insert(0, {
+                "name": "📊 Network Status",
+                "value": f"{online_servers} servers online, {total_players} total players",
+                "inline": False
+            })
+
+            return fields
+
+        except Exception as e:
+            print(f"Error getting server stats for alert: {e}")
+            return []
 
     def get_live_data(self, server_id):
         """Get recent live monitoring data for a server."""
@@ -667,6 +711,89 @@ def manage_alerts():
     # GET - show alerts management page
     alerts = ServerAlert.query.order_by(desc(ServerAlert.created_at)).all()
     return render_template("admin_monitoring_alerts.html", alerts=alerts)
+
+
+@monitoring_bp.route("/api/monitoring/server-status")
+@login_required
+def get_server_status():
+    """Get current server status and player counts."""
+    try:
+        from app import Server
+        from monitoring_system import ServerMetrics
+
+        servers = Server.query.all()
+        server_status = []
+
+        total_players = 0
+        online_servers = 0
+
+        for server in servers:
+            latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
+                .order_by(ServerMetrics.timestamp.desc()).first()
+
+            server_info = {
+                "id": server.id,
+                "name": server.name,
+                "online": False,
+                "players": 0,
+                "max_players": 0,
+                "map": None,
+                "game_mode": None,
+                "last_updated": None
+            }
+
+            if latest_metric:
+                server_info.update({
+                    "online": latest_metric.is_online,
+                    "players": latest_metric.player_count or 0,
+                    "max_players": latest_metric.max_players or 0,
+                    "map": latest_metric.map_name,
+                    "game_mode": latest_metric.game_mode,
+                    "last_updated": latest_metric.timestamp.isoformat() if latest_metric.timestamp else None
+                })
+
+                if latest_metric.is_online:
+                    online_servers += 1
+                    total_players += server_info["players"]
+
+            server_status.append(server_info)
+
+        return jsonify({
+            "success": True,
+            "summary": {
+                "total_servers": len(servers),
+                "online_servers": online_servers,
+                "total_players": total_players,
+                "average_players_per_server": total_players / max(online_servers, 1)
+            },
+            "servers": server_status
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@monitoring_bp.route("/api/monitoring/send-status-update", methods=["POST"])
+@login_required
+def trigger_status_update():
+    """Manually trigger a Discord server status update."""
+    if not current_user.is_system_admin:
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
+    try:
+        from src.panel.tasks import send_server_status_task
+
+        # Trigger the status update asynchronously
+        result = send_server_status_task.delay()
+
+        return jsonify({
+            "success": True,
+            "message": "Server status update sent to Discord",
+            "task_id": result.id
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 def start_monitoring(app=None):

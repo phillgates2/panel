@@ -458,15 +458,60 @@ class LogProcessor:
                 ],
             }
 
+            # Add server stats to the embed
+            server_stats = self._get_server_player_stats_for_log_alert(server)
+            if server_stats:
+                embed["fields"].extend(server_stats)
+
             payload = {"embeds": [embed]}
             requests.post(webhook_url, json=payload, timeout=10)
 
         except Exception as e:
             print(f"Discord alert error: {e}")
 
-    def _send_email_alert(self, alert, server, message):
-        """Send email alert (placeholder)."""
-        print(f"EMAIL ALERT: {message}")
+    def _get_server_player_stats_for_log_alert(self, target_server):
+        """Get player stats for all servers, highlighting the alerted server."""
+        try:
+            from app import Server
+            from monitoring_system import ServerMetrics
+
+            servers = Server.query.all()
+            fields = []
+
+            total_players = 0
+            online_servers = 0
+
+            for server in servers:
+                latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
+                    .order_by(ServerMetrics.timestamp.desc()).first()
+
+                if latest_metric and latest_metric.is_online:
+                    online_servers += 1
+                    player_count = latest_metric.player_count or 0
+                    max_players = latest_metric.max_players or 0
+                    total_players += player_count
+
+                    # Highlight the server that triggered the alert
+                    server_name = f"🎯 {server.name}" if server.id == target_server.id else f"🎮 {server.name}"
+
+                    fields.append({
+                        "name": server_name,
+                        "value": f"{player_count}/{max_players} players",
+                        "inline": True
+                    })
+
+            # Add summary
+            fields.insert(0, {
+                "name": "📊 Network Status",
+                "value": f"{online_servers} servers online, {total_players} total players",
+                "inline": False
+            })
+
+            return fields
+
+        except Exception as e:
+            print(f"Error getting server stats for log alert: {e}")
+            return []
 
     def get_log_statistics(self, server_id=None, hours=24):
         """Get log statistics for dashboard."""
