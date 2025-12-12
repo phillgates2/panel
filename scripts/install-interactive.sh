@@ -1110,6 +1110,16 @@ if [[ $NON_INTERACTIVE != true ]]; then
         read -p "Choose environment [1-2]: " ENV_CHOICE
         ENV_CHOICE=${ENV_CHOICE:-1}
         
+        # Additional settings
+        echo ""
+        read -p "Enable monitoring with Prometheus & Grafana? (y/n) [n]: " ENABLE_MONITORING
+        ENABLE_MONITORING=${ENABLE_MONITORING:-n}
+        if [[ $ENABLE_MONITORING == "y" ]]; then MONITORING=true; fi
+        
+        read -p "Enable automated backups? (y/n) [y]: " ENABLE_BACKUPS
+        ENABLE_BACKUPS=${ENABLE_BACKUPS:-y}
+        if [[ $ENABLE_BACKUPS == "y" ]]; then BACKUPS=true; fi
+        
         if [[ $ENV_CHOICE -eq 2 ]]; then
             read -p "Domain name (for SSL): " DOMAIN
             DOMAIN=$(sanitize_input "$DOMAIN")
@@ -1125,6 +1135,13 @@ else
     ENV_CHOICE=${ENV_CHOICE:-1}
 fi
 INSTALL_DIR=$(eval echo $INSTALL_DIR)  # Expand ~ if used
+
+# Set deployment type based on environment choice
+if [[ $ENV_CHOICE -eq 1 ]]; then
+    DEPLOYMENT_TYPE="development"
+else
+    DEPLOYMENT_TYPE="production"
+fi
 
 # Display configuration summary
 echo ""
@@ -1692,6 +1709,38 @@ setup_internationalization() { log_info "Internationalization: not implemented";
 setup_advanced_networking() { log_info "Advanced networking: not implemented"; }
 setup_container_orchestration() { log_info "Container orchestration: not implemented"; }
 setup_performance_optimization() { log_info "Performance optimization: not implemented"; }
+
+# Auto-deploy the application
+log_info "Starting the application..."
+if [[ $DEPLOYMENT_TYPE == "development" ]]; then
+    log_info "Starting development server..."
+    source venv/bin/activate
+    nohup python app.py > app.log 2>&1 &
+    APP_PID=$!
+    echo $APP_PID > app.pid
+    log_success "Development server started (PID: $APP_PID)"
+    log_info "Application is running at http://localhost:5000"
+    log_info "Logs: tail -f app.log"
+    log_info "Stop: kill $APP_PID"
+elif [[ $DEPLOYMENT_TYPE == "production" ]]; then
+    if command -v systemctl &> /dev/null && [[ -f /etc/systemd/system/panel.service ]]; then
+        log_info "Starting production service..."
+        sudo systemctl start panel
+        log_success "Production service started"
+        log_info "Check status: sudo systemctl status panel"
+        log_info "View logs: sudo journalctl -u panel -f"
+    else
+        log_info "Starting production server manually..."
+        source venv/bin/activate
+        nohup python app.py > app.log 2>&1 &
+        APP_PID=$!
+        echo $APP_PID > app.pid
+        log_success "Production server started (PID: $APP_PID)"
+        log_info "Application is running at http://localhost:5000"
+        log_info "Logs: tail -f app.log"
+        log_info "Stop: kill $APP_PID"
+    fi
+fi
 
 # Final messages
 log_info "Installation completed. Please follow any post-installation steps above."
