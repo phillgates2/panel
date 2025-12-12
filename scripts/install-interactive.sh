@@ -744,8 +744,6 @@ fi
 log_success "Disk space check passed (${AVAIL_SPACE}MB available)"
 
 # Call validation functions early
-check_network
-check_disk_space 500 "$INSTALL_DIR" || exit 1
 
 # Enhanced system requirements check
 log_info "Performing comprehensive system requirements check..."
@@ -1611,6 +1609,21 @@ fi
 # Initialize monitoring stack if requested
 if [[ $MONITORING == true ]]; then
     log_info "Setting up monitoring with Prometheus & Grafana..."
+    
+    # Check if kubectl is available
+    if ! command -v kubectl &> /dev/null; then
+        log_error "kubectl not found. Kubernetes CLI is required for monitoring setup."
+        log_info "Please install kubectl from https://kubernetes.io/docs/tasks/tools/"
+        exit 1
+    fi
+    
+    # Check if helm is available
+    if ! command -v helm &> /dev/null; then
+        log_error "helm not found. Helm is required for monitoring setup."
+        log_info "Please install Helm from https://helm.sh/docs/intro/install/"
+        exit 1
+    fi
+    
     # Create a dedicated namespace for monitoring
     kubectl create namespace monitoring || log_warning "Monitoring namespace may already exist"
     
