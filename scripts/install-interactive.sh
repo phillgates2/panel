@@ -1,8 +1,12 @@
 #!/bin/bash
 
 # Comprehensive Interactive Installer for Panel Application
-# Run with: curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
-# Or: bash install-interactive.sh [--dry-run] [--non-interactive]
+# Run with: 
+#   curl -o install.sh https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh && bash install.sh
+#   wget -O install.sh https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh && bash install.sh
+# Or for non-interactive: bash install.sh --non-interactive
+#
+# WARNING: Always review scripts before running!
 
 set -e
 
@@ -629,6 +633,15 @@ show_elapsed_time() {
 
 # Set trap for automatic rollback on error
 trap 'handle_error $? $LINENO' ERR
+
+# Check if running interactively
+if [[ ! -t 0 ]]; then
+    log_warning "Script is not running interactively (stdin is not a TTY)."
+    log_warning "For interactive installation, please download the script first:"
+    log_info "curl -o install.sh https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh && bash install.sh"
+    log_info "Or run with --non-interactive for automated installation."
+    NON_INTERACTIVE=true
+fi
 
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
