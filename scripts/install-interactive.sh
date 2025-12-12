@@ -104,283 +104,93 @@ detect_package_manager() {
 # Set Python command
 PYTHON_CMD="python3"
 
-for arg in "$@"; do
-    case $arg in
-        --dry-run)
-            DRY_RUN=true
-            shift
+# Function to install PostgreSQL
+install_postgresql() {
+    log_info "Installing PostgreSQL..."
+    
+    case $PKG_MANAGER in
+        apt)
+            # Try different package names for different Ubuntu versions
+            if $PKG_INSTALL postgresql postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL installed via apt"
+            elif $PKG_INSTALL postgresql-15 postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL 15 installed via apt"
+            elif $PKG_INSTALL postgresql-14 postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL 14 installed via apt"
+            elif $PKG_INSTALL postgresql-13 postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL 13 installed via apt"
+            else
+                log_error "Failed to install PostgreSQL via apt"
+                return 1
+            fi
             ;;
-        --non-interactive)
-            NON_INTERACTIVE=true
-            shift
+        yum)
+            if $PKG_INSTALL postgresql postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL installed via yum"
+            elif $PKG_INSTALL postgresql-server postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL server installed via yum"
+            else
+                log_error "Failed to install PostgreSQL via yum"
+                return 1
+            fi
             ;;
-        --dev)
-            DEV_MODE=true
-            shift
+        dnf)
+            if $PKG_INSTALL postgresql postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL installed via dnf"
+            elif $PKG_INSTALL postgresql-server postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL server installed via dnf"
+            else
+                log_error "Failed to install PostgreSQL via dnf"
+                return 1
+            fi
             ;;
-        --docker)
-            DOCKER_MODE=true
-            shift
+        zypper)
+            if $PKG_INSTALL postgresql postgresql-contrib 2>/dev/null; then
+                log_success "PostgreSQL installed via zypper"
+            else
+                log_error "Failed to install PostgreSQL via zypper"
+                return 1
+            fi
             ;;
-        --wizard)
-            WIZARD_MODE=true
-            shift
+        pacman)
+            if $PKG_INSTALL postgresql 2>/dev/null; then
+                log_success "PostgreSQL installed via pacman"
+            else
+                log_error "Failed to install PostgreSQL via pacman"
+                return 1
+            fi
             ;;
-        --cloud=*)
-            CLOUD_PRESET="${arg#*=}"
-            shift
+        brew)
+            if $PKG_INSTALL postgresql 2>/dev/null; then
+                log_success "PostgreSQL installed via brew"
+            else
+                log_error "Failed to install PostgreSQL via brew"
+                return 1
+            fi
             ;;
-        --offline)
-            OFFLINE_MODE=true
-            shift
-            ;;
-        --test)
-            RUN_TESTS=true
-            shift
-            ;;
-        --migrate)
-            MIGRATION_MODE=true
-            shift
-            ;;
-        --debug)
-            DEBUG_MODE=true
-            set -x
-            shift
-            ;;
-        --restore-backup=*)
-            RESTORE_BACKUP="${arg#*=}"
-            shift
-            ;;
-        --ssl-cert=*)
-            SSL_CERT_FILE="${arg#*=}"
-            shift
-            ;;
-        --ssl-key=*)
-            SSL_KEY_FILE="${arg#*=}"
-            shift
-            ;;
-        --monitoring)
-            MONITORING=true
-            shift
-            ;;
-        --no-firewall)
-            FIREWALL=false
-            shift
-            ;;
-        --no-backups)
-            BACKUPS=false
-            shift
-            ;;
-        --workers=*)
-            GUNICORN_WORKERS="${arg#*=}"
-            shift
-            ;;
-        --threads=*)
-            GUNICORN_THREADS="${arg#*=}"
-            shift
-            ;;
-        --max-requests=*)
-            GUNICORN_MAX_REQUESTS="${arg#*=}"
-            shift
-            ;;
-        --memory-limit=*)
-            MEMORY_LIMIT="${arg#*=}"
-            shift
-            ;;
-        --selinux)
-            ENABLE_SELINUX=true
-            shift
-            ;;
-        --apparmor)
-            ENABLE_APPARMOR=true
-            shift
-            ;;
-        --fail2ban)
-            ENABLE_FAIL2BAN=true
-            shift
-            ;;
-        --clamav)
-            ENABLE_CLAMAV=true
-            shift
-            ;;
-        --aws-profile=*)
-            AWS_PROFILE="${arg#*=}"
-            shift
-            ;;
-        --gcp-project=*)
-            GCP_PROJECT="${arg#*=}"
-            shift
-            ;;
-        --azure-subscription=*)
-            AZURE_SUBSCRIPTION="${arg#*=}"
-            shift
-            ;;
-        --terraform)
-            USE_TERRAFORM=true
-            shift
-            ;;
-        --backup-method=*)
-            BACKUP_METHOD="${arg#*=}"
-            shift
-            ;;
-        --remote-backup=*)
-            REMOTE_BACKUP_URL="${arg#*=}"
-            shift
-            ;;
-        --encryption-key=*)
-            BACKUP_ENCRYPTION_KEY="${arg#*=}"
-            shift
-            ;;
-        --retention-policy=*)
-            RETENTION_POLICY="${arg#*=}"
-            shift
-            ;;
-        --gdpr)
-            ENABLE_GDPR=true
-            shift
-            ;;
-        --hipaa)
-            ENABLE_HIPAA=true
-            shift
-            ;;
-        --soc2)
-            ENABLE_SOC2=true
-            shift
-            ;;
-        --audit-log=*)
-            AUDIT_LOG_DESTINATION="${arg#*=}"
-            shift
-            ;;
-        --install-plugins=*)
-            PLUGINS_TO_INSTALL="${arg#*=}"
-            shift
-            ;;
-        --plugin-repo=*)
-            PLUGIN_REPOSITORY="${arg#*=}"
-            shift
-            ;;
-        --custom-plugins=*)
-            CUSTOM_PLUGIN_DIR="${arg#*=}"
-            shift
-            ;;
-        --datadog-api-key=*)
-            DATADOG_API_KEY="${arg#*=}"
-            shift
-            ;;
-        --newrelic-license=*)
-            NEWRELIC_LICENSE="${arg#*=}"
-            shift
-            ;;
-        --opentelemetry)
-            ENABLE_OPENTELEMETRY=true
-            shift
-            ;;
-        --distributed-tracing)
-            ENABLE_DISTRIBUTED_TRACING=true
-            shift
-            ;;
-        --locale=*)
-            SYSTEM_LOCALE="${arg#*=}"
-            shift
-            ;;
-        --timezone=*)
-            SYSTEM_TIMEZONE="${arg#*=}"
-            shift
-            ;;
-        --install-locales=*)
-            LOCALES_TO_INSTALL="${arg#*=}"
-            shift
-            ;;
-        --load-balancer=*)
-            LOAD_BALANCER_TYPE="${arg#*=}"
-            shift
-            ;;
-        --ssl-termination=*)
-            SSL_TERMINATION="${arg#*=}"
-            shift
-            ;;
-        --cdn-integration=*)
-            CDN_PROVIDER="${arg#*=}"
-            shift
-            ;;
-        --waf)
-            ENABLE_WAF=true
-            shift
-            ;;
-        --k8s-namespace=*)
-            K8S_NAMESPACE="${arg#*=}"
-            shift
-            ;;
-        --helm-values=*)
-            HELM_VALUES_FILE="${arg#*=}"
-            shift
-            ;;
-        --ingress-controller=*)
-            INGRESS_CONTROLLER="${arg#*=}"
-            shift
-            ;;
-        --help|-h)
-            echo "Usage: $0 [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --dry-run          Show what would be installed without making changes"
-            echo "  --non-interactive  Use default values for all prompts"
-            echo "  --dev              Setup development environment"
-            echo "  --docker           Install via Docker Compose"
-            echo "  --wizard           Advanced configuration wizard"
-            echo "  --cloud=PROVIDER   Cloud preset (aws, gcp, azure, digitalocean)"
-            echo "  --offline          Install from offline package cache"
-            echo "  --test             Run integration tests after installation"
-            echo "  --migrate          Migrate from another panel"
-            echo "  --debug            Enable debug mode with verbose logging"
-            echo "  --restore-backup=FILE  Restore from backup file"
-            echo "  --ssl-cert=FILE    SSL certificate file path"
-            echo "  --ssl-key=FILE     SSL private key file path"
-            echo "  --monitoring       Setup Prometheus & Grafana"
-            echo "  --no-firewall      Skip firewall configuration"
-            echo "  --no-backups       Skip backup setup"
-            echo "  --workers=N        Set Gunicorn worker processes"
-            echo "  --threads=N        Set Gunicorn worker threads"
-            echo "  --max-requests=N   Set Gunicorn max requests"
-            echo "  --memory-limit=N   Set memory limit"
-            echo "  --selinux          Enable SELinux"
-            echo "  --apparmor         Enable AppArmor"
-            echo "  --fail2ban         Enable Fail2ban"
-            echo "  --clamav           Enable ClamAV antivirus"
-            echo "  --aws-profile=P    AWS profile for deployment"
-            echo "  --gcp-project=P    GCP project for deployment"
-            echo "  --azure-sub=N      Azure subscription"
-            echo "  --terraform        Enable Terraform support"
-            echo "  --backup-method=M  Backup method (rsync/borg/restic)"
-            echo "  --remote-backup=U  Remote backup URL"
-            echo "  --encryption-key=K Backup encryption key"
-            echo "  --retention-policy=P Backup retention policy"
-            echo "  --gdpr             Enable GDPR compliance"
-            echo "  --hipaa            Enable HIPAA compliance"
-            echo "  --soc2             Enable SOC2 compliance"
-            echo "  --audit-log=D      Audit log destination"
-            echo "  --install-plugins=P Plugins to install"
-            echo "  --plugin-repo=R    Plugin repository URL"
-            echo "  --custom-plugins=D Custom plugin directory"
-            echo "  --datadog-api-key=K DataDog API key"
-            echo "  --newrelic-license=L New Relic license"
-            echo "  --opentelemetry    Enable OpenTelemetry"
-            echo "  --distributed-tracing Enable distributed tracing"
-            echo "  --locale=L         System locale"
-            echo "  --timezone=T       System timezone"
-            echo "  --install-locales=L Locales to install"
-            echo "  --load-balancer=T  Load balancer type"
-            echo "  --ssl-termination=T SSL termination method"
-            echo "  --cdn-integration=P CDN provider"
-            echo "  --waf              Enable Web Application Firewall"
-            echo "  --k8s-namespace=N  Kubernetes namespace"
-            echo "  --helm-values=F    Helm values file"
-            echo "  --ingress-controller=C Ingress controller type"
-            echo "  --help, -h         Show this help message"
-            exit 0
+        *)
+            log_error "Unsupported package manager for PostgreSQL installation"
+            return 1
             ;;
     esac
-done
+    
+    # Initialize and start PostgreSQL
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if command -v systemctl &> /dev/null; then
+            sudo systemctl enable postgresql
+            sudo systemctl start postgresql
+            add_rollback_step "sudo systemctl stop postgresql && sudo systemctl disable postgresql"
+        else
+            log_warning "systemctl not available, PostgreSQL may need manual start"
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew services start postgresql
+        add_rollback_step "brew services stop postgresql"
+    fi
+    
+    sleep 2  # Wait for PostgreSQL to start
+    return 0
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -1078,23 +888,13 @@ elif [[ $DB_CHOICE -eq 2 ]]; then
     
     # Install PostgreSQL if not present
     if ! command -v psql &> /dev/null; then
-        log_warning "PostgreSQL not found. Installing..."
-        $PKG_UPDATE
-        $PKG_INSTALL postgresql postgresql-contrib || {
+        install_postgresql || {
             log_error "Failed to install PostgreSQL"
             exit 1
         }
-        sudo systemctl enable postgresql
-        sudo systemctl start postgresql
-        add_rollback_step "sudo systemctl stop postgresql && sudo systemctl disable postgresql"
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        $PKG_INSTALL postgresql || {
-            log_error "Failed to install PostgreSQL"
-            exit 1
-        }
-        brew services start postgresql
+    else
+        log_success "PostgreSQL is already installed"
     fi
-    sleep 2  # Wait for PostgreSQL to start
     
     log_success "PostgreSQL is available"
     
