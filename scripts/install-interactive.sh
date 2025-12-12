@@ -1730,9 +1730,15 @@ elif [[ $DEPLOYMENT_TYPE == "production" ]]; then
         log_info "Check status: sudo systemctl status panel"
         log_info "View logs: sudo journalctl -u panel -f"
     else
-        log_info "Starting production server manually..."
+        log_info "Starting production server..."
         source venv/bin/activate
-        nohup python app.py > app.log 2>&1 &
+        if command -v gunicorn &> /dev/null; then
+            log_info "Using Gunicorn for production..."
+            nohup gunicorn --bind 0.0.0.0:5000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} app:app > app.log 2>&1 &
+        else
+            log_warning "Gunicorn not found, using Python directly..."
+            nohup python app.py > app.log 2>&1 &
+        fi
         APP_PID=$!
         echo $APP_PID > app.pid
         log_success "Production server started (PID: $APP_PID)"
