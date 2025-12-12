@@ -7,6 +7,7 @@
 # Or for non-interactive: bash install.sh --non-interactive
 #
 # WARNING: Always review scripts before running!
+# NOTE: For interactive installation, download the script first. Piping to bash will run in non-interactive mode.
 
 set -e
 
