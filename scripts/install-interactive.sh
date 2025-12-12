@@ -1293,6 +1293,17 @@ show_progress_with_eta 7 10 "Dependencies installed" $(date +%s)
 show_progress_with_eta 8 10 "Configuring database..." $(date +%s)
 if [[ $DB_CHOICE -eq 1 ]]; then
     log_info "Using SQLite database"
+    
+    # Check if sqlite3 is available
+    if ! command -v sqlite3 &> /dev/null; then
+        log_warning "sqlite3 not found. Installing..."
+        $PKG_UPDATE
+        $PKG_INSTALL sqlite3 || {
+            log_error "Failed to install sqlite3"
+            exit 1
+        }
+    fi
+    
     export PANEL_DATABASE_URI="sqlite:///$INSTALL_DIR/panel.db"
     log_success "SQLite database will be created at: $INSTALL_DIR/panel.db"
 elif [[ $DB_CHOICE -eq 2 ]]; then
@@ -1413,19 +1424,28 @@ else
     
     # Test Redis connection
     log_info "Testing Redis connection..."
-    if timeout 3 redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null; then
-        log_success "Redis connection successful"
-    else
-        log_warning "Could not connect to Redis at $PANEL_REDIS_URL"
-        read -p "Continue anyway? (y/n): " CONTINUE
-        if [[ $CONTINUE != "y" ]]; then
-            exit 1
+    if command -v timeout &> /dev/null; then
+        if timeout 3 redis-cli -u "$PANEL_REDIS_URL" ping &> /dev/null; then
+            log_success "Redis connection successful"
+        else
+            log_warning "Could not connect to Redis at $PANEL_REDIS_URL"
+            read -p "Continue anyway? (y/n): " CONTINUE
+            if [[ $CONTINUE != "y" ]]; then
+                exit 1
+            fi
         fi
+    else
+        log_warning "timeout command not available, skipping Redis connection test"
     fi
 fi
 
 # Generate secret key
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+if ! command -v openssl &> /dev/null; then
+    log_warning "openssl not found. Using python secrets instead."
+    SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+else
+    SECRET_KEY=$(openssl rand -hex 32)
+fi
 export PANEL_SECRET_KEY="$SECRET_KEY"
 
 # Create .env file
@@ -1630,7 +1650,7 @@ if [[ $MONITORING == true ]]; then
     # Install Prometheus using Helm
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
     helm repo update
-    helm install prometheus prometheus-community/prometheus --namespace monitoring --values values/prometheus-values.yaml || {
+    helm install prometheus prometheus-community/prometheus --namespace monitoring || {
         log_error "Failed to install Prometheus"
         exit 1
     }
@@ -1638,7 +1658,7 @@ if [[ $MONITORING == true ]]; then
     # Install Grafana using Helm
     helm repo add grafana https://grafana.github.io/helm-charts
     helm repo update
-    helm install grafana grafana/grafana --namespace monitoring --values values/grafana-values.yaml || {
+    helm install grafana grafana/grafana --namespace monitoring || {
         log_error "Failed to install Grafana"
         exit 1
     }
