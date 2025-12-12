@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>503 - Service Unavailable</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #dc3545;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .error-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin: 10px 0 20px 0;
+        }
+        .error-message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        .maintenance-info {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .maintenance-info h4 {
+            margin: 0 0 10px 0;
+            color: #721c24;
+        }
+        .maintenance-info p {
+            margin: 0 0 8px 0;
+            color: #721c24;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-text {
+            display: inline-block;
+            vertical-align: top;
+            line-height: 12px;
+        }
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+            }
+        }
+        .auto-retry {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">503</h1>
+        <h2 class="error-title">Service Unavailable</h2>
+        <p class="error-message">
+            The service is temporarily unavailable. We're working to restore it as quickly as possible.
+        </p>
+
+        <div class="maintenance-info">
+            <h4><span class="status-indicator"></span><span class="status-text">Service Status</span></h4>
+            <p>The server is currently undergoing maintenance or experiencing high load.</p>
+            <p>This is usually temporary and services will be restored shortly.</p>
+        </div>
+
+        <div class="auto-retry">
+            ?? This page will automatically refresh in <span id="countdown">30</span> seconds...
+        </div>
+
+        <div class="error-actions">
+            <button onclick="window.location.reload()" class="btn btn-primary">
+                Refresh Now
+            </button>
+            <a href="/status" class="btn btn-secondary">Service Status</a>
+            <a href="/contact" class="btn btn-secondary">Contact Support</a>
+        </div>
+    </div>
+
+    <script>
+        // Add auto-refresh functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            let countdown = 30;
+            const countdownEl = document.querySelector('#countdown');
+
+            function updateCountdown() {
+                if (countdownEl) {
+                    countdownEl.textContent = countdown;
+                }
+
+                if (countdown <= 0) {
+                    window.location.reload();
+                    return;
+                }
+
+                countdown--;
+                setTimeout(updateCountdown, 1000);
+            }
+
+            updateCountdown();
+
+            // Also check service status periodically
+            function checkStatus() {
+                fetch('/health', {
+                    method: 'GET',
+                    cache: 'no-cache'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Service is back up
+                        const statusIndicator = document.querySelector('.status-indicator');
+                        if (statusIndicator) {
+                            statusIndicator.style.background = '#28a745';
+                            statusIndicator.style.animation = 'none';
+                        }
+                        // Auto-refresh in 3 seconds
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    }
+                })
+                .catch(() => {
+                    // Still down, continue checking
+                    setTimeout(checkStatus, 10000); // Check every 10 seconds
+                });
+            }
+
+            // Start status checking after 10 seconds
+            setTimeout(checkStatus, 10000);
+        });
+    </script>
+</body>
+</html>

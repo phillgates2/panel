@@ -7,11 +7,13 @@ Provides web interface for managing roles, permissions, and user assignments.
 from flask import (abort, flash, jsonify, redirect, render_template, request,
                    url_for)
 
-from app import User, app, db
+from src.panel.models import User, db
 from models_extended import UserActivity
 from rbac import (Permission, Role, RolePermission, UserRole,
                   assign_role_to_user, get_user_permissions, has_permission,
                   initialize_rbac_system, revoke_role_from_user)
+
+from src.panel.admin_bp import admin_bp  # use admin blueprint instead of app
 
 
 def require_system_admin(f):
@@ -20,10 +22,13 @@ def require_system_admin(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        user_id = request.session.get("user_id")
+        # NOTE: using session from flask directly instead of request.session
+        from flask import session
+
+        user_id = session.get("user_id")
         if not user_id:
             flash("Please log in", "error")
-            return redirect(url_for("login"))
+            return redirect(url_for("main.login"))
 
         user = db.session.get(User, user_id)
         if not user or not user.is_system_admin():
@@ -36,10 +41,8 @@ def require_system_admin(f):
 
 # ========== RBAC MANAGEMENT ROUTES ==========
 
-# ========== RBAC MANAGEMENT ROUTES ==========
 
-
-@app.route("/admin/rbac/roles", methods=["GET"])
+@admin_bp.route("/admin/rbac/roles", methods=["GET"])
 @require_system_admin
 def admin_rbac_roles():
     """Manage roles and permissions."""
@@ -49,9 +52,7 @@ def admin_rbac_roles():
     # Group permissions by category
     permission_groups = {}
     for perm in permissions:
-        if perm.category not in permission_groups:
-            permission_groups[perm.category] = []
-        permission_groups[perm.category].append(perm)
+        permission_groups.setdefault(perm.category, []).append(perm)
 
     return render_template(
         "admin_rbac_roles.html",
@@ -61,7 +62,7 @@ def admin_rbac_roles():
     )
 
 
-@app.route("/admin/rbac/roles/create", methods=["POST"])
+@admin_bp.route("/admin/rbac/roles/create", methods=["POST"])
 @require_system_admin
 def admin_rbac_create_role():
     """Create a new role."""
@@ -96,7 +97,7 @@ def admin_rbac_create_role():
     return redirect(url_for("admin_rbac_roles"))
 
 
-@app.route("/admin/rbac/roles/<int:role_id>/edit", methods=["GET", "POST"])
+@admin_bp.route("/admin/rbac/roles/<int:role_id>/edit", methods=["GET", "POST"])
 @require_system_admin
 def admin_rbac_edit_role(role_id):
     """Edit an existing role."""
@@ -151,9 +152,7 @@ def admin_rbac_edit_role(role_id):
     # Group permissions by category
     permission_groups = {}
     for perm in permissions:
-        if perm.category not in permission_groups:
-            permission_groups[perm.category] = []
-        permission_groups[perm.category].append(perm)
+        permission_groups.setdefault(perm.category, []).append(perm)
 
     return render_template(
         "admin_rbac_edit_role.html",
@@ -164,7 +163,7 @@ def admin_rbac_edit_role(role_id):
     )
 
 
-@app.route("/admin/rbac/roles/<int:role_id>/delete", methods=["POST"])
+@admin_bp.route("/admin/rbac/roles/<int:role_id>/delete", methods=["POST"])
 @require_system_admin
 def admin_rbac_delete_role(role_id):
     """Delete a role."""
@@ -189,7 +188,7 @@ def admin_rbac_delete_role(role_id):
     return redirect(url_for("admin_rbac_roles"))
 
 
-@app.route("/admin/rbac/users", methods=["GET"])
+@admin_bp.route("/admin/rbac/users", methods=["GET"])
 @require_system_admin
 def admin_rbac_users():
     """Manage user role assignments."""
@@ -216,10 +215,12 @@ def admin_rbac_users():
     )
 
 
-@app.route("/admin/rbac/users/<int:user_id>/assign-role", methods=["POST"])
+@admin_bp.route("/admin/rbac/users/<int:user_id>/assign-role", methods=["POST"])
 @require_system_admin
 def admin_rbac_assign_role(user_id):
     """Assign a role to a user."""
+    from flask import session
+
     user = User.query.get_or_404(user_id)
     role_id = request.form.get("role_id")
     expires_at = request.form.get("expires_at")
@@ -242,7 +243,7 @@ def admin_rbac_assign_role(user_id):
             return redirect(url_for("admin_rbac_users"))
 
     # Assign role
-    admin_user_id = request.session.get("user_id")
+    admin_user_id = session.get("user_id")
     assign_role_to_user(user_id, int(role_id), admin_user_id, expires_datetime)
 
     # Log the activity
@@ -259,10 +260,12 @@ def admin_rbac_assign_role(user_id):
     return redirect(url_for("admin_rbac_users"))
 
 
-@app.route("/admin/rbac/users/<int:user_id>/revoke-role", methods=["POST"])
+@admin_bp.route("/admin/rbac/users/<int:user_id>/revoke-role", methods=["POST"])
 @require_system_admin
 def admin_rbac_revoke_role(user_id):
     """Revoke a role from a user."""
+    from flask import session
+
     user = User.query.get_or_404(user_id)
     role_id = request.form.get("role_id")
 
@@ -276,7 +279,7 @@ def admin_rbac_revoke_role(user_id):
 
     if success:
         # Log the activity
-        admin_user_id = request.session.get("user_id")
+        admin_user_id = session.get("user_id")
         db.session.add(
             UserActivity(
                 user_id=user_id,
@@ -293,20 +296,20 @@ def admin_rbac_revoke_role(user_id):
     return redirect(url_for("admin_rbac_users"))
 
 
-@app.route("/admin/rbac/initialize", methods=["POST"])
+@admin_bp.route("/admin/rbac/initialize", methods=["POST"])
 @require_system_admin
 def admin_rbac_initialize():
     """Initialize RBAC system with default permissions and roles."""
     try:
         initialize_rbac_system()
         flash("RBAC system initialized successfully", "success")
-    except Exception as e:
+    except Exception as e:  # pragma: no cover - defensive logging
         flash(f"Failed to initialize RBAC system: {str(e)}", "error")
 
     return redirect(url_for("admin_rbac_roles"))
 
 
-@app.route("/api/rbac/user/<int:user_id>/permissions", methods=["GET"])
+@admin_bp.route("/api/rbac/user/<int:user_id>/permissions", methods=["GET"])
 @require_system_admin
 def api_rbac_user_permissions(user_id):
     """Get user permissions via API."""
@@ -318,10 +321,12 @@ def api_rbac_user_permissions(user_id):
     )
 
 
-@app.route("/api/rbac/check-permission", methods=["POST"])
+@admin_bp.route("/api/rbac/check-permission", methods=["POST"])
 def api_rbac_check_permission():
     """Check if current user has a specific permission."""
-    user_id = request.session.get("user_id")
+    from flask import session
+
+    user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "Not authenticated"}), 401
 
@@ -338,3 +343,30 @@ def api_rbac_check_permission():
     return jsonify(
         {"user_id": user_id, "permission": permission_name, "granted": has_perm}
     )
+
+
+def user_can_edit_server(user, server):
+    """Check if user can edit a server."""
+    if not user:
+        return False
+    if user.is_system_admin() or user.is_server_admin():
+        return True
+    # Check if user is assigned to the server
+    if hasattr(server, 'users'):
+        for server_user in server.users:
+            if server_user.user_id == user.id and server_user.role in ['server_admin', 'server_mod']:
+                return True
+    return False
+
+
+def user_server_role(user, server):
+    """Get user's role for a server."""
+    if not user or not server:
+        return None
+    if user.is_system_admin():
+        return 'system_admin'
+    if hasattr(server, 'users'):
+        for server_user in server.users:
+            if server_user.user_id == user.id:
+                return server_user.role
+    return None

@@ -1,3 +1,10 @@
+"""
+Panel Application Entry Point
+
+This module serves as the main entry point for the Panel Flask application.
+It initializes the app, registers blueprints, and starts the server.
+"""
+
 import os
 import time
 from typing import Optional
@@ -7,16 +14,25 @@ from flask import (Blueprint, Flask, jsonify, redirect, render_template,
                    request, session, url_for)
 from flask_login import current_user
 
+# Import application components
 from app.context_processors import inject_user
 from app.db import db
 from app.error_handlers import internal_error, page_not_found
 from app.extensions import init_app_extensions
-from app.factory import create_app
+
+# Import configuration
 from config import config
-from src.panel import models
+
+# Import models and routes
+from src.panel.models import User
 from src.panel.admin import DatabaseAdmin
-# Import permissions
-from src.panel.models import ROLE_HIERARCHY, ROLE_PERMISSIONS
+
+# Import blueprints
+from src.panel.admin_bp import admin_bp
+from src.panel.api_bp import api_bp
+from src.panel.chat_bp import chat_bp
+from src.panel.main_bp import main_bp
+from src.panel.payment_bp import payment_bp
 
 # Initialize New Relic APM
 newrelic.agent.initialize("newrelic.ini")
@@ -49,12 +65,6 @@ try:
     from src.panel.forum import forum_bp
 except Exception:
     forum_bp = None
-
-try:
-    from src.panel.admin import admin_bp
-except Exception:
-    admin_bp = None
-
 
 def _register_optional_blueprints(module_app: Flask) -> None:
     try:
@@ -91,13 +101,6 @@ _register_optional_blueprints(app)
 app.context_processor(inject_user)
 app.errorhandler(404)(page_not_found)
 app.errorhandler(500)(internal_error)
-
-from src.panel.admin_bp import admin_bp
-from src.panel.api_bp import api_bp
-from src.panel.chat_bp import chat_bp
-# Import and register blueprints
-from src.panel.main_bp import main_bp
-from src.panel.payment_bp import payment_bp
 
 app.register_blueprint(main_bp)
 app.register_blueprint(api_bp, url_prefix="/api")

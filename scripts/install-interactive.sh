@@ -385,31 +385,27 @@ PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Logging functions
+# Enhanced logging with timestamps and levels
+log_debug() {
+    if [[ $DEBUG_MODE == true ]]; then
+        echo -e "${PURPLE}[DEBUG]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
+    fi
+}
+
 log_info() {
-    echo -e "${PURPLE}[INFO]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: $1" >> install.log 2>/dev/null || true
+    echo -e "${PURPLE}[INFO]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] SUCCESS: $1" >> install.log 2>/dev/null || true
+    echo -e "${GREEN}[SUCCESS]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $1" >> install.log 2>/dev/null || true
+    echo -e "${YELLOW}[WARNING]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S")] ERROR: $1" >> install.log 2>/dev/null || true
-}
-
-log_debug() {
-    if [[ $DEBUG_MODE == true ]]; then
-        echo -e "${PURPLE}[DEBUG]${NC} $1"
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEBUG: $1" >> install.log 2>/dev/null || true
-    fi
+    echo -e "${RED}[ERROR]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
 }
 
 # Enhanced progress tracking function with ETA
@@ -439,13 +435,42 @@ show_progress_with_eta() {
 handle_error() {
     local exit_code=$1
     local line_number=$2
-    log_error "Installation failed at line $line_number with exit code $exit_code"
+    local command_failed=${3:-"Unknown command"}
+    
+    log_error "Installation failed at line $line_number (exit code: $exit_code)"
+    log_error "Failed command: $command_failed"
+    log_error "Current working directory: $(pwd)"
+    log_error "System information: $(uname -a)"
+    
+    # Create error report
+    {
+        echo "=== INSTALLATION ERROR REPORT ==="
+        echo "Timestamp: $(date)"
+        echo "Exit code: $exit_code"
+        echo "Line number: $line_number"
+        echo "Failed command: $command_failed"
+        echo "Working directory: $(pwd)"
+        echo "System: $(uname -a)"
+        echo "User: $(whoami)"
+        echo "Environment variables:"
+        env | grep -E "^(PANEL_|FLASK_|PYTHONPATH|PATH)=" | head -10
+        echo "Disk usage:"
+        df -h . | tail -1
+        echo "Memory usage:"
+        free -h 2>/dev/null || echo "free command not available"
+        echo "=== END ERROR REPORT ==="
+    } >> install-error.log
     
     if [[ $NON_INTERACTIVE != true ]]; then
+        echo ""
+        echo "Error details have been saved to: install-error.log"
+        echo "Please include this file when reporting the issue."
+        echo ""
         echo "Recovery options:"
         echo "1. Retry failed step"
         echo "2. Skip failed step and continue"
         echo "3. Rollback and exit"
+        echo "4. Generate support bundle and exit"
         read -p "Choose option [3]: " RECOVERY_CHOICE
         RECOVERY_CHOICE=${RECOVERY_CHOICE:-3}
         
@@ -458,13 +483,56 @@ handle_error() {
                 log_warning "Skipping failed step and continuing..."
                 return 0
                 ;;
+            4)
+                log_info "Generating support bundle..."
+                generate_support_bundle
+                ;;
             *) 
                 rollback_installation
                 ;;
         esac
     else
+        log_info "Error details saved to install-error.log"
         rollback_installation
     fi
+}
+
+# Generate support bundle for troubleshooting
+generate_support_bundle() {
+    local bundle_name="panel-support-$(date +%Y%m%d-%H%M%S).tar.gz"
+    
+    log_info "Creating support bundle: $bundle_name"
+    
+    # Collect system information
+    {
+        echo "=== SYSTEM INFORMATION ==="
+        uname -a
+        echo "OS: $OSTYPE"
+        echo "User: $(whoami)"
+        echo "Working directory: $(pwd)"
+        echo "Python version: $(python3 --version 2>/dev/null || echo 'Not found')"
+        echo "Pip version: $(pip3 --version 2>/dev/null || echo 'Not found')"
+        echo "Git version: $(git --version 2>/dev/null || echo 'Not found')"
+        echo ""
+        echo "=== ENVIRONMENT ==="
+        env | grep -E "^(PANEL_|FLASK_|PYTHON|PATH|HOME|USER)=" | sort
+        echo ""
+        echo "=== DISK USAGE ==="
+        df -h
+        echo ""
+        echo "=== INSTALLED PACKAGES ==="
+        if command -v dpkg &> /dev/null; then
+            dpkg -l | grep -E "(python|postgresql|redis|nginx)" | head -20
+        elif command -v rpm &> /dev/null; then
+            rpm -qa | grep -E "(python|postgresql|redis|nginx)" | head -20
+        fi
+    } > system-info.txt
+    
+    # Create bundle
+    tar -czf "$bundle_name" install.log install-error.log system-info.txt requirements/ 2>/dev/null || true
+    
+    log_success "Support bundle created: $bundle_name"
+    log_info "Please attach this file when seeking support"
 }
 
 # Security enhancements
@@ -487,6 +555,45 @@ generate_secure_password() {
 
 sanitize_input() {
     echo "$1" | sed 's/[^a-zA-Z0-9._@-]//g'
+}
+
+# Enhanced input validation
+validate_install_dir() {
+    local dir=$1
+    if [[ -z "$dir" ]]; then
+        log_error "Installation directory cannot be empty"
+        return 1
+    fi
+    if [[ "$dir" =~ [^a-zA-Z0-9._/-] ]]; then
+        log_error "Installation directory contains invalid characters"
+        return 1
+    fi
+    if [[ "$dir" == /* ]]; then
+        # Absolute path - check if writable
+        if [[ ! -w "$(dirname "$dir")" ]]; then
+            log_error "Cannot write to parent directory of $dir"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Validate database choices
+validate_db_choice() {
+    local choice=$1
+    case $choice in
+        1|2|3) return 0 ;;
+        *) log_error "Invalid database choice: $choice"; return 1 ;;
+    esac
+}
+
+# Validate environment choice
+validate_env_choice() {
+    local choice=$1
+    case $choice in
+        1|2) return 0 ;;
+        *) log_error "Invalid environment choice: $choice"; return 1 ;;
+    esac
 }
 
 # Add rollback step
@@ -636,13 +743,46 @@ if [[ $AVAIL_SPACE -lt 500 ]]; then
 fi
 log_success "Disk space check passed (${AVAIL_SPACE}MB available)"
 
-# Check memory (need at least 1GB)
+# Call validation functions early
+check_network
+check_disk_space 500 "$INSTALL_DIR" || exit 1
+
+# Enhanced system requirements check
+log_info "Performing comprehensive system requirements check..."
+
+# Check for required commands
+REQUIRED_COMMANDS=("curl" "wget" "tar" "gzip" "make" "gcc")
+for cmd in "${REQUIRED_COMMANDS[@]}"; do
+    if ! command -v "$cmd" &> /dev/null; then
+        log_warning "Required command '$cmd' not found. Some features may not work."
+    fi
+done
+
+# Check for development tools if in dev mode
+if [[ $DEV_MODE == true ]]; then
+    DEV_COMMANDS=("git" "python3" "pip3")
+    for cmd in "${DEV_COMMANDS[@]}"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log_error "Development tool '$cmd' is required for development mode"
+            exit 1
+        fi
+    done
+fi
+
+# Memory check with more detailed reporting
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     TOTAL_MEM=$(free -m | awk 'NR==2 {print $2}')
+    AVAILABLE_MEM=$(free -m | awk 'NR==2 {print $7}')
+    RECOMMENDED_MEM=2048  # 2GB recommended
+    
     if [[ $TOTAL_MEM -lt 1024 ]]; then
-        log_warning "Low memory detected: ${TOTAL_MEM}MB. Recommended: 2GB+"
+        log_error "Insufficient memory: ${TOTAL_MEM}MB. Minimum 1GB required."
+        exit 1
+    elif [[ $TOTAL_MEM -lt $RECOMMENDED_MEM ]]; then
+        log_warning "Low memory detected: ${TOTAL_MEM}MB. Recommended: ${RECOMMENDED_MEM}MB+"
+        log_info "Available memory: ${AVAILABLE_MEM}MB"
     else
-        log_success "Memory check passed (${TOTAL_MEM}MB)"
+        log_success "Memory check passed (${TOTAL_MEM}MB total, ${AVAILABLE_MEM}MB available)"
     fi
 fi
 
@@ -697,13 +837,14 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-if python3 -c 'import sys; exit(0 if sys.version_info >= (3, 8) else 1)'; then
-    log_success "Python $PYTHON_VERSION detected"
-else
+PYTHON_VERSION=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+PYTHON_MAJOR=$(python3 -c "import sys; print(sys.version_info.major)")
+PYTHON_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
+if [[ $PYTHON_MAJOR -lt 3 ]] || [[ $PYTHON_MAJOR -eq 3 && $PYTHON_MINOR -lt 8 ]]; then
     log_error "Python 3.8+ is required. Current version: $PYTHON_VERSION"
     exit 1
 fi
+log_success "Python $PYTHON_VERSION detected"
 
 # Check if git is installed
 if ! command -v git &> /dev/null; then
@@ -1438,9 +1579,7 @@ if [[ $NON_INTERACTIVE != true ]]; then
     log_info "Creating admin user in the database..."
     if [[ $DB_CHOICE -eq 1 ]]; then
         # SQLite
-        python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('$ADMIN_PASSWORD'))" > /tmp/hash.txt
-        PASSWORD_HASH=$(cat /tmp/hash.txt)
-        rm /tmp/hash.txt
+        PASSWORD_HASH=$(printf '%s\n' "$ADMIN_PASSWORD" | python3 -c "from werkzeug.security import generate_password_hash; import sys; print(generate_password_hash(sys.stdin.read().strip()))")
         ADMIN_CREATION_QUERY="INSERT INTO users (username, password_hash, is_admin) VALUES ('$ADMIN_USERNAME', '$PASSWORD_HASH', 1);"
         sqlite3 "$INSTALL_DIR/panel.db" "$ADMIN_CREATION_QUERY" || {
             log_error "Failed to create admin user"
@@ -1512,4 +1651,9 @@ setup_performance_optimization() { log_info "Performance optimization: not imple
 log_info "Installation completed. Please follow any post-installation steps above."
 show_elapsed_time
 
-exit 0
+echo "🎮 Enhanced Discord Integration:"
+echo "   • Real-time server status updates with player counts"
+echo "   • Automated alerts for server events and issues"
+echo "   • Backup completion notifications"
+echo "   • Deployment status updates"
+echo "   • Log-based alerts with server statistics"

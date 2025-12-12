@@ -4,7 +4,7 @@
 # =============================================================================
 # Builder Stage - Compile dependencies and build wheels
 # =============================================================================
-FROM python:3.13-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -43,7 +43,7 @@ RUN bandit -r . -f json -o security-report.json || echo "Bandit scan completed"
 # =============================================================================
 # Production Stage - Final optimized image
 # =============================================================================
-FROM python:3.13-slim AS production
+FROM python:3.12-slim AS production
 
 # Add metadata labels
 LABEL maintainer="Panel Team" \

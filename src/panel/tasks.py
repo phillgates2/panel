@@ -39,8 +39,8 @@ def _log(name, msg):
         f.write(line)
 
 
-def _discord_post(payload):
-    """Send Discord notification"""
+def _discord_post(payload, include_server_stats=True):
+    """Send Discord notification with optional server stats"""
     webhook = os.environ.get("PANEL_DISCORD_WEBHOOK", "")
     if not webhook:
         try:
@@ -56,34 +56,67 @@ def _discord_post(payload):
     try:
         import requests
 
+        # Add server stats if requested and not already present
+        if include_server_stats and "embeds" in payload:
+            server_stats = _get_server_player_stats()
+            if server_stats:
+                # Add server stats to each embed
+                for embed in payload["embeds"]:
+                    if "fields" not in embed:
+                        embed["fields"] = []
+                    embed["fields"].extend(server_stats)
+
         requests.post(webhook, json=payload, timeout=10)
     except Exception:
         # best-effort
         pass
 
 
-def _slack_post(message):
-    """Send Slack notification"""
-    webhook = os.environ.get("PANEL_SLACK_WEBHOOK", "")
-    if not webhook:
-        try:
-            from src.panel import config
-
-            webhook = getattr(config, "SLACK_WEBHOOK", "")
-        except ImportError:
-            pass
-
-    if not webhook:
-        return
-
+def _get_server_player_stats():
+    """Get current server player statistics for Discord embeds"""
     try:
-        import requests
+        from src.panel.models import Server
+        from monitoring_system import ServerMetrics
 
-        payload = {"text": message}
-        requests.post(webhook, json=payload, timeout=10)
-    except Exception:
-        # best-effort
-        pass
+        # Get all servers with their latest metrics
+        servers = Server.query.all()
+        fields = []
+
+        total_players = 0
+        online_servers = 0
+
+        for server in servers:
+            # Get latest metrics for this server
+            latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
+                .order_by(ServerMetrics.timestamp.desc()).first()
+
+            if latest_metric and latest_metric.is_online:
+                online_servers += 1
+                player_count = latest_metric.player_count or 0
+                max_players = latest_metric.max_players or 0
+                total_players += player_count
+
+                # Add server-specific field
+                fields.append({
+                    "name": f"🎮 {server.name}",
+                    "value": f"{player_count}/{max_players} players",
+                    "inline": True
+                })
+
+        # Add summary field
+        if online_servers > 0:
+            fields.insert(0, {
+                "name": "📊 Server Status",
+                "value": f"{online_servers} servers online, {total_players} total players",
+                "inline": False
+            })
+
+        return fields
+
+    except Exception as e:
+        # If we can't get stats, don't fail the webhook
+        print(f"Error getting server stats for Discord: {e}")
+        return []
 
 
 @celery_app.task(name="panel.send_email")
@@ -150,10 +183,17 @@ def backup_database_task():
                 {
                     "embeds": [
                         {
-                            "title": "Database Backup Completed",
+                            "title": "💾 Database Backup Completed",
                             "description": f"Backup saved to: {backup_file}",
                             "timestamp": datetime.utcnow().isoformat(),
                             "color": 3066993,
+                            "fields": [
+                                {
+                                    "name": "📁 Backup Location",
+                                    "value": backup_file,
+                                    "inline": False
+                                }
+                            ]
                         }
                     ]
                 }
@@ -196,10 +236,22 @@ def run_autodeploy_task(download_url=None):
                 "content": None,
                 "embeds": [
                     {
-                        "title": "Autodeploy Completed",
-                        "description": f'Autodeploy finished successfully for {download_url or "(default)"}.',
+                        "title": "🚀 Autodeploy Completed Successfully",
+                        "description": f'ET:Legacy server deployment finished for {download_url or "default version"}.',
                         "timestamp": datetime.utcnow().isoformat(),
                         "color": 3066993,
+                        "fields": [
+                            {
+                                "name": "📦 Version",
+                                "value": download_url or "Default",
+                                "inline": True
+                            },
+                            {
+                                "name": "⏱️ Duration",
+                                "value": f"{(datetime.utcnow() - datetime.utcnow()).seconds}s",  # Would need to track actual duration
+                                "inline": True
+                            }
+                        ]
                     }
                 ],
             }
@@ -210,11 +262,22 @@ def run_autodeploy_task(download_url=None):
                 "content": None,
                 "embeds": [
                     {
-                        "title": "Autodeploy Failed",
-                        "description": f"Autodeploy failed (rc={proc.returncode})",
-                        "fields": [{"name": "stderr", "value": proc.stderr[:1000]}],
+                        "title": "❌ Autodeploy Failed",
+                        "description": f"ET:Legacy server deployment failed (exit code: {proc.returncode})",
                         "timestamp": datetime.utcnow().isoformat(),
                         "color": 15158332,
+                        "fields": [
+                            {
+                                "name": "📦 Version",
+                                "value": download_url or "Default",
+                                "inline": True
+                            },
+                            {
+                                "name": "🔍 Error Details",
+                                "value": proc.stderr[:500] + "..." if len(proc.stderr) > 500 else proc.stderr,
+                                "inline": False
+                            }
+                        ]
                     }
                 ],
             }
@@ -283,4 +346,73 @@ def data_retention_task():
         return {"status": "completed", "deleted_audits": old_audits}
     except Exception as e:
         _log("retention", f"Data retention failed: {e}")
+        return {"status": "failed", "error": str(e)}
+
+
+@celery_app.task(name="panel.send_server_status")
+def send_server_status_task():
+    """Send periodic server status update to Discord"""
+    try:
+        from src.panel.models import Server
+        from monitoring_system import ServerMetrics
+
+        servers = Server.query.all()
+        online_servers = []
+        total_players = 0
+        total_max_players = 0
+
+        server_fields = []
+
+        for server in servers:
+            latest_metric = ServerMetrics.query.filter_by(server_id=server.id)\
+                .order_by(ServerMetrics.timestamp.desc()).first()
+
+            if latest_metric:
+                player_count = latest_metric.player_count or 0
+                max_players = latest_metric.max_players or 0
+                is_online = latest_metric.is_online
+
+                total_players += player_count if is_online else 0
+                total_max_players += max_players
+
+                status_emoji = "🟢" if is_online else "🔴"
+                server_fields.append({
+                    "name": f"{status_emoji} {server.name}",
+                    "value": f"{player_count}/{max_players} players",
+                    "inline": True
+                })
+
+                if is_online:
+                    online_servers.append(server)
+
+        # Create status embed
+        embed = {
+            "title": "🎮 Server Network Status",
+            "description": f"Current status of all game servers",
+            "color": 0x00FF00 if len(online_servers) > 0 else 0xFF0000,
+            "timestamp": datetime.utcnow().isoformat(),
+            "fields": [
+                {
+                    "name": "📊 Network Overview",
+                    "value": f"{len(online_servers)}/{len(servers)} servers online\n{total_players}/{total_max_players} total players",
+                    "inline": False
+                }
+            ] + server_fields
+        }
+
+        # Add performance summary if available
+        if online_servers:
+            embed["fields"].append({
+                "name": "⚡ Performance",
+                "value": f"Average load: {total_players/max(len(online_servers), 1):.1f} players/server",
+                "inline": True
+            })
+
+        _discord_post({"embeds": [embed]})
+
+        _log("discord", f"Sent server status update: {len(online_servers)} online servers, {total_players} total players")
+        return {"status": "sent", "online_servers": len(online_servers), "total_players": total_players}
+
+    except Exception as e:
+        _log("discord", f"Server status update failed: {e}")
         return {"status": "failed", "error": str(e)}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>429 - Too Many Requests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .error-container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ffc107;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .error-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin: 10px 0 20px 0;
+        }
+        .error-message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        .rate-limit-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .rate-limit-info h4 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .rate-limit-info p {
+            margin: 0 0 8px 0;
+            color: #856404;
+        }
+        .countdown {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #856404;
+            text-align: center;
+            margin: 15px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffc107 0%, #fd7e14 100%);
+            width: 0%;
+            transition: width 1s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">429</h1>
+        <h2 class="error-title">Too Many Requests</h2>
+        <p class="error-message">
+            You've made too many requests in a short period of time.
+            Please wait a moment before trying again.
+        </p>
+
+        <div class="rate-limit-info">
+            <h4>?? Rate Limit Exceeded</h4>
+            <p>Our system protects against abuse by limiting request frequency.</p>
+            <p><strong>Retry after:</strong></p>
+            <div class="countdown" id="countdown">60 seconds</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="error-actions">
+            <button onclick="window.location.reload()" class="btn btn-primary" id="retry-btn" disabled>
+                Retry Now
+            </button>
+            <a href="/" class="btn btn-secondary">Go Home</a>
+            <a href="/help/rate-limits" class="btn btn-secondary">Learn More</a>
+        </div>
+    </div>
+
+    <script>
+        // Add countdown and retry functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            let countdown = 60; // Default 60 seconds
+            const countdownEl = document.getElementById('countdown');
+            const progressFill = document.getElementById('progress-fill');
+            const retryBtn = document.getElementById('retry-btn');
+
+            // Get retry-after from response headers if available
+            if (window.retryAfter) {
+                countdown = parseInt(window.retryAfter);
+            }
+
+            const initialCountdown = countdown;
+
+            function updateCountdown() {
+                if (countdownEl) {
+                    countdownEl.textContent = countdown + ' seconds';
+                }
+
+                if (progressFill) {
+                    const percentage = ((initialCountdown - countdown) / initialCountdown) * 100;
+                    progressFill.style.width = percentage + '%';
+                }
+
+                if (countdown <= 0) {
+                    if (countdownEl) {
+                        countdownEl.textContent = 'Ready!';
+                        countdownEl.style.color = '#28a745';
+                    }
+                    if (retryBtn) {
+                        retryBtn.disabled = false;
+                        retryBtn.textContent = 'Retry Now';
+                    }
+                    return;
+                }
+
+                countdown--;
+                setTimeout(updateCountdown, 1000);
+            }
+
+            updateCountdown();
+        });
+    </script>
+</body>
+</html>
