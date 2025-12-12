@@ -1,11 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\src\\panel",
-    "\\src\\panel\\services",
-    "\\tools",
-    "\\tools\\scripts"
+    ""
   ],
-  "SelectedNode": "\\tools\\scripts\\ssl_renew.py",
+  "SelectedNode": "\\F:\\repo\\panel",
   "PreviewInSolutionExplorer": false
 }
