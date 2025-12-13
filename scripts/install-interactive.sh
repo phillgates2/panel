@@ -1349,16 +1349,36 @@ if [[ $MONITORING == true ]]; then
                 if [[ "$tool_name" == "helm" ]]; then
                     log_warning "Package manager could not install helm; attempting Helm official installer"
                     if command -v curl >/dev/null 2>&1; then
-                        # Official Helm install script (Helm 3)
                         if curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash; then
                             log_success "helm installed via official script"
                         else
-                            log_error "Failed to install helm via official script. Please install manually: https://helm.sh/docs/intro/install/"
-                            return 1
+                            log_error "Failed to install helm via official script (curl)."
+                            # Try wget fallback
+                            if command -v wget >/dev/null 2>&1; then
+                                if wget -qO- https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash; then
+                                    log_success "helm installed via official script (wget)"
+                                else
+                                    log_error "Failed to install helm via official script (wget). Please install manually: https://helm.sh/docs/intro/install/"
+                                    return 1
+                                fi
+                            else
+                                log_error "Neither curl nor wget available to fetch Helm installer. Please install one or install helm manually."
+                                return 1
+                            fi
                         fi
                     else
-                        log_error "curl not available to fetch Helm installer. Please install curl or helm manually."
-                        return 1
+                        # Try wget directly if curl is missing
+                        if command -v wget >/dev/null 2>&1; then
+                            if wget -qO- https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash; then
+                                log_success "helm installed via official script (wget)"
+                            else
+                                log_error "Failed to install helm via official script (wget). Please install manually: https://helm.sh/docs/intro/install/"
+                                return 1
+                            fi
+                        else
+                            log_error "curl not available to fetch Helm installer and wget missing. Please install curl or helm manually."
+                            return 1
+                        fi
                     fi
                 else
                     log_error "Failed to install $tool_name. Please install it manually."
