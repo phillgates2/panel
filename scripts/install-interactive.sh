@@ -1227,13 +1227,13 @@ if [[ $NON_INTERACTIVE != true ]]; then
         
         # Validate password strength
         if ! validate_password "$ADMIN_PASSWORD"; then
-            log_error "Password does not meet security requirements"
-            exit 1
+            log_error "Password does not meet security requirements. Please try again."
+            continue
         fi
         
         if [[ "$ADMIN_PASSWORD" != "$ADMIN_PASSWORD_CONFIRM" ]]; then
-            log_error "Passwords do not match"
-            exit 1
+            log_error "Passwords do not match. Please re-enter."
+            continue
         fi
         
         break
@@ -1250,21 +1250,40 @@ if [[ $NON_INTERACTIVE != true ]]; then
             exit 1
         }
     elif [[ $DB_CHOICE -eq 2 ]]; then
-        # PostgreSQL
-        PGPASSWORD=$DB_PASSWORD
-        export PGPASSWORD
-        psql -h localhost -U panel_user -d panel_db -c "CREATE ROLE $ADMIN_USERNAME WITH LOGIN PASSWORD '$ADMIN_PASSWORD' CREATEDB CREATEROLE;" || {
-            log_error "Failed to create admin user"
-            exit 1
+        # PostgreSQL: create role using postgres superuser to avoid CREATEROLE permission issues
+        create_pg_role_and_grants() {
+            local psql_cmd="$1"
+            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "DO $$\nBEGIN\n   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$ADMIN_USERNAME') THEN\n      CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';\n   END IF;\nEND$$;" && \
+            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO \"$ADMIN_USERNAME\";"
         }
-        
-        # Grant all privileges on the database to the new user
-        psql -h localhost -U panel_user -d panel_db -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO $ADMIN_USERNAME;" || {
-            log_error "Failed to grant privileges to admin user"
+
+        # Try with sudo, then without sudo using local postgres user, then TCP auth
+        if command -v sudo &> /dev/null && sudo -u postgres psql -c 'SELECT 1;' >/dev/null 2>&1; then
+            if create_pg_role_and_grants "sudo -u postgres psql"; then
+                log_success "Admin role created and privileges granted in PostgreSQL (sudo)."
+            else
+                log_error "Failed to create admin role via sudo -u postgres"
+                exit 1
+            fi
+        elif psql -U postgres -c 'SELECT 1;' >/dev/null 2>&1; then
+            if create_pg_role_and_grants "psql -U postgres"; then
+                log_success "Admin role created and privileges granted in PostgreSQL (local user)."
+            else
+                log_error "Failed to create admin role via local postgres user"
+                exit 1
+            fi
+        elif psql -h localhost -U postgres -c 'SELECT 1;' >/dev/null 2>&1; then
+            if create_pg_role_and_grants "psql -h localhost -U postgres"; then
+                log_success "Admin role created and privileges granted in PostgreSQL (localhost)."
+            else
+                log_error "Failed to create admin role via localhost postgres"
+                exit 1
+            fi
+        else
+            log_error "Could not authenticate as postgres superuser to create admin role."
+            log_info "Ensure postgres is running and pg_hba.conf allows local connections for postgres user."
             exit 1
-        }
-        
-        log_success "Admin user created. Database and role configuration completed."
+        fi
     fi
     
     echo ""
