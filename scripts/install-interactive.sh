@@ -96,6 +96,8 @@ detect_package_manager() {
         echo "zypper"
     elif command -v pacman &> /dev/null; then
         echo "pacman"
+    elif command -v apk &> /dev/null; then
+        echo "apk"
     else
         echo "unknown"
     fi
@@ -160,6 +162,18 @@ install_postgresql() {
                 return 1
             fi
             ;;
+        apk)
+            # Alpine Linux (OpenRC)
+            $PKG_UPDATE || true
+            if $PKG_INSTALL postgresql16 postgresql16-client 2>/dev/null; then
+                log_success "PostgreSQL 16 installed via apk"
+            elif $PKG_INSTALL postgresql postgresql-client 2>/dev/null; then
+                log_success "PostgreSQL installed via apk"
+            else
+                log_error "Failed to install PostgreSQL via apk"
+                return 1
+            fi
+            ;;
         brew)
             if $PKG_INSTALL postgresql 2>/dev/null; then
                 log_success "PostgreSQL installed via brew"
@@ -177,11 +191,21 @@ install_postgresql() {
     # Initialize and start PostgreSQL
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if command -v systemctl &> /dev/null; then
-            sudo systemctl enable postgresql
-            sudo systemctl start postgresql
+            sudo systemctl enable postgresql || true
+            sudo systemctl start postgresql || true
             add_rollback_step "sudo systemctl stop postgresql && sudo systemctl disable postgresql"
+        elif command -v rc-service &> /dev/null; then
+            # Alpine/OpenRC
+            # Initialize data directory if missing
+            if [ ! -d "/var/lib/postgresql/data" ] || [ -z "$(ls -A /var/lib/postgresql/data 2>/dev/null)" ]; then
+                log_info "Initializing PostgreSQL data directory (Alpine)"
+                sudo -u postgres initdb -D /var/lib/postgresql/data || sudo -u postgres initdb || true
+            fi
+            sudo rc-update add postgresql default || true
+            sudo rc-service postgresql start || true
+            add_rollback_step "sudo rc-service postgresql stop || true"
         else
-            log_warning "systemctl not available, PostgreSQL may need manual start"
+            log_warning "No known service manager (systemctl/rc-service). Start PostgreSQL manually."
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew services start postgresql
