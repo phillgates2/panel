@@ -165,10 +165,15 @@ install_postgresql() {
         apk)
             # Alpine Linux (OpenRC)
             $PKG_UPDATE || true
-            if $PKG_INSTALL postgresql16 postgresql16-client 2>/dev/null; then
-                log_success "PostgreSQL 16 installed via apk"
-            elif $PKG_INSTALL postgresql postgresql-client 2>/dev/null; then
+            # Try common Alpine package names
+            if $PKG_INSTALL postgresql postgresql-client 2>/dev/null; then
                 log_success "PostgreSQL installed via apk"
+            elif $PKG_INSTALL postgresql16 postgresql16-client 2>/dev/null; then
+                log_success "PostgreSQL 16 installed via apk"
+            elif $PKG_INSTALL postgresql15 postgresql15-client 2>/dev/null; then
+                log_success "PostgreSQL 15 installed via apk"
+            elif $PKG_INSTALL postgresql14 postgresql14-client 2>/dev/null; then
+                log_success "PostgreSQL 14 installed via apk"
             else
                 log_error "Failed to install PostgreSQL via apk"
                 return 1
@@ -201,8 +206,9 @@ install_postgresql() {
                 log_info "Initializing PostgreSQL data directory (Alpine)"
                 sudo -u postgres initdb -D /var/lib/postgresql/data || sudo -u postgres initdb || true
             fi
+            # Service name may vary; try generic name
             sudo rc-update add postgresql default || true
-            sudo rc-service postgresql start || true
+            sudo rc-service postgresql start || sudo rc-service postgresql16 start || sudo rc-service postgresql15 start || true
             add_rollback_step "sudo rc-service postgresql stop || true"
         else
             log_warning "No known service manager (systemctl/rc-service). Start PostgreSQL manually."
@@ -526,16 +532,19 @@ else
     log_warning "Installer helpers not found at $SCRIPT_DIR/install/10-env-checks.sh; continuing without extended env checks"
     # Fallback minimal package manager setup
     PKG_MANAGER=$(detect_package_manager)
+    # Use sudo if available
+    if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
     case $PKG_MANAGER in
-        apt)    PKG_UPDATE="sudo apt-get update"; PKG_INSTALL="sudo apt-get install -y" ;;
-        yum)    PKG_UPDATE="sudo yum check-update || true"; PKG_INSTALL="sudo yum install -y" ;;
-        dnf)    PKG_UPDATE="sudo dnf check-update || true"; PKG_INSTALL="sudo dnf install -y" ;;
-        zypper) PKG_UPDATE="sudo zypper refresh"; PKG_INSTALL="sudo zypper install -y" ;;
-        pacman) PKG_UPDATE="sudo pacman -Sy"; PKG_INSTALL="sudo pacman -S --noconfirm" ;;
-        apk)    PKG_UPDATE="sudo apk update"; PKG_INSTALL="sudo apk add --no-cache" ;;
+        apt)    PKG_UPDATE="$SUDO apt-get update"; PKG_INSTALL="$SUDO apt-get install -y" ;;
+        yum)    PKG_UPDATE="$SUDO yum check-update || true"; PKG_INSTALL="$SUDO yum install -y" ;;
+        dnf)    PKG_UPDATE="$SUDO dnf check-update || true"; PKG_INSTALL="$SUDO dnf install -y" ;;
+        zypper) PKG_UPDATE="$SUDO zypper refresh"; PKG_INSTALL="$SUDO zypper install -y" ;;
+        pacman) PKG_UPDATE="$SUDO pacman -Sy"; PKG_INSTALL="$SUDO pacman -S --noconfirm" ;;
+        apk)    PKG_UPDATE="$SUDO apk update"; PKG_INSTALL="$SUDO apk add --no-cache" ;;
         brew)   PKG_UPDATE="brew update"; PKG_INSTALL="brew install" ;;
         *)      log_warning "Unknown package manager; some installations may fail" ;;
     esac
+    log_info "Package manager detected: $PKG_MANAGER"
 fi
 
 # Handle Development mode
