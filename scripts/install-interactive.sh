@@ -1243,10 +1243,18 @@ if [[ $NON_INTERACTIVE != true ]]; then
     log_info "Creating admin user in the database..."
     if [[ $DB_CHOICE -eq 1 ]]; then
         # SQLite
+        # Ensure install directory exists
+        mkdir -p "$INSTALL_DIR" 2>/dev/null || true
+        # Initialize database file and users table if missing
+        sqlite3 "$INSTALL_DIR/panel.db" "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0);" || {
+            log_error "Failed to initialize SQLite database schema"
+            exit 1
+        }
+        # Hash password and insert admin user (upsert-like behavior)
         PASSWORD_HASH=$(printf '%s\n' "$ADMIN_PASSWORD" | python3 -c "from werkzeug.security import generate_password_hash; import sys; print(generate_password_hash(sys.stdin.read().strip()))")
-        ADMIN_CREATION_QUERY="INSERT INTO users (username, password_hash, is_admin) VALUES ('$ADMIN_USERNAME', '$PASSWORD_HASH', 1);"
+        ADMIN_CREATION_QUERY="INSERT OR IGNORE INTO users (username, password_hash, is_admin) VALUES ('$ADMIN_USERNAME', '$PASSWORD_HASH', 1); UPDATE users SET password_hash='$PASSWORD_HASH', is_admin=1 WHERE username='$ADMIN_USERNAME';"
         sqlite3 "$INSTALL_DIR/panel.db" "$ADMIN_CREATION_QUERY" || {
-            log_error "Failed to create admin user"
+            log_error "Failed to create or update admin user in SQLite"
             exit 1
         }
     elif [[ $DB_CHOICE -eq 2 ]]; then
