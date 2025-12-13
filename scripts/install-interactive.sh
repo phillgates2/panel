@@ -516,6 +516,28 @@ echo ""
 # Run pre-flight checks early to surface environment limitations
 preflight_checks
 
+# Source common installer helpers (env checks)
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [[ -f "$SCRIPT_DIR/install/10-env-checks.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/install/10-env-checks.sh"
+    install_env_checks
+else
+    log_warning "Installer helpers not found at $SCRIPT_DIR/install/10-env-checks.sh; continuing without extended env checks"
+    # Fallback minimal package manager setup
+    PKG_MANAGER=$(detect_package_manager)
+    case $PKG_MANAGER in
+        apt)    PKG_UPDATE="sudo apt-get update"; PKG_INSTALL="sudo apt-get install -y" ;;
+        yum)    PKG_UPDATE="sudo yum check-update || true"; PKG_INSTALL="sudo yum install -y" ;;
+        dnf)    PKG_UPDATE="sudo dnf check-update || true"; PKG_INSTALL="sudo dnf install -y" ;;
+        zypper) PKG_UPDATE="sudo zypper refresh"; PKG_INSTALL="sudo zypper install -y" ;;
+        pacman) PKG_UPDATE="sudo pacman -Sy"; PKG_INSTALL="sudo pacman -S --noconfirm" ;;
+        apk)    PKG_UPDATE="sudo apk update"; PKG_INSTALL="sudo apk add --no-cache" ;;
+        brew)   PKG_UPDATE="brew update"; PKG_INSTALL="brew install" ;;
+        *)      log_warning "Unknown package manager; some installations may fail" ;;
+    esac
+fi
+
 # Handle Development mode
 if [[ $DEV_MODE == true ]]; then
     log_info "Setting up development environment..."

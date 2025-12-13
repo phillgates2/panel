@@ -54,6 +54,10 @@ install_env_checks() {
                 PKG_UPDATE="sudo pacman -Sy"
                 PKG_INSTALL="sudo pacman -S --noconfirm"
                 ;;
+            apk)
+                PKG_UPDATE="sudo apk update"
+                PKG_INSTALL="sudo apk add --no-cache"
+                ;;
             *)
                 log_error "No supported package manager found"
                 exit 1
