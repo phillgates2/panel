@@ -1320,18 +1320,44 @@ fi
 if [[ $MONITORING == true ]]; then
     log_info "Setting up monitoring with Prometheus & Grafana..."
     
-    # Check if kubectl is available
+    # Auto-install kubectl and helm if missing
+    auto_install_tool() {
+        local tool_name="$1"
+        local install_cmd=""
+        case "$PKG_MANAGER" in
+            apt)
+                if [[ "$tool_name" == "kubectl" ]]; then
+                    install_cmd="$PKG_INSTALL kubectl"
+                elif [[ "$tool_name" == "helm" ]]; then
+                    install_cmd="$PKG_INSTALL helm"
+                fi
+                ;;
+            yum|dnf|zypper|pacman|apk|brew)
+                install_cmd="$PKG_INSTALL $tool_name"
+                ;;
+            *)
+                install_cmd=""
+                ;;
+        esac
+        if [[ -n "$install_cmd" ]]; then
+            log_info "Installing $tool_name..."
+            $PKG_UPDATE || true
+            eval "$install_cmd" || {
+                log_error "Failed to install $tool_name. Please install it manually."
+                return 1
+            }
+            log_success "$tool_name installed"
+        else
+            log_error "Unknown package manager for installing $tool_name."
+            return 1
+        fi
+    }
+
     if ! command -v kubectl &> /dev/null; then
-        log_error "kubectl not found. Kubernetes CLI is required for monitoring setup."
-        log_info "Please install kubectl from https://kubernetes.io/docs/tasks/tools/"
-        exit 1
+        auto_install_tool kubectl || exit 1
     fi
-    
-    # Check if helm is available
     if ! command -v helm &> /dev/null; then
-        log_error "helm not found. Helm is required for monitoring setup."
-        log_info "Please install Helm from https://helm.sh/docs/intro/install/"
-        exit 1
+        auto_install_tool helm || exit 1
     fi
     
     # Create a dedicated namespace for monitoring
