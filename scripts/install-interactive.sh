@@ -1253,20 +1253,20 @@ if [[ $NON_INTERACTIVE != true ]]; then
         # PostgreSQL: create role using postgres superuser to avoid CREATEROLE permission issues
           create_pg_role_and_grants() {
                 local psql_cmd="$1"
-                # Use a heredoc to avoid shell $$ expansion while keeping variable interpolation
-                # psql command provided in $psql_cmd must be the base invocation (e.g., "sudo -u postgres psql" or "psql -U postgres")
-                # We append database name and ON_ERROR_STOP via arguments
-                local full_cmd="$psql_cmd -d panel_db -v ON_ERROR_STOP=1"
-                # Pipe a heredoc to psql; avoid $$ by using single-quoted DO body with LANGUAGE plpgsql
-                # shellcheck disable=SC2016
-                cat <<SQL | $full_cmd
-DO 'BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ADMIN_USERNAME}') THEN
-        EXECUTE format(''CREATE ROLE %I WITH LOGIN PASSWORD %L'', '${ADMIN_USERNAME}', '${ADMIN_PASSWORD}');
-    END IF;
-END' LANGUAGE plpgsql;
-GRANT ALL PRIVILEGES ON DATABASE panel_db TO "${ADMIN_USERNAME}";
-SQL
+                # Create role if missing; if exists, continue and ensure password is set
+                # Avoid complex DO blocks to prevent shell quoting issues
+                # Create role (ignore error if it exists)
+                $psql_cmd -v ON_ERROR_STOP=0 -c "CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';" || true
+                # Ensure role has login and correct password
+                $psql_cmd -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD' LOGIN;" || {
+                    log_error "Failed to alter admin role password"
+                    return 1
+                }
+                # Grant privileges on target database
+                $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO \"$ADMIN_USERNAME\";" || {
+                    log_error "Failed to grant privileges to admin role"
+                    return 1
+                }
           }
 
         # Try with sudo, then without sudo using local postgres user, then TCP auth
