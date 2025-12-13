@@ -1257,15 +1257,14 @@ if [[ $NON_INTERACTIVE != true ]]; then
                 # psql command provided in $psql_cmd must be the base invocation (e.g., "sudo -u postgres psql" or "psql -U postgres")
                 # We append database name and ON_ERROR_STOP via arguments
                 local full_cmd="$psql_cmd -d panel_db -v ON_ERROR_STOP=1"
+                # Pipe a heredoc to psql; avoid $$ by using single-quoted DO body with LANGUAGE plpgsql
                 # shellcheck disable=SC2016
-                $full_cmd <<SQL
-DO $$
-BEGIN
+                cat <<SQL | $full_cmd
+DO 'BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ADMIN_USERNAME}') THEN
-        EXECUTE format('CREATE ROLE %I WITH LOGIN PASSWORD %L', '${ADMIN_USERNAME}', '${ADMIN_PASSWORD}');
+        EXECUTE format(''CREATE ROLE %I WITH LOGIN PASSWORD %L'', '${ADMIN_USERNAME}', '${ADMIN_PASSWORD}');
     END IF;
-END
-$$;
+END' LANGUAGE plpgsql;
 GRANT ALL PRIVILEGES ON DATABASE panel_db TO "${ADMIN_USERNAME}";
 SQL
           }
