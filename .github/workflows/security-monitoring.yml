@@ -34,7 +34,13 @@ jobs:
 
     - name: Install security tools
       run: |
-        pip install safety bandit pip-audit || true
+        pip install bandit pip-audit || true
+        # Optionally install Safety if API key provided (Safety v3 requires a key)
+        if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
+          pip install safety || true
+        else
+          echo "Skipping Safety install: SAFETY_API_KEY not set"
+        fi
         # Install jq for JSON parsing
         if ! command -v jq >/dev/null 2>&1; then
           echo "Installing jq..."
@@ -50,19 +56,20 @@ jobs:
         npm install -g audit-ci || true
 
     - name: Run Safety (Python vulnerabilities)
-      if: always()
+      if: ${{ always() && secrets.SAFETY_API_KEY != '' }}
+      env:
+        SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
       run: |
         pip install -r requirements/requirements-prod.txt || echo "Warning: Some dependencies failed to install"
-        safety check --output json --save-json safety-report.json || true
-        # Check for high/critical vulnerabilities
+        safety check --key "$SAFETY_API_KEY" --json --output safety-report.json || true
         if [ -f safety-report.json ]; then
           echo "✅ Safety check completed"
-          # Check if file contains vulnerabilities
           if command -v jq >/dev/null 2>&1; then
-            vuln_count=$(jq '.vulnerabilities // [] | length' safety-report.json 2>/dev/null || echo "0")
+            # Safety v3 schema: vulnerabilities array may be nested; handle defensively
+            vuln_count=$(jq '.vulnerabilities // .issues // [] | length' safety-report.json 2>/dev/null || echo "0")
             if [ "$vuln_count" -gt 0 ]; then
               echo "⚠️ Vulnerabilities found: $vuln_count"
-              critical_count=$(jq '.vulnerabilities // [] | map(select(.vulnerability.severity == "high" or .vulnerability.severity == "critical")) | length' safety-report.json 2>/dev/null || echo "0")
+              critical_count=$(jq '[.vulnerabilities // .issues // [] | .[] | select((.severity // .vulnerability.severity) == "high" or (.severity // .vulnerability.severity) == "critical")] | length' safety-report.json 2>/dev/null || echo "0")
               if [ "$critical_count" -gt 0 ]; then
                 echo "🚨 High/Critical Python vulnerabilities found: $critical_count"
                 echo "high_vulns=true" >> $GITHUB_ENV
