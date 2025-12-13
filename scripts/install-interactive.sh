@@ -1253,7 +1253,8 @@ if [[ $NON_INTERACTIVE != true ]]; then
         # PostgreSQL: create role using postgres superuser to avoid CREATEROLE permission issues
         create_pg_role_and_grants() {
             local psql_cmd="$1"
-            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "DO $$\nBEGIN\n   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$ADMIN_USERNAME') THEN\n      CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';\n   END IF;\nEND$$;" && \
+            # Use $do$ delimiter to avoid Bash $$ expansion
+            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "DO $do$\nBEGIN\n   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$ADMIN_USERNAME') THEN\n      CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';\n   END IF;\nEND\n$do$;" && \
             $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO \"$ADMIN_USERNAME\";"
         }
 
