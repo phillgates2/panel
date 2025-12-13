@@ -1251,12 +1251,24 @@ if [[ $NON_INTERACTIVE != true ]]; then
         }
     elif [[ $DB_CHOICE -eq 2 ]]; then
         # PostgreSQL: create role using postgres superuser to avoid CREATEROLE permission issues
-        create_pg_role_and_grants() {
-            local psql_cmd="$1"
-            # Use $do$ delimiter to avoid Bash $$ expansion
-            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "DO $do$\nBEGIN\n   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$ADMIN_USERNAME') THEN\n      CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';\n   END IF;\nEND\n$do$;" && \
-            $psql_cmd -d panel_db -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO \"$ADMIN_USERNAME\";"
-        }
+          create_pg_role_and_grants() {
+                local psql_cmd="$1"
+                # Use a heredoc to avoid shell $$ expansion while keeping variable interpolation
+                # psql command provided in $psql_cmd must be the base invocation (e.g., "sudo -u postgres psql" or "psql -U postgres")
+                # We append database name and ON_ERROR_STOP via arguments
+                local full_cmd="$psql_cmd -d panel_db -v ON_ERROR_STOP=1"
+                # shellcheck disable=SC2016
+                $full_cmd <<SQL
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${ADMIN_USERNAME}') THEN
+        EXECUTE format('CREATE ROLE %I WITH LOGIN PASSWORD %L', '${ADMIN_USERNAME}', '${ADMIN_PASSWORD}');
+    END IF;
+END
+$$;
+GRANT ALL PRIVILEGES ON DATABASE panel_db TO "${ADMIN_USERNAME}";
+SQL
+          }
 
         # Try with sudo, then without sudo using local postgres user, then TCP auth
         if command -v sudo &> /dev/null && sudo -u postgres psql -c 'SELECT 1;' >/dev/null 2>&1; then
