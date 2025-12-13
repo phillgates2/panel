@@ -247,6 +247,27 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $(date '+%H:%M:%S') $1" | tee -a install.log
 }
 
+# Pre-flight checks for privilege and service management tools
+preflight_checks() {
+    if ! command -v sudo &> /dev/null; then
+        log_warning "sudo not found. Package installation and service management may require elevated privileges."
+        log_info "If installations fail, either run as root (not recommended) or install sudo."
+    fi
+
+    if ! command -v systemctl &> /dev/null && ! command -v rc-service &> /dev/null; then
+        log_warning "No service manager detected (systemctl/rc-service)."
+        print_postgres_manual_instructions
+    fi
+}
+
+print_postgres_manual_instructions() {
+    log_info "PostgreSQL manual start instructions (examples):"
+    log_info "  • Initialize data dir (if needed): sudo -u postgres initdb -D /var/lib/postgresql/data"
+    log_info "  • Start server:           sudo -u postgres pg_ctl -D /var/lib/postgresql/data start"
+    log_info "  • Alternative start:       sudo -u postgres postgres -D /var/lib/postgresql/data"
+    log_info "  • Verify connection:       psql -U postgres -c \"SELECT version();\""
+}
+
 # Enhanced progress tracking function with ETA
 show_progress_with_eta() {
     local current=$1
@@ -491,6 +512,9 @@ echo "========================================"
 echo ""
 log_info "Welcome to the interactive installer for the Panel application!"
 echo ""
+
+# Run pre-flight checks early to surface environment limitations
+preflight_checks
 
 # Handle Development mode
 if [[ $DEV_MODE == true ]]; then
