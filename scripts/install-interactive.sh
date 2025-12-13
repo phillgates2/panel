@@ -1342,11 +1342,29 @@ if [[ $MONITORING == true ]]; then
         if [[ -n "$install_cmd" ]]; then
             log_info "Installing $tool_name..."
             $PKG_UPDATE || true
-            eval "$install_cmd" || {
-                log_error "Failed to install $tool_name. Please install it manually."
-                return 1
-            }
-            log_success "$tool_name installed"
+            if eval "$install_cmd"; then
+                log_success "$tool_name installed"
+            else
+                # Fallback installers for specific tools
+                if [[ "$tool_name" == "helm" ]]; then
+                    log_warning "Package manager could not install helm; attempting Helm official installer"
+                    if command -v curl >/dev/null 2>&1; then
+                        # Official Helm install script (Helm 3)
+                        if curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash; then
+                            log_success "helm installed via official script"
+                        else
+                            log_error "Failed to install helm via official script. Please install manually: https://helm.sh/docs/intro/install/"
+                            return 1
+                        fi
+                    else
+                        log_error "curl not available to fetch Helm installer. Please install curl or helm manually."
+                        return 1
+                    fi
+                else
+                    log_error "Failed to install $tool_name. Please install it manually."
+                    return 1
+                fi
+            fi
         else
             log_error "Unknown package manager for installing $tool_name."
             return 1
