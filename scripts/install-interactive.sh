@@ -1398,8 +1398,17 @@ if [[ $MONITORING == true ]]; then
         auto_install_tool helm || exit 1
     fi
     
-    # Create a dedicated namespace for monitoring
-    kubectl create namespace monitoring || log_warning "Monitoring namespace may already exist"
+    # Verify Kubernetes cluster connectivity before proceeding
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        log_warning "Kubernetes cluster not reachable (kubectl cluster-info failed)."
+        log_warning "Skipping Prometheus/Grafana installation. Set KUBECONFIG and ensure a cluster is available, then run setup manually."
+        log_info "Tip: export KUBECONFIG=~/.kube/config and kubectl config current-context"
+        MONITORING=false
+    fi
+
+    if [[ $MONITORING == true ]]; then
+        # Create a dedicated namespace for monitoring
+        kubectl create namespace monitoring || log_warning "Monitoring namespace may already exist"
     
     # Install Prometheus using Helm
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -1409,17 +1418,18 @@ if [[ $MONITORING == true ]]; then
         exit 1
     }
     
-    # Install Grafana using Helm
-    helm repo add grafana https://grafana.github.io/helm-charts
-    helm repo update
-    helm install grafana grafana/grafana --namespace monitoring || {
-        log_error "Failed to install Grafana"
-        exit 1
-    }
-    
-    log_success "Monitoring stack installed: Prometheus and Grafana"
-    log_info "Access Grafana at: http://localhost:3000 (admin/admin)"
-    log_info "Prometheus metrics available at: http://localhost:9090"
+        # Install Grafana using Helm
+        helm repo add grafana https://grafana.github.io/helm-charts
+        helm repo update
+        helm install grafana grafana/grafana --namespace monitoring || {
+            log_error "Failed to install Grafana"
+            exit 1
+        }
+        
+        log_success "Monitoring stack installed: Prometheus and Grafana"
+        log_info "Access Grafana at: http://localhost:3000 (admin/admin)"
+        log_info "Prometheus metrics available at: http://localhost:9090"
+    fi
 fi
 
 # Setup advanced features
