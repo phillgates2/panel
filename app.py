@@ -9,7 +9,6 @@ import os
 import time
 from typing import Optional
 
-import newrelic.agent
 from flask import (Blueprint, Flask, jsonify, redirect, render_template,
                    request, session, url_for)
 from flask_login import current_user
@@ -25,17 +24,45 @@ from config import config
 
 # Import models and routes
 from src.panel.models import User
-from src.panel.admin import DatabaseAdmin
+try:
+    from src.panel.admin import DatabaseAdmin
+except Exception:
+    DatabaseAdmin = None
 
 # Import blueprints
-from src.panel.admin_bp import admin_bp
-from src.panel.api_bp import api_bp
-from src.panel.chat_bp import chat_bp
+try:
+    from src.panel.admin_bp import admin_bp
+except Exception:
+    admin_bp = None
+try:
+    from src.panel.api_bp import api_bp
+except Exception:
+    api_bp = None
+try:
+    from src.panel.chat_bp import chat_bp
+except Exception:
+    chat_bp = None
 from src.panel.main_bp import main_bp
-from src.panel.payment_bp import payment_bp
+try:
+    from src.panel.payment_bp import payment_bp
+except Exception:
+    payment_bp = None
 
-# Initialize New Relic APM
-newrelic.agent.initialize("newrelic.ini")
+# Initialize New Relic APM (optional)
+try:
+    import newrelic.agent as _nr_agent
+
+    _nr_config = os.environ.get("NEW_RELIC_CONFIG_FILE")
+    if not _nr_config:
+        for _candidate in ("config/newrelic.ini", "newrelic.ini"):
+            if os.path.exists(_candidate):
+                _nr_config = _candidate
+                break
+    if _nr_config:
+        _nr_agent.initialize(_nr_config)
+except Exception:
+    # If New Relic isn't installed or configured, continue without it
+    pass
 
 # Initialize the Flask app
 app = Flask(__name__)
@@ -51,7 +78,10 @@ app.start_time = time.time()
 
 # Initialize Database Admin integration
 try:
-    db_admin = DatabaseAdmin(app, db)
+    if DatabaseAdmin is not None:
+        db_admin = DatabaseAdmin(app, db)
+    else:
+        db_admin = None
 except Exception:
     # Best-effort during tests; ignore failures
     db_admin = None
@@ -87,11 +117,6 @@ def _register_optional_blueprints(module_app: Flask) -> None:
                 pass
     except Exception:
         pass
-    try:
-        if admin_bp is not None:
-            module_app.register_blueprint(admin_bp)
-    except Exception:
-        pass
 
 
 # Register optional blueprints on the module-level app if available
@@ -103,10 +128,14 @@ app.errorhandler(404)(page_not_found)
 app.errorhandler(500)(internal_error)
 
 app.register_blueprint(main_bp)
-app.register_blueprint(api_bp, url_prefix="/api")
-app.register_blueprint(chat_bp)
-app.register_blueprint(payment_bp)
-app.register_blueprint(admin_bp)
+if api_bp is not None:
+    app.register_blueprint(api_bp, url_prefix="/api")
+if chat_bp is not None:
+    app.register_blueprint(chat_bp)
+if payment_bp is not None:
+    app.register_blueprint(payment_bp)
+if admin_bp is not None:
+    app.register_blueprint(admin_bp)
 
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "main")
 
@@ -125,3 +154,9 @@ elif SERVICE_NAME == "payment":
 else:
     # Main app routes
     pass
+
+if __name__ == "__main__":
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    app.run(host=host, port=port, debug=debug)

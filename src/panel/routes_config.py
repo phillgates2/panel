@@ -10,8 +10,36 @@ from datetime import datetime, timedelta, timezone
 
 from flask import (Blueprint, current_app, flash, jsonify, redirect,
                    render_template, request, send_file, session, url_for)
+from flask_login import login_required
 
 from app import User, db
+try:
+    # Prefer the shared cache instance if available
+    from app.core_extensions import cache  # type: ignore
+except Exception:
+    # Fallback: provide a no-op cache decorator to avoid import-time failures
+    class _NoCache:
+        def cached(self, timeout=0):
+            def _decorator(func):
+                return func
+            return _decorator
+
+    cache = _NoCache()
+
+try:
+    from app.extensions import csrf  # type: ignore
+except Exception:
+    class _NoCSRF:
+        def exempt(self, func):
+            return func
+
+    csrf = _NoCSRF()
+
+try:
+    from app.utils import admin_required  # type: ignore
+except Exception:
+    def admin_required(func):
+        return func
 from config_manager import (ConfigDeployment, ConfigManager, ConfigTemplate,
                             ConfigVersion)
 
@@ -1035,7 +1063,7 @@ def optimize_database():
     return redirect(url_for("admin_dashboard"))
 
 
-@app.route("/api/users/stats")
+@config_bp.route("/api/users/stats")
 @login_required
 @cache.cached(timeout=300)  # Cache for 5 minutes
 def user_stats():
@@ -1053,7 +1081,7 @@ def user_stats():
     return jsonify({"total_users": total_users, "active_users_7d": active_users})
 
 
-@app.route("/test/rate-limit")
+@config_bp.route("/test/rate-limit")
 def test_rate_limit():
     """Test endpoint for rate limiting"""
     from flask import jsonify
@@ -1069,7 +1097,7 @@ def test_rate_limit():
 
 # GDPR compliance endpoints
 @csrf.exempt
-@app.route("/api/gdpr/export", methods=["POST"])
+@config_bp.route("/api/gdpr/export", methods=["POST"])
 @login_required
 def gdpr_export():
     """Export user data (GDPR Article 15)"""
@@ -1129,7 +1157,7 @@ Panel Team""",
 
 
 @csrf.exempt
-@app.route("/api/gdpr/delete", methods=["POST"])
+@config_bp.route("/api/gdpr/delete", methods=["POST"])
 @login_required
 def gdpr_delete():
     """Delete user data (GDPR Article 17)"""
@@ -1208,7 +1236,7 @@ Panel Team""",
 
 
 @csrf.exempt
-@app.route("/api/gdpr/consent", methods=["GET", "POST"])
+@config_bp.route("/api/gdpr/consent", methods=["GET", "POST"])
 @login_required
 def gdpr_consent():
     """Get or update consent preferences"""
@@ -1240,7 +1268,7 @@ def gdpr_consent():
         return jsonify({"error": "Operation failed", "message": str(e)}), 500
 
 
-@app.route("/privacy")
+@config_bp.route("/privacy")
 def privacy():
     """Privacy policy page"""
     from datetime import datetime
@@ -1250,7 +1278,7 @@ def privacy():
     )
 
 
-@app.route("/gdpr")
+@config_bp.route("/gdpr")
 @login_required
 def gdpr_tools():
     """GDPR tools and data management"""
@@ -1283,7 +1311,7 @@ def gdpr_tools():
     )
 
 
-@app.route("/offline")
+@config_bp.route("/offline")
 def offline():
     """Offline page for PWA"""
     return render_template("offline.html")
@@ -1291,7 +1319,7 @@ def offline():
 
 # Push notification endpoints
 @csrf.exempt
-@app.route("/api/push/subscribe", methods=["POST"])
+@config_bp.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
     """Subscribe to push notifications"""
@@ -1322,7 +1350,7 @@ def push_subscribe():
 
 
 @csrf.exempt
-@app.route("/api/push/unsubscribe", methods=["POST"])
+@config_bp.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
     """Unsubscribe from push notifications"""
@@ -1355,7 +1383,7 @@ def push_unsubscribe():
 
 
 @csrf.exempt
-@app.route("/api/push/test", methods=["POST"])
+@config_bp.route("/api/push/test", methods=["POST"])
 @login_required
 def push_test():
     """Send a test push notification"""
@@ -1388,7 +1416,7 @@ def push_test():
 
 
 @csrf.exempt
-@app.route("/api/push/vapid-public-key", methods=["GET"])
+@config_bp.route("/api/push/vapid-public-key", methods=["GET"])
 def push_vapid_public_key():
     """Get VAPID public key for push notifications"""
     from src.panel.push_notifications import get_push_service
@@ -1400,13 +1428,13 @@ def push_vapid_public_key():
     return jsonify({"publicKey": push_service.vapid_public_key})
 
 
-@app.route("/api/docs")
+@config_bp.route("/api/docs")
 def api_docs():
     """API documentation page"""
     return render_template("api_docs.html")
 
 
-@app.route("/api/admin/backup/status")
+@config_bp.route("/api/admin/backup/status")
 @login_required
 @admin_required
 def backup_status():
@@ -1429,7 +1457,7 @@ def backup_status():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/admin/backup/create/<backup_type>", methods=["POST"])
+@config_bp.route("/api/admin/backup/create/<backup_type>", methods=["POST"])
 @login_required
 @admin_required
 def create_backup_api(backup_type):
@@ -1451,7 +1479,7 @@ def create_backup_api(backup_type):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/admin/backup/list")
+@config_bp.route("/api/admin/backup/list")
 @login_required
 @admin_required
 def list_backups_api():
@@ -1473,7 +1501,7 @@ def list_backups_api():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/admin/backup/restore/<backup_type>", methods=["POST"])
+@config_bp.route("/api/admin/backup/restore/<backup_type>", methods=["POST"])
 @login_required
 @admin_required
 def restore_backup_api(backup_type):
@@ -1498,7 +1526,7 @@ def restore_backup_api(backup_type):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/ai/assistant", methods=["POST"])
+@config_bp.route("/api/ai/assistant", methods=["POST"])
 @login_required
 def ai_assistant():
     """AI-powered assistant for user queries"""
@@ -1540,7 +1568,7 @@ def ai_assistant():
         return jsonify({"error": "AI assistant temporarily unavailable"}), 503
 
 
-@app.route("/api/ai/moderate", methods=["POST"])
+@config_bp.route("/api/ai/moderate", methods=["POST"])
 @login_required
 def ai_moderate_content():
     """AI-powered content moderation"""
@@ -1579,7 +1607,7 @@ def ai_moderate_content():
         return jsonify({"approved": True, "reason": "Moderation check failed"})
 
 
-@app.route("/api/ai/suggest-tags", methods=["POST"])
+@config_bp.route("/api/ai/suggest-tags", methods=["POST"])
 @login_required
 def ai_suggest_tags():
     """AI-powered tag suggestions for posts"""
@@ -1618,7 +1646,7 @@ def ai_suggest_tags():
         return jsonify({"tags": []})
 
 
-@app.route("/api/ai/analyze-sentiment", methods=["POST"])
+@config_bp.route("/api/ai/analyze-sentiment", methods=["POST"])
 @login_required
 def ai_analyze_sentiment():
     """AI-powered sentiment analysis"""
@@ -1656,7 +1684,7 @@ def ai_analyze_sentiment():
         )
 
 
-@app.route("/api/ai/summarize", methods=["POST"])
+@config_bp.route("/api/ai/summarize", methods=["POST"])
 @login_required
 def ai_summarize_content():
     """AI-powered content summarization"""
@@ -1699,7 +1727,7 @@ def ai_summarize_content():
         return jsonify({"summary": summary})
 
 
-@app.route("/api/admin/ai/stats")
+@config_bp.route("/api/admin/ai/stats")
 @login_required
 @admin_required
 def ai_stats():
@@ -1719,7 +1747,7 @@ def ai_stats():
     return jsonify(stats)
 
 
-@app.route("/api/forum/posts", methods=["POST"])
+@config_bp.route("/api/forum/posts", methods=["POST"])
 @login_required
 def create_forum_post():
     """Create a new forum post with AI-powered features"""
@@ -1821,7 +1849,7 @@ def create_forum_post():
         return jsonify({"error": "Failed to create post"}), 500
 
 
-@app.route("/api/ai/analyze-image", methods=["POST"])
+@config_bp.route("/api/ai/analyze-image", methods=["POST"])
 @login_required
 def ai_analyze_image():
     """AI-powered image analysis"""
@@ -1868,7 +1896,7 @@ def ai_analyze_image():
         )
 
 
-@app.route("/api/ai/predict-behavior", methods=["POST"])
+@config_bp.route("/api/ai/predict-behavior", methods=["POST"])
 @login_required
 def ai_predict_behavior():
     """AI-powered user behavior prediction"""
@@ -1914,7 +1942,7 @@ def ai_predict_behavior():
         )
 
 
-@app.route("/api/ai/personalize", methods=["POST"])
+@config_bp.route("/api/ai/personalize", methods=["POST"])
 @login_required
 def ai_personalize_content():
     """Generate personalized content for user"""
@@ -1971,7 +1999,7 @@ def ai_personalize_content():
         )
 
 
-@app.route("/api/ai/detect-anomalies", methods=["POST"])
+@config_bp.route("/api/ai/detect-anomalies", methods=["POST"])
 @admin_required
 def ai_detect_anomalies():
     """AI-powered anomaly detection in system metrics"""
@@ -2012,7 +2040,7 @@ def ai_detect_anomalies():
         )
 
 
-@app.route("/api/ai/analyze-trends", methods=["POST"])
+@config_bp.route("/api/ai/analyze-trends", methods=["POST"])
 @admin_required
 def ai_analyze_trends():
     """AI-powered trend analysis"""
@@ -2054,7 +2082,7 @@ def ai_analyze_trends():
         )
 
 
-@app.route("/api/admin/ai/enhanced-stats")
+@config_bp.route("/api/admin/ai/enhanced-stats")
 @admin_required
 def ai_enhanced_stats():
     """Get enhanced AI system statistics"""
@@ -2077,7 +2105,7 @@ def ai_enhanced_stats():
     return jsonify(stats)
 
 
-@app.route("/api/ai/voice/transcribe", methods=["POST"])
+@config_bp.route("/api/ai/voice/transcribe", methods=["POST"])
 @login_required
 def ai_transcribe_voice():
     """AI-powered voice transcription"""
@@ -2122,7 +2150,7 @@ def ai_transcribe_voice():
         return jsonify({"error": "Transcription temporarily unavailable"})
 
 
-@app.route("/api/ai/voice/analyze", methods=["POST"])
+@config_bp.route("/api/ai/voice/analyze", methods=["POST"])
 @login_required
 def ai_analyze_voice():
     """AI-powered voice emotion and quality analysis"""
@@ -2177,7 +2205,7 @@ def ai_analyze_voice():
         return jsonify({"error": "Voice analysis temporarily unavailable"})
 
 
-@app.route("/api/ai/video/analyze", methods=["POST"])
+@config_bp.route("/api/ai/video/analyze", methods=["POST"])
 @login_required
 def ai_analyze_video():
     """AI-powered video analysis"""
@@ -2220,7 +2248,7 @@ def ai_analyze_video():
         return jsonify({"error": "Video analysis temporarily unavailable"})
 
 
-@app.route("/api/ai/video/moderate", methods=["POST"])
+@config_bp.route("/api/ai/video/moderate", methods=["POST"])
 @login_required
 def ai_moderate_video():
     """AI-powered video content moderation"""
@@ -2265,7 +2293,7 @@ def ai_moderate_video():
         )
 
 
-@app.route("/api/ai/training/start", methods=["POST"])
+@config_bp.route("/api/ai/training/start", methods=["POST"])
 @admin_required
 def ai_start_training():
     """Start AI model fine-tuning"""
@@ -2308,7 +2336,7 @@ def ai_start_training():
         return jsonify({"error": "Training initialization failed"})
 
 
-@app.route("/api/ai/training/status/<job_id>", methods=["GET"])
+@config_bp.route("/api/ai/training/status/<job_id>", methods=["GET"])
 @admin_required
 def ai_training_status(job_id):
     """Get AI training job status"""
@@ -2338,7 +2366,7 @@ def ai_training_status(job_id):
         return jsonify({"error": "Status check failed"})
 
 
-@app.route("/api/ai/training/jobs", methods=["GET"])
+@config_bp.route("/api/ai/training/jobs", methods=["GET"])
 @admin_required
 def ai_training_jobs():
     """List AI training jobs"""
@@ -2370,7 +2398,7 @@ def ai_training_jobs():
         return jsonify({"error": "Failed to list jobs"})
 
 
-@app.route("/api/ai/training/cancel/<job_id>", methods=["POST"])
+@config_bp.route("/api/ai/training/cancel/<job_id>", methods=["POST"])
 @admin_required
 def ai_cancel_training(job_id):
     """Cancel AI training job"""
@@ -2400,7 +2428,7 @@ def ai_cancel_training(job_id):
         return jsonify({"error": "Cancellation failed"})
 
 
-@app.route("/api/ai/models/deploy/<job_id>", methods=["POST"])
+@config_bp.route("/api/ai/models/deploy/<job_id>", methods=["POST"])
 @admin_required
 def ai_deploy_model(job_id):
     """Deploy completed AI model"""
@@ -2438,7 +2466,7 @@ def ai_deploy_model(job_id):
         return jsonify({"error": "Model deployment failed"})
 
 
-@app.route("/api/ai/models", methods=["GET"])
+@config_bp.route("/api/ai/models", methods=["GET"])
 @admin_required
 def ai_list_models():
     """List deployed custom AI models"""

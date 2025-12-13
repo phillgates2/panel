@@ -9,14 +9,14 @@ from flask import Flask
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
-# Import core models so tests and legacy code can use `from app import User, SiteAsset, SiteSetting`
+# Initialize extensions (but don't bind to app yet)
+from .db import db
+login_manager = LoginManager()
+
+# Import core models and utilities after extensions exist
 from src.panel.models import SiteAsset, SiteSetting, User, Server, ServerUser
 from src.panel.routes_rbac import user_can_edit_server, user_server_role
 from src.panel.csrf import verify_csrf
-
-# Initialize extensions (but don't bind to app yet)
-db = SQLAlchemy()
-login_manager = LoginManager()
 
 
 def create_app(config_name="default"):
@@ -112,6 +112,20 @@ def register_blueprints(app):
     except ImportError:
         pass
 
+    # Forum blueprint
+    try:
+        from src.panel.forum import forum_bp
+        app.register_blueprint(forum_bp)
+    except ImportError:
+        pass
+
+    # Config management blueprint
+    try:
+        from src.panel.routes_config import config_bp
+        app.register_blueprint(config_bp)
+    except ImportError:
+        pass
+
 
 def register_context_processors(app):
     """Register template context processors."""
@@ -135,6 +149,19 @@ def register_error_handlers(app):
 # Legacy global app object for tests and older code paths
 # This allows imports like `from app import app` to continue working.
 app = create_app()
+
+# Alias root endpoint name 'index' to main index for older tests
+try:
+    import time
+    app.start_time = time.time()
+    from flask import redirect, url_for
+
+    def _root_index_alias():
+        return redirect(url_for("main.index"))
+
+    app.add_url_rule("/", endpoint="index", view_func=_root_index_alias)
+except Exception:
+    pass
 
 
 # Expose key components at package level

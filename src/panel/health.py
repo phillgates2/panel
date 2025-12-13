@@ -64,11 +64,12 @@ class HealthChecker:
     def check_database(self) -> Dict[str, Any]:
         """Check database connectivity and performance"""
         try:
-            from src.panel import db
+            from app import db
 
             with self.app.app_context():
                 # Test basic connectivity
                 start_time = time.time()
+                from sqlalchemy import text
                 db.session.execute(text("SELECT 1"))
                 db_time = time.time() - start_time
 
@@ -99,8 +100,6 @@ class HealthChecker:
     def check_cache(self) -> Dict[str, Any]:
         """Check Redis/cache connectivity"""
         try:
-            from flask_caching import Cache
-
             cache = self.app.extensions.get("cache")
 
             if cache:

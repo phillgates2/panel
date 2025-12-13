@@ -10,7 +10,7 @@ import uuid
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
 
-from flask import g, request
+from flask import has_request_context
 
 
 class JSONFormatter(logging.Formatter):
@@ -30,9 +30,16 @@ class JSONFormatter(logging.Formatter):
 
 
 def correlation_id_middleware():
-    """Middleware to generate and attach correlation IDs to requests"""
-    correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
-    g.correlation_id = correlation_id
+    """Middleware to generate and attach correlation IDs to requests."""
+    try:
+        from flask import request, g
+
+        if has_request_context():
+            correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+            g.correlation_id = correlation_id
+    except Exception:
+        # If request context isn't available, skip assigning correlation ID
+        pass
 
 
 def setup_logging(app):

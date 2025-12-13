@@ -7,9 +7,19 @@ import redis
 from cryptography.fernet import Fernet
 from flask import current_app, request
 from marshmallow import Schema, ValidationError, fields
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from transformers import pipeline
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.naive_bayes import MultinomialNB
+    _HAS_SKLEARN = True
+except Exception:
+    _HAS_SKLEARN = False
+    TfidfVectorizer = None
+    MultinomialNB = None
+try:
+    from transformers import pipeline
+    _HAS_TRANSFORMERS = True
+except Exception:
+    _HAS_TRANSFORMERS = False
 
 from config import config
 
@@ -114,9 +124,14 @@ def decrypt_data(encrypted_data: str) -> str:
 
 
 # Load pre-trained spam detection model
-spam_detector = pipeline(
-    "text-classification", model="mrm8488/bert-tiny-finetuned-sms-spam-detection"
-)
+spam_detector = None
+if _HAS_TRANSFORMERS:
+    try:
+        spam_detector = pipeline(
+            "text-classification", model="mrm8488/bert-tiny-finetuned-sms-spam-detection"
+        )
+    except Exception:
+        spam_detector = None
 
 # Simple training data (in production, use a larger dataset)
 spam_examples = [
@@ -139,24 +154,31 @@ ham_examples = [
 model_path = os.path.join(os.path.dirname(__file__), "spam_model.pkl")
 vectorizer_path = os.path.join(os.path.dirname(__file__), "vectorizer.pkl")
 
-if not os.path.exists(model_path):
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(spam_examples + ham_examples)
-    y = [1] * len(spam_examples) + [0] * len(ham_examples)
+spam_model = None
+spam_vectorizer = None
+if _HAS_SKLEARN:
+    if not os.path.exists(model_path):
+        vectorizer = TfidfVectorizer()
+        X = vectorizer.fit_transform(spam_examples + ham_examples)
+        y = [1] * len(spam_examples) + [0] * len(ham_examples)
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    with open(model_path, "wb") as f:
-        pickle.dump(model, f)
-    with open(vectorizer_path, "wb") as f:
-        pickle.dump(vectorizer, f)
+        with open(model_path, "wb") as f:
+            pickle.dump(model, f)
+        with open(vectorizer_path, "wb") as f:
+            pickle.dump(vectorizer, f)
 
-# Load model
-with open(model_path, "rb") as f:
-    spam_model = pickle.load(f)
-with open(vectorizer_path, "rb") as f:
-    spam_vectorizer = pickle.load(f)
+    # Load model if available
+    if os.path.exists(model_path):
+        with open(model_path, "rb") as f:
+            spam_model = pickle.load(f)
+    if os.path.exists(vectorizer_path):
+        with open(vectorizer_path, "rb") as f:
+            spam_vectorizer = pickle.load(f)
+
+# If sklearn unavailable, keep simple keyword-based spam detection only
 
 
 def is_spam(message):
@@ -175,27 +197,33 @@ def moderate_message(message):
 
 def is_spam_ml(message):
     """Advanced ML-based spam detection using pre-trained BERT model"""
-    try:
-        result = spam_detector(message)
-        # Assuming the model outputs 'LABEL_1' for spam
-        return result[0]["label"] == "LABEL_1" and result[0]["score"] > 0.8
-    except Exception as e:
-        print(f"Spam detection error: {e}")
-        return False
+    if spam_detector is not None:
+        try:
+            result = spam_detector(message)
+            return result[0]["label"] == "LABEL_1" and result[0]["score"] > 0.8
+        except Exception as e:
+            print(f"Spam detection error: {e}")
+            return False
+    return False
 
-
-from transformers import pipeline
 
 # Content moderation models
-text_moderator = pipeline("text-classification", model="unitary/toxic-bert")
+text_moderator = None
+if _HAS_TRANSFORMERS:
+    try:
+        text_moderator = pipeline("text-classification", model="unitary/toxic-bert")
+    except Exception:
+        text_moderator = None
 # image_moderator = pipeline("image-classification", model="microsoft/DiNAT-base")  # Placeholder
 
 
 def moderate_content(text=None, image_path=None):
     """AI-powered content moderation"""
     if text:
-        result = text_moderator(text)
-        return result[0]["label"] == "toxic" and result[0]["score"] > 0.8
+        if text_moderator is not None:
+            result = text_moderator(text)
+            return result[0]["label"] == "toxic" and result[0]["score"] > 0.8
+        return False
     if image_path:
         # Implement image moderation
         return False

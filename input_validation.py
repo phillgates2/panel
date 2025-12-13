@@ -22,9 +22,14 @@ class RegisterSchema(Schema):
 
 
 def validate_request(schema_class, data):
-    """Validate request data against schema."""
+    """Validate request data against schema.
+
+    Returns a tuple of (validated_data, errors). On success, errors is None.
+    On validation failure, validated_data is None and errors is a dict.
+    """
     schema = schema_class()
     try:
-        return schema.load(data)
+        result = schema.load(data)
+        return result, None
     except ValidationError as err:
-        raise err
+        return None, err.messages

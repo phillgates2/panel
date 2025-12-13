@@ -27,7 +27,8 @@ class CacheService:
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get value from cache"""
-        return self.cache.get(key, default)
+        value = self.cache.get(key)
+        return default if value is None else value
 
     def set(self, key: str, value: Any, timeout: Optional[int] = None) -> bool:
         """Set value in cache"""
@@ -131,7 +132,8 @@ class CacheService:
     def get_user_data(self, user_id: int, key: str, default: Any = None) -> Any:
         """Get cached user-specific data"""
         cache_key = f"user:{user_id}:{key}"
-        return self.cache.get(cache_key, default)
+        value = self.cache.get(cache_key)
+        return default if value is None else value
 
     def invalidate_user_cache(self, user_id: int, key: Optional[str] = None) -> bool:
         """Invalidate user-specific cache"""
@@ -156,7 +158,8 @@ class CacheService:
         """Get cached API response"""
         sorted_params = json.dumps(params, sort_keys=True)
         cache_key = f"api:{endpoint}:{hashlib.md5(sorted_params.encode()).hexdigest()}"
-        return self.cache.get(cache_key, default)
+        value = self.cache.get(cache_key)
+        return default if value is None else value
 
     def cache_database_query(
         self, query_hash: str, results: Any, timeout: Optional[int] = None
@@ -168,7 +171,8 @@ class CacheService:
     def get_database_query(self, query_hash: str, default: Any = None) -> Any:
         """Get cached database query results"""
         cache_key = f"db:{query_hash}"
-        return self.cache.get(cache_key, default)
+        value = self.cache.get(cache_key)
+        return default if value is None else value
 
     def warmup_cache(self, warmup_function: Callable, *args, **kwargs) -> bool:
         """

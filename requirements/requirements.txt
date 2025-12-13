@@ -17,10 +17,11 @@ anyio==4.12.0
     #   openai
 arrow==1.4.0
     # via rq-dashboard
-audioop-lts==0.2.2
-    # via
-    #   speechrecognition
-    #   standard-aifc
+# audioop-lts is only needed on Python >=3.13; skip for 3.12/Alpine
+# audioop-lts==0.2.2
+#     # via
+#     #   speechrecognition
+#     #   standard-aifc
 azure-ai-formrecognizer==3.3.3
     # via -r requirements.in
 azure-cognitiveservices-speech==1.47.0

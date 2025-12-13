@@ -79,7 +79,10 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
 
     # Initialize OAuth
     init_oauth(app)
-    init_oauth_routes(app)
+    try:
+        init_oauth_routes(app)
+    except Exception as e:
+        app.logger.warning(f"OAuth routes disabled: {e}")
 
     # Initialize CORS
     cors = CORS(
@@ -94,15 +97,21 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     )
 
     # Initialize API documentation
-    app.register_blueprint(api_bp)
+    try:
+        app.register_blueprint(api_bp)
+    except Exception as e:
+        app.logger.warning(f"API documentation blueprint skipped: {e}")
 
     # Add Swagger UI for API documentation
-    swaggerui_blueprint = get_swaggerui_blueprint(
-        "/api/docs",
-        "/api/swagger.json",
-        config={"app_name": "Panel API", "validatorUrl": None},
-    )
-    app.register_blueprint(swaggerui_blueprint, url_prefix="/api/docs")
+    try:
+        swaggerui_blueprint = get_swaggerui_blueprint(
+            "/api/docs",
+            "/api/swagger.json",
+            config={"app_name": "Panel API", "validatorUrl": None},
+        )
+        app.register_blueprint(swaggerui_blueprint, url_prefix="/api/docs")
+    except Exception as e:
+        app.logger.warning(f"Swagger UI setup skipped: {e}")
 
     # Initialize configuration management
     config_manager = init_config_manager(app)

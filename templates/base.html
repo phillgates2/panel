@@ -69,30 +69,30 @@
               <button type="submit" aria-label="Submit search">🔍</button>
             </form>
             <a href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">🏠 Home</a>
-            <!-- <a href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a> -->
-            <!-- <a href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'blog' in request.endpoint }}">📰 Blog</a> -->
+            {# <a href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a> #}
+            {# <a href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'blog' in request.endpoint }}">📰 Blog</a> #}
             {% if not logged_in %}
-              <!-- <a href="{{ url_for('login') }}" class="{{ 'active' if request.endpoint == 'login' }}">🔐 Login</a> -->
-              <!-- <a href="{{ url_for('register') }}" class="{{ 'active' if request.endpoint == 'register' }}">📝 Register</a> -->
+              {# <a href="{{ url_for('login') }}" class="{{ 'active' if request.endpoint == 'login' }}">🔐 Login</a> #}
+              {# <a href="{{ url_for('register') }}" class="{{ 'active' if request.endpoint == 'register' }}">📝 Register</a> #}
             {% else %}
-              <!-- <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">📊 Dashboard</a> -->
+              {# <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">📊 Dashboard</a> #}
               <a href="{{ url_for('main.profile') }}" class="{{ 'active' if request.endpoint == 'main.profile' }}">👤 Profile</a>
-              <!-- <a href="{{ url_for('api_docs') }}" class="{{ 'active' if request.endpoint == 'api_docs' }}">📚 API Docs</a> -->
-              <!-- <a href="{{ url_for('api_get_tokens') }}" class="{{ 'active' if request.endpoint == 'api_get_tokens' }}">🔑 API Tokens</a> -->
+              {# <a href="{{ url_for('api_docs') }}" class="{{ 'active' if request.endpoint == 'api_docs' }}">📚 API Docs</a> #}
+              {# <a href="{{ url_for('api_get_tokens') }}" class="{{ 'active' if request.endpoint == 'api_get_tokens' }}">🔑 API Tokens</a> #}
               {% if user.is_system_admin() %}
-                <!-- <a href="{{ url_for('analytics_dashboard') }}" class="{{ 'active' if request.endpoint == 'analytics_dashboard' }}>📈 Analytics</a> -->
-                <!-- <a href="{{ url_for('monitoring_dashboard') }}" class="{{ 'active' if request.endpoint and 'monitoring' in request.endpoint }}">📊 Monitoring</a> -->
-                <!-- <a href="{{ url_for('teams_dashboard') }}" class="{{ 'active' if request.endpoint == 'teams_dashboard' }}">👥 Teams</a> -->
-                <!-- <a href="{{ url_for('security_dashboard') }}" class="{{ 'active' if request.endpoint == 'security_dashboard' }}">🔒 Security</a> -->
-                <!-- <a href="{{ url_for('backup_dashboard') }}" class="{{ 'active' if request.endpoint == 'backup_dashboard' }}">💾 Backups</a> -->
-                <!-- <a href="{{ url_for('rbac_roles') }}" class="{{ 'active' if 'rbac' in request.endpoint }}">👥 RBAC</a> -->
+                {# <a href="{{ url_for('analytics_dashboard') }}" class="{{ 'active' if request.endpoint == 'analytics_dashboard' }}">📈 Analytics</a> #}
+                {# <a href="{{ url_for('monitoring_dashboard') }}" class="{{ 'active' if request.endpoint and 'monitoring' in request.endpoint }}">📊 Monitoring</a> #}
+                {# <a href="{{ url_for('teams_dashboard') }}" class="{{ 'active' if request.endpoint == 'teams_dashboard' }}">👥 Teams</a> #}
+                {# <a href="{{ url_for('security_dashboard') }}" class="{{ 'active' if request.endpoint == 'security_dashboard' }}">🔒 Security</a> #}
+                {# <a href="{{ url_for('backup_dashboard') }}" class="{{ 'active' if request.endpoint == 'backup_dashboard' }}">💾 Backups</a> #}
+                {# <a href="{{ url_for('rbac_roles') }}" class="{{ 'active' if 'rbac' in request.endpoint }}">👥 RBAC</a> #}
               {% endif %}
-              <!-- <a href="{{ url_for('logout') }}">🚪 Logout</a> -->
+              {# <a href="{{ url_for('logout') }}">🚪 Logout</a> #}
             {% endif %}
             <div class="footer-links">
-              <!-- <a href="{{ url_for('privacy') }}">📋 Privacy</a> -->
+              {# <a href="{{ url_for('privacy') }}">📋 Privacy</a> #}
               {% if logged_in %}
-              <!-- <a href="{{ url_for('gdpr_tools') }}">🛡️ GDPR Tools</a> -->
+              {# <a href="{{ url_for('gdpr_tools') }}">🛡️ GDPR Tools</a> #}
               {% endif %}
             </div>
             {% if theme_toggle_enabled %}

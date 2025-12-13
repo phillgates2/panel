@@ -32,7 +32,12 @@ def health() -> Dict[str, Any]:
     import time
 
     # Check external services
-    health_status = {"status": "healthy", "checks": {}, "timestamp": time.time()}
+    health_status = {
+        "status": "healthy",
+        "checks": {},
+        "timestamp": time.time(),
+        "uptime_seconds": time.time() - current_app.start_time if hasattr(current_app, "start_time") else 0,
+    }
     try:
         # Check Redis
         cache.get("health_check")
