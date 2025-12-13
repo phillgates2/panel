@@ -1265,9 +1265,14 @@ if [[ $NON_INTERACTIVE != true ]]; then
                 # Avoid complex DO blocks to prevent shell quoting issues
                 # Create role (ignore error if it exists)
                 $psql_cmd -v ON_ERROR_STOP=0 -c "CREATE ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD';" || true
-                # Ensure role has login and correct password
-                $psql_cmd -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$ADMIN_USERNAME\" WITH LOGIN PASSWORD '$ADMIN_PASSWORD' LOGIN;" || {
-                    log_error "Failed to alter admin role password"
+                # Ensure role has login and correct password (avoid redundant LOGIN option)
+                $psql_cmd -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$ADMIN_USERNAME\" WITH PASSWORD '$ADMIN_PASSWORD';" || {
+                    log_error "Failed to set admin role password"
+                    return 1
+                }
+                # Ensure LOGIN is enabled
+                $psql_cmd -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$ADMIN_USERNAME\" LOGIN;" || {
+                    log_error "Failed to set admin role LOGIN"
                     return 1
                 }
                 # Grant privileges on target database
