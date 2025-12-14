@@ -34,7 +34,8 @@ except PermissionError:
 def _log(name, msg):
     """Log message to file"""
     path = os.path.join(LOG_DIR, f"{name}.log")
-    line = f"[{datetime.utcnow().isoformat()}] {msg}\n"
+    # Use timezone-aware UTC timestamps to avoid deprecation warnings
+    line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}\n"
     with open(path, "a") as f:
         f.write(line)
 

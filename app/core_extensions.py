@@ -52,11 +52,9 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     app.config["SQLALCHEMY_POOL_PRE_PING"] = True
 
     # Initialize Cache for performance optimization
+    # Use explicit backend class path to avoid deprecation warnings
     cache_config = {
-        "CACHE_TYPE": "redis",
-        "CACHE_REDIS_URL": os.environ.get(
-            "PANEL_REDIS_URL", "redis://127.0.0.1:6379/0"
-        ),
+        "CACHE_TYPE": "flask_caching.backends.SimpleCache",
         "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
     }
     cache = Cache(app, config=cache_config)
