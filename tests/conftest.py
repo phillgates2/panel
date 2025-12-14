@@ -5,6 +5,7 @@ import pytest
 
 from app import create_app, db
 from src.panel.models import User
+from datetime import date
 
 
 @pytest.fixture
@@ -18,6 +19,8 @@ def app(tmp_path):
     a = create_app(cfg)
     with a.app_context():
         db.create_all()
+        # Prevent attribute expiration so fixtures remain usable outside session
+        db.session.expire_on_commit = False
     yield a
 
 
@@ -55,6 +58,40 @@ def test_user(db_session):
     db_session.session.add(user)
     db_session.session.commit()
     return user
+
+
+@pytest.fixture
+def system_admin(app):
+    ctx = app.app_context()
+    ctx.push()
+    u = User(
+        first_name="Admin",
+        last_name="User",
+        email="admin@example.com",
+        dob=date(2000, 1, 1),
+        role="system_admin",
+    )
+    u.set_password("password")
+    db.session.add(u)
+    db.session.commit()
+    return u
+
+
+@pytest.fixture
+def regular_user(app):
+    ctx = app.app_context()
+    ctx.push()
+    u = User(
+        first_name="Regular",
+        last_name="User",
+        email="regular@example.com",
+        dob=date(2000, 1, 1),
+        role="user",
+    )
+    u.set_password("password")
+    db.session.add(u)
+    db.session.commit()
+    return u
 
 
 @pytest.fixture

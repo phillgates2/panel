@@ -13,6 +13,7 @@ except Exception:
 # Use the application's shared SQLAlchemy instance to ensure
 # models participate in the same metadata as blueprints (e.g., forum)
 from app import db
+from .models_extended import UserGroup, UserGroupMembership
 
 # Try to import config for admin emails check
 try:
@@ -194,6 +195,23 @@ class User(db.Model):
             pass
         self._validate_password_complexity(password)
         self.password_hash = generate_password_hash(password)
+
+    @staticmethod
+    def _coerce_date(value):
+        """Coerce string dates to Python date objects for SQLite compatibility."""
+        from datetime import datetime as _dt, date as _date
+        if isinstance(value, str):
+            try:
+                return _dt.strptime(value, "%Y-%m-%d").date()
+            except Exception:
+                return value
+        return value
+
+    def __init__(self, **kwargs):
+        # Coerce dob if provided as string
+        if "dob" in kwargs:
+            kwargs["dob"] = self._coerce_date(kwargs.get("dob"))
+        super().__init__(**kwargs)
 
     @staticmethod
     def _validate_password_complexity(password: str) -> None:

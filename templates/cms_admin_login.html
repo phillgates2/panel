@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>CMS Admin Login</h2>
+<form method="post">
+  <label>Username (email): <input type="text" name="username" /></label><br />
+  <label>Password: <input type="password" name="password" /></label><br />
+  <button type="submit">Login</button>
+</form>
+{% endblock %}

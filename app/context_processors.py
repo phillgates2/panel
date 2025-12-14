@@ -91,6 +91,8 @@ def inject_user() -> Dict[str, Any]:
     return dict(
         logged_in=bool(user),
         current_user=user,
+        user=user,
+        app=current_app,
         theme_enabled=theme_enabled,
         theme_toggle_enabled=theme_toggle_enabled,
         theme_forced=theme_forced,

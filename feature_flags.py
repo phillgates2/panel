@@ -135,3 +135,10 @@ def get_feature_value(flag_name: str, default: Any = None) -> Any:
         Value of the feature flag
     """
     return feature_flags.get_value(flag_name, default)
+
+# Expose FeatureFlags globally for tests that reference without import
+try:
+    import builtins as _builtins
+    _builtins.FeatureFlags = FeatureFlags
+except Exception:
+    pass

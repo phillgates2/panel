@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head><title>Admin Security</title></head>
+<body>
+<h1>Security Management</h1>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="messages">
+      {% for m in messages %}<div class="msg">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+<form action="/admin/security/whitelist/add" method="post">
+  <input type="text" name="ip_address" placeholder="IP Address" />
+  <input type="text" name="description" placeholder="Description" />
+  <button type="submit">Add to Whitelist</button>
+</form>
+<form action="/admin/security/blacklist/add" method="post">
+  <input type="text" name="ip_address" placeholder="IP Address" />
+  <input type="text" name="reason" placeholder="Reason" />
+  <button type="submit">Add to Blacklist</button>
+</form>
+</body>
+</html>

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <h2>Theme Editor</h2>
+{% if message %}<div>{{ message }}</div>{% endif %}
 <p>Edit the custom CSS below. Changes are applied immediately to the site once saved.</p>
 <form method="post" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
@@ -34,13 +35,13 @@
   <p>Upload server logos here. They will be stored and served at <code>/theme_asset/&lt;filename&gt;</code>.</p>
   <div>
     <input type="file" name="logo" accept="image/*" />
-    <button type="submit" formaction="{{ url_for('admin_theme') }}?upload=1">Upload Logo</button>
+    <button type="submit" formaction="{{ url_for('admin.admin_theme') }}?upload=1">Upload Logo</button>
   </div>
   {% if assets %}
   <h4>Existing Logos</h4>
   <form method="post" style="margin-bottom:8px;">
     <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-    <button formaction="{{ url_for('admin_theme') }}?bulk_delete=1" formmethod="post">Delete Selected</button>
+    <button formaction="{{ url_for('admin.admin_theme') }}?bulk_delete=1" formmethod="post">Delete Selected</button>
     <ul style="list-style:none; padding:0;">
     {% for a in assets %}
       <li style="display:flex; align-items:center; margin:6px 0;">

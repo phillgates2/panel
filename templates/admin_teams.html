@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head><title>Admin Teams</title></head>
+<body>
+<h1>Team Management</h1>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="messages">
+      {% for m in messages %}<div class="msg">{{ m }}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+<form action="/admin/teams/create" method="post">
+  <input type="text" name="name" placeholder="Team Name" />
+  <input type="text" name="description" placeholder="Description" />
+  <button type="submit">Create Team</button>
+</form>
+</body>
+</html>

@@ -100,3 +100,5 @@ class TestingConfig(Config):
     USE_SQLITE = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+    # Use minimal engine options for in-memory SQLite
+    SQLALCHEMY_ENGINE_OPTIONS = {}
