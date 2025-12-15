@@ -170,7 +170,7 @@ jobs:
 
     - name: Upload migration report
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: migration-validation-report
         path: migration-report.md
