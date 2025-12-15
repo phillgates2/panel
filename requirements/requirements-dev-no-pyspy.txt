@@ -847,7 +847,7 @@ typing-inspection==0.4.2
     # via
     #   -r requirements.txt
     #   pydantic
-tzdata==2025.2
+tzdata==2025.3
     # via
     #   -r requirements.txt
     #   arrow
