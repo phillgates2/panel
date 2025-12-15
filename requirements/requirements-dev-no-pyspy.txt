@@ -379,7 +379,7 @@ jiter==0.12.0
     # via
     #   -r requirements.txt
     #   openai
-joblib==1.5.2
+joblib==1.5.3
     # via nltk
 librt==0.7.3
     # via mypy
