@@ -723,7 +723,7 @@ ruff==0.14.8
     # via -r requirements-dev-no-pyspy.in
 safety==3.7.0
     # via -r requirements-dev-no-pyspy.in
-safety-schemas==0.0.16
+safety-schemas==0.0.17
     # via safety
 shapely==2.1.2
     # via
