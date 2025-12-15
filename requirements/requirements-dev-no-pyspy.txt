@@ -177,7 +177,7 @@ docstring-parser==0.17.0
     # via
     #   -r requirements.txt
     #   google-cloud-aiplatform
-docutils==0.21.2
+docutils==0.22.3
     # via
     #   sphinx
     #   sphinx-rtd-theme
