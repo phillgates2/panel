@@ -129,7 +129,7 @@ simple-websocket==1.1.0
     # via python-engineio
 six==1.17.0
     # via python-dateutil
-sqlalchemy==2.0.44
+sqlalchemy==2.0.45
     # via
     #   alembic
     #   flask-sqlalchemy
