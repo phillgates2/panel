@@ -43,6 +43,15 @@ def install(dry_run=False):
     elif pm == "apk":
         cmd = ["apk", "add", "postgresql", "postgresql-contrib"]
         shell = False
+    elif pm == "brew":
+        cmd = ["brew", "install", "postgresql"]
+        shell = False
+    elif pm in ("choco", "winget"):
+        if pm == "choco":
+            cmd = ["choco", "install", "postgresql", "-y"]
+        else:
+            cmd = ["winget", "install", "--id", "PostgreSQL", "-e"]
+        shell = False
     else:
         # Unknown or non-Linux package manager, provide an informative message
         return {"installed": False, "skipped": False, "msg": f"No installer configured for package manager: {pm}"}

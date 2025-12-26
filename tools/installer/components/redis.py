@@ -36,6 +36,15 @@ def install(dry_run=False):
     elif pm == "apk":
         cmd = ["apk", "add", "redis"]
         shell = False
+    elif pm == "brew":
+        cmd = ["brew", "install", "redis"]
+        shell = False
+    elif pm in ("choco", "winget"):
+        if pm == "choco":
+            cmd = ["choco", "install", "redis-64", "-y"]
+        else:
+            cmd = ["winget", "install", "--id", "Redis.Redis", "-e"]
+        shell = False
     else:
         return {"installed": False, "skipped": False, "msg": f"No installer configured for package manager: {pm}"}
 

@@ -88,6 +88,10 @@ class InstallerWindow(QMainWindow):
         self.btn_action.clicked.connect(self._on_run)
         v.addWidget(self.btn_action)
 
+        self.btn_rollback = QPushButton("Manage Rollback")
+        self.btn_rollback.clicked.connect(self._on_manage_rollback)
+        v.addWidget(self.btn_rollback)
+
         self.output = QTextEdit()
         self.output.setReadOnly(True)
         v.addWidget(self.output)
@@ -124,6 +128,46 @@ class InstallerWindow(QMainWindow):
         self.worker.error.connect(self._on_error)
         self.thread.started.connect(self.worker.run)
         self.thread.start()
+
+    def _on_manage_rollback(self):
+        # Show current recorded state and offer dry-run, run, or retry
+        from .state import read_state, rollback
+        state = read_state()
+        actions = state.get('actions', [])
+        if not actions:
+            QMessageBox.information(self, "Rollback", "No recorded install actions found.")
+            return
+
+        txt = "Recorded actions (oldest -> newest):\n" + "\n".join([f"- {a.get('component')}" for a in actions])
+        choice = QMessageBox.question(self, "Rollback", txt + "\n\nRun a dry-run rollback?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+        if choice == QMessageBox.StandardButton.Cancel:
+            return
+        if choice == QMessageBox.StandardButton.Yes:
+            self._append_output("Performing dry-run rollback...")
+            res = rollback(preserve_data=True, dry_run=True)
+            self._append_output("Dry-run results:\n" + str(res))
+            QMessageBox.information(self, "Dry-run complete", str(res))
+            return
+
+        # If user clicked No, offer to run real rollback or retry failed only
+        run_choice = QMessageBox.question(self, "Rollback", "Execute rollback now (this will attempt to uninstall recorded components)?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if run_choice == QMessageBox.StandardButton.Yes:
+            self._append_output("Executing rollback...")
+            res = rollback(preserve_data=True, dry_run=False)
+            self._append_output("Rollback results:\n" + str(res))
+            QMessageBox.information(self, "Rollback complete", str(res))
+            return
+        else:
+            # Offer a retry option that simply runs rollback again (failed items remain in state)
+            retry_choice = QMessageBox.question(self, "Retry", "Retry failed actions only? (will attempt uninstall for remaining actions)", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if retry_choice == QMessageBox.StandardButton.Yes:
+                self._append_output("Retrying failed actions...")
+                res = rollback(preserve_data=True, dry_run=False)
+                self._append_output("Retry results:\n" + str(res))
+                QMessageBox.information(self, "Retry complete", str(res))
+                return
+            else:
+                return
 
     def _on_finished(self, res):
         self._append_output("Operation finished:\n" + str(res))

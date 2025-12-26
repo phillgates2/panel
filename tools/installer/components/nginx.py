@@ -36,6 +36,15 @@ def install(dry_run=False):
     elif pm == "apk":
         cmd = ["apk", "add", "nginx"]
         shell = False
+    elif pm == "brew":
+        cmd = ["brew", "install", "nginx"]
+        shell = False
+    elif pm in ("choco", "winget"):
+        if pm == "choco":
+            cmd = ["choco", "install", "nginx", "-y"]
+        else:
+            cmd = ["winget", "install", "--id", "nginx", "-e"]
+        shell = False
     else:
         return {"installed": False, "skipped": False, "msg": f"No installer configured for package manager: {pm}"}
 

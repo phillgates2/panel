@@ -8,7 +8,8 @@ PoC usage (dev):
 - Install dependencies for development: `pip install -r requirements-dev.txt` (contains PySide6 for GUI and pytest for tests)
 - Run GUI: `python -m tools.installer.gui`
 - Run CLI: `python -m tools.installer` or `python -m tools.installer.cli install --domain example.com` (use `--dry-run` to simulate)
-- Run unit tests: `pytest tests/test_installer_*.py`
+- Manage/Retry Rollback via GUI: use "Manage Rollback" button to view recorded actions, run a dry-run, execute rollback, or retry failed actions
+- Run unit and integration tests: `pytest tests/test_installer_*.py tests/test_integration_install_uninstall.py`
 
 Notes:
 

@@ -45,14 +45,21 @@ def clear_state(path: Optional[str] = None):
 def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
     """Attempt rollback by undoing recorded actions in reverse order.
 
-    For each recorded action we try to call a component-specific uninstall handler.
-    This is best-effort and will continue on errors, collecting results.
+    Behavior:
+      - Actions are attempted in reverse-install order.
+      - On success the action is removed from the state file.
+      - On failure the action is left in the state file so an operator can retry or inspect.
+      - In dry-run mode no changes are made to state and each action reports "dry-run".
+
+    Returns a dict with per-action results and the remaining actions in state.
     """
     state = read_state(path)
-    actions = state.get("actions", [])[::-1]
+    actions = state.get("actions", [])
     results = []
+    remaining = list(actions)  # working copy in original order
 
-    for a in actions:
+    # Process in reverse order (last installed first)
+    for a in list(actions)[::-1]:
         comp = a.get("component")
         res = {"component": comp, "action": a, "result": None}
         if dry_run:
@@ -62,7 +69,6 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
 
         try:
             # Import component uninstall handler dynamically
-            mod = None
             try:
                 from .components import postgres, redis, nginx, pythonenv  # type: ignore
                 mapping = {"postgres": postgres, "redis": redis, "nginx": nginx, "python": pythonenv}
@@ -73,13 +79,26 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
             if mod and hasattr(mod, "uninstall"):
                 r = mod.uninstall(preserve_data=preserve_data)
                 res["result"] = r
+                # If uninstall succeeded, remove this action from remaining
+                if isinstance(r, dict) and (r.get("uninstalled") or r.get("stopped") or r.get("packages_removed") or r.get("ok")):
+                    # remove the last matching action from remaining (first occurrence)
+                    for i in range(len(remaining)-1, -1, -1):
+                        if remaining[i] == a:
+                            del remaining[i]
+                            break
+                else:
+                    # leave in remaining so operator can retry later
+                    pass
             else:
                 res["result"] = {"error": "no_uninstall_handler"}
+                # leave in remaining
         except Exception as e:
             res["result"] = {"error": str(e)}
+            # leave in remaining
 
         results.append(res)
 
-    # After attempted rollback, clear state (we could preserve on errors but clear for now)
-    clear_state(path)
-    return {"status": "ok", "results": results}
+    # Write back remaining actions (preserves original order)
+    write_state({"actions": remaining}, path)
+
+    return {"status": "ok", "results": results, "remaining": len(remaining)}

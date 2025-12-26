@@ -23,6 +23,7 @@ def install(dry_run=False, target='/opt/panel/venv'):
     if dry_run:
         return {"installed": False, "cmd": cmd}
 
+    # On Windows target may be under Program Files; on macOS/linux respect provided target
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         subprocess.check_call(["python3", "-m", "venv", target])
