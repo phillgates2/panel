@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Lightweight launcher that tries to run the Python installer module
+PYTHON_CMD=""
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_CMD=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_CMD=python
+else
+  echo "No Python interpreter found. Please install Python 3 and try again." >&2
+  exit 1
+fi
+
+exec "$PYTHON_CMD" -m tools.installer "$@"
