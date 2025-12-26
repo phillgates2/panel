@@ -45,6 +45,20 @@ class Config:
     AUDIT_LOG_ENABLED = os.environ.get("AUDIT_LOG_ENABLED", "True") == "True"
     AUDIT_LOG_DIR = os.environ.get("AUDIT_LOG_DIR", os.path.join(LOG_DIR, "audit"))
 
+    # Session and security defaults
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "auto")
+    # Interpret 'auto' as True in production (USE_SQLITE False)
+    if SESSION_COOKIE_SECURE in ("", None):
+        SESSION_COOKIE_SECURE = False
+    elif isinstance(SESSION_COOKIE_SECURE, str) and SESSION_COOKIE_SECURE.lower() == "auto":
+        SESSION_COOKIE_SECURE = not USE_SQLITE
+    else:
+        SESSION_COOKIE_SECURE = str(SESSION_COOKIE_SECURE).lower() in ("1", "true", "yes")
+
+    SESSION_COOKIE_HTTPONLY = os.environ.get("SESSION_COOKIE_HTTPONLY", "true").lower() in ("1", "true", "yes")
+    SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
+    PERMANENT_SESSION_LIFETIME = int(os.environ.get("PERMANENT_SESSION_LIFETIME", 2592000))  # 30 days
+
     # ET:Legacy server settings (used by RCON and autodeployer)
     ET_SERVER_HOST = os.environ.get("ET_SERVER_HOST", "127.0.0.1")
     ET_SERVER_PORT = int(os.environ.get("ET_SERVER_PORT", 27960))
@@ -102,3 +116,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     # Use minimal engine options for in-memory SQLite
     SQLALCHEMY_ENGINE_OPTIONS = {}
+    # Relax session security for tests
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
