@@ -8,14 +8,12 @@ import pytest
 from forum import Post, Thread
 
 
-def _find_template(name):
-    # search common template paths
+def _find_forum_template(name):
+    # look specifically for forum templates
     candidates = [
-        Path("templates") / name,
-        Path("panel/templates") / name,
         Path("templates/forum") / name,
         Path("app/templates/forum") / name,
-        Path("templates/forum/index.html"),
+        Path("panel/templates/forum") / name,
     ]
     for c in candidates:
         if c.exists():
@@ -25,7 +23,7 @@ def _find_template(name):
 
 def test_forum_index_template_has_delete_code():
     """Test that forum index template file includes delete button code"""
-    tpl = _find_template("index.html")
+    tpl = _find_forum_template("index.html")
     if tpl is None:
         pytest.skip("forum index template not present in repository; skipping")
     with open(tpl, "r", encoding="utf-8", errors="ignore") as f:
@@ -76,7 +74,7 @@ def test_forum_index_renders_correctly(client, app):
 
 def test_delete_button_styling_present():
     """Test that delete button styling is present in forum index template"""
-    tpl = _find_template("index.html")
+    tpl = _find_forum_template("index.html")
     if tpl is None:
         pytest.skip("forum index template not present; skipping")
     with open(tpl, "r", encoding="utf-8", errors="ignore") as f:
