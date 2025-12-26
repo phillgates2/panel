@@ -4,6 +4,8 @@ Playwright test configuration and fixtures
 
 import json
 import os
+import socket
+import urllib.parse
 
 import pytest
 from dotenv import load_dotenv
@@ -19,6 +21,17 @@ TEST_PASSWORD = os.getenv("TEST_PASSWORD", "admin123")
 TEST_ADMIN_USERNAME = os.getenv("TEST_ADMIN_USERNAME", "admin@example.com")
 TEST_ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD", "admin123")
 
+# If the TEST_BASE_URL is not reachable, skip the whole e2e collection to avoid
+# Playwright trying to navigate to a non-running server and producing noisy errors.
+try:
+    parsed = urllib.parse.urlparse(TEST_BASE_URL)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    with socket.create_connection((host, port), timeout=1):
+        pass
+except Exception:
+    pytest.skip(f"E2E tests skipped: test server not reachable at {TEST_BASE_URL}", allow_module_level=True)
+
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
@@ -30,7 +43,8 @@ def browser_context_args(browser_context_args):
         "record_video_dir": (
             "test-results/videos/" if os.getenv("RECORD_VIDEO") else None
         ),
-        "record_har_path": "test-results/har/" if os.getenv("RECORD_HAR") else None,
+        # Playwright expects a file path for HAR; only enable when explicitly requested
+        "record_har_path": ("test-results/har.har" if os.getenv("RECORD_HAR") else None),
         "permissions": ["notifications"] if os.getenv("ENABLE_NOTIFICATIONS") else [],
     }
 
