@@ -94,7 +94,7 @@ class TestCacheService:
         with app.app_context():
             from flask_caching import Cache
 
-            cache = Cache(app, config={"CACHE_TYPE": "simple"})
+            cache = Cache(app, config={"CACHE_TYPE": "SimpleCache"})
             cache_svc = CacheService(cache)
 
             # Test set and get
@@ -110,7 +110,7 @@ class TestCacheService:
         with app.app_context():
             from flask_caching import Cache
 
-            cache = Cache(app, config={"CACHE_TYPE": "simple"})
+            cache = Cache(app, config={"CACHE_TYPE": "SimpleCache"})
             cache_svc = CacheService(cache)
 
             call_count = 0
@@ -136,7 +136,7 @@ class TestCacheService:
         with app.app_context():
             from flask_caching import Cache
 
-            cache = Cache(app, config={"CACHE_TYPE": "simple"})
+            cache = Cache(app, config={"CACHE_TYPE": "SimpleCache"})
             cache_svc = CacheService(cache)
 
             user_id = 123

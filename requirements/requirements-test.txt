@@ -1,2 +1,6 @@
+File: requirements\requirements-test.txt
+````````plaintext
 pytest
+pytest-asyncio
 playwright
+requests

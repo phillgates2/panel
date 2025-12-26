@@ -21,10 +21,30 @@ def get_cdn_url(path):
     return path
 
 
+class _DummyUser:
+    """Lightweight dummy user object used in templates when no user is logged in."""
+
+    def __init__(self):
+        self.first_name = ""
+        self.last_name = ""
+        self.email = ""
+        self.role = "user"
+
+    def is_system_admin(self):
+        return False
+
+    def is_server_admin(self):
+        return False
+
+    def is_server_mod(self):
+        return False
+
+
 def inject_user() -> Dict[str, Any]:
     """Inject `logged_in` and `current_user` into templates.
     Uses `session['user_id']` when present. Returns a simple boolean
-    and the `User` instance (or None).
+    and the `User` instance (or a dummy user object so templates can safely
+    call methods like `is_system_admin()` without checking for None).
 
     Returns:
         Dictionary of template variables.
@@ -36,6 +56,10 @@ def inject_user() -> Dict[str, Any]:
             user = db.session.get(models.User, user_id)
         except Exception:
             user = None
+    # If no real user found, provide dummy user object so templates don't crash
+    if not user:
+        user = _DummyUser()
+
     # theme enabled flag stored in DB (fallback to instance file for older installations
     theme_enabled = False
     try:
@@ -57,7 +81,7 @@ def inject_user() -> Dict[str, Any]:
     # user theme preference (stored in SiteSetting as user_theme:<id>)
     user_theme_pref = None
     try:
-        if user:
+        if user and hasattr(user, 'id') and user.id:
             k = f"user_theme:{user.id}"
             s_user_theme = db.session.query(models.SiteSetting).filter_by(key=k).first()
             if s_user_theme and (s_user_theme.value in ("dark", "light")):
@@ -89,7 +113,7 @@ def inject_user() -> Dict[str, Any]:
         theme_forced = None
 
     return dict(
-        logged_in=bool(user),
+        logged_in=bool(session.get("user_id")),
         current_user=user,
         user=user,
         app=current_app,

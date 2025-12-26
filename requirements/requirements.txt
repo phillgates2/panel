@@ -3,3 +3,4 @@ sqlalchemy
 redis
 pytest
 playwright
+requests

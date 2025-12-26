@@ -217,7 +217,7 @@ def register_blueprints(app):
 
         # Alias for admin servers page expected by templates/tests
         def _admin_servers_alias():
-            return redirect(url_for("main.dashboard"))
+            return redirect(url_for("admin.admin_servers"))
         app.add_url_rule("/admin/servers", endpoint="admin_servers", view_func=_admin_servers_alias)
 
         # Alias for admin audit viewer expected by templates/tests
@@ -244,6 +244,39 @@ def register_blueprints(app):
         def _admin_tools_alias():
             return redirect(url_for("main.dashboard"))
         app.add_url_rule("/admin/tools", endpoint="admin_tools", view_func=_admin_tools_alias)
+
+        # Alias for admin create server endpoint used by templates/tests
+        def _admin_create_server_alias():
+            return redirect(url_for("admin.admin_create_server"))
+        app.add_url_rule("/admin/servers/create", endpoint="admin_create_server", view_func=_admin_create_server_alias)
+
+        # Alias for admin delete server endpoint used by templates/tests
+        def _admin_delete_server_alias(server_id):
+            return redirect(url_for("admin.admin_delete_server", server_id=server_id))
+        app.add_url_rule("/admin/servers/<int:server_id>/delete", endpoint="admin_delete_server", view_func=_admin_delete_server_alias, methods=["POST"])
+
+        # Alias for server edit expected by templates/tests
+        def _server_edit_alias(server_id):
+            try:
+                return redirect(url_for("server.view", server_id=server_id))
+            except Exception:
+                return redirect(url_for("admin.admin_servers"))
+        app.add_url_rule("/server/<int:server_id>/edit", endpoint="server_edit", view_func=_server_edit_alias)
+
+        # Alias for rcon console with server id
+        def _rcon_with_server_alias(server_id=None):
+            try:
+                if server_id:
+                    return redirect(url_for("server.rcon_console", server_id=server_id))
+            except Exception:
+                pass
+            return redirect(url_for("main.rcon_console"))
+        app.add_url_rule("/rcon/<int:server_id>", endpoint="rcon_console", view_func=_rcon_with_server_alias)
+
+        # Alias for admin manage users per-server
+        def _admin_server_manage_users_alias(server_id):
+            return redirect(url_for("admin.admin_server_manage_users", server_id=server_id))
+        app.add_url_rule("/admin/servers/<int:server_id>/manage-users", endpoint="admin_server_manage_users", view_func=_admin_server_manage_users_alias)
     except Exception:
         # Non-fatal: keep app creation resilient in minimal environments
         pass
@@ -291,6 +324,13 @@ try:
 
     app.add_url_rule("/login", endpoint="login", view_func=_login_alias)
     app.add_url_rule("/register", endpoint="register", view_func=_register_alias)
+except Exception:
+    pass
+
+try:
+    def _admin_servers_alias():
+        return redirect(url_for("admin.admin_servers"))
+    app.add_url_rule("/admin/servers", endpoint="admin_servers", view_func=_admin_servers_alias)
 except Exception:
     pass
 

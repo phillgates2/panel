@@ -7,13 +7,13 @@
             <p class="text-secondary">Manage all game servers</p>
         </div>
         <div class="header-actions">
-            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
             </a>
-            <a href="{{ url_for('admin_create_server') }}" class="btn btn-primary">
+            <a href="{{ url_for('admin.admin_create_server') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Create Server
             </a>
-            <a href="{{ url_for('admin_audit') }}" class="btn btn-outline-primary">
+            <a href="{{ url_for('admin.admin_audit') }}" class="btn btn-outline-primary">
                 <i class="fas fa-history"></i> Audit Log
             </a>
         </div>
@@ -40,21 +40,24 @@
                             <td>{{ s.description or 'No description' }}</td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('server_edit', server_id=s.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ url_for('admin.admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-edit"></i> Edit
                                     </a>
-                                    <a href="{{ url_for('rcon_console', server_id=s.id) }}" class="btn btn-sm btn-outline-success">
+                                    <a href="{{ url_for('admin.admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-success">
                                         <i class="fas fa-terminal"></i> RCON
                                     </a>
-                                    <a href="{{ url_for('admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-info">
+                                    <a href="{{ url_for('admin.admin_server_manage_users', server_id=s.id) }}" class="btn btn-sm btn-outline-info">
                                         <i class="fas fa-users"></i> Users
                                     </a>
-                                    <form method="post" action="{{ url_for('admin_delete_server', server_id=s.id) }}" style="display:inline" data-confirm-message="Delete server {{ s.name }}?" onsubmit="return confirm('Are you sure you want to delete {{ s.name }}?');">
-                                        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </form>
+
+                                    <!-- JS-driven delete button that opens a confirmation modal -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger confirm-btn"
+                                            data-delete-url="{{ url_for('admin.admin_delete_server', server_id=s.id) }}"
+                                            data-server-name="{{ s.name }}"
+                                            aria-label="Delete {{ s.name }}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -67,7 +70,7 @@
                 <i class="fas fa-server fa-3x text-muted mb-3"></i>
                 <h4>No Servers Yet</h4>
                 <p class="text-muted">Get started by creating your first game server.</p>
-                <a href="{{ url_for('admin_create_server') }}" class="btn btn-primary mt-3">
+                <a href="{{ url_for('admin.admin_create_server') }}" class="btn btn-primary mt-3">
                     <i class="fas fa-plus"></i> Create Your First Server
                 </a>
             </div>
@@ -75,4 +78,81 @@
         </div>
     </div>
 </div>
+
+<!-- Confirmation Modal -->
+<div id="confirm-modal" role="dialog" aria-modal="true" style="display:none; position:fixed; z-index:1050; left:0; top:0; right:0; bottom:0; align-items:center; justify-content:center;">
+  <div style="background: rgba(0,0,0,0.6); position:absolute; inset:0;"></div>
+  <div style="position:relative; margin:auto; max-width:500px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:1rem; z-index:1060;">
+    <h4 id="confirm-title">Confirm Action</h4>
+    <p id="confirm-message">Are you sure?</p>
+    <div class="d-flex justify-content-end mt-3">
+      <button id="confirm-cancel" class="btn btn-secondary me-2">Cancel</button>
+      <button id="confirm-ok" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('confirm-modal');
+  const messageEl = document.getElementById('confirm-message');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+  let currentUrl = null;
+
+  function showModal(message, url) {
+    messageEl.textContent = message;
+    currentUrl = url;
+    modal.style.display = 'block';
+  }
+
+  function hideModal() {
+    modal.style.display = 'none';
+    currentUrl = null;
+  }
+
+  // Attach to all confirm buttons
+  document.querySelectorAll('.confirm-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      const url = btn.getAttribute('data-delete-url');
+      const name = btn.getAttribute('data-server-name') || 'this item';
+      showModal(`Are you sure you want to delete ${name}?`, url);
+    });
+  });
+
+  cancelBtn.addEventListener('click', function() {
+    hideModal();
+  });
+
+  okBtn.addEventListener('click', function() {
+    if (!currentUrl) return hideModal();
+
+    // Create a form to POST with CSRF token if available
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = currentUrl;
+
+    // CSRF token from session if present in template context
+    const csrfToken = '{{ session.csrf_token if session and session.csrf_token else "" }}';
+    if (csrfToken) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'csrf_token';
+      input.value = csrfToken;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  });
+
+  // Close modal on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display === 'block') {
+      hideModal();
+    }
+  });
+});
+</script>
+
 {% endblock %}

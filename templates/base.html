@@ -48,7 +48,7 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
+      function gtag(){dataLayer.push(arguments);} 
       gtag('js', new Date());
       gtag('config', 'GA_TRACKING_ID');
     </script>
@@ -238,7 +238,16 @@
           if(t && t.matches && t.matches('.confirm-btn')){
             e.preventDefault();
             var form = findClosestForm(t);
-            var msg = (form && form.dataset && form.dataset.confirmMessage) ? form.dataset.confirmMessage : 'Are you sure?';
+            // Prefer an explicit server-name on the button (used in admin servers) to provide a contextual message
+            var btnName = (t.dataset && t.dataset.serverName) ? t.dataset.serverName : null;
+            var msg = '';
+            if(btnName){
+              msg = 'Are you sure you want to delete ' + btnName + '?';
+            } else if(form && form.dataset && form.dataset.confirmMessage){
+              msg = form.dataset.confirmMessage;
+            } else {
+              msg = 'Are you sure?';
+            }
             openModal(msg, function(){ if(form) form.submit(); });
           }
         });

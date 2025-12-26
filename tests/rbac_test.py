@@ -15,6 +15,7 @@ Requirements:
 
 import os
 import sys
+import pytest
 
 # Add the panel directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -107,29 +108,19 @@ def test_rbac_logic():
         ]
 
         print("\nTesting permission logic:")
-        all_passed = True
 
         for role, perm, expected in test_cases:
             result = mock_has_permission(role, perm)
             status = "✓" if result == expected else "✗"
             print(f"  {status} {role} -> {perm}: {result} (expected {expected})")
-            if result != expected:
-                all_passed = False
+            assert result == expected, f"Permission check failed for {role} -> {perm} (got {result}, expected {expected})"
 
-        if all_passed:
-            print("\n✓ All permission tests passed!")
-        else:
-            print("\n✗ Some permission tests failed!")
-
-        return all_passed
+        print("\n✓ All permission tests passed!")
 
     except ImportError as e:
-        print(f"✗ Import error: {e}")
-        print("RBAC system may not be properly implemented")
-        return False
+        pytest.fail(f"Import error: {e}")
     except Exception as e:
-        print(f"✗ Unexpected error: {e}")
-        return False
+        pytest.fail(f"Unexpected error: {e}")
 
 
 def test_route_integration():
@@ -170,7 +161,7 @@ def test_route_integration():
         for route in routes_to_check:
             if f"def {route}(" in content:
                 # Check if the route uses has_permission instead of is_system_admin_user
-                route_start = content.find(f"def {route}(")
+                route_start = content.find(f"def {route}(" )
                 route_end = content.find("\n\n", route_start)
                 route_content = content[route_start:route_end]
 
@@ -180,11 +171,10 @@ def test_route_integration():
                     or "is_admin_user(" in route_content
                 )
 
-                if has_rbac and not has_old_check:
+                assert not has_old_check, f"{route} still uses old permission check"
+                if has_rbac:
                     expected_perm = rbac_permissions.get(route, "unknown")
                     print(f"  ✓ {route}: Updated to use RBAC ({expected_perm})")
-                elif has_old_check:
-                    print(f"  ✗ {route}: Still uses old permission check")
                 else:
                     print(f"  ? {route}: No permission check found")
             else:
@@ -193,27 +183,18 @@ def test_route_integration():
         print("\n✓ Route integration check completed")
 
     except Exception as e:
-        print(f"✗ Error checking routes: {e}")
-
-
-def main():
-    """Main test function."""
-
-    success1 = test_rbac_logic()
-    test_route_integration()
-
-    print("\n" + "=" * 40)
-    if success1:
-        print("RBAC Integration Test: PASSED")
-        print("\nNext steps:")
-        print("1. Install Flask and dependencies: pip install -r requirements.txt")
-        print("2. Run the full migration: python rbac_migrate.py")
-        print("3. Test the web interface RBAC functionality")
-        print("4. Verify user permissions work correctly")
-    else:
-        print("RBAC Integration Test: FAILED")
-        print("Please check the RBAC implementation")
+        pytest.fail(f"Error checking routes: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    # Allow running this script standalone for diagnostics but rely on pytest for assertions.
+    try:
+        test_rbac_logic()
+        test_route_integration()
+        print("\nRBAC Integration Diagnostic: Completed")
+    except AssertionError as ae:
+        print(f"Assertion failed: {ae}")
+        raise
+    except Exception as e:
+        print(f"Error running diagnostics: {e}")
+        raise

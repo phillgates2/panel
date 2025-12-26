@@ -8,6 +8,7 @@ Test the enhanced Discord webhook functionality with server player statistics.
 import os
 import sys
 from datetime import datetime, timezone
+import pytest
 
 # Add the project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,13 +59,13 @@ def test_discord_webhook():
         print(f"?? Task result: {result}")
 
         print("? Discord webhook test completed successfully!")
-        return True
+        assert True
 
     except Exception as e:
-        print(f"? Discord webhook test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        pytest.fail(f"Discord webhook test failed: {e}")
+
 
 def show_webhook_config():
     """Show current webhook configuration."""
@@ -96,8 +97,14 @@ if __name__ == "__main__":
     show_webhook_config()
 
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
-        success = test_discord_webhook()
-        sys.exit(0 if success else 1)
+        # Run test and exit with appropriate code
+        try:
+            test_discord_webhook()
+            sys.exit(0)
+        except SystemExit:
+            raise
+        except Exception:
+            sys.exit(1)
     else:
         print("\n?? Usage:")
         print("  python test_discord_webhook.py --test    # Run the test")

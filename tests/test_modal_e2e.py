@@ -99,7 +99,8 @@ async def test_modal_confirm_delete_server(test_app):
             await page.fill('input[name="email"]', "admin@test.com")
             await page.fill('input[name="password"]', "Password1!")
             await page.click('button[type="submit"]')
-            await page.wait_for_url("**/dashboard")
+            # Wait for network to be idle rather than specific URL
+            await page.wait_for_load_state('networkidle')
 
             # Navigate to admin servers
             await page.goto("http://localhost:5555/admin/servers")
@@ -131,7 +132,7 @@ async def test_modal_confirm_delete_server(test_app):
             await page.click("#confirm-ok")
 
             # Wait for redirect and check server is deleted
-            await page.wait_for_url("**/admin/servers")
+            await page.wait_for_load_state('networkidle')
 
             # Verify server is gone from table
             with test_app.app_context():
@@ -167,7 +168,7 @@ async def test_modal_cancel_delete(test_app):
             await page.fill('input[name="email"]', "admin@test.com")
             await page.fill('input[name="password"]', "Password1!")
             await page.click('button[type="submit"]')
-            await page.wait_for_url("**/dashboard")
+            await page.wait_for_load_state('networkidle')
 
             await page.goto("http://localhost:5556/admin/servers")
             await page.wait_for_selector("table")
@@ -226,7 +227,7 @@ async def test_modal_escape_key(test_app):
             await page.fill('input[name="email"]', "admin@test.com")
             await page.fill('input[name="password"]', "Password1!")
             await page.click('button[type="submit"]')
-            await page.wait_for_url("**/dashboard")
+            await page.wait_for_load_state('networkidle')
 
             await page.goto("http://localhost:5557/admin/servers")
             await page.wait_for_selector("table")

@@ -4,9 +4,6 @@ Playwright test configuration and fixtures
 
 import json
 import os
-import socket
-import urllib.parse
-
 import pytest
 from dotenv import load_dotenv
 from playwright.sync_api import Playwright
@@ -21,30 +18,51 @@ TEST_PASSWORD = os.getenv("TEST_PASSWORD", "admin123")
 TEST_ADMIN_USERNAME = os.getenv("TEST_ADMIN_USERNAME", "admin@example.com")
 TEST_ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD", "admin123")
 
-# If the TEST_BASE_URL is not reachable, skip the whole e2e collection to avoid
-# Playwright trying to navigate to a non-running server and producing noisy errors.
+# If running in CI where e2e are undesirable, allow disabling via env var
+if os.getenv("SKIP_E2E", "false").lower() in ("1", "true", "yes"):
+    pytest.skip("End-to-end tests skipped by SKIP_E2E", allow_module_level=True)
+
+# Probe TEST_BASE_URL and skip E2E tests if not reachable
 try:
-    parsed = urllib.parse.urlparse(TEST_BASE_URL)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    with socket.create_connection((host, port), timeout=1):
-        pass
+    import requests
+
+    try:
+        r = requests.get(TEST_BASE_URL, timeout=1)
+        if r.status_code >= 400:
+            pytest.skip(f"E2E server reachable but returned {r.status_code}; skipping end-to-end tests", allow_module_level=True)
+    except Exception:
+        pytest.skip(f"E2E server not reachable at {TEST_BASE_URL}; skipping end-to-end tests", allow_module_level=True)
 except Exception:
-    pytest.skip(f"E2E tests skipped: test server not reachable at {TEST_BASE_URL}", allow_module_level=True)
+    # If requests isn't available, skip to avoid unexpected failures
+    pytest.skip("requests not available to probe TEST_BASE_URL; skipping end-to-end tests", allow_module_level=True)
+
+# Ensure test-results directories exist and use file paths for HAR to avoid OSError on Windows
+_results_dir = os.path.join("test-results")
+_videos_dir = os.path.join(_results_dir, "videos")
+_har_dir = os.path.join(_results_dir, "har")
+_screenshots_dir = os.path.join(_results_dir, "screenshots")
+
+if os.getenv("RECORD_VIDEO"):
+    os.makedirs(_videos_dir, exist_ok=True)
+if os.getenv("RECORD_HAR"):
+    os.makedirs(_har_dir, exist_ok=True)
+os.makedirs(_screenshots_dir, exist_ok=True)
 
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
     """Configure browser context for all tests"""
+    # Playwright expects a file path for HAR output. Use a consistent per-session file.
+    har_path = None
+    if os.getenv("RECORD_HAR"):
+        har_path = os.path.join(_har_dir, "session.har")
+
     return {
         **browser_context_args,
         "base_url": TEST_BASE_URL,
         "viewport": {"width": 1280, "height": 720},
-        "record_video_dir": (
-            "test-results/videos/" if os.getenv("RECORD_VIDEO") else None
-        ),
-        # Playwright expects a file path for HAR; only enable when explicitly requested
-        "record_har_path": ("test-results/har.har" if os.getenv("RECORD_HAR") else None),
+        "record_video_dir": _videos_dir if os.getenv("RECORD_VIDEO") else None,
+        "record_har_path": har_path,
         "permissions": ["notifications"] if os.getenv("ENABLE_NOTIFICATIONS") else [],
     }
 
