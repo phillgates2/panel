@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 App Package
 
@@ -33,12 +34,12 @@ def create_app(config_name="default"):
     import os
     from pathlib import Path
     import shutil
-    
+
     # Determine template and static directories
     root_dir = Path(__file__).parent.parent
     template_dir = root_dir / "templates"
     static_dir = root_dir / "static"
-    
+
     # Create Flask app
     app = Flask(
         __name__,
@@ -60,7 +61,7 @@ def create_app(config_name="default"):
                 pass
     except Exception:
         pass
-    
+
     # Load configuration
     from config import config as default_config
     from src.panel.config import TestingConfig, DevelopmentConfig, ProductionConfig
@@ -80,29 +81,75 @@ def create_app(config_name="default"):
         for key, value in vars(config_name).items():
             if not key.startswith("_"):
                 app.config[key.upper()] = value
-    
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    
+
     # Configure login manager
     login_manager.login_view = "main.login"
     login_manager.login_message = "Please log in to access this page."
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         """Load user by ID."""
-        return db.session.get(User, int(user_id))
-    
+        try:
+            return db.session.get(User, int(user_id))
+        except Exception:
+            return None
+
+    # Initialize structured logging, security headers, metrics, monitoring, and celery if available
+    try:
+        from src.panel.structured_logging import setup_structured_logging
+
+        setup_structured_logging(app)
+    except Exception:
+        # Best-effort: if structured logging isn't available, skip
+        try:
+            from src.panel.logging_config import setup_logging
+
+            setup_logging(app)
+        except Exception:
+            pass
+
+    try:
+        from src.panel.security_headers import configure_security_headers
+
+        configure_security_headers(app)
+    except Exception:
+        pass
+
+    # Initialize Prometheus / metrics if available (best-effort)
+    try:
+        from src.panel.metrics import init_metrics
+
+        init_metrics(app)
+    except Exception:
+        try:
+            from app.prometheus_monitoring import init_prometheus_metrics
+
+            init_prometheus_metrics(app)
+        except Exception:
+            pass
+
+    # Initialize Celery/RQ integration if present
+    try:
+        from src.panel.celery_app import init_celery
+
+        init_celery(app)
+    except Exception:
+        # RQ may be used instead; nothing to do here
+        pass
+
     # Register blueprints
     register_blueprints(app)
-    
+
     # Register context processors
     register_context_processors(app)
-    
+
     # Register error handlers
     register_error_handlers(app)
-    
+
     return app
 
 
@@ -113,25 +160,25 @@ def register_blueprints(app):
         app.register_blueprint(main_bp)
     except ImportError:
         pass
-    
+
     try:
         from src.panel.api_bp import api_bp
         app.register_blueprint(api_bp, url_prefix="/api")
     except ImportError:
         pass
-    
+
     try:
         from src.panel.admin_bp import admin_bp
         app.register_blueprint(admin_bp)
     except ImportError:
         pass
-    
+
     try:
         from src.panel.chat_bp import chat_bp
         app.register_blueprint(chat_bp)
     except ImportError:
         pass
-    
+
     try:
         from src.panel.payment_bp import payment_bp
         app.register_blueprint(payment_bp)
