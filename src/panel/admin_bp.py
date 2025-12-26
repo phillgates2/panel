@@ -1,10 +1,35 @@
 from flask import Blueprint, redirect, render_template, url_for, request, session, current_app, flash
 from flask_login import current_user
-from src.panel.models import db, User, Server
+from src.panel.models import db, User, Server, AuditLog
 from src.panel.models_extended import UserGroup, UserGroupMembership
 from src.panel.models import SiteAsset
 
 admin_bp = Blueprint("admin", __name__)
+
+
+def _audit(actor_id, action, ip=None, ua=None):
+    try:
+        # Persist an AuditLog record
+        entry = AuditLog(actor_id=actor_id, action=action, ip_address=ip, user_agent=ua)
+        db.session.add(entry)
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+    # Also send to structured audit logger if available
+    try:
+        from src.panel.structured_logging import log_security_event
+
+        log_security_event("audit", action, user_id=actor_id, ip_address=ip)
+    except Exception:
+        try:
+            from src.panel.logging_config import log_security_event as legacy_log
+
+            legacy_log("audit", action, user_id=actor_id, ip_address=ip)
+        except Exception:
+            pass
 
 
 @admin_bp.route("/admin/servers")
@@ -46,6 +71,8 @@ def admin_delete_server(server_id):
             db.session.delete(s)
             db.session.commit()
             flash("Server deleted", "success")
+            # Audit
+            _audit(session.get("user_id"), f"delete_server:{server_id}")
         else:
             flash("Server not found", "error")
     except Exception:
@@ -86,6 +113,7 @@ def admin_theme():
             try:
                 db.session.add(sa)
                 db.session.commit()
+                _audit(uid, f"upload_theme_asset:{sa.filename}")
             except Exception:
                 db.session.rollback()
         return render_template("admin_theme.html", message="Uploaded")
@@ -96,6 +124,7 @@ def admin_theme():
             if sa:
                 db.session.delete(sa)
                 db.session.commit()
+                _audit(uid, f"delete_theme_asset:{aid}")
                 return render_template("admin_theme.html", message="Deleted")
         except Exception:
             db.session.rollback()
@@ -129,6 +158,7 @@ def admin_teams_create():
         db.session.add(team)
         db.session.commit()
         msg = f"Team '{name}' created successfully"
+        _audit(session.get("user_id"), f"create_team:{team.id}")
     except Exception:
         db.session.rollback()
         msg = "Error creating team"
@@ -157,6 +187,7 @@ def admin_teams_add_member(team_id):
                 m = UserGroupMembership(user_id=user.id, group_id=team_id)
                 db.session.add(m)
                 db.session.commit()
+                _audit(session.get("user_id"), f"add_team_member:{team_id}:{user.id}")
         msg = "Added Member User to team"
     except Exception:
         db.session.rollback()
@@ -200,6 +231,8 @@ def admin_security_whitelist_add():
     message = (f"IP {ip} added to whitelist" if valid else "Invalid IP address format")
     from flask import flash
     flash(message, "success")
+    if valid:
+        _audit(session.get("user_id"), f"whitelist_add:{ip}")
     return redirect(url_for("admin.admin_security"))
 
 
@@ -213,4 +246,6 @@ def admin_security_blacklist_add():
     message = (f"IP {ip} added to blacklist" if valid else "Invalid IP address format")
     from flask import flash
     flash(message, "success")
+    if valid:
+        _audit(session.get("user_id"), f"blacklist_add:{ip}")
     return redirect(url_for("admin.admin_security"))
