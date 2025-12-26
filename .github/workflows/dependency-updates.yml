@@ -10,8 +10,7 @@ jobs:
   update-dependencies:
     name: Update Dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
+    timeout-minutes: 30
 
     steps:
     - name: Checkout code
@@ -24,66 +23,52 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install pip-tools
-      continue-on-error: true
-      run: pip install pip-tools || true
-
-    - name: Update dependencies
-      continue-on-error: true
+    - name: Create venv
       run: |
-        pip install --upgrade pip || true
-        pip install -r requirements/requirements.txt --upgrade || true
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
 
-    - name: Check for changes
-      id: verify-changed-files
+    - name: Run auto pin and commit script
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "changed=true" >> $GITHUB_OUTPUT
+        source .venv/bin/activate
+        chmod +x tools/scripts/auto_pin_and_commit.sh
+        tools/scripts/auto_pin_and_commit.sh .venv requirements/requirements-pinned.txt
+
+    - name: Check pip-audit report for critical issues
+      run: |
+        if [ -f pip-audit-report.json ]; then
+          if command -v jq >/dev/null 2>&1; then
+            critical=$(jq '[.[] | .vulns[]? | select(.severity=="CRITICAL" or .severity=="HIGH")] | length' pip-audit-report.json)
+            echo "critical=$critical" >> $GITHUB_OUTPUT
+            if [ "$critical" -gt 0 ]; then
+              echo "Found $critical high/critical vulnerabilities - failing workflow";
+              exit 1
+            fi
+          else
+            echo "jq not installed; cannot evaluate pip-audit results";
+          fi
         else
-          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "pip-audit-report.json not found; assuming no critical issues";
         fi
 
-    - name: Run tests with updated dependencies
-      if: steps.verify-changed-files.outputs.changed == 'true'
-      run: |
-        pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed"
-        pip install -r requirements/requirements-test.txt || echo "Warning: Test dependencies failed"
-        pip install pytest || echo "Warning: pytest installation failed"
-        if command -v pytest >/dev/null 2>&1 && [ -d "tests" ]; then
-          pytest tests/ -x --tb=short || echo "Warning: Some tests failed"
-        else
-          echo "⚠️  Tests directory not found or pytest not installed"
-        fi
-
-    - name: Create Pull Request
-      if: steps.verify-changed-files.outputs.changed == 'true'
+    - name: Create Pull Request if pinned requirements changed
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: |
-          chore: update dependencies
+          chore(deps): pin upgraded dependencies
 
-          - Updated dependencies
-        title: "⬆️ Update Dependencies"
+          - Automated upgrade and pin
+        title: "chore(deps): automated upgrade & pin requirements"
         body: |
-          ## Dependency Updates
+          Automated dependency upgrade and pin produced `requirements/requirements-pinned.txt`.
 
-          This PR updates the project dependencies to their latest compatible versions.
-
-          ### Changes
-          - Dependencies in `requirements.txt`
-
-          ### Testing
-          - All tests pass with updated dependencies
-          - No breaking changes detected
-
-          ### Review Checklist
-          - [ ] Review dependency changes for security implications
-          - [ ] Check for breaking changes in major version updates
-          - [ ] Verify all tests still pass
-        branch: automated/dependency-updates
+          Please review pinned versions and run tests in CI before merging.
+        branch: automated/upgrade-and-pin
         delete-branch: true
         labels: |
           dependencies
           automated
-        assignees: ${{ github.actor }}

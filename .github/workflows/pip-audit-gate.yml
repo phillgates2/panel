@@ -1,0 +1,81 @@
+name: pip-audit-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create and activate venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip wheel setuptools
+
+      - name: Install dependencies for audit
+        run: |
+          source .venv/bin/activate
+          # Prefer pinned requirements if present
+          if [ -f requirements/requirements-pinned.txt ]; then
+            pip install -r requirements/requirements-pinned.txt || true
+          elif [ -f requirements/requirements.txt ]; then
+            pip install -r requirements/requirements.txt || true
+          elif [ -f requirements.txt ]; then
+            pip install -r requirements.txt || true
+          else
+            echo "No requirements file found; pip-audit will audit installed packages only"
+          fi
+
+      - name: Install pip-audit
+        run: |
+          source .venv/bin/activate
+          pip install pip-audit jq || true
+
+      - name: Run pip-audit and save report
+        id: audit
+        run: |
+          source .venv/bin/activate
+          pip-audit --format json --output pip-audit-report.json || true
+          echo "Report saved to pip-audit-report.json"
+
+      - name: Evaluate pip-audit results
+        run: |
+          if [ -f pip-audit-report.json ]; then
+            # Count HIGH or CRITICAL findings
+            high_count=$(jq '[.[] | .vulns[]? | select(.severity=="HIGH" or .severity=="CRITICAL")] | length' pip-audit-report.json 2>/dev/null || echo 0)
+            echo "High/Critical vulns: $high_count"
+            if [ "$high_count" -gt 0 ]; then
+              echo "::error ::pip-audit detected $high_count high/critical vulnerabilities. See pip-audit-report.json";
+              cat pip-audit-report.json | jq . | sed -n '1,200p'
+              exit 1
+            else
+              echo "No high/critical vulnerabilities found by pip-audit"
+            fi
+          else
+            echo "pip-audit did not produce a report, failing to be safe";
+            exit 1
+          fi
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: 7

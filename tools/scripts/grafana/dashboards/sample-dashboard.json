@@ -1,0 +1,60 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "graph",
+      "title": "CPU Usage (system)",
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Memory Usage (used)",
+      "targets": [
+        {
+          "expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Disk Usage (%)",
+      "targets": [
+        {
+          "expr": "100 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|aufs|overlay\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|aufs|overlay\"} * 100)",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Network Traffic (bytes/sec)",
+      "targets": [
+        {
+          "expr": "sum by(instance) (irate(node_network_receive_bytes_total[5m]) + irate(node_network_transmit_bytes_total[5m]))",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Prometheus Up",
+      "targets": [
+        {
+          "expr": "up",
+          "refId": "E"
+        }
+      ]
+    }
+  ],
+  "title": "Panel Common Server Metrics",
+  "schemaVersion": 27,
+  "version": 2
+}
