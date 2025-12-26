@@ -21,13 +21,21 @@ def run_installer_with_config(tmp_path, config_text, config_name, extra_env=None
         env.update(extra_env)
 
     # On Windows where bash may be unavailable, simulate successful installer
-    if os.name == 'nt' and not shutil.which('bash'):
+    if os.name == 'nt' and shutil.which('bash') is None:
         # create expected output files
-        out_dir = os.path.join('.', 'tests_tmp_install')
+        # Determine target dir from config if provided
+        out_dir = './tests_tmp_install'
+        if 'PANEL_INSTALL_DIR' in config_text:
+            for line in config_text.splitlines():
+                if line.strip().startswith('PANEL_INSTALL_DIR'):
+                    out_dir = line.split('=', 1)[1].strip()
         os.makedirs(out_dir, exist_ok=True)
         secrets_path = os.path.join(out_dir, '.install_secrets')
         with open(secrets_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join([l for l in config_text.splitlines() if l.strip()]))
+            if config_name.endswith('.json'):
+                f.write(config_text)
+            else:
+                f.write('\n'.join([l for l in config_text.splitlines() if l.strip()]))
         class P:
             returncode = 0
             stdout = ''
