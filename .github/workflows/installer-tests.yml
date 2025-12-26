@@ -27,6 +27,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r tools/installer/requirements-dev.txt
+      - name: Print package manager & elevation methods
+        run: |
+          python - <<'PY'
+          from tools.installer.deps import get_package_manager
+          from tools.installer.os_utils import detect_elevation_methods
+          import platform
+          print('OS:', platform.system())
+          print('Detected package manager:', get_package_manager())
+          print('Detected elevation methods:', detect_elevation_methods())
+          PY
       - name: Run tests
         run: |
           pytest -q

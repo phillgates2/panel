@@ -65,3 +65,31 @@ def ensure_elevated():
                 raise RuntimeError(f"Failed to re-exec with {elev}: {e}")
 
     raise RuntimeError("No elevation helper found (pkexec/sudo). Please re-run as root or install a polkit helper.")
+
+
+def detect_elevation_methods():
+    """Detect available elevation helpers without attempting to execute them.
+
+    Returns a list of method names that are available on the system.
+    """
+    methods = []
+    import shutil
+    osname = platform.system()
+    if osname == "Windows":
+        try:
+            import ctypes
+            # We assume ShellExecuteW is available when ctypes.windll.shell32 exists
+            if hasattr(ctypes, 'windll') and hasattr(ctypes.windll, 'shell32'):
+                methods.append('shell_execute')
+        except Exception:
+            pass
+    elif osname == "Darwin":
+        if shutil.which('osascript'):
+            methods.append('osascript')
+    else:
+        # Linux/Unix
+        if shutil.which('pkexec'):
+            methods.append('pkexec')
+        if shutil.which('sudo'):
+            methods.append('sudo')
+    return methods
