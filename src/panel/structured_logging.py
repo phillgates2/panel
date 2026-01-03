@@ -13,7 +13,7 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from flask import Flask, g, request
+from flask import Flask, g, request, has_request_context, has_app_context
 
 
 class StructuredJSONFormatter(logging.Formatter):
@@ -22,8 +22,12 @@ class StructuredJSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         # Get correlation ID from record or flask g
         correlation_id = getattr(record, "correlation_id", None)
-        if correlation_id is None and hasattr(g, "correlation_id"):
-            correlation_id = g.correlation_id
+        if correlation_id is None:
+            try:
+                if has_app_context() and has_request_context() and hasattr(g, "correlation_id"):
+                    correlation_id = g.correlation_id
+            except RuntimeError:
+                correlation_id = None
 
         # Build structured log record
         log_record: Dict[str, Any] = {
@@ -41,10 +45,14 @@ class StructuredJSONFormatter(logging.Formatter):
             log_record["correlation_id"] = correlation_id
 
         # Add request context if available
-        if hasattr(g, "request_id"):
-            log_record["request_id"] = g.request_id
-        if hasattr(g, "user_id"):
-            log_record["user_id"] = g.user_id
+        try:
+            if has_app_context() and has_request_context():
+                if hasattr(g, "request_id"):
+                    log_record["request_id"] = g.request_id
+                if hasattr(g, "user_id"):
+                    log_record["user_id"] = g.user_id
+        except RuntimeError:
+            pass
 
         # Add exception info
         if record.exc_info:
