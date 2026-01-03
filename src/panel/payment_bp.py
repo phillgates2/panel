@@ -1,7 +1,9 @@
-from flask import Blueprint, jsonify, request
+import os
+
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
-from src.panel.models import Donation
+from src.panel.models import Donation, db
 
 payment_bp = Blueprint("payment", __name__)
 
@@ -103,14 +105,16 @@ def send_donation_email(payment_intent):
 
 @payment_bp.route("/admin/donation-analytics")
 def donation_analytics():
-    if not current_user or not current_user.is_system_admin():
-        return redirect(url_for("index"))
+    is_admin = callable(getattr(current_user, "is_system_admin", None)) and current_user.is_system_admin()
+    if not getattr(current_user, "is_authenticated", False) or not is_admin:
+        return redirect(url_for("main.login"))
     return render_template("admin_donation_analytics.html")
 
 
 @payment_bp.route("/api/donation-analytics")
 def donation_analytics_data():
-    if not current_user or not current_user.is_system_admin():
+    is_admin = callable(getattr(current_user, "is_system_admin", None)) and current_user.is_system_admin()
+    if not getattr(current_user, "is_authenticated", False) or not is_admin:
         return {"error": "Unauthorized"}, 403
 
     from sqlalchemy import func
@@ -119,20 +123,34 @@ def donation_analytics_data():
     total = db.session.query(func.sum(Donation.amount)).scalar() or 0
     total /= 100  # Convert to dollars
 
-    # Monthly breakdown
-    monthly = (
-        db.session.query(
-            func.date_trunc("month", Donation.timestamp).label("month"),
-            func.sum(Donation.amount).label("amount"),
+    # Monthly breakdown (SQLite doesn't support date_trunc)
+    if getattr(db.engine.dialect, "name", "") == "sqlite":
+        monthly = (
+            db.session.query(
+                func.strftime("%Y-%m", Donation.timestamp).label("month"),
+                func.sum(Donation.amount).label("amount"),
+            )
+            .filter(Donation.status == "completed")
+            .group_by("month")
+            .order_by("month")
+            .all()
         )
-        .filter(Donation.status == "completed")
-        .group_by("month")
-        .order_by("month")
-        .all()
-    )
-
-    monthly_data = [
-        {"month": str(m.month)[:7], "amount": m.amount / 100} for m in monthly
-    ]
+        monthly_data = [
+            {"month": str(m.month), "amount": (m.amount or 0) / 100} for m in monthly
+        ]
+    else:
+        monthly = (
+            db.session.query(
+                func.date_trunc("month", Donation.timestamp).label("month"),
+                func.sum(Donation.amount).label("amount"),
+            )
+            .filter(Donation.status == "completed")
+            .group_by("month")
+            .order_by("month")
+            .all()
+        )
+        monthly_data = [
+            {"month": str(m.month)[:7], "amount": (m.amount or 0) / 100} for m in monthly
+        ]
 
     return {"total": total, "monthly": monthly_data, "count": len(monthly_data)}

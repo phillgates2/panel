@@ -399,31 +399,65 @@ def init_backup_monitoring(app):
     return backup_monitor
 
 
-def get_backup_monitor() -> BackupMonitor:
-    """Get the global backup monitor"""
-    return backup_monitor
+def get_backup_monitor() -> Optional[BackupMonitor]:
+    """Get the global backup monitor (best-effort).
+
+    In minimal dev environments the monitor may never be initialized; in that
+    case we try to lazily initialize it from Flask's current_app.
+    """
+
+    global backup_monitor
+    if backup_monitor is not None:
+        return backup_monitor
+
+    try:
+        from flask import current_app
+
+        if current_app:
+            backup_monitor = BackupMonitor(current_app._get_current_object())
+            return backup_monitor
+    except Exception:
+        return None
+
+    return None
 
 
 # Utility functions for external monitoring
 def check_backup_health() -> Dict[str, Any]:
     """Check backup system health (for external monitoring)"""
     monitor = get_backup_monitor()
+    if not monitor:
+        return {
+            "status": "unavailable",
+            "message": "Backup monitoring is not initialized",
+            "issues": ["Backup monitor unavailable"],
+        }
     return monitor.check_backup_health()
 
 
 def check_storage_health() -> Dict[str, Any]:
     """Check backup storage health (for external monitoring)"""
     monitor = get_backup_monitor()
+    if not monitor:
+        return {
+            "status": "unavailable",
+            "message": "Backup monitoring is not initialized",
+            "issues": ["Backup monitor unavailable"],
+        }
     return monitor.check_storage_health()
 
 
 def generate_health_report() -> str:
     """Generate backup health report"""
     monitor = get_backup_monitor()
+    if not monitor:
+        return "Backup monitoring is not initialized"
     return monitor.generate_health_report()
 
 
 def run_monitoring_checks():
     """Run monitoring checks (for cron jobs)"""
     monitor = get_backup_monitor()
+    if not monitor:
+        return
     monitor.run_monitoring_checks()

@@ -10,10 +10,9 @@
                 <h3>Welcome to Panel!</h3>
                 <p>Panel is a comprehensive game server management and community platform. Here's how to get started:</p>
                 <ol>
-                    <li><strong>Complete your profile:</strong> Go to <a href="{{ url_for('profile') }}">Profile</a> to update your information.</li>
+                    <li><strong>Complete your profile:</strong> Go to <a href="{{ url_for('main.profile') }}">Profile</a> to update your information.</li>
                     <li><strong>Explore the dashboard:</strong> Visit your <a href="{{ url_for('dashboard') }}">Dashboard</a> for server status and quick actions.</li>
                     <li><strong>Join the community:</strong> Check out the <a href="{{ url_for('forum.index') }}">Forum</a> to connect with other users.</li>
-                    <li><strong>Customize your experience:</strong> Use the theme toggle in the navigation to switch between light and dark modes.</li>
                 </ol>
             </div>
         </section>
@@ -37,7 +36,6 @@
             <div class="help-content">
                 <details>
                     <summary>How do I change my theme?</summary>
-                    <p>Use the theme toggle button in the top navigation bar to switch between light and dark modes. Your preference is saved automatically.</p>
                 </details>
                 <details>
                     <summary>How do I manage my API keys?</summary>

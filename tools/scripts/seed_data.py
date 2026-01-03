@@ -13,8 +13,8 @@ Usage:
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add repo root to path so imports like `from app import ...` work
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import random
 from datetime import datetime, timedelta, timezone

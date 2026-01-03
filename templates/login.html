@@ -87,3 +87,69 @@
   </form>
 </div>
 {% endblock %}
+
+{% if not config.TESTING %}
+<script>
+(function(){
+  const img = document.getElementById('captcha-img');
+  const banner = document.getElementById('captcha-expired');
+  const input = document.querySelector('input[name="captcha"]');
+  const refreshBtn = document.getElementById('refresh');
+  const audioBtn = document.getElementById('audio');
+  const countdown = document.getElementById('captcha-countdown');
+  const EXP_MS = 180000;
+
+  if (!img || !refreshBtn || !audioBtn) return;
+
+  let expiryTimer = null;
+  let countdownTimer = null;
+
+  function refreshCaptcha(){
+    img.src = '/captcha.png?_' + Date.now();
+    if (input) input.value = '';
+    if (banner) banner.style.display = 'none';
+  }
+
+  function scheduleExpiry(){
+    if (expiryTimer) clearTimeout(expiryTimer);
+    expiryTimer = setTimeout(()=>{
+      if (banner) banner.style.display = 'block';
+      refreshCaptcha();
+    }, EXP_MS);
+  }
+
+  function fmt(ms){
+    const t = Math.max(0, Math.floor(ms/1000));
+    const m = Math.floor(t/60);
+    const s = t%60;
+    return `${m}:${s.toString().padStart(2,'0')}`;
+  }
+
+  function startCountdown(){
+    if (!countdown) return;
+    let end = Date.now() + EXP_MS;
+    if (countdownTimer) clearInterval(countdownTimer);
+    const tick = ()=>{
+      const left = end - Date.now();
+      countdown.textContent = `Refreshing in ${fmt(left)}`;
+    };
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  img.addEventListener('load', ()=>{ scheduleExpiry(); startCountdown(); });
+  refreshBtn.addEventListener('click', refreshCaptcha);
+  audioBtn.addEventListener('click', ()=>{
+    // Ensure the captcha has loaded at least once so the server-side session value exists.
+    if (!img.complete) {
+      return;
+    }
+    const a = new Audio('/captcha_audio?_' + Date.now());
+    a.play().catch(()=>{});
+  });
+
+  scheduleExpiry();
+  startCountdown();
+})();
+</script>
+{% endif %}

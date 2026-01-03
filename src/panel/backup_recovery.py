@@ -17,7 +17,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import schedule
+try:
+    import schedule  # type: ignore
+except Exception:
+    schedule = None
 from flask import Flask
 
 
@@ -77,6 +80,9 @@ class BackupManager:
 
     def start_scheduler(self):
         """Start the backup scheduler"""
+        if schedule is None:
+            self.logger.warning("Backup scheduler is unavailable (missing 'schedule' package)")
+            return
         if self._running:
             return
 
@@ -96,6 +102,8 @@ class BackupManager:
 
     def _run_scheduler(self):
         """Run the backup scheduler"""
+        if schedule is None:
+            return
         # Schedule based on configuration
         if self.config.schedule == "daily":
             schedule.every().day.at("02:00").do(self.run_scheduled_backup)
@@ -805,8 +813,8 @@ def init_backup_system(app: Flask):
     return backup_manager
 
 
-def get_backup_manager() -> BackupManager:
-    """Get the global backup manager instance"""
+def get_backup_manager() -> Optional[BackupManager]:
+    """Get the global backup manager instance (may be None in minimal dev)."""
     return backup_manager
 
 
@@ -814,22 +822,30 @@ def get_backup_manager() -> BackupManager:
 def create_backup(backup_type: str, name: str = None) -> Dict[str, Any]:
     """Create a backup (convenience function)"""
     manager = get_backup_manager()
+    if not manager:
+        raise RuntimeError("Backup system is not initialized")
     return manager.create_backup(backup_type, name)
 
 
 def restore_backup(backup_type: str, backup_file: str) -> Dict[str, Any]:
     """Restore from backup (convenience function)"""
     manager = get_backup_manager()
+    if not manager:
+        raise RuntimeError("Backup system is not initialized")
     return manager.restore_backup(backup_type, backup_file)
 
 
 def list_backups(backup_type: str = None) -> List[Dict[str, Any]]:
     """List available backups (convenience function)"""
     manager = get_backup_manager()
+    if not manager:
+        return []
     return manager.list_backups(backup_type)
 
 
 def get_backup_status(job_id: str) -> Optional[Dict[str, Any]]:
     """Get backup job status (convenience function)"""
     manager = get_backup_manager()
+    if not manager:
+        return None
     return manager.get_backup_status(job_id)

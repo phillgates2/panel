@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import (Blueprint, current_app, flash, jsonify, redirect,
                    render_template, request, send_file, session, url_for)
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from app import User, db
 try:
@@ -55,14 +55,36 @@ def require_admin():
     """Check if current user is admin, redirect if not."""
     user_id = session.get("user_id")
     if not user_id:
-        return redirect(url_for("login")), None
+        return redirect(url_for("main.login")), None
 
     user = db.session.get(User, user_id)
     if not is_system_admin_user(user):
         flash("Access denied. Admin privileges required.", "error")
-        return redirect(url_for("dashboard")), None
+        return redirect(url_for("main.dashboard")), None
 
     return None, user
+
+
+def get_current_user():
+    """Return the current authenticated user.
+
+    Supports both Flask-Login (`current_user`) and the legacy session-based
+    `session['user_id']` used in some routes/tests.
+    """
+
+    try:
+        if getattr(current_user, "is_authenticated", False):
+            return current_user
+    except Exception:
+        pass
+
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    try:
+        return db.session.get(User, user_id)
+    except Exception:
+        return None
 
 
 @config_bp.route("/api/servers/list")
@@ -161,7 +183,9 @@ def create_template():
                 500,
             )
 
-    return render_template("admin_config_template_create.html")
+    # The dedicated create template page isn't always shipped in minimal builds.
+    # Redirect back to the templates list instead of raising TemplateNotFound.
+    return redirect(url_for("config.config_templates"))
 
 
 @config_bp.route("/admin/config/templates/<int:template_id>")
@@ -645,11 +669,22 @@ def ptero_eggs_browser():
     )
     game_types = [gt[0] for gt in game_types]
 
-    # Get sync status
-    from ptero_eggs_updater import PteroEggsUpdater
+    # Get sync status (best-effort; DB tables may not exist in minimal SQLite dev)
+    sync_status = None
+    try:
+        from ptero_eggs_updater import PteroEggsUpdater
 
-    updater = PteroEggsUpdater()
-    sync_status = updater.get_sync_status()
+        updater = PteroEggsUpdater()
+        sync_status = updater.get_sync_status()
+    except Exception:
+        sync_status = {
+            "last_sync_at": None,
+            "total_templates_imported": 0,
+            "templates_updated": 0,
+            "last_sync_status": "unavailable",
+            "last_commit_hash": None,
+            "last_commit_message": None,
+        }
 
     return render_template(
         "admin_ptero_eggs_browser.html",
@@ -855,9 +890,9 @@ def compare_ptero_eggs_templates():
 @config_bp.route("/admin/ptero-eggs/create-custom", methods=["GET", "POST"])
 def create_custom_ptero_template():
     """Create a custom template based on Ptero-Eggs format."""
-    if not current_user.is_system_admin():
-        flash("Access denied. Admin privileges required.", "error")
-        return redirect(url_for("dashboard"))
+    guard, admin_user = require_admin()
+    if guard:
+        return guard
 
     if request.method == "POST":
         try:
@@ -873,7 +908,7 @@ def create_custom_ptero_template():
                 "features": data.get("features", []),
                 "egg_metadata": {
                     "source": "Custom",
-                    "author": current_user.email,
+                    "author": admin_user.email,
                     "original_name": data["name"],
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 },
@@ -885,7 +920,7 @@ def create_custom_ptero_template():
                 game_type=data["game_type"],
                 template_data=json.dumps(template_data, indent=2),
                 is_default=data.get("is_default", False),
-                created_by=current_user.id,
+                created_by=admin_user.id,
             )
 
             db.session.add(template)
@@ -1084,12 +1119,19 @@ def user_stats():
 @config_bp.route("/test/rate-limit")
 def test_rate_limit():
     """Test endpoint for rate limiting"""
-    from flask import jsonify
+    from flask import jsonify, request
+
+    try:
+        from flask_limiter.util import get_remote_address  # type: ignore
+
+        ip = get_remote_address()
+    except Exception:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     return jsonify(
         {
             "message": "Request allowed",
-            "ip": get_remote_address(),
+            "ip": ip,
             "timestamp": datetime.utcnow().isoformat(),
         }
     )
@@ -1248,6 +1290,8 @@ def gdpr_consent():
         from src.panel.gdpr_compliance import get_gdpr_compliance
 
         gdpr = get_gdpr_compliance()
+        if not gdpr:
+            return jsonify({"error": "GDPR features are not available"}), 503
 
         if request.method == "GET":
             consent = gdpr.get_consent_status(user.id)
@@ -1283,13 +1327,25 @@ def privacy():
 def gdpr_tools():
     """GDPR tools and data management"""
     user = get_current_user()
+    if not user:
+        return redirect(url_for("main.login"))
 
     # Get some basic stats
-    from src.panel.cms import BlogPost
-    from src.panel.forum import Post
+    forum_posts_count = 0
+    blog_posts_count = 0
+    try:
+        from src.panel.forum import Post
 
-    forum_posts_count = Post.query.filter_by(author_id=user.id).count()
-    blog_posts_count = BlogPost.query.filter_by(author_id=user.id).count()
+        forum_posts_count = Post.query.filter_by(author_id=user.id).count()
+    except Exception:
+        forum_posts_count = 0
+
+    try:
+        from src.panel.cms import BlogPost
+
+        blog_posts_count = BlogPost.query.filter_by(author_id=user.id).count()
+    except Exception:
+        blog_posts_count = 0
 
     # Account age
     account_age = "Unknown"
@@ -1419,7 +1475,10 @@ def push_test():
 @config_bp.route("/api/push/vapid-public-key", methods=["GET"])
 def push_vapid_public_key():
     """Get VAPID public key for push notifications"""
-    from src.panel.push_notifications import get_push_service
+    try:
+        from src.panel.push_notifications import get_push_service
+    except ModuleNotFoundError:
+        return jsonify({"error": "Push notifications dependencies not installed"}), 503
 
     push_service = get_push_service()
     if not push_service:
@@ -1732,7 +1791,10 @@ def ai_summarize_content():
 @admin_required
 def ai_stats():
     """Get AI system statistics"""
-    from src.panel.ai_integration import get_content_moderator
+    try:
+        from src.panel.ai_integration import get_content_moderator
+    except Exception as e:
+        return jsonify({"error": "AI features are not available", "detail": str(e)}), 503
 
     stats = {
         "ai_enabled": bool(get_ai_client()),
@@ -2086,10 +2148,15 @@ def ai_analyze_trends():
 @admin_required
 def ai_enhanced_stats():
     """Get enhanced AI system statistics"""
-    from src.panel.enhanced_ai import (get_anomaly_detector,
-                                       get_behavior_predictor,
-                                       get_content_analyzer,
-                                       get_content_generator)
+    try:
+        from src.panel.enhanced_ai import (
+            get_anomaly_detector,
+            get_behavior_predictor,
+            get_content_analyzer,
+            get_content_generator,
+        )
+    except ModuleNotFoundError:
+        return jsonify({"error": "Enhanced AI dependencies not installed"}), 503
 
     stats = {
         "ai_enabled": bool(get_enhanced_ai_agent()),
@@ -2340,7 +2407,10 @@ def ai_start_training():
 @admin_required
 def ai_training_status(job_id):
     """Get AI training job status"""
-    from src.panel.custom_ai_training import get_model_trainer
+    try:
+        from src.panel.custom_ai_training import get_model_trainer
+    except Exception:
+        return jsonify({"error": "Model trainer not available"}), 503
 
     trainer = get_model_trainer()
     if not trainer:
@@ -2370,7 +2440,10 @@ def ai_training_status(job_id):
 @admin_required
 def ai_training_jobs():
     """List AI training jobs"""
-    from src.panel.custom_ai_training import get_model_trainer
+    try:
+        from src.panel.custom_ai_training import get_model_trainer
+    except ModuleNotFoundError:
+        return jsonify({"error": "AI training dependencies not installed"}), 503
 
     status_filter = request.args.get("status")
 
@@ -2470,7 +2543,10 @@ def ai_deploy_model(job_id):
 @admin_required
 def ai_list_models():
     """List deployed custom AI models"""
-    from src.panel.custom_ai_training import get_model_trainer
+    try:
+        from src.panel.custom_ai_training import get_model_trainer
+    except ModuleNotFoundError:
+        return jsonify({"error": "AI training dependencies not installed"}), 503
 
     trainer = get_model_trainer()
     if not trainer:

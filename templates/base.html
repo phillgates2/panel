@@ -95,13 +95,6 @@
               {# <a href="{{ url_for('gdpr_tools') }}">🛡️ GDPR Tools</a> #}
               {% endif %}
             </div>
-            {% if theme_toggle_enabled %}
-              <button id="theme-toggle" class="theme-toggle-btn" aria-pressed="false" aria-describedby="theme-status" title="Toggle theme">
-                <span class="icon" aria-hidden="true">🌙</span>
-                <span class="label">Dark</span>
-              </button>
-              <span id="theme-status" class="visually-hidden" aria-live="polite"></span>
-            {% endif %}
           </div>
         </nav>
       </div>
@@ -173,48 +166,6 @@
 
     <script>
       (function(){
-        var btn = document.getElementById('theme-toggle');
-        var statusEl = document.getElementById('theme-status');
-        function updateToggle(theme){
-          if(!btn) return;
-          var icon = btn.querySelector('.icon');
-          var label = btn.querySelector('.label');
-          var next = (theme === 'dark') ? 'light' : 'dark';
-          var aria = 'Switch to ' + (next.charAt(0).toUpperCase() + next.slice(1)) + ' theme';
-          if(theme === 'dark'){
-            if(icon) icon.textContent = '🌙';
-            if(label) label.textContent = 'Dark';
-            btn.setAttribute('aria-pressed','true');
-          }else{
-            if(icon) icon.textContent = '☀️';
-            if(label) label.textContent = 'Light';
-            btn.setAttribute('aria-pressed','false');
-          }
-          btn.setAttribute('aria-label', aria);
-          btn.setAttribute('title', aria);
-          if(statusEl){ statusEl.textContent = 'Current theme: ' + (theme.charAt(0).toUpperCase()+theme.slice(1)) + '. ' + aria + '.'; }
-        }
-        if(btn){
-          var curInit = document.documentElement.getAttribute('data-theme') || 'dark';
-          updateToggle(curInit);
-          btn.addEventListener('click', function(){
-            var cur = document.documentElement.getAttribute('data-theme') || 'dark';
-            var next = (cur === 'dark') ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', next);
-            updateToggle(next);
-            try{ localStorage.setItem('theme', next); }catch(e){}
-            var loggedIn = {{ 'true' if logged_in else 'false' }};
-            if(loggedIn){
-              try{
-                var fd = new FormData();
-                fd.append('theme', next);
-                fd.append('csrf_token', '{{ session.csrf_token }}');
-                fetch('/api/theme_pref', { method:'POST', body: fd });
-              }catch(e){}
-            }
-          });
-        }
-
         var lastFocused = null;
         function findClosestForm(el){ while(el && el.tagName !== 'FORM') el = el.parentElement; return el; }
         function openModal(message, onOk){
@@ -254,41 +205,7 @@
       })();
     </script>
 
-    <!-- Theme Toggle Button -->
-    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle theme">
-      <i class="fas fa-moon"></i>
-    </button>
-
-    <script>
-      // Theme toggle functionality
-      const themeToggle = document.getElementById('theme-toggle-btn');
-      const html = document.documentElement;
-
-      // Load saved theme
-      const savedTheme = localStorage.getItem('theme') || 'dark';
-      html.setAttribute('data-theme', savedTheme);
-      updateThemeIcon(savedTheme);
-
-      themeToggle.addEventListener('click', function() {
-        const currentTheme = html.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-        html.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        updateThemeIcon(newTheme);
-      });
-
-      function updateThemeIcon(theme) {
-        const icon = themeToggle.querySelector('i');
-        if (theme === 'dark') {
-          icon.className = 'fas fa-moon';
-        } else {
-          icon.className = 'fas fa-sun';
-        }
-      }
-    </script>
     <script src="{{ url_for('static', filename='js/loading.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
 
 <script>

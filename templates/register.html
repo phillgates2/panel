@@ -129,11 +129,15 @@ form.addEventListener('submit', (e)=>{
 
 document.getElementById('refresh').addEventListener('click', ()=>{
   const img = document.getElementById('captcha-img');
+  const input = document.querySelector('input[name="captcha"]');
   img.src = '/captcha.png?_' + Date.now();
+  if (input) input.value = '';
 });
 document.getElementById('audio').addEventListener('click', ()=>{
+  const img = document.getElementById('captcha-img');
+  if (img && !img.complete) return;
   const a = new Audio('/captcha_audio?_' + Date.now());
-  a.play();
+  a.play().catch(()=>{});
 });
 </script>
 {% endblock %}

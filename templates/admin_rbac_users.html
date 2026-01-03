@@ -216,7 +216,7 @@ function setRevokeUser(userId, userEmail) {
     document.getElementById('revokeRoleForm').action = `/admin/rbac/users/${userId}/revoke-role`;
 
     // Populate roles for this user
-    const user = {{ users|tojson }}.find(u => u.id === userId);
+    const user = {{ users_json|tojson }}.find(u => u.id === userId);
     const revokeSelect = document.getElementById('revokeRoleSelect');
     revokeSelect.innerHTML = '<option value="">Select a role...</option>';
 
@@ -276,7 +276,7 @@ function viewUserPermissions(userId) {
 
 // Load permission counts on page load
 document.addEventListener('DOMContentLoaded', function() {
-    {{ users|tojson }}.forEach(user => {
+    {{ users_json|tojson }}.forEach(user => {
         fetch(`/api/rbac/user/${user.id}/permissions`)
             .then(response => response.json())
             .then(data => {

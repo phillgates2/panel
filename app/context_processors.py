@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict
 
-from flask import current_app, session
+from flask import current_app, session, url_for
 
 from app.db import db
 from src.panel import models
@@ -17,8 +17,9 @@ CDN_BASE_URL = os.environ.get("PANEL_CDN_BASE_URL", "https://cdn.panel.com")
 def get_cdn_url(path):
     """Get CDN URL for static assets"""
     if CDN_ENABLED:
-        return f"{CDN_BASE_URL}{path}"
-    return path
+        base = CDN_BASE_URL.rstrip("/")
+        return f"{base}/{path.lstrip('/')}"
+    return url_for("static", filename=path.lstrip("/"))
 
 
 class _DummyUser:
@@ -29,6 +30,12 @@ class _DummyUser:
         self.last_name = ""
         self.email = ""
         self.role = "user"
+        self.bio = ""
+        self.is_active = True
+        self.dob = None
+        self.last_login = None
+        self.avatar = None
+        self.totp_enabled = False
 
     def is_system_admin(self):
         return False
@@ -38,6 +45,19 @@ class _DummyUser:
 
     def is_server_mod(self):
         return False
+
+    def get_role_level(self) -> int:
+        levels = {
+            "user": 1,
+            "premium": 2,
+            "moderator": 3,
+            "admin": 4,
+            "system_admin": 5,
+        }
+        return int(levels.get(self.role, 1))
+
+    def get_available_permissions(self):
+        return []
 
 
 def inject_user() -> Dict[str, Any]:
@@ -123,4 +143,7 @@ def inject_user() -> Dict[str, Any]:
         config=current_app.config,
         user_theme_pref=user_theme_pref,
         get_cdn_url=get_cdn_url,
+        # Some templates assume Flask-WTF style CSRF helpers.
+        # Provide a no-op token in environments where CSRF isn't configured.
+        csrf_token=(lambda: ""),
     )

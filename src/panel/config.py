@@ -55,6 +55,11 @@ class Config:
     else:
         SESSION_COOKIE_SECURE = str(SESSION_COOKIE_SECURE).lower() in ("1", "true", "yes")
 
+    # In dev/SQLite mode, force non-secure cookies so sessions work over HTTP.
+    # (Flask will otherwise set a Secure cookie that the browser won't send.)
+    if USE_SQLITE:
+        SESSION_COOKIE_SECURE = False
+
     SESSION_COOKIE_HTTPONLY = os.environ.get("SESSION_COOKIE_HTTPONLY", "true").lower() in ("1", "true", "yes")
     SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
     PERMANENT_SESSION_LIFETIME = int(os.environ.get("PERMANENT_SESSION_LIFETIME", 2592000))  # 30 days
@@ -93,6 +98,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     USE_SQLITE = True
+    SESSION_COOKIE_SECURE = False
     SQLALCHEMY_ECHO = True
     LOG_LEVEL = "DEBUG"
 

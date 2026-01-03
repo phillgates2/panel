@@ -18,7 +18,7 @@
                         <li><a href="{{ url_for('index') }}">?? Home</a></li>
                         <li><a href="{{ url_for('dashboard') }}">?? Dashboard</a></li>
                         {% if logged_in %}
-                        <li><a href="{{ url_for('profile') }}">?? Profile</a></li>
+                        <li><a href="{{ url_for('main.profile') }}">?? Profile</a></li>
                         {% else %}
                         <li><a href="{{ url_for('login') }}">?? Login</a></li>
                         {% endif %}
