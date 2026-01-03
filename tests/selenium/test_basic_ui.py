@@ -12,13 +12,24 @@ from selenium.webdriver.support import expected_conditions as EC
 @pytest.fixture(scope="session")
 def driver():
     opts = ChromeOptions()
+    chrome_bin = os.environ.get("CHROME_BIN")
+    if chrome_bin:
+        opts.binary_location = chrome_bin
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     # faster CI
     opts.add_argument("--window-size=1280,800")
 
-    driver = webdriver.Chrome(options=opts)
+    remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+    try:
+        if remote_url:
+            driver = webdriver.Remote(command_executor=remote_url, options=opts)
+        else:
+            driver = webdriver.Chrome(options=opts)
+    except Exception as e:
+        pytest.skip(f"Selenium WebDriver unavailable: {e}")
+
     driver.set_page_load_timeout(30)
     yield driver
     driver.quit()
