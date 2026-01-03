@@ -37,8 +37,8 @@ def enable_service(name):
         # Try brew services if available
         if shutil.which("brew"):
             return _run(["brew", "services", "start", name])
-        # Otherwise we don't have a generic way to enable; return helpful message
-        return {"ok": False, "error": "no known enable method on macOS for service"}
+        # Otherwise we don't have a generic way to enable; return generic message
+        return {"ok": False, "error": "no known enable method for service"}
 
     if osname == "Windows":
         # Use sc to configure start= auto
@@ -62,7 +62,7 @@ def start_service(name):
     if osname == "Darwin":
         if shutil.which("brew"):
             return _run(["brew", "services", "start", name])
-        return {"ok": False, "error": "no known start method on macOS for service"}
+        return {"ok": False, "error": "no known start method for service"}
 
     if osname == "Windows":
         if shutil.which("sc"):
@@ -85,7 +85,7 @@ def stop_service(name):
     if osname == "Darwin":
         if shutil.which("brew"):
             return _run(["brew", "services", "stop", name])
-        return {"ok": False, "error": "no known stop method on macOS for service"}
+        return {"ok": False, "error": "no known stop method for service"}
 
     if osname == "Windows":
         if shutil.which("sc"):

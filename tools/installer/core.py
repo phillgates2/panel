@@ -1,24 +1,52 @@
 import logging
 from .deps import check_system_deps
 from .os_utils import is_admin, ensure_elevated
+import platform
 
 log = logging.getLogger(__name__)
 
+# Default service names per OS for components
+SERVICE_MAP = {
+    "postgres": {
+        "Linux": "postgresql",
+        "Darwin": "postgresql",
+        "Windows": "postgresql-x64-16",  # best-effort default; may vary by version
+    },
+    "redis": {
+        "Linux": "redis-server",
+        "Darwin": "redis",
+        "Windows": "Redis",
+    },
+    "nginx": {
+        "Linux": "nginx",
+        "Darwin": "nginx",
+        "Windows": "nginx",
+    },
+}
 
-def install_all(domain, components, elevate=True, dry_run=False):
+
+def _service_name(component):
+    osname = platform.system()
+    mapping = SERVICE_MAP.get(component, {})
+    return mapping.get(osname, mapping.get("Linux"))
+
+
+def install_all(domain, components, elevate=True, dry_run=False, venv_path="/opt/panel/venv"):
     """High level install orchestrator (stub/PoC).
 
     - domain: domain name string
     - components: list of component keys to install (postgres, redis, nginx, python)
     - elevate: whether to ensure admin rights
     - dry_run: only check / report actions
+    - venv_path: target path for python venv component
     """
     if elevate and not is_admin():
-        # Attempt to re-run elevated; ensure_elevated() will re-exec or raise on failure.
-        try:
-            ensure_elevated()
-        except Exception as e:
-            raise RuntimeError(f"Elevation failed: {e}")
+        # Skip elevation when dry_run to allow simulation without prompts.
+        if not dry_run:
+            try:
+                ensure_elevated()
+            except Exception as e:
+                raise RuntimeError(f"Elevation failed: {e}")
 
     missing = check_system_deps()
     if missing:
@@ -41,8 +69,9 @@ def install_all(domain, components, elevate=True, dry_run=False):
                     try:
                         # enable/start service
                         from .service_manager import enable_service, start_service
-                        enable_service("postgresql")
-                        start_service("postgresql")
+                        svc = _service_name("postgres")
+                        enable_service(svc)
+                        start_service(svc)
                     except Exception:
                         log.debug("Failed to enable/start postgresql service via service_manager")
                     # record successful install to state
@@ -58,8 +87,9 @@ def install_all(domain, components, elevate=True, dry_run=False):
                 if not dry_run and res.get("installed"):
                     try:
                         from .service_manager import enable_service, start_service
-                        enable_service("redis-server")
-                        start_service("redis-server")
+                        svc = _service_name("redis")
+                        enable_service(svc)
+                        start_service(svc)
                     except Exception:
                         log.debug("Failed to enable/start redis service via service_manager")
                     try:
@@ -75,8 +105,9 @@ def install_all(domain, components, elevate=True, dry_run=False):
                 if not dry_run and res.get("installed"):
                     try:
                         from .service_manager import enable_service, start_service
-                        enable_service("nginx")
-                        start_service("nginx")
+                        svc = _service_name("nginx")
+                        enable_service(svc)
+                        start_service(svc)
                     except Exception:
                         log.debug("Failed to enable/start nginx service via service_manager")
                     try:
@@ -87,8 +118,8 @@ def install_all(domain, components, elevate=True, dry_run=False):
 
             elif c == "python":
                 from .components import pythonenv as pyenv
-                # default target path; in real installer allow configurable path
-                res = pyenv.install(dry_run=dry_run, target='/opt/panel/venv')
+                # configurable target path
+                res = pyenv.install(dry_run=dry_run, target=venv_path)
                 actions.append({"component": "python", "result": res})
                 if not dry_run and res.get("installed"):
                     try:
@@ -106,9 +137,11 @@ def install_all(domain, components, elevate=True, dry_run=False):
     return {"status": "ok", "actions": actions}
 
 
-def uninstall_all(preserve_data=True, dry_run=False):
-    if not is_admin():
-        raise RuntimeError("Admin rights are required to uninstall")
+def uninstall_all(preserve_data=True, dry_run=False, elevate=True):
+    # Allow dry-run without elevation/admin to enable safe simulation
+    if elevate and not dry_run:
+        if not is_admin():
+            raise RuntimeError("Admin rights are required to uninstall")
 
     # Use state-based rollback if available
     from .state import rollback, read_state
