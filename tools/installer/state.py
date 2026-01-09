@@ -2,7 +2,7 @@
 import json
 import os
 import logging
-from typing import Optional
+from typing import Optional, List, Callable
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def clear_state(path: Optional[str] = None):
     write_state({"actions": []}, path)
 
 
-def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
+def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None, components: Optional[List[str]] = None, progress_cb: Optional[Callable] = None):
     """Attempt rollback by undoing recorded actions in reverse order.
 
     Behavior:
@@ -50,6 +50,8 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
       - On success the action is removed from the state file.
       - On failure the action is left in the state file so an operator can retry or inspect.
       - In dry-run mode no changes are made to state and each action reports "dry-run".
+      - If components is provided, only matching components are considered for rollback.
+      - progress_cb(step, component, meta) is called for per-step updates if provided.
 
     Returns a dict with per-action results and the remaining actions in state.
     """
@@ -58,17 +60,30 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
     results = []
     remaining = list(actions)  # working copy in original order
 
+    def _emit(step, comp, meta=None):
+        if progress_cb:
+            try:
+                progress_cb(step, comp, meta or {})
+            except Exception:
+                pass
+
+    def _included(comp: str) -> bool:
+        return (components is None) or (comp in components)
+
     # Process in reverse order (last installed first)
     for a in list(actions)[::-1]:
         comp = a.get("component")
+        if not _included(comp):
+            continue
         res = {"component": comp, "action": a, "result": None}
+        _emit("start", comp, a)
         if dry_run:
             res["result"] = "dry-run"
             results.append(res)
+            _emit("done", comp, res)
             continue
 
         try:
-            # Import component uninstall handler dynamically
             try:
                 from .components import postgres, redis, nginx, pythonenv  # type: ignore
                 mapping = {"postgres": postgres, "redis": redis, "nginx": nginx, "python": pythonenv}
@@ -79,26 +94,22 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None):
             if mod and hasattr(mod, "uninstall"):
                 r = mod.uninstall(preserve_data=preserve_data)
                 res["result"] = r
-                # If uninstall succeeded, remove this action from remaining
+                _emit("uninstalled", comp, r)
                 if isinstance(r, dict) and (r.get("uninstalled") or r.get("stopped") or r.get("packages_removed") or r.get("ok")):
-                    # remove the last matching action from remaining (first occurrence)
                     for i in range(len(remaining)-1, -1, -1):
                         if remaining[i] == a:
                             del remaining[i]
                             break
-                else:
-                    # leave in remaining so operator can retry later
-                    pass
             else:
                 res["result"] = {"error": "no_uninstall_handler"}
-                # leave in remaining
+                _emit("error", comp, res["result"])
         except Exception as e:
             res["result"] = {"error": str(e)}
-            # leave in remaining
+            _emit("error", comp, res["result"])
 
         results.append(res)
+        _emit("done", comp, res)
 
-    # Write back remaining actions (preserves original order)
     write_state({"actions": remaining}, path)
 
     return {"status": "ok", "results": results, "remaining": len(remaining)}
