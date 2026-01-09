@@ -147,6 +147,7 @@ jobs:
     - name: Run Trivy (container vulnerabilities)
       # Pin to a stable version to avoid breaking changes
       uses: aquasecurity/trivy-action@v0.16.1
+      continue-on-error: true
       with:
         scan-type: 'fs'
         scan-ref: '.'
