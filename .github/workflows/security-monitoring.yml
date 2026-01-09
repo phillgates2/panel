@@ -181,6 +181,32 @@ jobs:
           fi
         fi
 
+    - name: Install TruffleHog CLI
+      run: |
+        echo "Installing TruffleHog CLI..."
+        curl -sSf https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b ./bin || true
+        if [ -f ./bin/trufflehog ]; then
+          sudo mv ./bin/trufflehog /usr/local/bin/trufflehog || true
+        fi
+
+    - name: Run TruffleHog (secrets scan)
+      continue-on-error: true
+      run: |
+        if command -v trufflehog >/dev/null 2>&1; then
+          trufflehog filesystem --only-verified --json --path . > trufflehog-report.json || true
+          if command -v jq >/dev/null 2>&1; then
+            findings=$(jq -s 'length' trufflehog-report.json 2>/dev/null || echo "0")
+            echo "TruffleHog findings: $findings"
+            if [ "$findings" -gt 0 ]; then
+              echo "trufflehog_found=true" >> $GITHUB_ENV
+            fi
+          else
+            echo "⚠️ jq not available, cannot summarize TruffleHog findings"
+          fi
+        else
+          echo "TruffleHog not installed; skipping secrets scan"
+        fi
+
     # Secrets scan temporarily disabled due to action resolution issues
     # - name: Check for secrets
     #   uses: trufflesecurity/trufflehog@v3
@@ -246,6 +272,15 @@ jobs:
           echo "- High/Critical: $high_count" >> security-summary.md
         fi
 
+        echo "" >> security-summary.md
+        echo "### TruffleHog (Secrets Scan)" >> security-summary.md
+        if [ -f trufflehog-report.json ]; then
+          findings=$(jq -s 'length' trufflehog-report.json 2>/dev/null || echo "0")
+          echo "- Verified secrets found: $findings" >> security-summary.md
+        else
+          echo "- Scan skipped or no report generated" >> security-summary.md
+        fi
+
     - name: Upload security reports
       uses: actions/upload-artifact@v4
       if: ${{ always() }}
@@ -256,6 +291,7 @@ jobs:
           pip-audit-report.json
           bandit-report.json
           trivy-files-report.json
+          trufflehog-report.json
           security-summary.md
         if-no-files-found: warn
         retention-days: 30
