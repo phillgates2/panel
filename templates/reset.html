@@ -71,7 +71,11 @@
   }
   img.addEventListener('load', ()=>{ if (banner) banner.style.display = 'none'; scheduleExpiry(); startCountdown(); });
   document.getElementById('refresh').addEventListener('click', refreshCaptcha);
-  document.getElementById('audio').addEventListener('click', ()=>{ const a = new Audio('/captcha_audio?_' + Date.now()); a.play(); });
+  document.getElementById('audio').addEventListener('click', ()=>{
+    if (img && !img.complete) return;
+    const a = new Audio('/captcha_audio?_' + Date.now());
+    a.play().catch(()=>{});
+  });
   scheduleExpiry();
   startCountdown();
 })();

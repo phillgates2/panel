@@ -240,8 +240,15 @@ def register_blueprints(app):
 
         app.add_url_rule("/profile", endpoint="profile", view_func=_profile_alias)
 
-        # Alias for rcon console endpoint used in templates/tests
-        def _rcon_alias():
+        # Alias for rcon console endpoints used in templates/tests
+        # Must accept optional server_id because /rcon/<int:server_id>
+        # is also mapped to the same endpoint name.
+        def _rcon_alias(server_id=None):
+            try:
+                if server_id is not None:
+                    return redirect(url_for("server.rcon_console", server_id=server_id))
+            except Exception:
+                pass
             return redirect(url_for("main.rcon_console"))
         app.add_url_rule("/rcon", endpoint="rcon_console", view_func=_rcon_alias)
 
@@ -259,7 +266,7 @@ def register_blueprints(app):
 
         # Alias for admin users page expected by templates/tests
         def _admin_users_alias():
-            return redirect(url_for("admin_rbac_users"))
+            return redirect(url_for("admin.admin_rbac_users"))
         app.add_url_rule("/admin/users", endpoint="admin_users", view_func=_admin_users_alias)
 
         # Alias for admin servers page expected by templates/tests
@@ -269,7 +276,7 @@ def register_blueprints(app):
 
         # Alias for admin audit viewer expected by templates/tests
         def _admin_audit_alias():
-            return redirect(url_for("admin_audit_viewer"))
+            return redirect(url_for("admin.admin_audit"))
         app.add_url_rule("/admin/audit", endpoint="admin_audit", view_func=_admin_audit_alias)
 
         # Alias for background jobs monitor expected by templates/tests
@@ -310,15 +317,10 @@ def register_blueprints(app):
                 return redirect(url_for("admin.admin_servers"))
         app.add_url_rule("/server/<int:server_id>/edit", endpoint="server_edit", view_func=_server_edit_alias)
 
-        # Alias for rcon console with server id
-        def _rcon_with_server_alias(server_id=None):
-            try:
-                if server_id:
-                    return redirect(url_for("server.rcon_console", server_id=server_id))
-            except Exception:
-                pass
-            return redirect(url_for("main.rcon_console"))
-        app.add_url_rule("/rcon/<int:server_id>", endpoint="rcon_console", view_func=_rcon_with_server_alias)
+        # Alias for rcon console with server id (shares same endpoint)
+        app.add_url_rule(
+            "/rcon/<int:server_id>", endpoint="rcon_console", view_func=_rcon_alias
+        )
 
         # Alias for admin manage users per-server
         def _admin_server_manage_users_alias(server_id):

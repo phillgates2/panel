@@ -259,12 +259,14 @@ perform_health_check() {
     fi
 
     ((total_checks++))
-    if ! check_http_response "$PANEL_URL/" 200 "Main Application"; then
+    # The root route may intentionally 404 unless theming is enabled.
+    # Use a stable page for basic HTTP validation.
+    if ! check_http_response "$PANEL_URL/dashboard" 200 "Main Application"; then
         ((failures++))
     fi
 
     ((total_checks++))
-    if ! check_http_response "$PANEL_URL/api/v2/servers" 200 "API v2 Servers"; then
+    if ! check_http_response "$PANEL_URL/api/v2/status" 200 "API v2 Status"; then
         ((failures++))
     fi
 

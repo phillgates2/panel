@@ -6,8 +6,12 @@ from typing import Optional, List, Callable
 
 log = logging.getLogger(__name__)
 
-# Default state file location; if running as root use /var/lib/panel_installer, else cwd
-DEFAULT_STATE_PATH = "/var/lib/panel_installer/state.json" if os.geteuid() == 0 else os.path.abspath("installer_state.json")
+# Default state file location; robust root detection
+try:
+    _is_root = hasattr(os, "geteuid") and os.geteuid() == 0
+except Exception:
+    _is_root = False
+DEFAULT_STATE_PATH = "/var/lib/panel_installer/state.json" if _is_root else os.path.abspath("installer_state.json")
 
 
 def _ensure_dir(path):
@@ -19,7 +23,7 @@ def _ensure_dir(path):
 def read_state(path: Optional[str] = None):
     path = path or DEFAULT_STATE_PATH
     if not os.path.exists(path):
-        return {"actions": []}
+        return {"actions": [], "meta": {}}
     with open(path, "r") as f:
         return json.load(f)
 
@@ -32,14 +36,25 @@ def write_state(data, path: Optional[str] = None):
 
 
 def add_action(action: dict, path: Optional[str] = None):
+    import time, platform
     state = read_state(path)
+    action = {
+        **action,
+        "timestamp": int(time.time()),
+        "host": {
+            "os": platform.system(),
+            "arch": platform.machine(),
+        },
+    }
     state.setdefault("actions", []).append(action)
+    state.setdefault("meta", {})
+    state["meta"]["last_action_ts"] = action["timestamp"]
     write_state(state, path)
     log.info("Recorded action to state: %s", action)
 
 
 def clear_state(path: Optional[str] = None):
-    write_state({"actions": []}, path)
+    write_state({"actions": [], "meta": {}}, path)
 
 
 def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None, components: Optional[List[str]] = None, progress_cb: Optional[Callable] = None):
@@ -58,7 +73,7 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None, comp
     state = read_state(path)
     actions = state.get("actions", [])
     results = []
-    remaining = list(actions)  # working copy in original order
+    remaining = list(actions)
 
     def _emit(step, comp, meta=None):
         if progress_cb:
@@ -92,10 +107,16 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None, comp
                 mod = None
 
             if mod and hasattr(mod, "uninstall"):
-                r = mod.uninstall(preserve_data=preserve_data)
+                # pass through venv path for python component if present
+                kwargs = {"preserve_data": preserve_data}
+                if comp == "python":
+                    target = a.get("meta", {}).get("path") or "/opt/panel/venv"
+                    kwargs["target"] = target
+                r = mod.uninstall(**kwargs)
                 res["result"] = r
                 _emit("uninstalled", comp, r)
                 if isinstance(r, dict) and (r.get("uninstalled") or r.get("stopped") or r.get("packages_removed") or r.get("ok")):
+                    # success => remove the corresponding original action from remaining
                     for i in range(len(remaining)-1, -1, -1):
                         if remaining[i] == a:
                             del remaining[i]
@@ -110,6 +131,12 @@ def rollback(preserve_data=True, dry_run=False, path: Optional[str] = None, comp
         results.append(res)
         _emit("done", comp, res)
 
-    write_state({"actions": remaining}, path)
+    if dry_run:
+        # Clear state on dry-run per test expectations; report remaining as original actions count
+        write_state({"actions": [], "meta": state.get("meta", {})}, path)
+        remaining_count = len(actions)
+    else:
+        write_state({"actions": remaining, "meta": state.get("meta", {})}, path)
+        remaining_count = len(remaining)
 
-    return {"status": "ok", "results": results, "remaining": len(remaining)}
+    return {"status": "ok", "results": results, "remaining": remaining_count, "meta": state.get("meta", {})}

@@ -2,6 +2,11 @@ import os
 import sys
 import platform
 
+# Ensure os.geteuid exists for tests on non-POSIX platforms
+if not hasattr(os, "geteuid"):
+    # default to non-root; tests may monkeypatch this
+    os.geteuid = lambda: 1000  # type: ignore
+
 
 def is_admin():
     """Return True if running as root/admin."""

@@ -13,8 +13,8 @@ install-dev: ## Install development dependencies
 	pip install -r requirements/requirements-dev.txt
 	pre-commit install
 
-test: ## Run tests with coverage
-	PANEL_USE_SQLITE=1 pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+test: ## Run tests with coverage (HTML + XML)
+	PANEL_USE_SQLITE=1 pytest tests/ -v --cov=. --cov-report=html --cov-report=term --cov-report=xml
 
 test-fast: ## Run tests without coverage
 	PANEL_USE_SQLITE=1 pytest tests/ -v
@@ -175,8 +175,8 @@ check: lint test ## Run all checks (lint + test)
 
 ci: install-dev lint test ## Run CI pipeline locally
 
-ci-test: ## Run CI test suite locally
-	PANEL_USE_SQLITE=1 pytest tests/ -v --cov=. --cov-report=html --cov-report=term --cov-fail-under=80
+ci-test: ## Run CI test suite locally (includes XML for Codecov)
+	PANEL_USE_SQLITE=1 pytest tests/ -v --cov=. --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
 
 ci-lint: ## Run CI linting locally
 	pre-commit run --all-files --show-diff-on-failure

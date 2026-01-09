@@ -61,7 +61,7 @@
     }
   },
 
-  "postCreateCommand": "bash -c 'pip install --upgrade pip && pip install -r requirements.txt && playwright install chromium'",
+  "postCreateCommand": "bash -lc 'set -e; if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi; if command -v apt-get >/dev/null 2>&1; then $SUDO apt-get update && $SUDO apt-get install -y espeak; elif command -v apk >/dev/null 2>&1; then $SUDO apk add --no-cache espeak; fi; pip install --upgrade pip && pip install -r requirements/requirements.txt; python -c \"import playwright\" >/dev/null 2>&1 && python -m playwright install chromium || true'",
 
   "remoteEnv": {
     "PANEL_USE_SQLITE": "1",

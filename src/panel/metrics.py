@@ -8,7 +8,7 @@ import time
 from typing import Optional
 
 import psutil
-from flask import Flask, Response, g
+from flask import Flask, Response, g, session
 from prometheus_client import (CONTENT_TYPE_LATEST, Counter, Gauge, Histogram,
                                generate_latest)
 
@@ -118,7 +118,14 @@ class MetricsCollector:
         return response
 
     def metrics_endpoint(self) -> Response:
-        """Expose Prometheus metrics endpoint"""
+        """Expose Prometheus metrics endpoint (requires session auth)"""
+        try:
+            # Require a logged-in user for metrics per tests
+            if not session.get("user_id"):
+                return Response("Authentication required", status=401, mimetype="text/plain")
+        except Exception:
+            return Response("Authentication required", status=401, mimetype="text/plain")
+
         return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
     def start_background_collection(self) -> None:

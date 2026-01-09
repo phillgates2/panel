@@ -10,6 +10,12 @@ try:
 except Exception:
     current_app = None
 
+try:
+    from flask_login import UserMixin
+except Exception:  # pragma: no cover
+    class UserMixin:  # type: ignore
+        pass
+
 # Use the application's shared SQLAlchemy instance to ensure
 # models participate in the same metadata as blueprints (e.g., forum)
 from app import db
@@ -133,7 +139,7 @@ ROLE_PERMISSIONS = {
 }
 
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     """User model representing application users with authentication and authorization."""
 
     id = db.Column(db.Integer, primary_key=True)

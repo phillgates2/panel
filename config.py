@@ -1,5 +1,7 @@
 import os
 
+from flask import url_for
+
 from src.panel.config import Config
 
 config = Config()
@@ -26,5 +28,6 @@ CDN_BASE_URL = os.environ.get("PANEL_CDN_BASE_URL", "https://cdn.panel.com")
 def get_cdn_url(path):
     """Get CDN URL for static assets"""
     if CDN_ENABLED:
-        return f"{CDN_BASE_URL}{path}"
+        base = CDN_BASE_URL.rstrip("/")
+        return f"{base}/{path.lstrip('/')}"
     return url_for("static", filename=path.lstrip("/"))

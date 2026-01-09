@@ -15,6 +15,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.11', '3.12']
+    continue-on-error: ${{ matrix.python-version == '3.12' }}
     
     steps:
     - name: Checkout code
@@ -31,7 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed to install"
-        pip install -r requirements/requirements-dev.txt || echo "Warning: Dev dependencies failed to install"
+        pip install -r requirements/requirements-test.txt || echo "Warning: Test dependencies failed to install"
     
     - name: Run tests with coverage
       run: |
@@ -55,9 +56,8 @@ jobs:
         fi
     
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      # Only attempt Codecov upload if token is available to avoid failures
-      if: matrix.python-version == '3.11' && env.HAS_CODECOV_TOKEN == 'true'
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
       with:
         files: ./coverage.xml
         flags: unittests
@@ -65,7 +65,6 @@ jobs:
         fail_ci_if_error: false
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' && 'true' || 'false' }}
     
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4

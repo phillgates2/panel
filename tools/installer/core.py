@@ -1,21 +1,38 @@
 import logging
 from .deps import check_system_deps
 from .os_utils import is_admin, ensure_elevated
+import platform
 
 log = logging.getLogger(__name__)
 
-# Service name mapping per component
-_SERVICE_MAP = {
-    "postgres": "postgresql",
-    "redis": "redis-server",
-    "nginx": "nginx",
-    # python env typically doesn't have a system service; leave None
-    "python": None,
+# Default service names per OS for components
+SERVICE_MAP = {
+    "postgres": {
+        "Linux": "postgresql",
+        "Darwin": "postgresql",
+        "Windows": "postgresql-x64-16",  # best-effort default; may vary by version
+    },
+    "redis": {
+        "Linux": "redis-server",
+        "Darwin": "redis",
+        "Windows": "Redis",
+    },
+    "nginx": {
+        "Linux": "nginx",
+        "Darwin": "nginx",
+        "Windows": "nginx",
+    },
 }
 
 
+def _service_name(component):
+    osname = platform.system()
+    mapping = SERVICE_MAP.get(component, {})
+    return mapping.get(osname, mapping.get("Linux"))
+
+
 def start_component_service(component: str):
-    name = _SERVICE_MAP.get(component)
+    name = _service_name(component)
     if not name:
         return False
     try:
@@ -29,12 +46,11 @@ def start_component_service(component: str):
 
 
 def stop_component_service(component: str):
-    name = _SERVICE_MAP.get(component)
+    name = _service_name(component)
     if not name:
         return False
     try:
         from .service_manager import stop_service, disable_service
-        # stop first, then optionally disable
         stop_service(name)
         try:
             disable_service(name)
@@ -46,7 +62,7 @@ def stop_component_service(component: str):
         return False
 
 
-def install_all(domain, components, elevate=True, dry_run=False, progress_cb=None):
+def install_all(domain, components, elevate=True, dry_run=False, progress_cb=None, venv_path="/opt/panel/venv"):
     """High level install orchestrator (stub/PoC).
 
     - domain: domain name string
@@ -54,13 +70,15 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
     - elevate: whether to ensure admin rights
     - dry_run: only check / report actions
     - progress_cb: optional callable(step:str, component:str, meta:dict)
+    - venv_path: target path for python venv component
     """
     if elevate and not is_admin():
-        # Attempt to re-run elevated; ensure_elevated() will re-exec or raise on failure.
-        try:
-            ensure_elevated()
-        except Exception as e:
-            raise RuntimeError(f"Elevation failed: {e}")
+        # Skip elevation when dry_run to allow simulation without prompts.
+        if not dry_run:
+            try:
+                ensure_elevated()
+            except Exception as e:
+                raise RuntimeError(f"Elevation failed: {e}")
 
     missing = check_system_deps()
     if missing:
@@ -87,7 +105,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if not dry_run and res.get("installed"):
                     started = start_component_service("postgres")
                     if progress_cb:
-                        progress_cb("service", c, {"service": _SERVICE_MAP.get("postgres"), "started": started})
+                        progress_cb("service", c, {"service": _service_name("postgres"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "postgres", "meta": res})
@@ -102,7 +120,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if not dry_run and res.get("installed"):
                     started = start_component_service("redis")
                     if progress_cb:
-                        progress_cb("service", c, {"service": _SERVICE_MAP.get("redis"), "started": started})
+                        progress_cb("service", c, {"service": _service_name("redis"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "redis", "meta": res})
@@ -118,7 +136,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if not dry_run and res.get("installed"):
                     started = start_component_service("nginx")
                     if progress_cb:
-                        progress_cb("service", c, {"service": _SERVICE_MAP.get("nginx"), "started": started})
+                        progress_cb("service", c, {"service": _service_name("nginx"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "nginx", "meta": res})
@@ -127,7 +145,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
 
             elif c == "python":
                 from .components import pythonenv as pyenv
-                res = pyenv.install(dry_run=dry_run, target='/opt/panel/venv')
+                res = pyenv.install(dry_run=dry_run, target=venv_path)
                 actions.append({"component": "python", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
@@ -154,16 +172,18 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
     return {"status": "ok", "actions": actions}
 
 
-def uninstall_all(preserve_data=True, dry_run=False, components=None, progress_cb=None):
-    if not is_admin():
-        raise RuntimeError("Admin rights are required to uninstall")
+def uninstall_all(preserve_data=True, dry_run=False, components=None, progress_cb=None, elevate=True):
+    # Allow dry-run without elevation/admin to enable safe simulation
+    if elevate and not dry_run:
+        if not is_admin():
+            raise RuntimeError("Admin rights are required to uninstall")
 
     # Stop services for selected components before rollback
     if components:
         for c in components:
             stopped = stop_component_service(c)
             if progress_cb:
-                progress_cb("service_stop", c, {"service": _SERVICE_MAP.get(c), "stopped": stopped})
+                progress_cb("service_stop", c, {"service": _service_name(c), "stopped": stopped})
 
     # Use state-based rollback if available
     from .state import rollback, read_state

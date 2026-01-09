@@ -16,7 +16,7 @@ def is_installed():
     return shutil.which("redis-server") is not None or shutil.which("redis-cli") is not None
 
 
-def install(dry_run=False):
+def install(dry_run=False, target=None):
     if is_installed():
         return {"installed": True, "skipped": True, "msg": "redis already available"}
 

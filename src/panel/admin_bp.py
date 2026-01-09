@@ -47,19 +47,19 @@ def admin_servers():
         except Exception:
             pass
     if not uid:
-        return redirect(url_for("login"))
+        return redirect(url_for("main.login"))
     u = db.session.get(User, uid)
     # Non-admins: redirect to dashboard
     if not u or not u.is_system_admin():
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
     servers = Server.query.order_by(Server.name).all()
     return render_template("admin_servers.html", servers=servers)
 
 
 @admin_bp.route("/admin/servers/create")
 def admin_create_server():
-    # Minimal create server page (not used by tests but needed for url_for)
-    return render_template("admin_create_server.html")
+    # Avoid 500 if the template isn't present; redirect to servers list.
+    return redirect(url_for("admin.admin_servers"))
 
 
 @admin_bp.route("/admin/servers/<int:server_id>/delete", methods=["POST"])
@@ -89,8 +89,11 @@ def admin_server_manage_users(server_id):
 
 @admin_bp.route("/admin/chat-moderation")
 def chat_moderation():
-    if not current_user or not current_user.has_permission("moderate_forum"):
-        return redirect(url_for("index"))
+    if not getattr(current_user, "is_authenticated", False):
+        return redirect(url_for("main.login"))
+    has_perm = getattr(current_user, "has_permission", None)
+    if not callable(has_perm) or not has_perm("moderate_forum"):
+        return redirect(url_for("main.dashboard"))
     return render_template("admin_chat_moderation.html")
 
 
@@ -99,12 +102,12 @@ def admin_theme():
     # Session-based auth to align with tests
     uid = session.get("user_id")
     if not uid:
-        return redirect(url_for("login"))
+        return redirect(url_for("main.login"))
     u = db.session.get(User, uid)
     # Non-admin users: redirect to dashboard
     is_admin = bool(u and (u.role or "") == "system_admin")
     if not is_admin:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("main.dashboard"))
     # Admins: render theme editor; accept POST
     if request.method == "POST" and request.args.get("upload"):
         file = request.files.get("logo")

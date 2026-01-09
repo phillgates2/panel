@@ -1,0 +1,92 @@
+name: Selenium E2E
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tests/selenium/**'
+      - 'app/**'
+      - 'src/**'
+      - '.github/workflows/selenium-e2e.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tests/selenium/**'
+      - 'app/**'
+      - 'src/**'
+      - '.github/workflows/selenium-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  selenium:
+    name: Selenium E2E on Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements/requirements.txt || true
+          python -m pip install -r requirements/requirements-test.txt || true
+          python -m pip install pytest selenium
+
+      - name: Print Chrome version
+        run: |
+          echo "Chrome path: ${{ steps.setup-chrome.outputs.chrome-path }}"
+          ${{ steps.setup-chrome.outputs.chrome-path }} --version || true
+
+      - name: Start Panel server
+        env:
+          FLASK_APP: app
+          FLASK_DEBUG: '0'
+        run: |
+          python -m flask run -h 127.0.0.1 -p 5000 &
+          echo $! > flask.pid
+          echo "Waiting for server..."
+          for i in $(seq 1 60); do
+            if curl -sSf http://127.0.0.1:5000/health >/dev/null; then
+              echo "Server is up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Selenium tests
+        env:
+          PANEL_BASE_URL: http://127.0.0.1:5000
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          if [ -d "tests/selenium" ]; then
+            python -m pytest -q tests/selenium -v || (echo "Selenium tests failed" && exit 1)
+          else
+            echo "⚠️  tests/selenium not found. Skipping Selenium E2E."
+          fi
+
+      - name: Upload pytest results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-e2e-logs
+          path: |
+            ./.pytest_cache
+            ./instance/logs
+          if-no-files-found: ignore
+
+      - name: Stop Panel server
+        if: always()
+        run: |
+          if [ -f flask.pid ]; then
+            kill $(cat flask.pid) || true
+          fi

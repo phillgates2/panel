@@ -191,6 +191,12 @@ nav {
     flex-wrap: wrap;
 }
 
+/* Keep navbar search input + button inline */
+.search-form {
+    flex-direction: row;
+    align-items: center;
+}
+
 nav a {
     color: var(--text-secondary);
     text-decoration: none;

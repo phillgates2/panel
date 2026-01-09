@@ -60,7 +60,7 @@ jobs:
       env:
         SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
       run: |
-        pip install -r requirements/requirements-prod.txt || echo "Warning: Some dependencies failed to install"
+        pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed to install"
         safety check --key "$SAFETY_API_KEY" --json --output safety-report.json || true
         if [ -f safety-report.json ]; then
           echo "✅ Safety check completed"
@@ -87,7 +87,7 @@ jobs:
     - name: Run pip-audit
       if: always()
       run: |
-        pip install -r requirements/requirements-prod.txt || echo "Warning: Some dependencies failed to install"
+        pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed to install"
         pip-audit --format json --output pip-audit-report.json || true
         # Check for vulnerabilities
         if [ -f pip-audit-report.json ]; then
@@ -114,7 +114,7 @@ jobs:
     - name: Run Bandit (Python security)
       if: always()
       run: |
-        pip install -r requirements/requirements-prod.txt || echo "Warning: Some dependencies failed to install"
+        pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed to install"
         bandit -r . -f json -o bandit-report.json --exclude ./tests,./venv,./.venv,./node_modules || true
         # Check for high-severity issues
         if [ -f bandit-report.json ]; then

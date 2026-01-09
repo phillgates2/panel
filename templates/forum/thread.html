@@ -111,7 +111,7 @@
     </div>
     {% elif not current_user %}
     <div class="login-prompt">
-        <p>🔐 <a href="{{ url_for('login') }}">Login</a> to post a reply</p>
+        <p>🔐 <a href="{{ url_for('main.login') }}">Login</a> to post a reply</p>
     </div>
     {% elif thread.is_locked %}
     <div class="locked-notice">

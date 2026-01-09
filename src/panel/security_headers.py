@@ -77,9 +77,14 @@ def configure_security_headers(app):
 
         return response
 
-    # Configure secure session cookies
+    # Configure session cookies.
+    # IMPORTANT: do not blindly override SESSION_COOKIE_SECURE here;
+    # respect the config layer (dev often runs on plain HTTP).
+    if "SESSION_COOKIE_SECURE" not in app.config:
+        app.config["SESSION_COOKIE_SECURE"] = (
+            (not app.debug) and app.config.get("PREFERRED_URL_SCHEME") == "https"
+        )
     app.config.update(
-        SESSION_COOKIE_SECURE=not app.debug,  # Only send cookies over HTTPS in production
         SESSION_COOKIE_HTTPONLY=True,  # Prevent JavaScript access to session cookie
         SESSION_COOKIE_SAMESITE="Lax",  # CSRF protection
         PERMANENT_SESSION_LIFETIME=2592000,  # 30 days

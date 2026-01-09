@@ -72,13 +72,13 @@ def admin_rbac_create_role():
 
     if not name:
         flash("Role name is required", "error")
-        return redirect(url_for("admin_rbac_roles"))
+        return redirect(url_for("admin.admin_rbac_roles"))
 
     # Check if role already exists
     existing = Role.query.filter_by(name=name).first()
     if existing:
         flash("Role name already exists", "error")
-        return redirect(url_for("admin_rbac_roles"))
+        return redirect(url_for("admin.admin_rbac_roles"))
 
     # Create role
     role = Role(name=name, description=description)
@@ -94,7 +94,7 @@ def admin_rbac_create_role():
     db.session.commit()
 
     flash(f'Role "{name}" created successfully', "success")
-    return redirect(url_for("admin_rbac_roles"))
+    return redirect(url_for("admin.admin_rbac_roles"))
 
 
 @admin_bp.route("/admin/rbac/roles/<int:role_id>/edit", methods=["GET", "POST"])
@@ -107,7 +107,7 @@ def admin_rbac_edit_role(role_id):
         # Prevent editing system roles
         if role.is_system_role:
             flash("Cannot modify system roles", "error")
-            return redirect(url_for("admin_rbac_roles"))
+            return redirect(url_for("admin.admin_rbac_roles"))
 
         name = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
@@ -115,7 +115,7 @@ def admin_rbac_edit_role(role_id):
 
         if not name:
             flash("Role name is required", "error")
-            return redirect(url_for("admin_rbac_edit_role", role_id=role_id))
+            return redirect(url_for("admin.admin_rbac_edit_role", role_id=role_id))
 
         # Update role
         role.name = name
@@ -143,7 +143,7 @@ def admin_rbac_edit_role(role_id):
         db.session.commit()
 
         flash(f'Role "{name}" updated successfully', "success")
-        return redirect(url_for("admin_rbac_roles"))
+        return redirect(url_for("admin.admin_rbac_roles"))
 
     # GET request - show edit form
     permissions = Permission.query.order_by(Permission.category, Permission.name).all()
@@ -171,13 +171,13 @@ def admin_rbac_delete_role(role_id):
 
     if role.is_system_role:
         flash("Cannot delete system roles", "error")
-        return redirect(url_for("admin_rbac_roles"))
+        return redirect(url_for("admin.admin_rbac_roles"))
 
     # Check if role is assigned to any users
     user_count = UserRole.query.filter_by(role_id=role_id).count()
     if user_count > 0:
         flash(f"Cannot delete role: assigned to {user_count} users", "error")
-        return redirect(url_for("admin_rbac_roles"))
+        return redirect(url_for("admin.admin_rbac_roles"))
 
     # Delete role and its permissions
     RolePermission.query.filter_by(role_id=role_id).delete()
@@ -185,7 +185,7 @@ def admin_rbac_delete_role(role_id):
     db.session.commit()
 
     flash(f'Role "{role.name}" deleted successfully', "success")
-    return redirect(url_for("admin_rbac_roles"))
+    return redirect(url_for("admin.admin_rbac_roles"))
 
 
 @admin_bp.route("/admin/rbac/users", methods=["GET"])
@@ -206,9 +206,39 @@ def admin_rbac_users():
 
     roles = Role.query.order_by(Role.name).all()
 
+    users_json = []
+    try:
+        for u in pagination.items:
+            assigned = UserRole.query.filter_by(user_id=u.id).all()
+            users_json.append(
+                {
+                    "id": u.id,
+                    "email": u.email,
+                    "role": getattr(u, "role", None),
+                    "user_roles": [
+                        {
+                            "role_id": ur.role_id,
+                            "role": {"name": getattr(getattr(ur, "role", None), "name", "")},
+                        }
+                        for ur in assigned
+                    ],
+                }
+            )
+    except Exception:
+        users_json = [
+            {
+                "id": u.id,
+                "email": u.email,
+                "role": getattr(u, "role", None),
+                "user_roles": [],
+            }
+            for u in pagination.items
+        ]
+
     return render_template(
         "admin_rbac_users.html",
         users=pagination.items,
+        users_json=users_json,
         pagination=pagination,
         roles=roles,
         search=search,
@@ -227,7 +257,7 @@ def admin_rbac_assign_role(user_id):
 
     if not role_id or not role_id.isdigit():
         flash("Invalid role selected", "error")
-        return redirect(url_for("admin_rbac_users"))
+        return redirect(url_for("admin.admin_rbac_users"))
 
     role = Role.query.get_or_404(int(role_id))
 
@@ -240,7 +270,7 @@ def admin_rbac_assign_role(user_id):
             expires_datetime = datetime.fromisoformat(expires_at)
         except ValueError:
             flash("Invalid expiration date format", "error")
-            return redirect(url_for("admin_rbac_users"))
+            return redirect(url_for("admin.admin_rbac_users"))
 
     # Assign role
     admin_user_id = session.get("user_id")
@@ -257,7 +287,7 @@ def admin_rbac_assign_role(user_id):
     db.session.commit()
 
     flash(f'Role "{role.name}" assigned to {user.email}', "success")
-    return redirect(url_for("admin_rbac_users"))
+    return redirect(url_for("admin.admin_rbac_users"))
 
 
 @admin_bp.route("/admin/rbac/users/<int:user_id>/revoke-role", methods=["POST"])
@@ -271,7 +301,7 @@ def admin_rbac_revoke_role(user_id):
 
     if not role_id or not role_id.isdigit():
         flash("Invalid role selected", "error")
-        return redirect(url_for("admin_rbac_users"))
+        return redirect(url_for("admin.admin_rbac_users"))
 
     role = Role.query.get_or_404(int(role_id))
 
@@ -293,7 +323,7 @@ def admin_rbac_revoke_role(user_id):
     else:
         flash("Role assignment not found", "error")
 
-    return redirect(url_for("admin_rbac_users"))
+    return redirect(url_for("admin.admin_rbac_users"))
 
 
 @admin_bp.route("/admin/rbac/initialize", methods=["POST"])
@@ -306,7 +336,7 @@ def admin_rbac_initialize():
     except Exception as e:  # pragma: no cover - defensive logging
         flash(f"Failed to initialize RBAC system: {str(e)}", "error")
 
-    return redirect(url_for("admin_rbac_roles"))
+    return redirect(url_for("admin.admin_rbac_roles"))
 
 
 @admin_bp.route("/api/rbac/user/<int:user_id>/permissions", methods=["GET"])

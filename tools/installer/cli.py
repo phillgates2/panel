@@ -12,10 +12,14 @@ def build_parser():
     ip = sub.add_parser("install", help="Install panel and components")
     ip.add_argument("--domain", default="localhost", help="Panel domain name")
     ip.add_argument("--components", default=",".join(["postgres","redis","nginx","python"]))
+    ip.add_argument("--venv-path", default="/opt/panel/venv", help="Target path for Python venv when installing python component")
     ip.add_argument("--dry-run", action="store_true")
+    ip.add_argument("--no-elevate", action="store_true", help="Do not attempt elevation (useful for CI)")
 
     up = sub.add_parser("uninstall", help="Uninstall panel")
     up.add_argument("--preserve-data", action="store_true")
+    up.add_argument("--dry-run", action="store_true")
+    up.add_argument("--no-elevate", action="store_true", help="Do not require admin for dry-run")
 
     cp = sub.add_parser("check", help="Check system dependencies")
 
@@ -28,9 +32,9 @@ def main(argv=None):
 
     if args.cmd == "install":
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
-        print(install_all(args.domain, comps, dry_run=args.dry_run))
+        print(install_all(args.domain, comps, elevate=(not args.no_elevate), dry_run=args.dry_run, venv_path=args.venv_path))
     elif args.cmd == "uninstall":
-        print(uninstall_all(preserve_data=args.preserve_data))
+        print(uninstall_all(preserve_data=args.preserve_data, dry_run=args.dry_run, elevate=(not args.no_elevate)))
     elif args.cmd == "check":
         from .deps import check_system_deps, suggest_install_commands
         missing = check_system_deps()

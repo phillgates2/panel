@@ -54,7 +54,8 @@ def chat_messages(room):
 
 @chat_bp.route("/api/chat/moderate/<int:message_id>", methods=["POST"])
 def moderate_message_route(message_id):
-    if not current_user or not current_user.has_permission("moderate_forum"):
+    has_perm = getattr(current_user, "has_permission", None)
+    if not getattr(current_user, "is_authenticated", False) or not callable(has_perm) or not has_perm("moderate_forum"):
         return {"error": "Unauthorized"}, 403
 
     msg = ChatMessage.query.get(message_id)
@@ -75,7 +76,8 @@ def moderate_message_route(message_id):
 
 @chat_bp.route("/api/admin/chat-messages")
 def admin_chat_messages():
-    if not current_user or not current_user.has_permission("moderate_forum"):
+    has_perm = getattr(current_user, "has_permission", None)
+    if not getattr(current_user, "is_authenticated", False) or not callable(has_perm) or not has_perm("moderate_forum"):
         return {"error": "Unauthorized"}, 403
 
     tab = request.args.get("tab", "pending")

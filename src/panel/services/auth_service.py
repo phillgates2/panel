@@ -54,7 +54,9 @@ class AuthService:
 
             # Verify CAPTCHA if not in testing mode
             if not current_app.config.get("TESTING", False):
-                if session.get("captcha_text") != captcha:
+                expected = (session.get("captcha_text") or "").strip().upper()
+                provided = (captcha or "").strip().upper()
+                if not expected or expected != provided:
                     return False, None, "Invalid captcha"
 
                 # Check CAPTCHA expiry (3 minutes)

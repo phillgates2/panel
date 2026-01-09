@@ -19,7 +19,7 @@ def is_installed():
     return shutil.which("psql") is not None
 
 
-def install(dry_run=False):
+def install(dry_run=False, target=None):
     """Install PostgreSQL using the detected package manager.
 
     Returns a dict with details and, when dry_run=True, includes the command to run.

@@ -1,489 +1,434 @@
-# Panel - Enterprise Game Server Management Platform
+<div align="center">
+
+# 🎮 Panel
+
+### Enterprise Game Server Management Platform
 
 [![CI/CD](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml)
 [![Code Quality](https://github.com/phillgates2/panel/actions/workflows/code-quality.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/code-quality.yml)
 [![Security](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml)
-<br/>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Flask 3.0](https://img.shields.io/badge/flask-3.0-green.svg)](https://flask.palletsprojects.com/)
+[![Release](https://img.shields.io/github/v/release/phillgates2/panel)](https://github.com/phillgates2/panel/releases)
+[![codecov](https://codecov.io/gh/phillgates2/panel/branch/main/graph/badge.svg)](https://codecov.io/gh/phillgates2/panel)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 
-**A comprehensive, enterprise-grade web platform for game server management, community engagement, and real-time monitoring.**
+**A production-ready, cloud-native platform for managing game servers with enterprise features including real-time monitoring, community engagement, automated operations, and AI-powered insights.**
 
-Panel is a modern, scalable Flask application designed for managing game servers with advanced features like real-time monitoring, community forums, automated backups, and enterprise security. Built with production-ready architecture and extensive monitoring capabilities.
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
-## ✨ Key Features
+</div>
+
+---
+
+## 🌟 Overview
+
+Panel is a comprehensive Flask-based web application designed for professional game server management at scale. Built with modern DevOps practices, it provides a complete ecosystem for hosting, monitoring, and managing multiplayer game servers with integrated community features.
+
+### Highlights
+
+- 🚀 Production-ready architecture with Docker and multi-cloud docs
+- 📊 Full observability: Prometheus, Grafana, structured logging
+- 🔒 Enterprise security: OAuth2, JWT, RBAC, GDPR tools
+- ⚡ High performance: Redis caching, connection pooling, async tasks
+- 🤖 AI integrations available for automation and insights
+
+---
+
+## ✨ Features
 
 ### 🎮 Game Server Management
-- **Real-time Monitoring**: Live server status, player counts, and performance metrics
-- **Automated Scaling**: Dynamic resource allocation based on player activity
-- **Multi-Game Support**: ET:Legacy, Minecraft, and extensible for other games
-- **RCON Integration**: Secure remote console access and command execution
-- **Server Templates**: Pre-configured setups for quick deployment
+- Multi-game support (ET:Legacy, Minecraft; extensible)
+- RCON integration for remote console access
+- Pterodactyl egg tooling and server provisioning helpers
+- Server templates for quick deployment
+- Health monitoring and recovery scripts
+- Player and admin management controls
 
 ### 👥 Community Platform
-- **Integrated Forum**: Thread-based discussions with rich text support
-- **Blog/CMS System**: News publishing with markdown and media uploads
-- **User Management**: Role-based permissions (User, Moderator, Admin, System Admin)
-- **Real-time Chat**: WebSocket-powered chat rooms with moderation
-- **Achievement System**: Gamification with badges and progress tracking
-
-### 🔒 Enterprise Security
-- **OAuth2 Integration**: Google, GitHub, and custom providers
-- **JWT Authentication**: Secure token-based API access
-- **Role-Based Access Control**: Granular permissions system
-- **GDPR Compliance**: Data export/deletion and privacy controls
-- **Security Hardening**: CSP, HSTS, rate limiting, and input validation
-- **Audit Logging**: Comprehensive activity tracking
+- Forum/CMS system with moderation workflows
+- Real-time chat via WebSockets
+- User profiles, roles, and achievements
+- Optional payment/donation integrations
 
 ### 📊 Monitoring & Analytics
-- **Prometheus Metrics**: Real-time performance monitoring
-- **Grafana Dashboards**: Visual analytics and alerting
-- **Health Checks**: Automated system validation
-- **Load Testing**: Built-in performance testing with Locust
-- **Performance Profiling**: Bottleneck identification and optimization
+- Prometheus metrics (`/metrics`) with custom application metrics
+- Grafana dashboards and alerting integration
+- Health check endpoints and diagnostic scripts
+- Load testing via included guides and tooling
 
-### 🚀 Production Ready
-- **Docker & Kubernetes**: Containerized deployment with Helm charts
-- **Automated Backups**: S3 integration with encryption
-- **Background Processing**: Celery/RQ for async tasks
-- **Caching Layers**: Redis clustering with HTTP caching
-- **SSL/TLS**: Let's Encrypt integration and custom certificates
+### 🔒 Security & Compliance
+- OAuth2/OIDC (Google, GitHub, Discord) and JWT auth
+- Role-Based Access Control (RBAC) with granular permissions
+- GDPR features: data export/deletion, privacy controls
+- Security hardening: CSP, HSTS, rate limiting, input validation
+- Audit logging and configurable session policies
+
+### 🛠️ DevOps & Operations
+- Docker Compose stacks for app and monitoring
+- Alembic migrations and database management utilities
+- Automated backups with cloud storage options
+- Feature flags and API versioning support
+
+---
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Web Frontend  │    │   API Gateway   │    │  Microservices  │
-│   (Flask/Jinja) │◄──►│   (Flask-RESTX) │◄──►│   (FastAPI)     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │     Redis       │    │   Monitoring    │
-│   (Primary DB)  │    │   (Cache/Queue) │    │ (Prometheus)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+```mermaid
+graph TB
+    subgraph "Frontend"
+        A[Web UI\nBootstrap 5 + JS]
+        B[PWA / Mobile]
+    end
+
+    subgraph "Application"
+        C[Flask App\nPython 3.8+]
+        D[REST API\nFlask-RESTX]
+        E[WebSockets]
+    end
+
+    subgraph "Services"
+        F[Auth & RBAC]
+        G[Game Management\nRCON + Templates]
+        H[Background Workers]
+    end
+
+    subgraph "Data"
+        I[(PostgreSQL)]
+        J[(Redis)]
+        K[Object Storage\nBackups/Media]
+    end
+
+    subgraph "Monitoring"
+        L[Prometheus]
+        M[Grafana]
+        N[Alerting]
+    end
+
+    A --> C
+    B --> D
+    C --> F
+    C --> G
+    D --> F
+    E --> H
+    C --> I
+    C --> J
+    F --> I
+    G --> I
+    H --> J
+    H --> K
+    C --> L
+    L --> M
+    L --> N
 ```
 
 ### Technology Stack
-- **Backend**: Python 3.8+, Flask 3.0, SQLAlchemy, Redis
-- **Frontend**: Bootstrap 5, JavaScript ES6+, WebSockets
-- **Database**: PostgreSQL with connection pooling
-- **Cache/Queue**: Redis with clustering support
-- **Deployment**: Docker, Kubernetes, systemd
-- **Monitoring**: Prometheus, Grafana, ELK Stack
-- **Security**: OAuth2, JWT, bcrypt, SSL/TLS
+
+| Layer | Technologies |
+|-------|-------------|
+| Backend | Python 3.8+, Flask 3.0, SQLAlchemy, Flask-Login, Flask-RESTX |
+| Frontend | Bootstrap 5, ES6, Jinja2 Templates, Chart.js |
+| Database | PostgreSQL, Alembic migrations, pooling |
+| Cache/Queue | Redis, RQ/Celery (as configured) |
+| Auth | OAuth2 (Google/GitHub/Discord), JWT |
+| Monitoring | Prometheus, Grafana, Alertmanager |
+| Deployment | Docker, Docker Compose |
+
+---
 
 ## 🚀 Quick Start
 
-### Interactive Installer (Recommended)
-Panel includes a comprehensive interactive installer that handles all setup automatically:
+### Option 1: Interactive Installer (Recommended)
+
+The installer in `tools/installer` automates dependencies, database setup, SSL, and configuration.
 
 ```bash
-# One-line installation
-curl -fsSL https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh | bash
+# Run GUI (cross-platform PoC)
+python -m tools.installer.gui
 
-# Or download and run locally
-wget https://raw.githubusercontent.com/phillgates2/panel/main/scripts/install-interactive.sh
-bash install-interactive.sh
+# Run CLI (guided)
+python -m tools.installer
+
+# Example: CLI install with domain and components
+python -m tools.installer.cli install \
+    --domain example.com \
+    --components postgres,redis,nginx,python
+
+# Uninstall (dry-run)
+python -m tools.installer.cli uninstall --dry-run
+
+# Help
+python -m tools.installer.cli --help
 ```
 
-#### Installer Options
-The installer supports various deployment scenarios:
+### Option 2: Docker Compose (Fastest)
 
 ```bash
-# Development mode
-bash install-interactive.sh --dev
-
-# Production mode
-bash install-interactive.sh --non-interactive
-
-# Docker deployment
-bash install-interactive.sh --docker
-
-# Cloud presets (AWS, GCP, Azure)
-bash install-interactive.sh --cloud=aws
-
-# Offline installation
-bash install-interactive.sh --offline
-
-# Advanced configuration wizard
-bash install-interactive.sh --wizard
-
-# Show all options
-bash install-interactive.sh --help
-```
-
-### Docker Deployment
-```bash
-# Clone repository
 git clone https://github.com/phillgates2/panel.git
 cd panel
-
-# Start with Docker Compose
 docker-compose up -d
 
-# Access at http://localhost:8080
+# Access the app at http://localhost:8080
 ```
 
-### Manual Installation
-For advanced users or custom deployments:
+Available compose files:
+- `docker-compose.yml` — Base stack
+- `docker-compose.monitoring.yml` — Prometheus + Grafana
+- `docker-compose.microservices.yml` — Extended services
+
+### Option 3: Manual Installation
 
 ```bash
-# Clone and setup
+# 1) Clone
 git clone https://github.com/phillgates2/panel.git
 cd panel
+
+# 2) Virtualenv
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3) Dependencies
 pip install -r requirements/requirements.txt
 
-# Configure environment
+# 4) Environment
 cp .env.example .env
 # Edit .env with your settings
 
-# Initialize database
-python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all()"
+# 5) Database
+flask db upgrade
+python migrations_init.py
 
-# Start application
+# 6) Start
 python app.py
 ```
 
+First steps:
+- Visit `http://localhost:8080`
+- Configure Admin → Settings
+- Add a game server via Servers → Add New
+- Check monitoring at `/metrics` or see Grafana docs
+
+---
+
 ## 📖 Documentation
 
-### 📚 Getting Started
-- [Interactive Installer Guide](docs/INSTALLER_ENHANCEMENTS_TODO.md)
-- [Configuration Guide](docs/CONFIGURATION.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
+### Core Docs
+- Installation Guide: `docs/INSTALLER_GUIDE.md`
+- Configuration Management: `docs/CONFIGURATION_MANAGEMENT.md`
+- API Documentation: `docs/API_DOCUMENTATION.md`
+- Database Management: `docs/DATABASE_MANAGEMENT.md`
 
-### 🎯 User Guides
-- [Server Management](docs/SERVER_MANAGEMENT.md)
-- [Forum Usage](docs/FORUM_GUIDE.md)
-- [Admin Panel](docs/ADMIN_GUIDE.md)
+### Feature Guides
+- Game Server Setup: `docs/GAME_SERVER_SETUP.md`
+- Pterodactyl Eggs: `docs/PTERO_EGGS_README.md`
+- CMS/Forum: `docs/CMS_FORUM.md`
+- RBAC: `docs/RBAC_README.md`
+- OAuth Setup: `docs/OAUTH_SETUP.md`
+- GDPR Compliance: `docs/GDPR_COMPLIANCE.md`
 
-### 🔧 Developer Resources
-- [API Documentation](docs/API_DOCUMENTATION.md)
-- [Contributing Guide](docs/CONTRIBUTING.md)
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Testing Guide](docs/TESTING.md)
+### Deployment & Ops
+- Docker Optimization: `docs/DOCKER_OPTIMIZATION_README.md`
+- Kubernetes Deployment: `docs/KUBERNETES_DEPLOYMENT.md`
+- AWS/GCP/Azure Deployment: `docs/AWS_DEPLOYMENT.md`, `docs/GCP_DEPLOYMENT.md`, `docs/AZURE_DEPLOYMENT.md`
+- Monitoring Setup: `docs/MONITORING_DASHBOARD_README.md`
+- Backup & Recovery: `docs/BACKUP_RECOVERY.md`
+- Load Testing: `docs/LOAD_TESTING.md`
+- Troubleshooting: `docs/TROUBLESHOOTING.md`
 
-### 🚀 Advanced Topics
-- [Kubernetes Deployment](docs/KUBERNETES_DEPLOYMENT.md)
-- [Monitoring Setup](docs/MONITORING.md)
-- [Security Hardening](docs/SECURITY.md)
-- [Performance Tuning](docs/PERFORMANCE.md)
+### Developer Resources
+- Contributing: `docs/CONTRIBUTING.md`
+- Development Setup: `docs/README_DEV.md`
+- Test Infrastructure: `docs/TEST_INFRASTRUCTURE_README.md`
+- CI/CD Workflows: `docs/CI_CD_README.md`
+- Code Quality: `docs/ADDITIONAL_LINTING_README.md`
+
+---
 
 ## 🔧 Configuration
 
-Panel uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
+Panel uses environment variables via `.env` and config modules.
+
+Example `.env`:
 
 ```bash
+# Application
+FLASK_ENV=production
+SECRET_KEY=$(openssl rand -hex 32)
+DEBUG=False
+
 # Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/panel
+DATABASE_URL=postgresql://panel_user:secure_password@localhost:5432/panel_db
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# Application
-SECRET_KEY=your-secret-key-here
-FLASK_ENV=production
-
 # OAuth (optional)
-GOOGLE_CLIENT_ID=your-google-client-id
-GITHUB_CLIENT_ID=your-github-client-id
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+DISCORD_CLIENT_ID=...
+DISCORD_CLIENT_SECRET=...
 
-# Monitoring (optional)
+# Monitoring
 PROMETHEUS_ENABLED=true
 GRAFANA_URL=http://localhost:3000
 ```
 
-## 🧪 Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Install test dependencies
-pip install -r requirements/requirements-dev.txt
-
-# Run all tests
-make test
-
-# Run specific test categories
-make test-unit          # Unit tests only
-make test-integration   # Integration tests
-make test-e2e          # End-to-end tests
-
-# Run with coverage
-make test-coverage
-
-# Load testing
-make test-performance
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Here's how to get started:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Install development dependencies**: `pip install -r requirements/requirements-dev.txt`
-4. **Run tests**: `make test`
-5. **Format code**: `make format`
-6. **Commit changes**: `git commit -m 'Add amazing feature'`
-7. **Push to branch**: `git push origin feature/amazing-feature`
-8. **Open a Pull Request**
-
-### Development Setup
-```bash
-# Clone and setup
-git clone https://github.com/phillgates2/panel.git
-cd panel
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements/requirements-dev.txt
-
-# Setup pre-commit hooks
-pre-commit install
-
-# Run development server
-python app.py
-```
-
-### Code Quality
-- **Linting**: `make lint` (ruff, flake8, bandit)
-- **Formatting**: `make format` (black, isort)
-- **Type Checking**: `make mypy`
-- **Security**: `make security`
-
-## 📊 Monitoring
-
-Panel includes comprehensive monitoring capabilities:
-
-### Health Checks
-```bash
-# Application health
-curl http://localhost:8080/health
-
-# Detailed health check
-curl http://localhost:8080/health/detailed
-
-# Run comprehensive health check
-./panel-doctor.sh
-```
-
-### Metrics
-- **Prometheus**: `/metrics` endpoint
-- **Grafana**: Pre-built dashboards included
-- **Custom Metrics**: Application-specific monitoring
-
-### Logging
-- **Structured Logging**: JSON format with correlation IDs
-- **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
-- **Log Rotation**: Automatic log rotation and cleanup
-
-## 🔒 Security
-
-Panel implements enterprise-grade security measures:
-
-### Authentication & Authorization
-- JWT tokens with configurable expiration
-- OAuth2 social login integration
-- Multi-factor authentication support
-- Session management with secure cookies
-
-### Data Protection
-- Password hashing with bcrypt
-- Sensitive data encryption
-- GDPR compliance features
-- Audit logging for all actions
-
-### Network Security
-- HTTPS enforcement with HSTS
-- Content Security Policy (CSP)
-- Rate limiting and DDoS protection
-- Input validation and sanitization
-
-## 🚀 Deployment
-
-### Production Deployment Options
-
-#### Docker Compose (Recommended)
-```bash
-# Production setup
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# With monitoring
-docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
-```
-
-#### Kubernetes
-```bash
-# Deploy to Kubernetes
-kubectl apply -f k8s/
-
-# With Helm
-helm install panel ./helm
-```
-
-#### Traditional Server
-```bash
-# Automated installation
-PANEL_DOMAIN=yourdomain.com PANEL_ENABLE_SSL=true \
-bash scripts/install-interactive.sh
-
-# Manual systemd setup
-sudo cp deploy/panel.service /etc/systemd/system/
-sudo systemctl enable panel
-sudo systemctl start panel
-```
-
-### Environment Variables
-```bash
-# Production settings
-export FLASK_ENV=production
-export SECRET_KEY="$(openssl rand -hex 32)"
-export DATABASE_URL="postgresql://user:pass@db:5432/panel"
-export REDIS_URL="redis://redis:6379/0"
-
-# SSL Configuration
-export SSL_CERT_PATH="/etc/ssl/certs/panel.crt"
-export SSL_KEY_PATH="/etc/ssl/private/panel.key"
-
-# Monitoring
-export PROMETHEUS_ENABLED=true
-export GRAFANA_URL="http://monitoring:3000"
-```
-
-## 📈 Performance
-
-Panel is optimized for high performance:
-
-### Caching Strategy
-- **Multi-level Caching**: Memory → Redis → Database
-- **HTTP Caching**: ETags, Cache-Control headers
-- **Template Caching**: Jinja2 template optimization
-
-### Database Optimization
-- **Connection Pooling**: SQLAlchemy with optimized pools
-- **Query Optimization**: N+1 query prevention
-- **Indexing**: Strategic database indexes
-- **Read Replicas**: Support for database scaling
-
-### Background Processing
-- **Task Queues**: RQ and Celery for async tasks
-- **Job Scheduling**: Cron-based automated tasks
-- **Resource Management**: Worker process optimization
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### Database Connection Failed
-```bash
-# Check database status
-sudo systemctl status postgresql
-
-# Test connection
-psql -U panel_user -d panel -h localhost
-
-# Reset database
-make db-init
-```
-
-#### Redis Connection Issues
-```bash
-# Check Redis status
-redis-cli ping
-
-# Restart Redis
-sudo systemctl restart redis
-```
-
-#### Permission Errors
-```bash
-# Fix ownership
-sudo chown -R $USER:$USER /opt/panel
-
-# Fix permissions
-chmod 755 /opt/panel
-chmod 644 /opt/panel/.env
-```
-
-#### SSL Certificate Problems
-```bash
-# Renew Let's Encrypt certificate
-sudo certbot renew
-
-# Check certificate validity
-openssl x509 -in /etc/ssl/certs/panel.crt -text -noout
-```
-
-### Debug Mode
-```bash
-# Enable debug logging
-export FLASK_ENV=development
-export LOG_LEVEL=DEBUG
-
-# Run with debug mode
-python app.py
-```
-
-### Health Check Script
-```bash
-# Run comprehensive health check
-./panel-doctor.sh all
-
-# Check specific components
-./panel-doctor.sh --database
-./panel-doctor.sh --redis
-./panel-doctor.sh --nginx
-```
-
-## 📞 Support
-
-### Community Support
-- **GitHub Issues**: [Report bugs and request features](https://github.com/phillgates2/panel/issues)
-- **Discussions**: [Community forum](https://github.com/phillgates2/panel/discussions)
-- **Documentation**: [Full docs](docs/README.md)
-
-### Professional Support
-- **Enterprise Support**: Contact for commercial licensing
-- **Consulting**: Custom development and deployment services
-- **Training**: Team training and onboarding
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Flask Community**: For the excellent web framework
-- **SQLAlchemy Team**: For the powerful ORM
-- **Redis Community**: For the high-performance data structure store
-- **Open Source Contributors**: For their valuable contributions
-
-## 🎯 Roadmap
-
-### Upcoming Features
-- [ ] Mobile application (React Native)
-- [ ] Advanced AI features (GPT integration)
-- [ ] Multi-tenant architecture
-- [ ] Real-time notifications (WebSockets)
-- [ ] Advanced analytics dashboard
-- [ ] Plugin system for extensibility
-- [ ] Multi-language support (i18n)
-- [ ] API rate limiting per user
-- [ ] Automated scaling policies
-- [ ] Backup encryption and compression
-
-### Version History
-See [CHANGELOG.md](docs/CHANGELOG.md) for detailed version history.
+See `config.py`, `config_dev.py`, `simple_config.py`, and `config_schema.py` for details.
 
 ---
 
-**Panel** — Modern, secure, and scalable game server management platform.
+## 🧪 Testing
 
-[🚀 Get Started](docs/INSTALLER_ENHANCEMENTS_TODO.md) • [📖 Documentation](docs/README.md) • [🐛 Report Issues](https://github.com/phillgates2/panel/issues) • [💬 Community](https://github.com/phillgates2/panel/discussions)
+```bash
+# Install dev deps
+pip install -r requirements/requirements-dev.txt
+
+# Run tests
+make test
+
+# Specific suites
+make test-unit
+make test-integration
+make test-performance
+
+# Coverage
+make test-coverage
+```
+
+---
+
+## 📊 Monitoring
+
+Health checks:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/health/detailed
+./panel-doctor.sh
+```
+
+Metrics:
+- Prometheus at `/metrics`
+- Grafana dashboards (see `docs/MONITORING_DASHBOARD_README.md`)
+
+Logging:
+- Structured logs with correlation IDs
+- Configurable levels and rotation (`logging_config.py`)
+
+---
+
+## 🔒 Security
+
+Key measures:
+- OAuth2/OIDC and JWT-based auth
+- RBAC with granular permissions
+- bcrypt password hashing
+- HTTPS enforcement with HSTS
+- CSP, rate limiting, input validation
+- GDPR tools and audit logging
+
+Run security checks:
+
+```bash
+make security
+```
+
+See `docs/SECURITY_HARDENING_README.md` for the production checklist.
+
+---
+
+## 🚀 Deployment
+
+Docker Compose:
+
+```bash
+docker-compose -f docker-compose.yml up -d
+docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
+
+Traditional server setup is covered by the installer and systemd templates in `deploy/` (see docs for specifics).
+
+Cloud and Kubernetes guides are available in the `docs/` folder.
+
+---
+
+## 🐛 Troubleshooting
+
+Common checks:
+
+```bash
+# Database
+sudo systemctl status postgresql
+psql -U panel_user -d panel_db -h localhost
+
+# Redis
+redis-cli ping
+
+# Debug mode
+export FLASK_ENV=development
+python app.py
+```
+
+More tips: `docs/TROUBLESHOOTING.md` and `panel-doctor.sh`.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions!
+
+```bash
+# Dev setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements/requirements-dev.txt
+pre-commit install
+
+# Quality checks
+make lint
+make format
+make test
+```
+
+See `docs/CONTRIBUTING.md` for guidelines.
+
+---
+
+## 📞 Support
+
+- Issues: https://github.com/phillgates2/panel/issues
+- Discussions: https://github.com/phillgates2/panel/discussions
+- Docs index: `docs/INDEX.md`
+
+---
+
+## 📄 License
+
+Licensed under the MIT License. See `LICENSE` for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Flask, SQLAlchemy, Redis, PostgreSQL, Prometheus, Grafana, Docker
+- And all open-source contributors who make this possible
+
+---
+
+## 🎯 Roadmap
+
+High-level plans are tracked in `docs/ENTERPRISE_ROADMAP.md` and `docs/WORKFLOWS.md`.
+
+---
+
+<div align="center">
+
+**Panel** — Built with ❤️ by the community
+
+[🚀 Get Started](docs/INSTALLER_GUIDE.md) • [📖 Read the Docs](docs/README.md) • [🐛 Report Bug](https://github.com/phillgates2/panel/issues)
+
+</div>
