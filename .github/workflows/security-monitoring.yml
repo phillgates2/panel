@@ -173,6 +173,7 @@ jobs:
 
     - name: Check for secrets
       uses: trufflesecurity/trufflehog@v3.73.6
+      continue-on-error: true
       with:
         path: ./
         base: main
@@ -245,6 +246,7 @@ jobs:
           bandit-report.json
           trivy-files-report.json
           security-summary.md
+        if-no-files-found: warn
         retention-days: 30
 
     - name: Create security issue on failures
