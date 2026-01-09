@@ -24,9 +24,6 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    env:
-      SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-      SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
 
     steps:
     - name: Checkout code
@@ -43,7 +40,7 @@ jobs:
       run: |
         pip install bandit pip-audit || true
         # Optionally install Safety if API key provided (Safety v3 requires a key)
-        if [ -n "${{ env.SAFETY_API_KEY }}" ]; then
+        if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
           pip install safety || true
         else
           echo "Skipping Safety install: SAFETY_API_KEY not set"
@@ -63,9 +60,9 @@ jobs:
         npm install -g audit-ci || true
 
     - name: Run Safety (Python vulnerabilities)
-      if: ${{ always() && env.SAFETY_API_KEY != '' }}
+      if: ${{ always() }}
       env:
-        SAFETY_API_KEY: ${{ env.SAFETY_API_KEY }}
+        SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
       run: |
         pip install -r requirements/requirements.txt || echo "Warning: Some dependencies failed to install"
         safety check --key "$SAFETY_API_KEY" --json --output safety-report.json || true
@@ -287,7 +284,7 @@ jobs:
           });
 
     - name: Notify Slack on security issues
-      if: ${{ (env.high_vulns == 'true' || env.bandit_high == 'true' || env.trivy_high == 'true') && env.SLACK_SECURITY_WEBHOOK_URL != '' }}
+      if: ${{ env.high_vulns == 'true' || env.bandit_high == 'true' || env.trivy_high == 'true' }}
       continue-on-error: true
       uses: 8398a7/action-slack@v3
       with:
@@ -320,4 +317,4 @@ jobs:
             }]
           }
       env:
-        SLACK_WEBHOOK_URL: ${{ env.SLACK_SECURITY_WEBHOOK_URL }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
