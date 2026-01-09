@@ -52,8 +52,8 @@ _STRINGS = {
         "run": "Run",
         "cancel": "Cancel",
         "preflight": "Preflight Checks",
-        "export_text": "Export Text Log�",
-        "export_json": "Export JSON Log�",
+        "export_text": "Export Text Log…",
+        "export_json": "Export JSON Log…",
         "db_user": "DB User:",
         "db_pass": "DB Password:",
         "redis_port": "Redis Port:",
@@ -69,15 +69,27 @@ _STRINGS = {
         "services_stop": "Stop",
         "services_restart": "Restart",
         "services_status": "Status",
+        "wizard": "Run Wizard",
+        "preset": "Preset:",
+        "save_cfg": "Save Config…",
+        "load_cfg": "Load Config…",
+        "save_secret": "Save DB Secret",
+        "log_filter": "Filter:",
+        "log_search": "Search:",
+        "severity": "Severity:",
+        "export_redact": "Export (Redact)",
+        "diagnostics": "Diagnostics",
+        "tail_logs": "Tail Logs",
+        "crash_recovery": "Crash Recovery",
+        "sandbox": "Sandbox Mode",
+        "telemetry": "Telemetry Opt-in",
+        "privacy": "Privacy: Only anonymized metrics are sent.",
+        "check_updates": "Check for Updates",
     }
 }
 
 
 def _load_external_translations():
-    """Load external translation JSON files from `tools/installer/i18n/*.json`.
-    Each file should be named with the locale code, e.g., `es.json`, and contain a flat key-value map.
-    External entries override built-in strings for the same locale.
-    """
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         i18n_dir = os.path.join(base_dir, "i18n")
@@ -93,12 +105,10 @@ def _load_external_translations():
                     data = json.load(f)
                 if not isinstance(data, dict):
                     continue
-                # merge/override
                 existing = _STRINGS.get(locale, {})
                 merged = {**existing, **data}
                 _STRINGS[locale] = merged
             except Exception:
-                # ignore bad files
                 continue
     except Exception:
         pass
@@ -151,7 +161,6 @@ class Worker(QObject):
 class InstallerWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Load external translations before building UI
         _load_external_translations()
         self.lang = "en"
         self.str = _STRINGS[self.lang]
@@ -160,8 +169,11 @@ class InstallerWindow(QMainWindow):
         self._json_log_file_path = None
         self._progress_total = 100
         self._progress_per_component = {}
+        self._log_buffer = []  # keep structured log lines for filtering/search
         self._build_ui()
         self._apply_platform_rules()
+        self._config_path = os.path.join(os.path.expanduser("~"), ".panel_installer", "config.json")
+        self._load_config_silent()
 
     def _tr(self, key):
         return self.str.get(key, key)
@@ -177,6 +189,12 @@ class InstallerWindow(QMainWindow):
         self.lang_h.addWidget(self.lang_label)
         self.lang_h.addWidget(self.lang_select)
         main_layout.addLayout(self.lang_h)
+
+        preset_h = QHBoxLayout()
+        self.preset_label = QLabel(self._tr("preset"))
+        self.preset_select = QComboBox(); self.preset_select.addItems(["dev", "staging", "prod"]); self.preset_select.currentTextChanged.connect(self._apply_preset)
+        preset_h.addWidget(self.preset_label); preset_h.addWidget(self.preset_select)
+        main_layout.addLayout(preset_h)
 
         self.domain_h = QHBoxLayout()
         self.domain_label = QLabel(self._tr("domain"))
@@ -206,6 +224,9 @@ class InstallerWindow(QMainWindow):
         self.dry_run_check = QCheckBox(self._tr("dry_run")); self.opt_h.addWidget(self.dry_run_check)
         self.preserve_data_check = QCheckBox(self._tr("preserve")); self.preserve_data_check.setChecked(True); self.opt_h.addWidget(self.preserve_data_check)
         self.dark_mode_check = QCheckBox(self._tr("dark_mode")); self.dark_mode_check.stateChanged.connect(self._toggle_theme); self.opt_h.addWidget(self.dark_mode_check)
+        self.sandbox_check = QCheckBox(self._tr("sandbox")); self.opt_h.addWidget(self.sandbox_check)
+        self.telemetry_check = QCheckBox(self._tr("telemetry")); self.opt_h.addWidget(self.telemetry_check)
+        self.privacy_label = QLabel(self._tr("privacy")); self.opt_h.addWidget(self.privacy_label)
         main_layout.addLayout(self.opt_h)
 
         self.retry_h = QHBoxLayout()
@@ -215,12 +236,21 @@ class InstallerWindow(QMainWindow):
         self.backoff_ms = QLineEdit("0"); self.retry_h.addWidget(self.backoff_label); self.retry_h.addWidget(self.backoff_ms)
         main_layout.addLayout(self.retry_h)
 
-        self.btns_h = QHBoxLayout()
-        self.btn_action = QPushButton(self._tr("run")); self.btn_action.clicked.connect(self._on_run); self.btns_h.addWidget(self.btn_action)
-        self.btn_cancel = QPushButton(self._tr("cancel")); self.btn_cancel.setEnabled(False); self.btn_cancel.clicked.connect(self._on_cancel); self.btns_h.addWidget(self.btn_cancel)
-        self.btn_preflight = QPushButton(self._tr("preflight")); self.btn_preflight.clicked.connect(self._run_preflight); self.btns_h.addWidget(self.btn_preflight)
-        self.btn_cli = QPushButton(self._tr("cli_equiv")); self.btn_cli.clicked.connect(self._show_cli_command); self.btns_h.addWidget(self.btn_cli)
-        main_layout.addLayout(self.btns_h)
+        cfg_h = QHBoxLayout()
+        self.btn_save_cfg = QPushButton(self._tr("save_cfg")); self.btn_save_cfg.clicked.connect(self._on_save_config); cfg_h.addWidget(self.btn_save_cfg)
+        self.btn_load_cfg = QPushButton(self._tr("load_cfg")); self.btn_load_cfg.clicked.connect(self._on_load_config); cfg_h.addWidget(self.btn_load_cfg)
+        self.btn_save_secret = QPushButton(self._tr("save_secret")); self.btn_save_secret.clicked.connect(self._on_save_secret); cfg_h.addWidget(self.btn_save_secret)
+        self.btn_check_updates = QPushButton(self._tr("check_updates")); self.btn_check_updates.clicked.connect(self._on_check_updates); cfg_h.addWidget(self.btn_check_updates)
+        main_layout.addLayout(cfg_h)
+
+        btns_h = QHBoxLayout()
+        self.btn_action = QPushButton(self._tr("run")); self.btn_action.clicked.connect(self._on_run); btns_h.addWidget(self.btn_action)
+        self.btn_wizard = QPushButton(self._tr("wizard")); self.btn_wizard.clicked.connect(self._on_wizard); btns_h.addWidget(self.btn_wizard)
+        self.btn_recovery = QPushButton(self._tr("crash_recovery")); self.btn_recovery.clicked.connect(self._on_crash_recovery); btns_h.addWidget(self.btn_recovery)
+        self.btn_cancel = QPushButton(self._tr("cancel")); self.btn_cancel.setEnabled(False); self.btn_cancel.clicked.connect(self._on_cancel); btns_h.addWidget(self.btn_cancel)
+        self.btn_preflight = QPushButton(self._tr("preflight")); self.btn_preflight.clicked.connect(self._run_preflight); btns_h.addWidget(self.btn_preflight)
+        self.btn_cli = QPushButton(self._tr("cli_equiv")); self.btn_cli.clicked.connect(self._show_cli_command); btns_h.addWidget(self.btn_cli)
+        main_layout.addLayout(btns_h)
 
         self.progress = QProgressBar(); self.progress.setMinimum(0); self.progress.setMaximum(100); self.progress.setValue(0)
         main_layout.addWidget(self.progress)
@@ -233,53 +263,67 @@ class InstallerWindow(QMainWindow):
         self.services_list = QListWidget()
         for comp in ["postgres", "redis", "nginx", "python"]:
             self.services_list.addItem(QListWidgetItem(comp))
-        self.svc_btns = QHBoxLayout()
-        self.btn_service_start = QPushButton(self._tr("services_start")); self.btn_service_start.clicked.connect(lambda: self._service_action("start")); self.svc_btns.addWidget(self.btn_service_start)
-        self.btn_service_stop = QPushButton(self._tr("services_stop")); self.btn_service_stop.clicked.connect(lambda: self._service_action("stop")); self.svc_btns.addWidget(self.btn_service_stop)
-        self.btn_service_restart = QPushButton(self._tr("services_restart")); self.btn_service_restart.clicked.connect(lambda: self._service_action("restart")); self.svc_btns.addWidget(self.btn_service_restart)
-        self.btn_service_status = QPushButton(self._tr("services_status")); self.btn_service_status.clicked.connect(lambda: self._service_action("status")); self.svc_btns.addWidget(self.btn_service_status)
+        svc_btns = QHBoxLayout()
+        self.btn_service_start = QPushButton(self._tr("services_start")); self.btn_service_start.clicked.connect(lambda: self._service_action("start")); svc_btns.addWidget(self.btn_service_start)
+        self.btn_service_stop = QPushButton(self._tr("services_stop")); self.btn_service_stop.clicked.connect(lambda: self._service_action("stop")); svc_btns.addWidget(self.btn_service_stop)
+        self.btn_service_restart = QPushButton(self._tr("services_restart")); self.btn_service_restart.clicked.connect(lambda: self._service_action("restart")); svc_btns.addWidget(self.btn_service_restart)
+        self.btn_service_status = QPushButton(self._tr("services_status")); self.btn_service_status.clicked.connect(lambda: self._service_action("status")); svc_btns.addWidget(self.btn_service_status)
         services_layout.addWidget(self.services_list)
-        services_layout.addLayout(self.svc_btns)
-        self.services_tab.setLayout(services_layout)
-        self.tabs.addTab(self.services_tab, self._tr("services"))
+        services_layout.addLayout(svc_btns)
+        services_tab = QWidget(); services_tab.setLayout(services_layout)
+        self.tabs.addTab(services_tab, self._tr("services"))
 
-        # Logs tab
-        self.logs_tab = QWidget(); logs_layout = QVBoxLayout()
+        # Logs tab with advanced controls
+        logs_tab = QWidget(); logs_layout = QVBoxLayout()
+        adv_h = QHBoxLayout()
+        adv_h.addWidget(QLabel(self._tr("log_filter")))
+        self.log_filter_combo = QComboBox(); self.log_filter_combo.addItems(["all", "info", "warn", "error"]); self.log_filter_combo.currentTextChanged.connect(self._apply_log_filters); adv_h.addWidget(self.log_filter_combo)
+        adv_h.addWidget(QLabel(self._tr("log_search")))
+        self.log_search = QLineEdit(""); self.log_search.textChanged.connect(self._apply_log_filters); adv_h.addWidget(self.log_search)
+        adv_h.addWidget(QLabel(self._tr("severity")))
+        self.severity_combo = QComboBox(); self.severity_combo.addItems(["info", "warn", "error"]); self.severity_combo.currentTextChanged.connect(self._set_severity_level); adv_h.addWidget(self.severity_combo)
+        logs_layout.addLayout(adv_h)
         self.output = QTextEdit(); self.output.setReadOnly(True)
         logs_layout.addWidget(self.output)
-        self.export_h = QHBoxLayout()
-        self.btn_save_log = QPushButton(self._tr("export_text")); self.btn_save_log.clicked.connect(self._on_export_log); self.export_h.addWidget(self.btn_save_log)
-        self.btn_save_json_log = QPushButton(self._tr("export_json")); self.btn_save_json_log.clicked.connect(self._on_export_json_log); self.export_h.addWidget(self.btn_save_json_log)
-        logs_layout.addLayout(self.export_h)
-        self.logs_tab.setLayout(logs_layout)
-        self.tabs.addTab(self.logs_tab, self._tr("logs"))
+        export_h = QHBoxLayout()
+        self.btn_save_log = QPushButton(self._tr("export_text")); self.btn_save_log.clicked.connect(self._on_export_log); export_h.addWidget(self.btn_save_log)
+        self.btn_save_json_log = QPushButton(self._tr("export_json")); self.btn_save_json_log.clicked.connect(self._on_export_json_log); export_h.addWidget(self.btn_save_json_log)
+        self.btn_export_redact = QPushButton(self._tr("export_redact")); self.btn_export_redact.clicked.connect(self._on_export_redacted); export_h.addWidget(self.btn_export_redact)
+        logs_layout.addLayout(export_h)
+        # Diagnostics: attach/tail component logs
+        diag_h = QHBoxLayout()
+        self.btn_tail_logs = QPushButton(self._tr("tail_logs")); self.btn_tail_logs.clicked.connect(self._on_tail_logs); diag_h.addWidget(self.btn_tail_logs)
+        self.btn_diagnostics = QPushButton(self._tr("diagnostics")); self.btn_diagnostics.clicked.connect(self._on_diagnostics); diag_h.addWidget(self.btn_diagnostics)
+        logs_layout.addLayout(diag_h)
+        logs_tab.setLayout(logs_layout)
+        self.tabs.addTab(logs_tab, self._tr("logs"))
 
         # Settings tab
-        self.settings_tab = QWidget(); settings_layout = QVBoxLayout()
-        self.db_h = QHBoxLayout(); self.db_label = QLabel(self._tr("db_user")); self.db_user = QLineEdit("panel"); self.db_h.addWidget(self.db_label); self.db_h.addWidget(self.db_user); settings_layout.addLayout(self.db_h)
-        self.dp_h = QHBoxLayout(); self.dp_label = QLabel(self._tr("db_pass")); self.db_pass = QLineEdit(""); self.db_pass.setEchoMode(QLineEdit.Password); self.dp_h.addWidget(self.dp_label); self.dp_h.addWidget(self.db_pass); settings_layout.addLayout(self.dp_h)
-        self.rp_h = QHBoxLayout(); self.rp_label = QLabel(self._tr("redis_port")); self.redis_port = QLineEdit("6379"); self.rp_h.addWidget(self.rp_label); self.rp_h.addWidget(self.redis_port); settings_layout.addLayout(self.rp_h)
-        self.np_h = QHBoxLayout(); self.np_label = QLabel(self._tr("nginx_port")); self.nginx_port = QLineEdit("80"); self.np_h.addWidget(self.np_label); self.np_h.addWidget(self.nginx_port); settings_layout.addLayout(self.np_h)
-        self.tls_h = QHBoxLayout(); self.tls_cert_label = QLabel(self._tr("tls_cert")); self.tls_cert = QLineEdit(""); self.tls_h.addWidget(self.tls_cert_label); self.tls_h.addWidget(self.tls_cert); settings_layout.addLayout(self.tls_h)
-        self.tlsk_h = QHBoxLayout(); self.tls_key_label = QLabel(self._tr("tls_key")); self.tls_key = QLineEdit(""); self.tlsk_h.addWidget(self.tls_key_label); self.tlsk_h.addWidget(self.tls_key); settings_layout.addLayout(self.tlsk_h)
+        settings_tab = QWidget(); settings_layout = QVBoxLayout()
+        db_h = QHBoxLayout(); db_h.addWidget(QLabel(self._tr("db_user"))); self.db_user = QLineEdit("panel"); db_h.addWidget(self.db_user); settings_layout.addLayout(db_h)
+        dp_h = QHBoxLayout(); dp_h.addWidget(QLabel(self._tr("db_pass"))); self.db_pass = QLineEdit(""); self.db_pass.setEchoMode(QLineEdit.Password); dp_h.addWidget(self.db_pass); settings_layout.addLayout(dp_h)
+        rp_h = QHBoxLayout(); rp_h.addWidget(QLabel(self._tr("redis_port"))); self.redis_port = QLineEdit("6379"); rp_h.addWidget(self.redis_port); settings_layout.addLayout(rp_h)
+        np_h = QHBoxLayout(); np_h.addWidget(QLabel(self._tr("nginx_port"))); self.nginx_port = QLineEdit("80"); np_h.addWidget(self.nginx_port); settings_layout.addLayout(np_h)
+        tls_h = QHBoxLayout(); tls_h.addWidget(QLabel(self._tr("tls_cert"))); self.tls_cert = QLineEdit(""); tls_h.addWidget(self.tls_cert); settings_layout.addLayout(tls_h)
+        tlsk_h = QHBoxLayout(); tlsk_h.addWidget(QLabel(self._tr("tls_key"))); self.tls_key = QLineEdit(""); tlsk_h.addWidget(self.tls_key); settings_layout.addLayout(tlsk_h)
         self.btn_validate_settings = QPushButton(self._tr("validate_settings")); self.btn_validate_settings.clicked.connect(self._validate_settings); settings_layout.addWidget(self.btn_validate_settings)
-        self.settings_tab.setLayout(settings_layout)
-        self.tabs.addTab(self.settings_tab, self._tr("settings"))
+        settings_tab.setLayout(settings_layout)
+        self.tabs.addTab(settings_tab, self._tr("settings"))
 
         self.setCentralWidget(self.tabs)
         self._last_error_text = ""
+        self._severity_level = "info"
 
     def _on_lang_change(self, lang):
         self.lang = lang
         self.str = _STRINGS.get(self.lang, _STRINGS["en"])
-        # Update window title and tab labels
         self.setWindowTitle(self._tr("title"))
         idx = self.tabs.indexOf(self.main_tab); self.tabs.setTabText(idx, self._tr("install_uninstall"))
         idx = self.tabs.indexOf(self.services_tab); self.tabs.setTabText(idx, self._tr("services"))
-        idx = self.tabs.indexOf(self.logs_tab); self.tabs.setTabText(idx, self._tr("logs"))
-        idx = self.tabs.indexOf(self.settings_tab); self.tabs.setTabText(idx, self._tr("settings"))
-        # Relabel all controls
+        self.tabs.setTabText(self.tabs.indexOf(self.tabs.widget(2)), self._tr("logs"))
+        self.tabs.setTabText(self.tabs.indexOf(self.tabs.widget(3)), self._tr("settings"))
         self.lang_label.setText(self._tr("language"))
+        self.preset_label.setText(self._tr("preset"))
         self.domain_label.setText(self._tr("domain"))
         self.chk_postgres.setText(self._tr("postgres"))
         self.chk_redis.setText(self._tr("redis"))
@@ -290,9 +334,14 @@ class InstallerWindow(QMainWindow):
         self.dry_run_check.setText(self._tr("dry_run"))
         self.preserve_data_check.setText(self._tr("preserve"))
         self.dark_mode_check.setText(self._tr("dark_mode"))
+        self.sandbox_check.setText(self._tr("sandbox"))
+        self.telemetry_check.setText(self._tr("telemetry"))
+        self.privacy_label.setText(self._tr("privacy"))
         self.retry_label.setText(self._tr("retry"))
         self.backoff_label.setText(self._tr("backoff_ms"))
         self.btn_action.setText(self._tr("run"))
+        self.btn_wizard.setText(self._tr("wizard"))
+        self.btn_recovery.setText(self._tr("crash_recovery"))
         self.btn_cancel.setText(self._tr("cancel"))
         self.btn_preflight.setText(self._tr("preflight"))
         self.btn_cli.setText(self._tr("cli_equiv"))
@@ -302,13 +351,13 @@ class InstallerWindow(QMainWindow):
         self.btn_service_status.setText(self._tr("services_status"))
         self.btn_save_log.setText(self._tr("export_text"))
         self.btn_save_json_log.setText(self._tr("export_json"))
-        self.db_label.setText(self._tr("db_user"))
-        self.dp_label.setText(self._tr("db_pass"))
-        self.rp_label.setText(self._tr("redis_port"))
-        self.np_label.setText(self._tr("nginx_port"))
-        self.tls_cert_label.setText(self._tr("tls_cert"))
-        self.tls_key_label.setText(self._tr("tls_key"))
-        self.btn_validate_settings.setText(self._tr("validate_settings"))
+        self.btn_export_redact.setText(self._tr("export_redact"))
+        self.btn_tail_logs.setText(self._tr("tail_logs"))
+        self.btn_diagnostics.setText(self._tr("diagnostics"))
+        self.btn_save_cfg.setText(self._tr("save_cfg"))
+        self.btn_load_cfg.setText(self._tr("load_cfg"))
+        self.btn_save_secret.setText(self._tr("save_secret"))
+        self.btn_check_updates.setText(self._tr("check_updates"))
 
     def _apply_platform_rules(self):
         pass
@@ -324,11 +373,16 @@ class InstallerWindow(QMainWindow):
             palette.setColor(QPalette.Button, QColor(53, 53, 53))
             palette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
         QApplication.instance().setPalette(palette)
+        self._save_config_silent()
 
-    def _append_output(self, text, json_obj=None):
+    def _append_output(self, text, json_obj=None, severity="info"):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        line = f"[{timestamp}] {text}"
-        self.output.append(line)
+        line = f"[{timestamp}] {severity.upper()}: {text}"
+        # buffer
+        self._log_buffer.append({"ts": timestamp, "severity": severity, "text": text, "data": json_obj})
+        # apply filters
+        if self._passes_filters(text, severity):
+            self.output.append(line)
         if not hasattr(self, '_log_file_path') or not hasattr(self, '_json_log_file_path') or not self._log_file_path or not self._json_log_file_path:
             try:
                 logs_dir = os.path.join(os.path.expanduser("~"), ".panel_installer")
@@ -347,7 +401,7 @@ class InstallerWindow(QMainWindow):
                 pass
         if self._json_log_file_path:
             try:
-                record = {"ts": datetime.datetime.now().isoformat(), "message": text}
+                record = {"ts": datetime.datetime.now().isoformat(), "message": text, "severity": severity}
                 if json_obj is not None:
                     record["data"] = json_obj
                 with open(self._json_log_file_path, "a", encoding="utf-8") as f:
@@ -355,106 +409,190 @@ class InstallerWindow(QMainWindow):
             except Exception:
                 pass
 
-    def _selected_components(self):
-        comps = []
-        if self.chk_postgres.isChecked(): comps.append("postgres")
-        if self.chk_redis.isChecked(): comps.append("redis")
-        if self.chk_nginx.isChecked(): comps.append("nginx")
-        if self.chk_python.isChecked(): comps.append("python")
-        return comps
+    def _passes_filters(self, text, severity):
+        # severity filter
+        levels = {"info": 0, "warn": 1, "error": 2}
+        if levels.get(severity, 0) < levels.get(self._severity_level, 0):
+            return False
+        # combo filter
+        filt = self.log_filter_combo.currentText() if hasattr(self, 'log_filter_combo') else 'all'
+        if filt != 'all' and severity != filt:
+            return False
+        # text search
+        q = self.log_search.text().strip() if hasattr(self, 'log_search') else ''
+        if q and q.lower() not in text.lower():
+            return False
+        return True
 
-    def _resolve_dependencies(self, components, mode):
-        resolved = set(components)
-        notes = []
-        if mode == "install":
-            if "nginx" in resolved and "python" not in resolved:
-                resolved.add("python"); self.chk_python.setChecked(True)
-                notes.append("Auto-selected Python because Nginx requires a backend.")
-            if "postgres" in resolved and "redis" not in resolved:
-                notes.append("Recommendation: Add Redis for caching/queue when using Postgres.")
-        else:
-            order = ["nginx", "python", "redis", "postgres"]
-            sorted_list = [c for c in order if c in resolved]
-            return sorted_list, notes
-        return list(resolved), notes
-
-    def _on_component_toggle(self):
-        if self.install_radio.isChecked():
-            comps = self._selected_components()
-            resolved, notes = self._resolve_dependencies(comps, "install")
-            for n in notes: self._append_output(n)
-
-    def _validate_domain(self, domain: str) -> bool:
-        if domain.lower() == "localhost": return True
-        pattern = r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
-        return re.match(pattern, domain) is not None
-
-    def _run_preflight(self):
-        checks = []
+    def _apply_log_filters(self):
         try:
-            total, used, free = shutil.disk_usage(os.path.expanduser("~"))
-            checks.append({"check": "disk_space", "free_gb": round(free / (1024**3), 2)})
+            self.output.clear()
+            for rec in self._log_buffer:
+                if self._passes_filters(rec["text"], rec["severity"]):
+                    self.output.append(f"[{rec['ts']}] {rec['severity'].upper()}: {rec['text']}")
+        except Exception:
+            pass
+
+    def _set_severity_level(self):
+        self._severity_level = self.severity_combo.currentText()
+        self._apply_log_filters()
+
+    def _on_export_redacted(self):
+        # Export logs with basic redaction (mask IPs, emails, secrets-like values)
+        default_name = f"installer-log-redacted-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+        path, _ = QFileDialog.getSaveFileName(self, "Export Redacted Log", default_name, "Text Files (*.txt);;All Files (*)")
+        if not path:
+            return
+        try:
+            import re as _re
+            def _redact(s):
+                s = _re.sub(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", "[IP]", s)
+                s = _re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", "[EMAIL]", s)
+                s = _re.sub(r"(?i)(password|secret|token)[^\n]*", "[REDACTED]", s)
+                return s
+            text = self.output.toPlainText()
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(_redact(text))
+            QMessageBox.information(self, "Export Redacted Log", f"Redacted log exported to: {path}")
         except Exception as e:
-            checks.append({"check": "disk_space", "error": str(e)})
-        checks.append({"check": "python_version", "version": sys.version})
-        checks.append({"check": "pyside6", "available": PySide6 is not None})
-        offline = False
-        try:
-            import urllib.request
-            urllib.request.urlopen("https://www.microsoft.com", timeout=2)
-        except Exception:
-            offline = True
-        checks.append({"check": "internet", "offline": offline})
-        ports = [80, 443, 5432, 6379]
-        port_results = {}
-        import socket
-        for p in ports:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(0.2)
+            QMessageBox.critical(self, "Export Redacted Log", f"Failed to export: {e}")
+
+    def _on_tail_logs(self):
+        # Tail common component logs if present
+        candidates = [
+            ("nginx", "/var/log/nginx/error.log"),
+            ("postgres", "/var/log/postgresql/postgresql.log"),
+        ]
+        lines = []
+        for name, path in candidates:
             try:
-                res = s.connect_ex(("127.0.0.1", p)); port_results[str(p)] = (res != 0)
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        tail = f.readlines()[-50:]
+                    lines.append(f"== {name} ==\n" + "".join(tail))
             except Exception:
-                port_results[str(p)] = None
-            finally:
-                s.close()
-        checks.append({"check": "ports_free", "results": port_results})
-        self._append_output("Preflight completed", checks)
-        QMessageBox.information(self, "Preflight", json.dumps(checks, indent=2))
+                pass
+        msg = "\n\n".join(lines) if lines else "No component logs found."
+        self._append_output("Diagnostics tail", {"tail": bool(lines)}, severity="info")
+        QMessageBox.information(self, "Diagnostics", msg)
 
-    def _validate_settings(self):
-        errors = []
-        if self.db_user.text().strip() == "": errors.append("DB user cannot be empty")
-        pw = self.db_pass.text();
-        if len(pw) < 8: errors.append("DB password should be at least 8 characters")
+    def _on_diagnostics(self):
+        # Best-effort: show existence of key logs
+        info = {}
+        for name, path in [("nginx", "/var/log/nginx/error.log"), ("postgres", "/var/log/postgresql/postgresql.log")]:
+            info[name] = os.path.exists(path)
+        self._append_output("Diagnostics", info, severity="info")
+        QMessageBox.information(self, "Diagnostics", json.dumps(info, indent=2))
+
+    def _on_crash_recovery(self):
+        # Read installer state and offer repair actions
         try:
-            rp = int(self.redis_port.text()); np = int(self.nginx_port.text())
-            if rp <= 0 or rp > 65535: errors.append("Invalid Redis port")
-            if np <= 0 or np > 65535: errors.append("Invalid Nginx port")
-        except Exception:
-            errors.append("Ports must be numeric")
-        for p in [self.tls_cert.text(), self.tls_key.text()]:
-            if p and not os.path.exists(p): errors.append(f"Path not found: {p}")
-        if errors:
-            msg = "\n".join(errors)
-            self._append_output("Settings validation failed", {"errors": errors})
-            QMessageBox.warning(self, "Settings", msg)
-        else:
-            self._append_output("Settings validated", {"db_user": self.db_user.text(), "redis_port": self.redis_port.text(), "nginx_port": self.nginx_port.text(), "tls_cert": bool(self.tls_cert.text()), "tls_key": bool(self.tls_key.text())})
-            QMessageBox.information(self, "Settings", "Settings look good")
+            from .state import read_state, rollback
+            st = read_state()
+            actions = st.get("actions", [])
+            if not actions:
+                QMessageBox.information(self, "Recovery", "No partial installs to recover.")
+                return
+            txt = "\n".join([a.get("component", "?") for a in actions])
+            choice = QMessageBox.question(self, "Recovery", f"Found recorded actions:\n{txt}\n\nAttempt repair (uninstall recorded components)?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if choice == QMessageBox.StandardButton.Yes:
+                res = rollback(preserve_data=True, dry_run=False)
+                self._append_output("Recovery executed", res, severity="warn")
+                QMessageBox.information(self, "Recovery", json.dumps(res, indent=2))
+        except Exception as e:
+            QMessageBox.critical(self, "Recovery", f"Failed: {e}")
 
-    def _show_cli_command(self):
-        # Align with tools/installer/cli.py
-        comps = self._selected_components()
-        mode = "install" if self.install_radio.isChecked() else "uninstall"
-        dry = self.dry_run_check.isChecked()
-        preserve = self.preserve_data_check.isChecked()
-        domain = self.domain_input.text().strip()
-        if mode == "install":
-            comps_arg = ",".join(comps) if comps else ",".join(["postgres","redis","nginx","python"])
-            cmd = f"python -m tools.installer.cli install --domain {domain} --components {comps_arg}{' --dry-run' if dry else ''}"
-        else:
-            cmd = f"python -m tools.installer.cli uninstall{' --preserve-data' if preserve else ''}{' --dry-run' if dry else ''}"
-        self._append_output("CLI command", {"cmd": cmd})
-        QMessageBox.information(self, "CLI", cmd)
+    def _on_check_updates(self):
+        # Stubbed: check for updates via a version file or remote endpoint
+        try:
+            current = "0.1.0"
+            latest = current
+            # In real implementation, fetch from remote URL or package metadata
+            self._append_output("Update check", {"current": current, "latest": latest})
+            if latest != current:
+                choice = QMessageBox.question(self, "Update", f"New version {latest} available. Update now?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if choice == QMessageBox.StandardButton.Yes:
+                    QMessageBox.information(self, "Update", "Updating… (stub)")
+            else:
+                QMessageBox.information(self, "Update", "You are on the latest version.")
+        except Exception as e:
+            QMessageBox.critical(self, "Update", f"Failed to check updates: {e}")
+
+    def _config_snapshot(self):
+        return {
+            "language": self.lang_select.currentText(),
+            "dark_mode": self.dark_mode_check.isChecked(),
+            "domain": self.domain_input.text().strip(),
+            "components": self._selected_components(),
+            "redis_port": self.redis_port.text(),
+            "nginx_port": self.nginx_port.text(),
+            "preset": self.preset_select.currentText(),
+            "sandbox": self.sandbox_check.isChecked(),
+            "telemetry": self.telemetry_check.isChecked(),
+        }
+
+    def _apply_config(self, cfg):
+        try:
+            lang = cfg.get("language")
+            if lang and lang in _STRINGS:
+                self.lang_select.setCurrentText(lang)
+            self.dark_mode_check.setChecked(bool(cfg.get("dark_mode")))
+            self.domain_input.setText(cfg.get("domain", "localhost"))
+            comps = cfg.get("components", [])
+            self.chk_postgres.setChecked("postgres" in comps)
+            self.chk_redis.setChecked("redis" in comps)
+            self.chk_nginx.setChecked("nginx" in comps)
+            self.chk_python.setChecked("python" in comps)
+            if cfg.get("redis_port"): self.redis_port.setText(str(cfg.get("redis_port")))
+            if cfg.get("nginx_port"): self.nginx_port.setText(str(cfg.get("nginx_port")))
+            preset = cfg.get("preset")
+            if preset:
+                self.preset_select.setCurrentText(preset)
+            self.sandbox_check.setChecked(bool(cfg.get("sandbox")))
+            self.telemetry_check.setChecked(bool(cfg.get("telemetry")))
+        except Exception:
+            pass
+
+    def _save_config_silent(self):
+        try:
+            cfg_dir = os.path.dirname(self._config_path)
+            os.makedirs(cfg_dir, exist_ok=True)
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                json.dump(self._config_snapshot(), f, indent=2)
+        except Exception:
+            pass
+
+    def _on_save_config(self):
+        try:
+            path, _ = QFileDialog.getSaveFileName(self, "Save Config", self._config_path, "JSON Files (*.json);;All Files (*)")
+            if not path:
+                return
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._config_snapshot(), f, indent=2)
+            QMessageBox.information(self, "Config", f"Config saved to: {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Config", f"Failed to save config: {e}")
+
+    def _load_config_silent(self):
+        try:
+            if os.path.exists(self._config_path):
+                with open(self._config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                self._apply_config(cfg)
+        except Exception:
+            pass
+
+    def _on_load_config(self):
+        try:
+            path, _ = QFileDialog.getOpenFileName(self, "Load Config", self._config_path, "JSON Files (*.json);;All Files (*)")
+            if not path:
+                return
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            self._apply_config(cfg)
+            QMessageBox.information(self, "Config", f"Config loaded from: {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Config", f"Failed to load config: {e}")
 
     def _on_run(self):
         domain = self.domain_input.text().strip()
@@ -465,7 +603,7 @@ class InstallerWindow(QMainWindow):
         mode = "install" if self.install_radio.isChecked() else "uninstall"
         comps_resolved, notes = self._resolve_dependencies(comps, mode)
         for n in notes: self._append_output("Dependency: " + n)
-        if not is_admin(): self._append_output("Warning: not running as administrator. Some actions may fail. Attempting elevation when needed.")
+        if not is_admin(): self._append_output("Warning: not running as administrator. Some actions may fail. Attempting elevation when needed.", severity="warn")
         offline = False
         try:
             import urllib.request
@@ -473,7 +611,11 @@ class InstallerWindow(QMainWindow):
         except Exception:
             offline = True
         if offline:
-            self._append_output("Offline mode detected: installer will attempt local/cache-based operations where possible.")
+            self._append_output("Offline mode detected: installer will attempt local/cache-based operations where possible.", severity="warn")
+        if self.sandbox_check.isChecked():
+            self._append_output("Sandbox mode enabled: operations will be simulated where possible.", severity="warn")
+        if self.telemetry_check.isChecked():
+            self._append_output("Telemetry enabled: anonymized metrics may be sent.", severity="info")
         self.btn_action.setEnabled(False); self.btn_cancel.setEnabled(True); self.progress.setValue(0)
         self._progress_per_component = {c: 0 for c in comps_resolved}
         self._progress_total = len(comps_resolved) * 4 if comps_resolved else 1
@@ -503,6 +645,11 @@ class InstallerWindow(QMainWindow):
         done_steps = sum(self._progress_per_component.values())
         pct = int((done_steps / max(self._progress_total, 1)) * 100)
         self.progress.setValue(min(100, pct))
+
+    def _validate_domain(self, domain: str) -> bool:
+        if domain.lower() == "localhost": return True
+        pattern = r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+        return re.match(pattern, domain) is not None
 
     def _health_checks(self, components):
         results = {}
@@ -591,16 +738,9 @@ class InstallerWindow(QMainWindow):
         hint = ""
         if "permission" in err.lower() or "admin" in err.lower(): hint = "\nHint: Try running as administrator or ensure elevation is allowed."
         elif "not found" in err.lower() or "missing" in err.lower(): hint = "\nHint: Check system dependencies and PATH settings."
-        self._append_output("Error: " + err + hint, {"error": err})
+        self._append_output("Error: " + err + hint, {"error": err}, severity="error")
         QMessageBox.critical(self, "Error", err + hint)
         self._cleanup_thread()
-
-    def _cleanup_thread(self):
-        try:
-            self.thread.quit(); self.thread.wait()
-        except Exception:
-            pass
-        self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
 
     def _on_export_log(self):
         default_name = f"installer-log-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
@@ -625,6 +765,13 @@ class InstallerWindow(QMainWindow):
             QMessageBox.information(self, "Export JSON Log", f"JSON log exported to: {path}")
         except Exception as e:
             QMessageBox.critical(self, "Export JSON Log", f"Failed to export JSON log: {e}")
+
+    def _cleanup_thread(self):
+        try:
+            self.thread.quit(); self.thread.wait()
+        except Exception:
+            pass
+        self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
 
 
 def run_gui():
