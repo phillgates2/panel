@@ -19,7 +19,7 @@ Panel is a modern platform for running and managing multiplayer game servers at 
 - Orchestration (RCON, server templates, provisioning)
 - Secure auth (OAuth2/OIDC, JWT) and RBAC
 - Observability (Prometheus metrics, Grafana dashboards, structured logs)
-- A GUI installer that sets up PostgreSQL, Redis, Nginx, and a Python environment
+- Multiple installers: GUI, CLI, and SSH wizard
 - DevOps-ready deployment via Docker Compose
 
 Use Panel to host, monitor, and operate servers with enterprise-grade features.
@@ -28,7 +28,7 @@ Use Panel to host, monitor, and operate servers with enterprise-grade features.
 
 ## Getting the Installer and Files
 
-You can install Panel using the GUI installer or via Docker/manual setup.
+You can install Panel using the GUI/CLI/SSH installer, or via Docker/manual setup.
 
 ### 1) Download the repository
 ```bash
@@ -37,21 +37,51 @@ git clone https://github.com/phillgates2/panel.git
 cd panel
 ```
 
-### 2) GUI Installer (recommended)
-Requirements: Python 3.10+, pip.
+### 2) Installers
+
+Installer modules live in `tools/installer/` and support GUI, CLI, and SSH-guided flows.
+
+GUI (desktop environment required):
 ```bash
+# Requires Python 3.10+ and PySide6
 pip install PySide6 keyring psycopg2-binary
 python -m tools.installer.gui
 ```
-Features:
-- Wizard (preflight → config → install → health → summary)
-- Role-based presets (dev/staging/prod)
-- Secrets via OS keyring
-- Advanced logs (filter/search/severity, redacted export)
-- Diagnostics (tail common logs), crash recovery (state rollback)
-- Telemetry opt-in and sandbox simulation mode
 
-Installer files live in `tools/installer/`.
+CLI (scriptable, structured output):
+```bash
+# General help
+python3 -m tools.installer --cli --help
+
+# Dry-run install
+python3 -m tools.installer --cli install --domain example.com --components postgres,redis,nginx,python --dry-run --json
+
+# Uninstall (state-based)
+python3 -m tools.installer --cli uninstall --preserve-data --components postgres,redis --json
+
+# Dependency check
+python3 -m tools.installer --cli check --json
+
+# Service management
+python3 -m tools.installer --cli service status --components postgres,redis,nginx --json
+python3 -m tools.installer --cli service start --components postgres,redis
+python3 -m tools.installer --cli service stop --components postgres
+```
+
+SSH (interactive wizard for terminals):
+```bash
+# Launch wizard (guided prompts for install/uninstall)
+python3 -m tools.installer --ssh wizard
+
+# Or run directly with progress streaming
+python3 -m tools.installer --ssh install --domain example.com --components postgres,redis,nginx,python --dry-run --json
+python3 -m tools.installer --ssh uninstall --preserve-data --components postgres,redis --dry-run
+python3 -m tools.installer --ssh service status --components postgres,redis,nginx
+```
+
+Notes:
+- Use `PANEL_INSTALLER_MODE=cli` or `PANEL_INSTALLER_MODE=ssh` to select non-GUI mode by default.
+- SSH/CLI installers stream progress lines prefixed with `PROGRESS:` and can emit final JSON summaries with `--json`.
 
 ### 3) Docker Compose (fastest setup)
 ```bash
@@ -123,11 +153,12 @@ More in `config/README.md`.
 ## Installer Highlights
 
 - Preflight checks and configuration validation
-- Role-based presets and wizard flow
-- Secrets saved to OS keyring
+- GUI wizard (presets for dev/staging/prod), SSH numeric-toggle menu
+- Secrets saved to OS keyring (GUI)
 - Advanced logging (filters/search/severity, redaction)
-- Diagnostics (tail nginx/postgres logs)
-- Crash recovery (state rollback)
+- Progress streaming (SSH/CLI) and JSON output (`--json`)
+- Service management: start/stop/status per component
+- Crash recovery via state rollback
 - Telemetry opt-in and sandbox mode
 
 Docs: `tools/installer/README.md` and `docs/INSTALLER_GUIDE.md`.

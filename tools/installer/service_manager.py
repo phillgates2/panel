@@ -93,3 +93,91 @@ def stop_service(name):
         return {"ok": False, "error": "sc not available"}
 
     return {"ok": False, "error": f"unsupported OS: {osname}"}
+
+
+def service_status(name):
+    """Get service status details. Returns dict with keys:
+    - ok: bool
+    - status: str (e.g., 'active', 'inactive', 'running', 'stopped', 'unknown')
+    - enabled: Optional[str] ('enabled'|'disabled'|'unknown')
+    - raw: Optional[str] (raw output for debugging)
+    - error: Optional[str]
+    """
+    osname = platform.system()
+    log.info("Checking service status %s on %s", name, osname)
+
+    try:
+        if osname == "Linux":
+            if shutil.which("systemctl"):
+                try:
+                    out_active = subprocess.check_output(["systemctl", "is-active", name], text=True).strip()
+                except subprocess.CalledProcessError as e:
+                    out_active = e.output.strip() if hasattr(e, "output") and e.output else "unknown"
+                try:
+                    out_enabled = subprocess.check_output(["systemctl", "is-enabled", name], text=True).strip()
+                except subprocess.CalledProcessError as e:
+                    out_enabled = e.output.strip() if hasattr(e, "output") and e.output else "unknown"
+                return {
+                    "ok": True,
+                    "status": out_active or "unknown",
+                    "enabled": out_enabled or "unknown",
+                }
+            return {"ok": False, "status": "unknown", "enabled": "unknown", "error": "systemctl not available"}
+
+        if osname == "Darwin":
+            if shutil.which("brew"):
+                try:
+                    out = subprocess.check_output(["brew", "services", "list"], text=True)
+                    status = "unknown"
+                    enabled = "unknown"
+                    for line in out.splitlines():
+                        # Format example: name  state  user  file
+                        parts = [p for p in line.split() if p]
+                        if not parts:
+                            continue
+                        if parts[0] == name:
+                            # state can be 'started', 'stopped', 'none'
+                            state = parts[1] if len(parts) > 1 else "unknown"
+                            status = {
+                                "started": "running",
+                                "stopped": "stopped",
+                            }.get(state, state)
+                            enabled = "enabled" if state == "started" else "disabled"
+                            break
+                    return {"ok": True, "status": status, "enabled": enabled}
+                except Exception as e:
+                    return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e)}
+            return {"ok": False, "status": "unknown", "enabled": "unknown", "error": "brew not available"}
+
+        if osname == "Windows":
+            if shutil.which("sc"):
+                try:
+                    out = subprocess.check_output(["sc", "query", name], text=True)
+                    state_map = {
+                        "1": "stopped",
+                        "2": "start_pending",
+                        "3": "stop_pending",
+                        "4": "running",
+                        "5": "continue_pending",
+                        "6": "pause_pending",
+                        "7": "paused",
+                    }
+                    status = "unknown"
+                    for line in out.splitlines():
+                        line = line.strip()
+                        if line.startswith("STATE"):
+                            parts = [p for p in line.split() if p]
+                            # e.g., ['STATE', ':', '4', 'RUNNING']
+                            if len(parts) >= 3:
+                                code = parts[2]
+                                status = state_map.get(code, parts[-1].lower())
+                            break
+                    return {"ok": True, "status": status, "enabled": "unknown", "raw": out}
+                except Exception as e:
+                    return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e)}
+            return {"ok": False, "status": "unknown", "enabled": "unknown", "error": "sc not available"}
+
+        return {"ok": False, "status": "unknown", "enabled": "unknown", "error": f"unsupported OS: {osname}"}
+    except Exception as e:
+        log.debug("service_status failure: %s", e)
+        return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e)}

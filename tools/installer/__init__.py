@@ -1,6 +1,6 @@
 """Installer package for Panel
 
-GUI-only entry with supporting modules.
+Provides both GUI and CLI entry points with supporting modules.
 """
 
 __version__ = "0.1.0"
@@ -8,6 +8,8 @@ __version__ = "0.1.0"
 # Import supporting modules
 from . import core, deps, os_utils, service_manager
 
-# Expose gui
+# Expose gui and cli
 from . import gui  # type: ignore
-__all__ = ["core", "gui", "deps", "os_utils", "service_manager"]
+from . import cli  # type: ignore
+from . import ssh  # type: ignore
+__all__ = ["core", "gui", "cli", "ssh", "deps", "os_utils", "service_manager"]

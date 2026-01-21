@@ -62,6 +62,22 @@ def stop_component_service(component: str):
         return False
 
 
+def get_component_service_status(component: str):
+    """Return service status dict for a component using platform-specific manager."""
+    name = _service_name(component)
+    if not name:
+        return {"ok": False, "status": "unknown", "enabled": "unknown", "error": "no service name"}
+    try:
+        from .service_manager import service_status
+        res = service_status(name)
+        # Attach resolved service name for context
+        res["service"] = name
+        return res
+    except Exception as e:
+        log.debug("Failed to get service status for %s: %s", component, e)
+        return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e), "service": name}
+
+
 def install_all(domain, components, elevate=True, dry_run=False, progress_cb=None, venv_path="/opt/panel/venv"):
     """High level install orchestrator (stub/PoC).
 
