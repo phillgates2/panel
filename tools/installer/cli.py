@@ -16,6 +16,9 @@ def build_parser():
     ip.add_argument("--venv-path", default="/opt/panel/venv", help="Target path for Python venv when installing python component")
     ip.add_argument("--dry-run", action="store_true")
     ip.add_argument("--no-elevate", action="store_true", help="Do not attempt elevation (useful for CI)")
+    ip.add_argument("--auto-start", dest="auto_start", action="store_true", help="Auto-start Panel app service after install")
+    ip.add_argument("--no-auto-start", dest="auto_start", action="store_false", help="Do not auto-start Panel app service after install")
+    ip.set_defaults(auto_start=True)
     ip.add_argument("--json", action="store_true", help="Emit structured JSON output")
 
     up = sub.add_parser("uninstall", help="Uninstall panel")
@@ -42,7 +45,7 @@ def main(argv=None):
 
     if args.cmd == "install":
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
-        result = install_all(args.domain, comps, elevate=(not args.no_elevate), dry_run=args.dry_run, venv_path=args.venv_path)
+        result = install_all(args.domain, comps, elevate=(not args.no_elevate), dry_run=args.dry_run, venv_path=args.venv_path, auto_start=args.auto_start)
         print(json.dumps(result) if args.json else result)
     elif args.cmd == "uninstall":
         comps = None

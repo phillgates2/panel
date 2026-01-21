@@ -22,6 +22,11 @@ SERVICE_MAP = {
         "Darwin": "nginx",
         "Windows": "nginx",
     },
+    "panel": {
+        "Linux": "panel",
+        "Darwin": "panel",
+        "Windows": "Panel",
+    },
 }
 
 
@@ -78,7 +83,7 @@ def get_component_service_status(component: str):
         return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e), "service": name}
 
 
-def install_all(domain, components, elevate=True, dry_run=False, progress_cb=None, venv_path="/opt/panel/venv"):
+def install_all(domain, components, elevate=True, dry_run=False, progress_cb=None, venv_path="/opt/panel/venv", auto_start=True):
     """High level install orchestrator (stub/PoC).
 
     - domain: domain name string
@@ -184,6 +189,21 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
         finally:
             if progress_cb:
                 progress_cb("done", c, {})
+
+    # Attempt to start the Panel app service after install
+    if not dry_run and auto_start:
+        try:
+            started = start_component_service("panel")
+            if progress_cb:
+                progress_cb("service", "panel", {"service": _service_name("panel"), "started": started})
+            try:
+                from .state import add_action
+                add_action({"component": "panel", "meta": {"auto_start": True, "started": started}})
+            except Exception:
+                log.debug("Failed to write install state for panel auto-start")
+        except Exception as e:
+            if progress_cb:
+                progress_cb("error", "panel", {"error": str(e)})
 
     return {"status": "ok", "actions": actions}
 

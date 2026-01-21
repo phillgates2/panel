@@ -35,6 +35,9 @@ def build_parser():
     ip.add_argument("--dry-run", action="store_true")
     ip.add_argument("--no-elevate", action="store_true", help="Do not attempt elevation (useful for CI)")
     ip.add_argument("--json", action="store_true", help="Emit final result JSON only (progress still streams)")
+    ip.add_argument("--auto-start", dest="auto_start", action="store_true", help="Auto-start Panel app service after install")
+    ip.add_argument("--no-auto-start", dest="auto_start", action="store_false", help="Do not auto-start Panel app service after install")
+    ip.set_defaults(auto_start=True)
 
     up = sub.add_parser("uninstall", help="Uninstall panel via recorded state (streams progress)")
     up.add_argument("--preserve-data", action="store_true")
@@ -68,6 +71,7 @@ def main(argv: Optional[List[str]] = None):
             dry_run=args.dry_run,
             progress_cb=_progress_printer,
             venv_path=args.venv_path,
+            auto_start=args.auto_start,
         )
         print(json.dumps(result) if args.json else result)
         return
@@ -164,6 +168,7 @@ def _run_wizard(json_only: bool = False):
             venv_path = _ask_input("Python venv path", default=venv_path)
         dry_run = _ask_yes_no("Dry-run (simulate only)", default=True)
         no_elevate = _ask_yes_no("Skip elevation/admin", default=True)
+        auto_start = _ask_yes_no("Auto-start Panel app after install", default=True)
         print("\nSummary:")
         print(f"  Operation : install")
         print(f"  Domain    : {domain}")
@@ -182,6 +187,7 @@ def _run_wizard(json_only: bool = False):
             dry_run=dry_run,
             progress_cb=_progress_printer,
             venv_path=venv_path,
+            auto_start=auto_start,
         )
         print(json.dumps(result) if json_only else result)
         return
