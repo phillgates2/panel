@@ -6,14 +6,11 @@ Enterprise game server management platform — Cloud-ready, secure, and observab
 
 [![CI/CD](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml)
 [![Security](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml)
-[![Release](https://img.shields.io/github/v/release/phillgates2/panel)](https://github.com/phillgates2/panel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
 
 ---
-
-## Overview
 
 Panel is a modern platform for running and managing multiplayer game servers at scale. It includes:
 - Orchestration (RCON, server templates, provisioning)
@@ -37,14 +34,11 @@ git clone https://github.com/phillgates2/panel.git
 cd panel
 ```
 
-### 2) Installers
-
 Installer modules live in `tools/installer/` and support GUI, CLI, and SSH-guided flows.
 
 GUI (desktop environment required):
 ```bash
 # Requires Python 3.10+ and PySide6
-pip install PySide6 keyring psycopg2-binary
 python -m tools.installer.gui
 ```
 
