@@ -1,15 +1,14 @@
 """Installer package for Panel
 
-Provides both GUI and CLI entry points with supporting modules.
+Provides GUI, CLI, and SSH entry points. GUI is imported lazily
+to avoid hard dependency on PySide6 during non-GUI usage.
 """
 
 __version__ = "0.1.0"
 
-# Import supporting modules
+# Import supporting modules (safe, no GUI deps)
 from . import core, deps, os_utils, service_manager
 
-# Expose gui and cli
-from . import gui  # type: ignore
-from . import cli  # type: ignore
-from . import ssh  # type: ignore
-__all__ = ["core", "gui", "cli", "ssh", "deps", "os_utils", "service_manager"]
+# Do not import GUI/CLI/SSH here to keep imports lazy and avoid
+# PySide6 requirements in non-GUI environments.
+__all__ = ["core", "deps", "os_utils", "service_manager"]
