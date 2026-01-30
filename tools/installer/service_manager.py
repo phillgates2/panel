@@ -189,3 +189,40 @@ def service_status(name):
     except Exception as e:
         log.debug("service_status failure: %s", e)
         return {"ok": False, "status": "unknown", "enabled": "unknown", "error": str(e)}
+
+
+def service_exists(name):
+    """Return True if the service unit exists on the current platform.
+
+    Best-effort per OS:
+      - Linux: systemd -> `systemctl cat <name>`; True if exit code 0
+      - macOS: brew services list contains the name
+      - Windows: `sc query <name>` returns ok
+    """
+    osname = platform.system()
+    try:
+        if osname == "Linux":
+            if shutil.which("systemctl"):
+                res = _run(["systemctl", "cat", name])
+                return bool(res.get("ok"))
+            return False
+        if osname == "Darwin":
+            if shutil.which("brew"):
+                try:
+                    out = subprocess.check_output(["brew", "services", "list"], text=True)
+                    for line in out.splitlines():
+                        parts = [p for p in line.split() if p]
+                        if parts and parts[0] == name:
+                            return True
+                    return False
+                except Exception:
+                    return False
+            return False
+        if osname == "Windows":
+            if shutil.which("sc"):
+                res = _run(["sc", "query", name])
+                return bool(res.get("ok"))
+            return False
+        return False
+    except Exception:
+        return False

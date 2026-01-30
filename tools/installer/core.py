@@ -41,7 +41,10 @@ def start_component_service(component: str):
     if not name:
         return False
     try:
-        from .service_manager import enable_service, start_service
+        from .service_manager import enable_service, start_service, service_exists
+        if not service_exists(name):
+            # Service unit not present; skip attempts
+            return False
         en = enable_service(name)
         st = start_service(name)
         return bool(en.get("ok") and st.get("ok"))
