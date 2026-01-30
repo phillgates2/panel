@@ -196,14 +196,21 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
     # Attempt to start the Panel app service after install
     if not dry_run and auto_start:
         try:
-            started = start_component_service("panel")
-            if progress_cb:
-                progress_cb("service", "panel", {"service": _service_name("panel"), "started": started})
-            try:
-                from .state import add_action
-                add_action({"component": "panel", "meta": {"auto_start": True, "started": started}})
-            except Exception:
-                log.debug("Failed to write install state for panel auto-start")
+            name = _service_name("panel")
+            from .service_manager import service_exists
+            exists = service_exists(name)
+            if not exists:
+                if progress_cb:
+                    progress_cb("skipped", "panel", {"service": name, "reason": "service unit not found"})
+            else:
+                started = start_component_service("panel")
+                if progress_cb:
+                    progress_cb("service", "panel", {"service": name, "started": started})
+                try:
+                    from .state import add_action
+                    add_action({"component": "panel", "meta": {"auto_start": True, "started": started}})
+                except Exception:
+                    log.debug("Failed to write install state for panel auto-start")
         except Exception as e:
             if progress_cb:
                 progress_cb("error", "panel", {"error": str(e)})
