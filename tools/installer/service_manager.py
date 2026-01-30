@@ -11,12 +11,20 @@ log = logging.getLogger(__name__)
 
 
 def _run(cmd, shell=False):
+    """Run a command and capture output to avoid noisy stderr in terminal.
+
+    Returns a dict with ok, stdout, stderr, and optional error.
+    """
     try:
         if shell:
-            subprocess.check_call(cmd, shell=True)
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         else:
-            subprocess.check_call(cmd)
-        return {"ok": True}
+            res = subprocess.run(cmd, capture_output=True, text=True)
+        return {
+            "ok": res.returncode == 0,
+            "stdout": (res.stdout or "").strip(),
+            "stderr": (res.stderr or "").strip(),
+        }
     except Exception as e:
         log.debug("Command failed: %s (%s)", cmd, e)
         return {"ok": False, "error": str(e)}

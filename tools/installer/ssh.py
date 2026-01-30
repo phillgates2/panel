@@ -165,6 +165,15 @@ def _run_wizard(json_only: bool = False):
             return
         dry_run = _ask_yes_no("Dry-run (simulate only)", default=True)
         no_elevate = _ask_yes_no("Skip elevation/admin", default=True)
+        # If no-elevate, warn when system packages are selected and allow quick deselect
+        if no_elevate:
+            sys_comps = [c for c in comps if c in ("postgres", "redis", "nginx")]
+            if sys_comps:
+                print("\nNote: Without elevation, system packages may fail to install:")
+                print(f"  Selected system components: {', '.join(sys_comps)}")
+                print("  Suggest deselecting them or re-running with elevation.")
+                if _ask_yes_no("Remove system components from selection now?", default=True):
+                    comps = [c for c in comps if c not in sys_comps]
         # Auto-suggest a user-writable venv path when no-elevate is selected
         venv_path = "/opt/panel/venv"
         if "python" in comps:
