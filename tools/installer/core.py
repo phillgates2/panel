@@ -127,9 +127,14 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if progress_cb:
                     progress_cb("installed", c, res)
                 if not dry_run and res.get("installed"):
-                    started = start_component_service("postgres")
-                    if progress_cb:
-                        progress_cb("service", c, {"service": _service_name("postgres"), "started": started})
+                    from .service_manager import manager_available
+                    if not manager_available():
+                        if progress_cb:
+                            progress_cb("skipped", c, {"service": _service_name("postgres"), "reason": "service manager not available"})
+                    else:
+                        started = start_component_service("postgres")
+                        if progress_cb:
+                            progress_cb("service", c, {"service": _service_name("postgres"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "postgres", "meta": res})
@@ -142,9 +147,14 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if progress_cb:
                     progress_cb("installed", c, res)
                 if not dry_run and res.get("installed"):
-                    started = start_component_service("redis")
-                    if progress_cb:
-                        progress_cb("service", c, {"service": _service_name("redis"), "started": started})
+                    from .service_manager import manager_available
+                    if not manager_available():
+                        if progress_cb:
+                            progress_cb("skipped", c, {"service": _service_name("redis"), "reason": "service manager not available"})
+                    else:
+                        started = start_component_service("redis")
+                        if progress_cb:
+                            progress_cb("service", c, {"service": _service_name("redis"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "redis", "meta": res})
@@ -158,9 +168,14 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if progress_cb:
                     progress_cb("installed", c, res)
                 if not dry_run and res.get("installed"):
-                    started = start_component_service("nginx")
-                    if progress_cb:
-                        progress_cb("service", c, {"service": _service_name("nginx"), "started": started})
+                    from .service_manager import manager_available
+                    if not manager_available():
+                        if progress_cb:
+                            progress_cb("skipped", c, {"service": _service_name("nginx"), "reason": "service manager not available"})
+                    else:
+                        started = start_component_service("nginx")
+                        if progress_cb:
+                            progress_cb("service", c, {"service": _service_name("nginx"), "started": started})
                     try:
                         from .state import add_action
                         add_action({"component": "nginx", "meta": res})
@@ -197,9 +212,11 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
     if not dry_run and auto_start:
         try:
             name = _service_name("panel")
-            from .service_manager import service_exists
-            exists = service_exists(name)
-            if not exists:
+            from .service_manager import service_exists, manager_available
+            if not manager_available():
+                if progress_cb:
+                    progress_cb("skipped", "panel", {"service": name, "reason": "service manager not available"})
+            elif not service_exists(name):
                 if progress_cb:
                     progress_cb("skipped", "panel", {"service": name, "reason": "service unit not found"})
             else:

@@ -226,3 +226,15 @@ def service_exists(name):
         return False
     except Exception:
         return False
+
+
+def manager_available():
+    """Return True if a known service manager is available on this platform."""
+    osname = platform.system()
+    if osname == "Linux":
+        return shutil.which("systemctl") is not None
+    if osname == "Darwin":
+        return shutil.which("brew") is not None
+    if osname == "Windows":
+        return shutil.which("sc") is not None
+    return False
