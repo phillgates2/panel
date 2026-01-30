@@ -16,9 +16,21 @@ def is_installed():
     return shutil.which("redis-server") is not None or shutil.which("redis-cli") is not None
 
 
-def install(dry_run=False, target=None):
+def install(dry_run=False, target=None, elevate=True):
     if is_installed():
         return {"installed": True, "skipped": True, "msg": "redis already available"}
+
+    if not elevate:
+        cmd_preview = "apt-get update && apt-get install -y redis-server"
+        if get_package_manager() and get_package_manager() != "apt":
+            cmd_preview = f"install redis via {get_package_manager()}"
+        return {
+            "installed": False,
+            "skipped": False,
+            "error": "elevation required to install system package 'redis'",
+            "hint": "Re-run with elevation or install Redis manually",
+            "cmd": cmd_preview,
+        }
 
     pm = get_package_manager()
     if pm in ("apt", None):

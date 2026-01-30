@@ -19,13 +19,25 @@ def is_installed():
     return shutil.which("psql") is not None
 
 
-def install(dry_run=False, target=None):
+def install(dry_run=False, target=None, elevate=True):
     """Install PostgreSQL using the detected package manager.
 
     Returns a dict with details and, when dry_run=True, includes the command to run.
     """
     if is_installed():
         return {"installed": True, "skipped": True, "msg": "psql already available"}
+
+    if not elevate:
+        cmd_preview = "apt-get update && apt-get install -y postgresql postgresql-contrib"
+        if get_package_manager() and get_package_manager() != "apt":
+            cmd_preview = f"install postgresql via {get_package_manager()}"
+        return {
+            "installed": False,
+            "skipped": False,
+            "error": "elevation required to install system package 'postgresql'",
+            "hint": "Re-run with elevation or install PostgreSQL manually",
+            "cmd": cmd_preview,
+        }
 
     pm = get_package_manager()
     if pm in ("apt", None):

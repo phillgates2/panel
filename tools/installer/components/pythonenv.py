@@ -17,16 +17,45 @@ def is_installed():
     return shutil.which("python3") is not None
 
 
-def install(dry_run=False, target=None):
-    """Create a venv in the given target directory. Requires admin if target is system path."""
+def install(dry_run=False, target=None, elevate=True):
+    """Create a venv in the given target directory.
+
+    When elevate=False, the target directory must be user-writable. If it's not,
+    we return a clear error advising a user path (e.g. ~/panel/venv) or to re-run
+    with elevation.
+    """
     target = target or '/opt/panel/venv'
     cmd = f"python3 -m venv {target}"
     if dry_run:
         return {"installed": False, "cmd": cmd, "path": target}
 
-    # On Windows target may be under Program Files; on macOS/linux respect provided target
+    # Validate writability when not elevated
     try:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
+        parent = os.path.dirname(target) or "."
+        if not elevate:
+            # Check if parent exists and is writable; try to create if missing
+            if not os.path.exists(parent):
+                try:
+                    os.makedirs(parent, exist_ok=True)
+                except Exception as e:
+                    return {
+                        "installed": False,
+                        "error": f"cannot create parent directory '{parent}': {e}",
+                        "cmd": cmd,
+                        "path": target,
+                        "hint": "Use a user-writable path (e.g., ~/panel/venv) or enable elevation",
+                    }
+            if not os.access(parent, os.W_OK):
+                return {
+                    "installed": False,
+                    "error": f"permission denied: parent directory '{parent}' not writable",
+                    "cmd": cmd,
+                    "path": target,
+                    "hint": "Choose a user path (e.g., ~/panel/venv) or re-run with elevation",
+                }
+
+        # Create venv
+        os.makedirs(parent, exist_ok=True)
         subprocess.check_call(["python3", "-m", "venv", target])
         return {"installed": True, "path": target}
     except Exception as e:

@@ -16,9 +16,22 @@ def is_installed():
     return shutil.which("nginx") is not None
 
 
-def install(dry_run=False, target=None):
+def install(dry_run=False, target=None, elevate=True):
     if is_installed():
         return {"installed": True, "skipped": True, "msg": "nginx already available"}
+
+    if not elevate:
+        cmd_preview = "apt-get update && apt-get install -y nginx"
+        if get_package_manager() and get_package_manager() != "apt":
+            # Rough preview string for other managers
+            cmd_preview = f"install nginx via {get_package_manager()}"
+        return {
+            "installed": False,
+            "skipped": False,
+            "error": "elevation required to install system package 'nginx'",
+            "hint": "Re-run with elevation or install nginx manually",
+            "cmd": cmd_preview,
+        }
 
     pm = get_package_manager()
     if pm in ("apt", None):

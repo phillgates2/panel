@@ -42,9 +42,9 @@ def start_component_service(component: str):
         return False
     try:
         from .service_manager import enable_service, start_service
-        enable_service(name)
-        start_service(name)
-        return True
+        en = enable_service(name)
+        st = start_service(name)
+        return bool(en.get("ok") and st.get("ok"))
     except Exception as e:
         log.debug("Failed to start service for %s: %s", component, e)
         return False
@@ -119,7 +119,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
             if progress_cb:
                 progress_cb("start", c, {})
             if c == "postgres":
-                res = pg.install(dry_run=dry_run)
+                res = pg.install(dry_run=dry_run, elevate=elevate)
                 actions.append({"component": "postgres", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
@@ -134,7 +134,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                         log.debug("Failed to write install state for postgres")
 
             elif c == "redis":
-                res = rd.install(dry_run=dry_run)
+                res = rd.install(dry_run=dry_run, elevate=elevate)
                 actions.append({"component": "redis", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
@@ -150,7 +150,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
 
             elif c == "nginx":
                 from .components import nginx as ng
-                res = ng.install(dry_run=dry_run)
+                res = ng.install(dry_run=dry_run, elevate=elevate)
                 actions.append({"component": "nginx", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
@@ -166,7 +166,7 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
 
             elif c == "python":
                 from .components import pythonenv as pyenv
-                res = pyenv.install(dry_run=dry_run, target=venv_path)
+                res = pyenv.install(dry_run=dry_run, target=venv_path, elevate=elevate)
                 actions.append({"component": "python", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
