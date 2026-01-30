@@ -186,6 +186,20 @@ def _run_wizard(json_only: bool = False):
         print(f"  Components: {', '.join(comps) or '(none)'}")
         if "python" in comps:
             print(f"  venv_path : {venv_path}")
+            # Small note when no-elevate is set and venv path appears system-level
+            try:
+                import os as _os
+                if no_elevate:
+                    home = _os.path.expanduser("~") or ""
+                    system_like = venv_path.startswith(('/opt', '/usr', '/var', '/etc')) and not venv_path.startswith(home)
+                    if system_like:
+                        print("  Note      : no-elevate + system-level venv path may fail (permissions)")
+                        print("              Suggest a user path, e.g., ~/panel/venv")
+                        if _ask_yes_no("Change venv path now?", default=True):
+                            suggested = _os.path.join(home or "/tmp", "panel", "venv")
+                            venv_path = _ask_input("Python venv path", default=suggested)
+            except Exception:
+                pass
         print(f"  Dry-run   : {dry_run}")
         print(f"  No-elevate: {no_elevate}")
         if not _ask_yes_no("Proceed?", default=True):
