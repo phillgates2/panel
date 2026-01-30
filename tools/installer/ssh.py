@@ -163,11 +163,22 @@ def _run_wizard(json_only: bool = False):
         if comps is None or not comps:
             print("No components selected. Aborting.")
             return
-        venv_path = "/opt/panel/venv"
-        if "python" in comps:
-            venv_path = _ask_input("Python venv path", default=venv_path)
         dry_run = _ask_yes_no("Dry-run (simulate only)", default=True)
         no_elevate = _ask_yes_no("Skip elevation/admin", default=True)
+        # Auto-suggest a user-writable venv path when no-elevate is selected
+        venv_path = "/opt/panel/venv"
+        if "python" in comps:
+            try:
+                import os as _os
+                if no_elevate:
+                    home = _os.path.expanduser("~") or "/tmp"
+                    suggested = _os.path.join(home, "panel", "venv")
+                    venv_path = _ask_input("Python venv path", default=suggested)
+                else:
+                    venv_path = _ask_input("Python venv path", default=venv_path)
+            except Exception:
+                # Fallback to original prompt if home detection fails
+                venv_path = _ask_input("Python venv path", default=venv_path)
         auto_start = _ask_yes_no("Auto-start Panel app after install", default=True)
         print("\nSummary:")
         print(f"  Operation : install")
