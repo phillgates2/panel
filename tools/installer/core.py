@@ -1,4 +1,5 @@
 import logging
+import os
 from .deps import check_system_deps
 from .os_utils import is_admin, ensure_elevated
 import platform
@@ -23,11 +24,77 @@ SERVICE_MAP = {
         "Windows": "nginx",
     },
     "panel": {
-        "Linux": "panel",
+        "Linux": "panel-gunicorn",
         "Darwin": "panel",
         "Windows": "Panel",
     },
 }
+
+
+def _ensure_panel_systemd_unit(venv_path: str, workdir: str, port: int = 8080) -> bool:
+    """Best-effort creation of a systemd unit for the Panel gunicorn service.
+
+    This installer currently does not lay down application code into a fixed
+    install directory; in SSH mode the most reliable assumption is that the
+    current working directory is the repo root containing `app.py`.
+
+    Returns True if the unit file was written successfully.
+    """
+    if platform.system() != "Linux":
+        return False
+    import shutil
+    import subprocess
+
+    if not shutil.which("systemctl"):
+        return False
+
+    unit_name = "panel-gunicorn.service"
+    unit_path = os.path.join("/etc/systemd/system", unit_name)
+    gunicorn = os.path.join(venv_path, "bin", "gunicorn")
+
+    python = os.path.join(venv_path, "bin", "python")
+    app_py = os.path.join(workdir, "app.py")
+
+    use_gunicorn = os.path.exists(gunicorn)
+    if not use_gunicorn:
+        # Fall back to the built-in Flask dev server via `python app.py`.
+        # This is not ideal for production but keeps the installer PoC usable
+        # without requiring extra packages.
+        if not (os.path.exists(python) and os.path.exists(app_py)):
+            return False
+
+    if use_gunicorn:
+        exec_start = f"{gunicorn} --bind 0.0.0.0:{port} --workers 4 app:app"
+        extra_env = ""
+    else:
+        exec_start = f"{python} {app_py}"
+        extra_env = f"Environment=HOST=0.0.0.0\nEnvironment=PORT={port}\nEnvironment=FLASK_DEBUG=0\n"
+
+    content = f"""[Unit]
+Description=Panel
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={workdir}
+Environment=PATH={venv_path}/bin
+{extra_env}ExecStart={exec_start}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+    try:
+        os.makedirs(os.path.dirname(unit_path), exist_ok=True)
+        with open(unit_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        # Reload systemd so it sees the new unit.
+        subprocess.check_call(["systemctl", "daemon-reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
 
 
 def _service_name(component):
@@ -217,8 +284,30 @@ def install_all(domain, components, elevate=True, dry_run=False, progress_cb=Non
                 if progress_cb:
                     progress_cb("skipped", "panel", {"service": name, "reason": "service manager not available"})
             elif not service_exists(name):
+                # Best-effort: create a systemd unit on Linux so auto-start can work.
+                created = False
+                try:
+                    created = _ensure_panel_systemd_unit(venv_path=venv_path, workdir=os.getcwd(), port=8080)
+                except Exception:
+                    created = False
                 if progress_cb:
-                    progress_cb("skipped", "panel", {"service": name, "reason": "service unit not found"})
+                    progress_cb(
+                        "info",
+                        "panel",
+                        {"service": name, "action": "create_unit", "created": created, "workdir": os.getcwd(), "port": 8080},
+                    )
+                if not created:
+                    if progress_cb:
+                        progress_cb("skipped", "panel", {"service": name, "reason": "service unit not found"})
+                else:
+                    started = start_component_service("panel")
+                    if progress_cb:
+                        progress_cb("service", "panel", {"service": name, "started": started})
+                    try:
+                        from .state import add_action
+                        add_action({"component": "panel", "meta": {"auto_start": True, "created_unit": True, "started": started}})
+                    except Exception:
+                        log.debug("Failed to write install state for panel auto-start")
             else:
                 started = start_component_service("panel")
                 if progress_cb:

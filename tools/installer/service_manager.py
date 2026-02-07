@@ -18,7 +18,13 @@ def _run(cmd, shell=False):
     about success/failure.
     """
     try:
-        subprocess.check_call(cmd, shell=shell)
+        # Silence stdout/stderr: systemctl (especially `cat` and `enable`) can be noisy.
+        subprocess.check_call(
+            cmd,
+            shell=shell,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         return {"ok": True}
     except Exception as e:
         log.debug("Command failed: %s (%s)", cmd, e)
