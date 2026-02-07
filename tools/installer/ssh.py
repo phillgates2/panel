@@ -7,6 +7,9 @@ import argparse
 import re
 import json
 import logging
+import os
+import shutil
+import sys
 from typing import Any, Dict, List, Optional
 
 from .core import install_all, uninstall_all, start_component_service, stop_component_service, get_component_service_status
@@ -230,6 +233,57 @@ def _run_wizard(json_only: bool = False):
         if not _ask_yes_no("Proceed?", default=True):
             print("Aborted by user.")
             return
+
+        # If the user requested elevation but we are not admin, do not call
+        # install_all() directly. install_all() will re-exec the *same* argv to
+        # elevate, which re-runs the wizard and looks like an infinite loop.
+        # Instead, re-exec into the non-interactive `install` subcommand with
+        # the captured selections so the elevated process performs the install.
+        try:
+            from .os_utils import is_admin
+
+            if (not no_elevate) and (not dry_run) and (not is_admin()):
+                elev = shutil.which("pkexec") or shutil.which("sudo")
+                if not elev:
+                    print(
+                        "\nElevation is required but no helper was found (pkexec/sudo).\n"
+                        "Re-run as root/admin or choose 'Skip elevation/admin'."
+                    )
+                    return
+
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "tools.installer",
+                    "--ssh",
+                    "install",
+                    "--domain",
+                    domain,
+                    "--components",
+                    ",".join(comps),
+                ]
+                if "python" in comps:
+                    cmd += ["--venv-path", venv_path]
+                if dry_run:
+                    cmd.append("--dry-run")
+                if no_elevate:
+                    cmd.append("--no-elevate")
+                if auto_start:
+                    cmd.append("--auto-start")
+                else:
+                    cmd.append("--no-auto-start")
+                if json_only:
+                    cmd.append("--json")
+
+                print(
+                    f"\nElevation required; re-running install under {os.path.basename(elev)}..."
+                )
+                # Replace current process; elevated process runs install directly.
+                os.execvp(elev, [os.path.basename(elev)] + cmd)
+        except Exception as e:
+            print(f"\nFailed to elevate and re-run install: {e}")
+            return
+
         result = install_all(
             domain,
             comps,
@@ -272,6 +326,7 @@ def _run_wizard(json_only: bool = False):
         elevate=(not no_elevate),
     )
     print(json.dumps(result) if json_only else result)
+    return
 
 
 def _select_components_menu(choices: List[str], preselected: Optional[List[str]] = None, allow_empty: bool = False) -> Optional[List[str]]:
