@@ -47,6 +47,14 @@ def create_app(config_name="default"):
         static_folder=str(static_dir)
     )
 
+    # Track application startup time for health and status endpoints
+    try:
+        import time as _time
+        app.start_time = _time.time()
+    except Exception:
+        # Non-fatal; uptime will simply be reported as 0 where used
+        pass
+
     # Attempt to mirror forum index template to CI path expected by tests
     try:
         src_forum_tpl = template_dir / "forum" / "index.html"
@@ -197,6 +205,17 @@ def register_blueprints(app):
         from src.panel.routes_config import config_bp
         app.register_blueprint(config_bp)
     except ImportError:
+        pass
+
+    # Server management blueprint (optional)
+    try:
+        from src.panel.server_management import server_bp
+
+        app.register_blueprint(server_bp)
+    except ImportError:
+        pass
+    except Exception:
+        # Best-effort: avoid failing app creation in minimal test envs
         pass
 
     # CMS blueprint

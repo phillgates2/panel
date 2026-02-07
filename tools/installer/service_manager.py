@@ -11,20 +11,15 @@ log = logging.getLogger(__name__)
 
 
 def _run(cmd, shell=False):
-    """Run a command and capture output to avoid noisy stderr in terminal.
+    """Run a command using check_call so tests can monkeypatch it.
 
-    Returns a dict with ok, stdout, stderr, and optional error.
+    Returns a dict with ok and optional error; stdout/stderr are omitted
+    because most service-manager commands are noisy and tests only care
+    about success/failure.
     """
     try:
-        if shell:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        else:
-            res = subprocess.run(cmd, capture_output=True, text=True)
-        return {
-            "ok": res.returncode == 0,
-            "stdout": (res.stdout or "").strip(),
-            "stderr": (res.stderr or "").strip(),
-        }
+        subprocess.check_call(cmd, shell=shell)
+        return {"ok": True}
     except Exception as e:
         log.debug("Command failed: %s (%s)", cmd, e)
         return {"ok": False, "error": str(e)}

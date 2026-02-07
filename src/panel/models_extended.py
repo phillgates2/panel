@@ -173,6 +173,7 @@ class RconCommandHistory(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     server_id = db.Column(db.Integer, db.ForeignKey("server.id"), nullable=True)
     command = db.Column(db.Text, nullable=False)
+    result = db.Column(db.Text, nullable=True)
     is_favorite = db.Column(db.Boolean, default=False, index=True)
     executed_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), index=True

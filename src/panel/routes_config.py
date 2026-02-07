@@ -2154,6 +2154,7 @@ def ai_enhanced_stats():
             get_behavior_predictor,
             get_content_analyzer,
             get_content_generator,
+            get_enhanced_ai_agent,
         )
     except ModuleNotFoundError:
         return jsonify({"error": "Enhanced AI dependencies not installed"}), 503

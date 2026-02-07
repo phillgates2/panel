@@ -209,6 +209,22 @@ def _run_wizard(json_only: bool = False):
                             venv_path = _ask_input("Python venv path", default=suggested)
             except Exception:
                 pass
+            # Hint when service manager is absent
+            try:
+                from .service_manager import manager_available
+                import platform as _pf
+                if not manager_available():
+                    osname = _pf.system()
+                    print("  Note      : service manager not available")
+                    if osname == "Linux":
+                        print("              Linux: systemd (systemctl) missing; services won't auto-manage")
+                        print("              Options: install systemd or use Docker Compose (docker compose up -d)")
+                    elif osname == "Darwin":
+                        print("              macOS: brew services not available; consider installing Homebrew")
+                    elif osname == "Windows":
+                        print("              Windows: Service Control (sc) not available; manage services manually")
+            except Exception:
+                pass
         print(f"  Dry-run   : {dry_run}")
         print(f"  No-elevate: {no_elevate}")
         if not _ask_yes_no("Proceed?", default=True):

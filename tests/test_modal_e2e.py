@@ -6,12 +6,14 @@ from datetime import date
 
 import pytest
 
+pytestmark = pytest.mark.e2e
+
 from app import Server, User, app, db
 
 try:
-    from playwright.async_api import async_playwright
+    from playwright.async_api import async_playwright  # type: ignore
 except Exception:
-    pytest.skip("playwright not available in this environment", allow_module_level=True)
+    async_playwright = None
 
 
 @pytest.fixture(scope="session")
@@ -78,6 +80,8 @@ def make_admin_and_server(app):
 @pytest.mark.asyncio
 async def test_modal_confirm_delete_server(test_app):
     """Test that delete button shows modal and confirms deletion."""
+    if async_playwright is None:
+        pytest.skip("playwright not available in this environment")
     admin_id, server_id = make_admin_and_server(test_app)
 
     async with async_playwright() as p:
@@ -149,6 +153,8 @@ async def test_modal_confirm_delete_server(test_app):
 @pytest.mark.asyncio
 async def test_modal_cancel_delete(test_app):
     """Test that cancel button closes modal without deletion."""
+    if async_playwright is None:
+        pytest.skip("playwright not available in this environment")
     admin_id, server_id = make_admin_and_server(test_app)
 
     async with async_playwright() as p:
@@ -208,6 +214,8 @@ async def test_modal_cancel_delete(test_app):
 @pytest.mark.asyncio
 async def test_modal_escape_key(test_app):
     """Test that ESC key closes modal."""
+    if async_playwright is None:
+        pytest.skip("playwright not available in this environment")
     admin_id, server_id = make_admin_and_server(test_app)
 
     async with async_playwright() as p:

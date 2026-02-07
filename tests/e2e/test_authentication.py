@@ -1,5 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
-from playwright.sync_api import Page
+
+pytestmark = pytest.mark.e2e
+
+if TYPE_CHECKING:  # pragma: no cover
+    from playwright.sync_api import Page  # type: ignore
 
 
 class TestAuthentication:

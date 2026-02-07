@@ -113,15 +113,12 @@ class UserService:
             # Persist to DB in all modes; cache auth in tests
             db.session.add(user)
             if current_app.config.get("TESTING"):
+                # In tests, keep the logic simple and deterministic to
+                # avoid identity map edge cases across many creates: always
+                # commit and update the in-memory auth cache.
                 auth_cache = current_app.extensions.setdefault("auth_cache", {})
                 auth_cache[email] = user
-                # Batch commits for performance while ensuring persistence
-                counter = current_app.extensions.setdefault("user_create_counter", 0) + 1
-                current_app.extensions["user_create_counter"] = counter
-                if counter % 25 == 0:
-                    db.session.commit()
-                else:
-                    db.session.flush()
+                db.session.commit()
             else:
                 db.session.commit()
 

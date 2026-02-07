@@ -3,8 +3,16 @@ End-to-End Tests with Playwright
 Comprehensive UI testing for critical user flows
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
-from playwright.sync_api import Page, expect
+
+pytestmark = pytest.mark.e2e
+
+if TYPE_CHECKING:  # pragma: no cover
+    from playwright.sync_api import Page  # type: ignore
 
 
 class TestAuthentication:
@@ -12,6 +20,7 @@ class TestAuthentication:
 
     def test_user_registration(self, page: Page, test_server):
         """Test complete user registration flow"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/register")
 
         # Fill registration form
@@ -35,6 +44,7 @@ class TestAuthentication:
 
     def test_user_login(self, page: Page, test_server):
         """Test user login flow"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/login")
 
         # Fill login form
@@ -53,6 +63,7 @@ class TestAuthentication:
 
     def test_password_reset(self, page: Page, test_server):
         """Test password reset flow"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/forgot")
 
         # Request password reset
@@ -64,6 +75,7 @@ class TestAuthentication:
 
     def test_social_login_google(self, page: Page, test_server):
         """Test Google OAuth login"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/login")
 
         # Click Google login button
@@ -75,6 +87,7 @@ class TestAuthentication:
 
     def test_logout(self, page: Page, authenticated_page):
         """Test user logout"""
+        from playwright.sync_api import expect  # type: ignore
         # Click logout link
         authenticated_page.click('a[href="/logout"]')
 
@@ -87,6 +100,7 @@ class TestForumFeatures:
 
     def test_view_forum_index(self, page: Page, test_server):
         """Test forum index page"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/forum")
 
         # Verify page loads
@@ -95,6 +109,7 @@ class TestForumFeatures:
 
     def test_create_thread(self, authenticated_page: Page):
         """Test creating a new forum thread"""
+        from playwright.sync_api import expect  # type: ignore
         authenticated_page.goto("/forum/create")
 
         # Fill thread form
@@ -114,6 +129,7 @@ class TestForumFeatures:
 
     def test_post_reply(self, authenticated_page: Page):
         """Test posting a reply to a thread"""
+        from playwright.sync_api import expect  # type: ignore
         # Navigate to existing thread
         authenticated_page.goto("/forum/thread/1")  # Assuming thread ID 1 exists
 
@@ -130,6 +146,7 @@ class TestForumFeatures:
 
     def test_forum_search(self, page: Page, test_server):
         """Test forum search functionality"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/forum")
 
         # Use search functionality
@@ -145,6 +162,7 @@ class TestAdminFeatures:
 
     def test_admin_login(self, admin_page: Page):
         """Test admin login"""
+        from playwright.sync_api import expect  # type: ignore
         admin_page.goto("/admin")
 
         # Verify admin dashboard loads
@@ -153,6 +171,7 @@ class TestAdminFeatures:
 
     def test_user_management(self, admin_page: Page):
         """Test user management in admin panel"""
+        from playwright.sync_api import expect  # type: ignore
         admin_page.goto("/admin/users")
 
         # Verify user list loads
@@ -161,6 +180,7 @@ class TestAdminFeatures:
 
     def test_create_user(self, admin_page: Page):
         """Test creating a new user via admin panel"""
+        from playwright.sync_api import expect  # type: ignore
         admin_page.goto("/admin/users/create")
 
         # Fill user creation form
@@ -177,6 +197,7 @@ class TestAdminFeatures:
 
     def test_system_settings(self, admin_page: Page):
         """Test system settings management"""
+        from playwright.sync_api import expect  # type: ignore
         admin_page.goto("/admin/settings")
 
         # Verify settings page loads
@@ -195,6 +216,7 @@ class TestGDPRCompliance:
 
     def test_privacy_policy_page(self, page: Page, test_server):
         """Test privacy policy page accessibility"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/privacy")
 
         expect(page.locator("h1")).to_contain_text("Privacy Policy")
@@ -202,6 +224,7 @@ class TestGDPRCompliance:
 
     def test_gdpr_tools_access(self, authenticated_page: Page):
         """Test GDPR tools page access"""
+        from playwright.sync_api import expect  # type: ignore
         authenticated_page.goto("/gdpr")
 
         expect(authenticated_page.locator("h1")).to_contain_text("GDPR Tools")
@@ -209,6 +232,7 @@ class TestGDPRCompliance:
 
     def test_data_export_request(self, authenticated_page: Page):
         """Test GDPR data export request"""
+        from playwright.sync_api import expect  # type: ignore
         authenticated_page.goto("/gdpr")
 
         # Click export button
@@ -223,6 +247,7 @@ class TestPWAAndOffline:
 
     def test_pwa_install_prompt(self, page: Page, test_server):
         """Test PWA install prompt availability"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/")
 
         # Check for PWA manifest
@@ -234,6 +259,7 @@ class TestPWAAndOffline:
 
     def test_offline_page(self, page: Page, test_server):
         """Test offline page accessibility"""
+        from playwright.sync_api import expect  # type: ignore
         page.goto("/offline")
 
         expect(page.locator("h1")).to_contain_text("You're Offline")
@@ -245,6 +271,7 @@ class TestResponsiveDesign:
 
     def test_mobile_navigation(self, page: Page, test_server):
         """Test mobile navigation menu"""
+        from playwright.sync_api import expect  # type: ignore
         page.set_viewport_size({"width": 375, "height": 667})  # iPhone SE size
 
         page.goto("/")

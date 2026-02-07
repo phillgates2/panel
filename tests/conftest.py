@@ -1,11 +1,14 @@
 import json
+import os
+import warnings
+from datetime import date
 from unittest.mock import Mock
 
 import pytest
+from sqlalchemy.exc import SAWarning
 
 from app import create_app, db
 from src.panel.models import User
-from datetime import date
 
 
 @pytest.fixture
@@ -157,6 +160,43 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "integration: mark test as integration test")
     config.addinivalue_line("markers", "performance: mark test as performance test")
     config.addinivalue_line("markers", "unit: mark test as unit test")
+    config.addinivalue_line(
+        "markers",
+        "e2e: browser/UI end-to-end tests (deselected by default; set RUN_E2E=1 to run)",
+    )
+
+    # Suppress noisy SQLAlchemy identity-map warnings that are benign in tests
+    warnings.filterwarnings(
+        "ignore",
+        category=SAWarning,
+        message="Identity map already had an identity for",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Deselect end-to-end/UI tests by default.
+
+    These tests require external browser tooling (Playwright/Selenium + drivers)
+    and are typically not runnable in minimal dev containers.
+
+    Set RUN_E2E=1 to include them.
+    """
+
+    run_e2e = os.environ.get("RUN_E2E", "").lower() in ("1", "true", "yes")
+    if run_e2e:
+        return
+
+    deselected = []
+    selected = []
+    for item in items:
+        if "e2e" in item.keywords:
+            deselected.append(item)
+        else:
+            selected.append(item)
+
+    if deselected:
+        items[:] = selected
+        config.hook.pytest_deselected(items=deselected)
 
 
 # Test data helpers

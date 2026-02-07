@@ -1,15 +1,60 @@
+"""Playwright end-to-end test configuration and fixtures.
+
+These tests are treated as optional and are deselected by default unless
+RUN_E2E=1 is set (see tests/conftest.py).
+
+Important: this file must not call pytest.skip() at import time, otherwise
+default unit test runs will report skipped tests even when E2E is not selected.
 """
-Playwright test configuration and fixtures
-"""
+
+from __future__ import annotations
 
 import json
 import os
-import pytest
-from dotenv import load_dotenv
-from playwright.sync_api import Playwright
 
-# Load environment variables
-load_dotenv()
+import pytest
+
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover
+    load_dotenv = None
+
+
+def _truthy_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in ("1", "true", "yes")
+
+
+def _load_env() -> None:
+    if callable(load_dotenv):
+        try:
+            load_dotenv()
+        except Exception:
+            pass
+
+
+def _require_e2e_ready() -> None:
+    """Skip at runtime when E2E prerequisites are not met."""
+
+    if _truthy_env("SKIP_E2E"):
+        pytest.skip("End-to-end tests skipped by SKIP_E2E")
+
+    # Playwright must be installed for these fixtures.
+    pytest.importorskip("playwright.sync_api")
+
+    test_base_url = os.getenv("TEST_BASE_URL", "http://localhost:8080")
+    try:
+        import requests
+
+        r = requests.get(test_base_url, timeout=1)
+        if r.status_code >= 400:
+            pytest.skip(
+                f"E2E server reachable but returned {r.status_code}; skipping end-to-end tests"
+            )
+    except Exception:
+        pytest.skip(f"E2E server not reachable at {test_base_url}; skipping end-to-end tests")
+
+
+_load_env()
 
 # Test configuration
 TEST_BASE_URL = os.getenv("TEST_BASE_URL", "http://localhost:8080")
@@ -17,24 +62,6 @@ TEST_USERNAME = os.getenv("TEST_USERNAME", "admin@example.com")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "admin123")
 TEST_ADMIN_USERNAME = os.getenv("TEST_ADMIN_USERNAME", "admin@example.com")
 TEST_ADMIN_PASSWORD = os.getenv("TEST_ADMIN_PASSWORD", "admin123")
-
-# If running in CI where e2e are undesirable, allow disabling via env var
-if os.getenv("SKIP_E2E", "false").lower() in ("1", "true", "yes"):
-    pytest.skip("End-to-end tests skipped by SKIP_E2E", allow_module_level=True)
-
-# Probe TEST_BASE_URL and skip E2E tests if not reachable
-try:
-    import requests
-
-    try:
-        r = requests.get(TEST_BASE_URL, timeout=1)
-        if r.status_code >= 400:
-            pytest.skip(f"E2E server reachable but returned {r.status_code}; skipping end-to-end tests", allow_module_level=True)
-    except Exception:
-        pytest.skip(f"E2E server not reachable at {TEST_BASE_URL}; skipping end-to-end tests", allow_module_level=True)
-except Exception:
-    # If requests isn't available, skip to avoid unexpected failures
-    pytest.skip("requests not available to probe TEST_BASE_URL; skipping end-to-end tests", allow_module_level=True)
 
 # Ensure test-results directories exist and use file paths for HAR to avoid OSError on Windows
 _results_dir = os.path.join("test-results")
@@ -47,6 +74,13 @@ if os.getenv("RECORD_VIDEO"):
 if os.getenv("RECORD_HAR"):
     os.makedirs(_har_dir, exist_ok=True)
 os.makedirs(_screenshots_dir, exist_ok=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _e2e_prereqs_guard():
+    """Run prerequisite checks only when E2E tests are actually executing."""
+
+    _require_e2e_ready()
 
 
 @pytest.fixture(scope="session")

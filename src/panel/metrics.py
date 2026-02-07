@@ -90,8 +90,14 @@ class MetricsCollector:
         # Add metrics endpoint
         app.add_url_rule("/metrics", "metrics", self.metrics_endpoint)
 
-        # Start background metrics collection
-        self.start_background_collection()
+        # Start background metrics collection (skip in tests to avoid noisy
+        # daemon threads accessing a transient DB after teardown).
+        try:
+            if not app.config.get("TESTING", False):
+                self.start_background_collection()
+        except Exception:
+            # Best-effort: never break app init due to metrics
+            pass
 
     def before_request(self) -> None:
         """Record request start time"""
@@ -132,6 +138,20 @@ class MetricsCollector:
         """Start background collection of system metrics"""
         import threading
         import time
+
+        # Under pytest, a non-testing app may be created at import time.
+        # Never spawn a daemon metrics loop in that case.
+        try:
+            if os.environ.get("PYTEST_CURRENT_TEST"):
+                return
+        except Exception:
+            pass
+
+        try:
+            if self.app and self.app.config.get("TESTING", False):
+                return
+        except Exception:
+            pass
 
         def collect_system_metrics():
             while True:

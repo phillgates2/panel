@@ -17,7 +17,8 @@ def client():
 def test_home_page(client):
     """Test the home page loads."""
     rv = client.get("/")
-    assert rv.status_code == 404  # Assuming no route, adjust as needed
+    # The home page route should be registered and return HTTP 200.
+    assert rv.status_code == 200
 
 
 def test_rate_limit():
