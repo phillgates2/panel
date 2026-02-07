@@ -14,6 +14,13 @@ from flask_sqlalchemy import SQLAlchemy
 from .db import db
 login_manager = LoginManager()
 
+try:
+    from flask_migrate import Migrate
+
+    migrate = Migrate()
+except Exception:  # pragma: no cover
+    migrate = None
+
 # Import core models and utilities after extensions exist
 from src.panel.models import SiteAsset, SiteSetting, User, Server, ServerUser
 from src.panel.routes_rbac import user_can_edit_server, user_server_role
@@ -93,6 +100,13 @@ def create_app(config_name="default"):
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+
+    # Initialize database migrations (optional)
+    try:
+        if migrate is not None:
+            migrate.init_app(app, db)
+    except Exception:
+        pass
 
     # Configure login manager
     login_manager.login_view = "main.login"

@@ -90,6 +90,14 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
     # Bind SQLAlchemy
     db.init_app(_app)
 
+    # Initialize database migrations (optional)
+    try:
+        from flask_migrate import Migrate
+
+        Migrate(_app, db)
+    except Exception:
+        pass
+
     # Mirror module-level startup behavior for factory-created apps
     # so tests and callers receive an app with the same routes and
     # integrations (DatabaseAdmin, blueprints, start_time).

@@ -73,6 +73,14 @@ extensions = init_app_extensions(app)
 # Bind SQLAlchemy to the app
 db.init_app(app)
 
+# Initialize Flask-Migrate so `flask db ...` commands are registered
+try:
+    from flask_migrate import Migrate
+
+    _migrate = Migrate(app, db)
+except Exception:
+    _migrate = None
+
 # Track application startup time
 app.start_time = time.time()
 
