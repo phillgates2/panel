@@ -37,7 +37,8 @@ const ServersScreen: React.FC = ({ navigation }: any) => {
   const fetchServers = useCallback(async () => {
     try {
       const data = await apiService.getServers();
-      setServers(data);
+      const normalized = (data || []).map((s: any) => apiService.normalizeServer(s));
+      setServers(normalized);
     } catch (error) {
       console.error('Failed to fetch servers:', error);
       Alert.alert('Error', 'Failed to load servers');
@@ -121,6 +122,9 @@ const ServersScreen: React.FC = ({ navigation }: any) => {
     const isRunning = item.status === 'running';
     const statusColor = isRunning ? '#4CAF50' : '#FF3B30';
 
+    const cpu = typeof item.cpu_usage === 'number' ? item.cpu_usage : 0;
+    const mem = typeof item.memory_usage === 'number' ? item.memory_usage : 0;
+
     return (
       <Swipeable renderRightActions={() => renderRightActions(item.id)}>
         <TouchableOpacity
@@ -149,11 +153,11 @@ const ServersScreen: React.FC = ({ navigation }: any) => {
             </View>
             <View style={styles.statItem}>
               <Icon name="memory" size={20} color="#666" />
-              <Text style={styles.statText}>{item.cpu_usage.toFixed(1)}%</Text>
+              <Text style={styles.statText}>{cpu.toFixed(1)}%</Text>
             </View>
             <View style={styles.statItem}>
               <Icon name="database" size={20} color="#666" />
-              <Text style={styles.statText}>{item.memory_usage.toFixed(1)}%</Text>
+              <Text style={styles.statText}>{mem.toFixed(1)}%</Text>
             </View>
           </View>
 

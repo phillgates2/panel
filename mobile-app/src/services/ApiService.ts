@@ -2,15 +2,30 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 interface ApiConfig {
   baseURL: string;
   timeout: number;
 }
 
+const ACCESS_TOKEN_KEY = 'auth_access_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
+
 class ApiService {
   private api: AxiosInstance;
   private wsConnection: WebSocket | null = null;
+  private isRefreshingToken: boolean = false;
+  private refreshPromise: Promise<string> | null = null;
+
+  async getAccessToken(): Promise<string | null> {
+    return AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+  }
+
+  async isLoggedIn(): Promise<boolean> {
+    const token = await this.getAccessToken();
+    return Boolean(token);
+  }
 
   constructor(config: ApiConfig) {
     this.api = axios.create({
@@ -28,8 +43,8 @@ class ApiService {
     // Request interceptor
     this.api.interceptors.request.use(
       async (config) => {
-        const token = await AsyncStorage.getItem('auth_token');
-        if (token) {
+        const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+        if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -43,33 +58,95 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Handle unauthorized access
-          await AsyncStorage.removeItem('auth_token');
-          // Navigate to login screen
+        const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+        if (error.response?.status === 401 && !originalRequest?._retry) {
+          originalRequest._retry = true;
+
+          const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+          if (refreshToken) {
+            try {
+              const newAccessToken = await this.refreshAccessToken(refreshToken);
+              originalRequest.headers = {
+                ...(originalRequest.headers || {}),
+                Authorization: `Bearer ${newAccessToken}`,
+              };
+              return this.api(originalRequest);
+            } catch {
+              await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+            }
+          } else {
+            await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+          }
         }
         return Promise.reject(error);
       }
     );
   }
 
+  private async refreshAccessToken(refreshToken: string): Promise<string> {
+    if (this.isRefreshingToken && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshingToken = true;
+    this.refreshPromise = (async () => {
+      const baseURL = this.api.defaults.baseURL || '';
+      const response = await axios.post(
+        `${baseURL}/auth/jwt/refresh`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${refreshToken}`,
+          },
+          timeout: this.api.defaults.timeout,
+        }
+      );
+
+      const newAccessToken = response.data?.access_token;
+      if (!newAccessToken) {
+        throw new Error('Missing access_token in refresh response');
+      }
+
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken);
+      return newAccessToken;
+    })();
+
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.isRefreshingToken = false;
+      this.refreshPromise = null;
+    }
+  }
+
   // Authentication APIs
-  async login(username: string, password: string): Promise<any> {
-    const response = await this.api.post('/api/auth/login', {
-      username,
+  async login(email: string, password: string): Promise<any> {
+    const response = await this.api.post('/auth/jwt/login', {
+      email,
       password,
     });
-    
-    if (response.data.token) {
-      await AsyncStorage.setItem('auth_token', response.data.token);
+
+    const accessToken = response.data?.access_token;
+    const refreshToken = response.data?.refresh_token;
+
+    if (accessToken) {
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     }
-    
+    if (refreshToken) {
+      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+
     return response.data;
   }
 
   async logout(): Promise<void> {
-    await this.api.post('/api/auth/logout');
-    await AsyncStorage.removeItem('auth_token');
+    try {
+      await this.api.post('/auth/jwt/logout');
+    } finally {
+      await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+    }
   }
 
   async register(userData: any): Promise<any> {
@@ -79,12 +156,12 @@ class ApiService {
 
   // Server Management APIs
   async getServers(): Promise<any[]> {
-    const response = await this.api.get('/api/servers');
-    return response.data;
+    const response = await this.api.get('/api/v2/servers');
+    return response.data?.servers ?? [];
   }
 
   async getServerDetails(serverId: string): Promise<any> {
-    const response = await this.api.get(`/api/servers/${serverId}`);
+    const response = await this.api.get(`/api/v2/servers/${serverId}`);
     return response.data;
   }
 
@@ -126,7 +203,7 @@ class ApiService {
   }
 
   async getServerMetrics(serverId: string): Promise<any> {
-    const response = await this.api.get(`/api/analytics/servers/${serverId}/metrics`);
+    const response = await this.api.get(`/api/v2/servers/${serverId}/metrics`);
     return response.data;
   }
 
@@ -231,7 +308,8 @@ class ApiService {
 
   // WebSocket Connection
   connectWebSocket(token: string): void {
-    const wsUrl = this.api.defaults.baseURL?.replace('http', 'ws') + '/ws';
+    const baseUrl = this.api.defaults.baseURL || '';
+    const wsUrl = baseUrl.replace(/^http/, 'ws') + '/ws';
     this.wsConnection = new WebSocket(wsUrl);
 
     this.wsConnection.onopen = () => {
@@ -292,11 +370,31 @@ class ApiService {
 
     return response.data;
   }
+
+  // Helpers (used by screens to tolerate API shape differences)
+  normalizeServer(raw: any): any {
+    if (!raw || typeof raw !== 'object') return raw;
+    const metrics = raw.metrics && typeof raw.metrics === 'object' ? raw.metrics : undefined;
+    return {
+      ...raw,
+      status: raw.status ?? raw.state ?? 'unknown',
+      player_count: raw.player_count ?? raw.playerCount ?? metrics?.player_count ?? metrics?.playerCount ?? 0,
+      max_players: raw.max_players ?? raw.maxPlayers ?? 0,
+      cpu_usage: raw.cpu_usage ?? raw.cpuUsage ?? metrics?.cpu_usage ?? metrics?.cpuUsage ?? 0,
+      memory_usage: raw.memory_usage ?? raw.memoryUsage ?? metrics?.memory_usage ?? metrics?.memoryUsage ?? 0,
+      game_type: raw.game_type ?? raw.gameType ?? raw.game ?? '',
+    };
+  }
 }
 
 // Create singleton instance
 const apiService = new ApiService({
-  baseURL: __DEV__ ? 'http://localhost:5000' : 'https://api.panel.dev',
+  baseURL:
+    __DEV__ && Platform.OS === 'android'
+      ? 'http://10.0.2.2:5000'
+      : __DEV__
+        ? 'http://localhost:5000'
+        : 'https://api.panel.dev',
   timeout: 30000,
 });
 

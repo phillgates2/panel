@@ -40,11 +40,16 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
         apiService.getAnalytics('24h'),
       ]);
 
-      const activeServers = serversData.filter((s: any) => s.status === 'running');
-      const totalPlayers = serversData.reduce((sum: number, s: any) => sum + s.playerCount, 0);
+      const normalizedServers = (serversData || []).map((s: any) => apiService.normalizeServer(s));
+
+      const activeServers = normalizedServers.filter((s: any) => s.status === 'running');
+      const totalPlayers = normalizedServers.reduce(
+        (sum: number, s: any) => sum + (typeof s.player_count === 'number' ? s.player_count : 0),
+        0
+      );
 
       setStats({
-        totalServers: serversData.length,
+        totalServers: normalizedServers.length,
         activeServers: activeServers.length,
         totalPlayers,
         avgCpuUsage: analyticsData.avgCpuUsage || 0,

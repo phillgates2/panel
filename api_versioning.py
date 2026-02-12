@@ -17,15 +17,35 @@ api_v1 = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 api_v2 = Blueprint("api_v2", __name__, url_prefix="/api/v2")
 
 
+def _get_authenticated_user_id():
+    """Return a user id from either session auth or JWT bearer auth."""
+    from flask import session
+
+    uid = session.get("user_id")
+    if uid:
+        return uid
+
+    # Support mobile/API clients using JWT from /auth/jwt/login
+    try:
+        from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+
+        verify_jwt_in_request(optional=True)
+        jwt_uid = get_jwt_identity()
+        if jwt_uid:
+            return int(jwt_uid)
+    except Exception:
+        return None
+
+    return None
+
+
 # ===== API v1 (Legacy) =====
 
 
 @api_v1.route("/servers")
 def get_servers_v1():
     """Legacy server listing API."""
-    from flask import session
-
-    uid = session.get("user_id")
+    uid = _get_authenticated_user_id()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
 
@@ -55,9 +75,7 @@ def get_servers_v1():
 @api_v1.route("/servers/<int:server_id>")
 def get_server_v1(server_id):
     """Legacy single server API."""
-    from flask import session
-
-    uid = session.get("user_id")
+    uid = _get_authenticated_user_id()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
 
@@ -91,9 +109,7 @@ def health_v1():
 @api_v2.route("/servers")
 def get_servers_v2():
     """Enhanced server listing with pagination and filtering."""
-    from flask import session
-
-    uid = session.get("user_id")
+    uid = _get_authenticated_user_id()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
 
@@ -175,9 +191,7 @@ def get_servers_v2():
 @api_v2.route("/servers/<int:server_id>")
 def get_server_v2(server_id):
     """Enhanced single server API with detailed metrics."""
-    from flask import session
-
-    uid = session.get("user_id")
+    uid = _get_authenticated_user_id()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
 
