@@ -1,5 +1,3 @@
-<div align="center">
-
 # Panel
 
 Enterprise game server management platform — Cloud-ready, secure, and observable.
@@ -8,11 +6,10 @@ Enterprise game server management platform — Cloud-ready, secure, and observab
 [![Security](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-</div>
-
 ---
 
 Panel is a modern platform for running and managing multiplayer game servers at scale. It includes:
+
 - Orchestration (RCON, server templates, provisioning)
 - Secure auth (OAuth2/OIDC, JWT) and RBAC
 - Observability (Prometheus metrics, Grafana dashboards, structured logs)
@@ -28,6 +25,7 @@ Use Panel to host, monitor, and operate servers with enterprise-grade features.
 You can install Panel using the GUI/CLI/SSH installer, or via Docker/manual setup.
 
 ### 1) Download the repository
+
 ```bash
 # Clone the repo
 git clone https://github.com/phillgates2/panel.git
@@ -37,12 +35,14 @@ cd panel
 Installer modules live in `tools/installer/` and support GUI, CLI, and SSH-guided flows.
 
 GUI (desktop environment required):
+
 ```bash
 # Requires Python 3.10+ and PySide6
 python -m tools.installer.gui
 ```
 
 CLI (scriptable, structured output):
+
 ```bash
 # General help
 python3 -m tools.installer --cli --help
@@ -63,6 +63,7 @@ python3 -m tools.installer --cli service stop --components postgres
 ```
 
 SSH (interactive wizard for terminals):
+
 ```bash
 # Launch wizard (guided prompts for install/uninstall)
 python3 -m tools.installer --ssh wizard
@@ -74,20 +75,25 @@ python3 -m tools.installer --ssh service status --components postgres,redis,ngin
 ```
 
 Notes:
+
 - Use `PANEL_INSTALLER_MODE=cli` or `PANEL_INSTALLER_MODE=ssh` to select non-GUI mode by default.
 - SSH/CLI installers stream progress lines prefixed with `PROGRESS:` and can emit final JSON summaries with `--json`.
 
 ### 3) Docker Compose (fastest setup)
+
 ```bash
 # From the repo root
 docker-compose up -d
 # App at http://localhost:8080
 ```
+
 Compose variants:
+
 - `docker-compose.yml` — base stack
 - `docker-compose.monitoring.yml` — Prometheus/Grafana
 
 ### 4) Manual installation (venv)
+
 ```bash
 python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements/requirements.txt
@@ -102,6 +108,7 @@ python app.py
 ## Quick Start
 
 After installation:
+
 - Access the app: `http://localhost:8080` (or your domain)
 - Sign in with the admin user configured during setup
 - Create servers via Servers → Add New
@@ -134,12 +141,14 @@ See `docs/README.md` for the detailed diagram and component guides.
 ## Configuration
 
 Configure via environment (`.env`). Example:
+
 ```env
 FLASK_ENV=production
 DATABASE_URL=postgresql://panel_user:password@localhost:5432/panel_db
 REDIS_URL=redis://localhost:6379/0
 PROMETHEUS_ENABLED=true
 ```
+
 More in `config/README.md`.
 
 ---
@@ -162,15 +171,18 @@ Docs: `tools/installer/README.md` and `docs/INSTALLER_GUIDE.md`.
 ## Monitoring & Troubleshooting
 
 ### Health & Metrics
+
 - Health endpoints: `GET /health`, `GET /health/detailed`
 - Metrics endpoint: `GET /metrics`
 
 ### Logs
+
 - App logs: see your configured logging directory or the GUI installer Logs tab
 - Nginx logs: `/var/log/nginx/access.log`, `/var/log/nginx/error.log`
 - PostgreSQL logs: typically `/var/log/postgresql/*.log`
 
 ### Common Panel Issues & Fixes
+
 - Port conflict on 8080/80/443
   - Check with: `netstat -tlnp | grep 8080` (Linux) or `Get-NetTCPConnection -LocalPort 8080` (Windows)
   - Change `PANEL_PORT` or stop the conflicting service
@@ -186,6 +198,7 @@ Docs: `tools/installer/README.md` and `docs/INSTALLER_GUIDE.md`.
   - Review logs for stack traces and config errors
 
 ### Installer Troubleshooting
+
 - GUI won’t start
   - Ensure PySide6 installed: `pip show PySide6`
   - Try `python -m tools.installer.gui` from repo root
@@ -206,7 +219,22 @@ Docs: `tools/installer/README.md` and `docs/INSTALLER_GUIDE.md`.
 pip install -r requirements/requirements-dev.txt
 make lint format test
 ```
+
 Contribution guide: `docs/CONTRIBUTING.md`.
+
+---
+
+## Mobile App
+
+The React Native mobile client lives in `mobile-app/`.
+
+- Mobile app docs: `mobile-app/README.md`
+- API client: `mobile-app/src/services/ApiService.ts`
+
+Local development notes:
+
+- iOS simulator can typically use `http://localhost:5000` for the API base URL
+- Android emulator typically needs `http://10.0.2.2:5000`
 
 ---
 
@@ -227,5 +255,5 @@ MIT © Contributors. See `LICENSE`.
 
 - Docs index: `docs/README.md`
 - Installer guide: `docs/INSTALLER_GUIDE.md`
-- Issues: https://github.com/phillgates2/panel/issues
-- Discussions: https://github.com/phillgates2/panel/discussions
+- Issues: <https://github.com/phillgates2/panel/issues>
+- Discussions: <https://github.com/phillgates2/panel/discussions>
