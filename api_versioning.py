@@ -4,9 +4,12 @@ Provides backward-compatible API versions for the panel application.
 Supports v1 (legacy) and v2 (enhanced) APIs.
 """
 
-from flask import Blueprint, jsonify, request
+import os
+from datetime import datetime
+
+from flask import Blueprint, current_app, jsonify, request
 from models import Server, User
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 
 from app import db
 
@@ -22,8 +25,11 @@ def _get_authenticated_user_id():
     from flask import session
 
     uid = session.get("user_id")
-    if uid:
-        return uid
+    if uid is not None:
+        try:
+            return int(uid)
+        except (TypeError, ValueError):
+            return None
 
     # Support mobile/API clients using JWT from /auth/jwt/login
     try:
@@ -31,8 +37,11 @@ def _get_authenticated_user_id():
 
         verify_jwt_in_request(optional=True)
         jwt_uid = get_jwt_identity()
-        if jwt_uid:
-            return int(jwt_uid)
+        if jwt_uid is not None:
+            try:
+                return int(jwt_uid)
+            except (TypeError, ValueError):
+                return None
     except Exception:
         return None
 
@@ -80,6 +89,9 @@ def get_server_v1(server_id):
         return jsonify({"error": "Authentication required"}), 401
 
     user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     server = db.session.get(Server, server_id)
 
     if not server or server.user_id != user.id:
@@ -196,6 +208,9 @@ def get_server_v2(server_id):
         return jsonify({"error": "Authentication required"}), 401
 
     user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     server = db.session.get(Server, server_id)
 
     if not server or server.user_id != user.id:
@@ -261,15 +276,16 @@ def get_server_v2(server_id):
 @api_v2.route("/servers/<int:server_id>/metrics")
 def get_server_metrics_v2(server_id):
     """Dedicated metrics endpoint for detailed monitoring."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
-    from flask import session
-
-    uid = session.get("user_id")
+    uid = _get_authenticated_user_id()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
 
     user = db.session.get(User, uid)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
     server = db.session.get(Server, server_id)
 
     if not server or server.user_id != user.id:
@@ -321,7 +337,7 @@ def health_v2():
     """Enhanced health check with system status."""
     try:
         # Check database
-        db.session.execute(db.text("SELECT 1")).first()
+        db.session.execute(text("SELECT 1")).first()
 
         # Check Redis if available
         try:
@@ -344,7 +360,7 @@ def health_v2():
                     "redis": redis_status,
                     "api": "healthy",
                 },
-                "uptime": getattr(app, "start_time", None),
+                "uptime": getattr(current_app, "start_time", None),
             }
         )
     except Exception as e:
