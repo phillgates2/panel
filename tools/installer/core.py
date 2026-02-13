@@ -319,6 +319,7 @@ def install_all(
     from .components import postgres as pg, redis as rd
     actions = []
     errors = []
+    python_failed = None
 
     for c in components:
         try:
@@ -391,12 +392,25 @@ def install_all(
                 actions.append({"component": "python", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
-                if not dry_run and res.get("installed"):
-                    try:
-                        from .state import add_action
-                        add_action({"component": "python", "meta": res})
-                    except Exception:
-                        log.debug("Failed to write install state for pythonenv")
+                if not dry_run:
+                    if res.get("installed"):
+                        try:
+                            from .state import add_action
+                            add_action({"component": "python", "meta": res})
+                        except Exception:
+                            log.debug("Failed to write install state for pythonenv")
+                    else:
+                        python_failed = res
+                        err = {
+                            "component": "python",
+                            "error": res.get("error") or "python venv creation failed",
+                            "details": res,
+                        }
+                        errors.append(err)
+                        if progress_cb:
+                            progress_cb("error", c, err)
+                        # Hard-blocker: don't proceed to panel bootstrap/auto-start without a working venv.
+                        break
 
             else:
                 log.info("No installer implemented for component: %s", c)
@@ -410,6 +424,9 @@ def install_all(
         finally:
             if progress_cb:
                 progress_cb("done", c, {})
+
+    if (not dry_run) and python_failed:
+        return {"status": "error", "actions": actions, "errors": errors}
 
     # Best-effort: ensure a default admin user exists so the UI is accessible.
     if (not dry_run) and create_default_user:

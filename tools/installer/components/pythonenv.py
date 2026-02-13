@@ -8,13 +8,113 @@ import shutil
 import subprocess
 import logging
 import os
+import sys
 
 log = logging.getLogger(__name__)
 
 
 def is_installed():
-    # venv is part of stdlib; check python3 exists
-    return shutil.which("python3") is not None
+    # On Debian/Ubuntu, `python3 -m venv` requires `python3-venv` (ensurepip).
+    if shutil.which("python3") is None:
+        return False
+    try:
+        p = subprocess.run(["python3", "-c", "import venv, ensurepip"], capture_output=True, text=True)
+        return p.returncode == 0
+    except Exception:
+        return False
+
+
+def _python_major_minor() -> str | None:
+    try:
+        out = subprocess.check_output(
+            ["python3", "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+            text=True,
+        ).strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def _ensure_venv_support(*, elevate: bool) -> dict:
+    """Ensure `python3 -m venv` will work (best-effort).
+
+    Primary target: Debian/Ubuntu where ensurepip lives in python3-venv.
+    Returns a dict describing what was done.
+    """
+    try:
+        probe = subprocess.run(["python3", "-c", "import venv, ensurepip"], capture_output=True, text=True)
+        if probe.returncode == 0:
+            return {"ok": True, "action": "probe", "changed": False}
+    except Exception as e:
+        return {"ok": False, "action": "probe", "error": str(e), "changed": False}
+
+    if not elevate:
+        ver = _python_major_minor()
+        hint = "apt install python3-venv"
+        if ver:
+            hint = f"apt install python{ver}-venv (or python3-venv)"
+        return {
+            "ok": False,
+            "action": "install_os_package",
+            "changed": False,
+            "error": "ensurepip/venv support missing",
+            "hint": hint,
+        }
+
+    # Try to install the needed OS package(s)
+    try:
+        from tools.installer.deps import get_package_manager
+    except Exception:
+        get_package_manager = None
+
+    pm = get_package_manager() if get_package_manager else None
+    ver = _python_major_minor()
+
+    if pm == "apt":
+        pkgs = ["python3-venv"]
+        if ver:
+            # Debian 13 often suggests python3.13-venv explicitly.
+            pkgs.append(f"python{ver}-venv")
+
+        last_err = ""
+        try:
+            subprocess.run(["apt-get", "update"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        for pkg in pkgs:
+            try:
+                p = subprocess.run(["apt-get", "install", "-y", pkg], capture_output=True, text=True)
+                if p.returncode == 0:
+                    # Re-probe
+                    probe2 = subprocess.run(["python3", "-c", "import venv, ensurepip"], capture_output=True, text=True)
+                    return {
+                        "ok": probe2.returncode == 0,
+                        "action": "install_os_package",
+                        "changed": True,
+                        "package": pkg,
+                        "stderr": (probe2.stderr or "")[-2000:],
+                    }
+                last_err = (p.stderr or p.stdout or "")[-2000:]
+            except Exception as e:
+                last_err = str(e)
+
+        return {
+            "ok": False,
+            "action": "install_os_package",
+            "changed": False,
+            "error": "failed to install python venv support",
+            "hint": "apt install python3-venv",
+            "details": last_err,
+        }
+
+    return {
+        "ok": False,
+        "action": "install_os_package",
+        "changed": False,
+        "error": "ensurepip/venv support missing",
+        "hint": "Install your OS 'python3-venv' package (Debian/Ubuntu) then retry",
+        "package_manager": pm,
+    }
 
 
 def install(dry_run=False, target=None, elevate=True):
@@ -53,6 +153,18 @@ def install(dry_run=False, target=None, elevate=True):
                     "path": target,
                     "hint": "Choose a user path (e.g., ~/panel/venv) or re-run with elevation",
                 }
+
+        # Ensure OS has venv/ensurepip support (Debian/Ubuntu: python3-venv)
+        support = _ensure_venv_support(elevate=elevate)
+        if not support.get("ok"):
+            return {
+                "installed": False,
+                "error": support.get("error") or "python venv support missing",
+                "cmd": cmd,
+                "path": target,
+                "hint": support.get("hint"),
+                "details": support,
+            }
 
         # Create venv
         os.makedirs(parent, exist_ok=True)
