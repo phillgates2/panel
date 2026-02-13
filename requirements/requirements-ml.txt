@@ -1,0 +1,7 @@
+# Optional ML heavy dependencies.
+#
+# Note: TensorFlow wheels are generally not available for musl-based distros
+# (e.g., Alpine). Install these on a glibc-based environment (Ubuntu/Debian)
+# or use an alternative runtime.
+
+tensorflow>=2.15.0

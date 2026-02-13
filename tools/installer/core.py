@@ -282,6 +282,7 @@ def install_all(
     progress_cb=None,
     venv_path="/opt/panel/venv",
     auto_start=True,
+    install_requirements: bool = True,
     *,
     create_default_user: bool = True,
     admin_email: str | None = None,
@@ -432,6 +433,42 @@ def install_all(
     # Attempt to start the Panel app service after install
     if not dry_run and auto_start:
         try:
+            # Before starting Panel, verify Python dependencies from requirements.txt
+            # are installed in the venv that the service will run under.
+            try:
+                from .py_requirements import (
+                    find_panel_requirements_file,
+                    check_requirements_installed,
+                    install_requirements as _install_requirements,
+                )
+
+                req_path = find_panel_requirements_file()
+                if not req_path:
+                    req_res = {"ok": False, "error": "panel requirements file not found"}
+                else:
+                    req_res = check_requirements_installed(venv_path=venv_path, requirements_path=req_path)
+                    if (not req_res.get("ok")) and install_requirements:
+                        if progress_cb:
+                            progress_cb("pip", "panel", {"action": "install_requirements", "requirements": req_path})
+                        pip_res = _install_requirements(venv_path=venv_path, requirements_path=req_path)
+                        if progress_cb:
+                            progress_cb("pip", "panel", {"action": "install_requirements_result", **pip_res})
+                        # Re-check after installation attempt
+                        req_res = check_requirements_installed(venv_path=venv_path, requirements_path=req_path)
+
+                if progress_cb:
+                    progress_cb("requirements", "panel", req_res)
+                if not req_res.get("ok"):
+                    errors.append({"component": "panel", "error": "python requirements not satisfied", "details": req_res})
+                    # Skip starting the service; it would fail without deps.
+                    return {"status": "error", "actions": actions, "errors": errors}
+            except Exception as e:
+                # Don't crash the whole install due to the check itself.
+                if progress_cb:
+                    progress_cb("requirements", "panel", {"ok": False, "error": str(e)})
+                errors.append({"component": "panel", "error": "requirements check failed", "details": str(e)})
+                return {"status": "error", "actions": actions, "errors": errors}
+
             name = _service_name("panel")
             from .service_manager import service_exists, manager_available
             if not manager_available():

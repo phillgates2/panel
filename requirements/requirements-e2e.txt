@@ -1,0 +1,3 @@
+# End-to-end browser testing dependencies
+playwright>=1.42.0
+selenium>=4.18.0

@@ -1,0 +1,2 @@
+# Developer tooling helpers
+watchdog>=4.0.0

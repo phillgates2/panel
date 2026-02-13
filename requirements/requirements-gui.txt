@@ -1,0 +1,2 @@
+# GUI installer dependency
+PySide6>=6.6.0

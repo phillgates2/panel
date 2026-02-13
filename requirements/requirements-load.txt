@@ -1,0 +1,3 @@
+# Load testing dependencies
+locust>=2.24.0
+gevent>=24.2.1

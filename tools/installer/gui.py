@@ -893,6 +893,76 @@ class InstallerWindow(QMainWindow):
     def _on_finished_with_health(self, res, components):
         self.progress.setValue(100)
         self._append_output("Operation finished", res)
+
+        # Surface Python dependency failures prominently.
+        try:
+            if isinstance(res, dict) and res.get("status") == "error":
+                errors = res.get("errors") or []
+                req_err = None
+                for e in errors:
+                    if not isinstance(e, dict):
+                        continue
+                    if e.get("component") != "panel":
+                        continue
+                    if (e.get("error") or "").lower().startswith("python requirements") or (e.get("error") or "").lower().startswith("requirements check"):
+                        req_err = e
+                        break
+                if req_err:
+                    details = req_err.get("details")
+                    msg_lines = ["Panel could not be started because Python dependencies are missing or incompatible."]
+                    if isinstance(details, dict):
+                        req_path = details.get("requirements")
+                        venv_path = details.get("venv_path")
+                        py_path = details.get("python")
+                        if req_path:
+                            msg_lines.append(f"Requirements: {req_path}")
+                        if venv_path:
+                            msg_lines.append(f"Venv: {venv_path}")
+
+                        # Provide an exact copy/paste command.
+                        if req_path:
+                            if not py_path and venv_path:
+                                # Best-effort fallback if the checker didn't return a python path.
+                                if os.name == "nt":
+                                    py_path = os.path.join(venv_path, "Scripts", "python.exe")
+                                else:
+                                    py_path = os.path.join(venv_path, "bin", "python")
+                            if py_path:
+                                msg_lines.append("\nRun:")
+                                msg_lines.append(f"\"{py_path}\" -m pip install -r \"{req_path}\"")
+
+                        missing = details.get("missing") or []
+                        mismatched = details.get("mismatched") or []
+                        if missing:
+                            msg_lines.append("\nMissing packages:")
+                            for m in missing[:30]:
+                                if isinstance(m, dict):
+                                    name = m.get("name") or "(unknown)"
+                                    spec = m.get("specifier") or ""
+                                    msg_lines.append(f"- {name} {spec}".rstrip())
+                                else:
+                                    msg_lines.append(f"- {m}")
+                            if len(missing) > 30:
+                                msg_lines.append(f"... and {len(missing) - 30} more")
+
+                        if mismatched:
+                            msg_lines.append("\nVersion mismatches:")
+                            for mm in mismatched[:30]:
+                                if isinstance(mm, dict):
+                                    name = mm.get("name") or "(unknown)"
+                                    installed = mm.get("installed") or "?"
+                                    required = mm.get("required") or "?"
+                                    msg_lines.append(f"- {name}: installed {installed}, requires {required}")
+                                else:
+                                    msg_lines.append(f"- {mm}")
+                            if len(mismatched) > 30:
+                                msg_lines.append(f"... and {len(mismatched) - 30} more")
+
+                    msg_lines.append("\nFix: install Python deps into the installer venv, then re-run install.")
+                    QMessageBox.critical(self, "Missing Python Dependencies", "\n".join(msg_lines))
+        except Exception:
+            pass
+
         if self.install_radio.isChecked():
             is_dry_run = isinstance(res, dict) and res.get("status") == "dry-run"
             if not is_dry_run:
