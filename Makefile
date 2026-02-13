@@ -110,9 +110,6 @@ docker-validate: ## Validate Docker setup and configuration
 dev-mariadb: ## Run development server with MariaDB
 	python app.py
 
-docker-dev: ## Run development environment with Docker
-	docker-compose -f docker-compose.dev.yml up
-
 docker-dev-build: ## Build and run development environment
 	docker-compose -f docker-compose.dev.yml up --build
 
