@@ -18,13 +18,18 @@ def _run(cmd, shell=False):
     about success/failure.
     """
     try:
-        # Silence stdout/stderr: systemctl (especially `cat` and `enable`) can be noisy.
-        subprocess.check_call(
-            cmd,
-            shell=shell,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        # Silence stdout/stderr when possible: systemctl (especially `cat` and
+        # `enable`) can be noisy. Some unit tests monkeypatch check_call with a
+        # reduced signature, so fall back gracefully.
+        try:
+            subprocess.check_call(
+                cmd,
+                shell=shell,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except TypeError:
+            subprocess.check_call(cmd, shell=shell)
         return {"ok": True}
     except Exception as e:
         log.debug("Command failed: %s (%s)", cmd, e)

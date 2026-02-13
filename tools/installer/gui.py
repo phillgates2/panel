@@ -27,6 +27,7 @@ else:
 
 from .core import install_all, uninstall_all, start_component_service, stop_component_service
 from .os_utils import is_admin
+from .deps import check_system_deps
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +86,9 @@ _STRINGS = {
         "telemetry": "Telemetry Opt-in",
         "privacy": "Privacy: Only anonymized metrics are sent.",
         "check_updates": "Check for Updates",
+        "admin_email": "Admin Email:",
+        "admin_password": "Admin Password:",
+        "create_default_user": "Create default admin user",
     }
 }
 
@@ -302,6 +306,9 @@ class InstallerWindow(QMainWindow):
         settings_tab = QWidget(); settings_layout = QVBoxLayout()
         db_h = QHBoxLayout(); db_h.addWidget(QLabel(self._tr("db_user"))); self.db_user = QLineEdit("panel"); db_h.addWidget(self.db_user); settings_layout.addLayout(db_h)
         dp_h = QHBoxLayout(); dp_h.addWidget(QLabel(self._tr("db_pass"))); self.db_pass = QLineEdit(""); self.db_pass.setEchoMode(QLineEdit.Password); dp_h.addWidget(self.db_pass); settings_layout.addLayout(dp_h)
+        ae_h = QHBoxLayout(); ae_h.addWidget(QLabel(self._tr("admin_email"))); self.admin_email = QLineEdit("admin@panel.local"); ae_h.addWidget(self.admin_email); settings_layout.addLayout(ae_h)
+        ap_h = QHBoxLayout(); ap_h.addWidget(QLabel(self._tr("admin_password"))); self.admin_password = QLineEdit(""); self.admin_password.setEchoMode(QLineEdit.Password); ap_h.addWidget(self.admin_password); settings_layout.addLayout(ap_h)
+        self.create_default_user_check = QCheckBox(self._tr("create_default_user")); self.create_default_user_check.setChecked(True); settings_layout.addWidget(self.create_default_user_check)
         rp_h = QHBoxLayout(); rp_h.addWidget(QLabel(self._tr("redis_port"))); self.redis_port = QLineEdit("6379"); rp_h.addWidget(self.redis_port); settings_layout.addLayout(rp_h)
         np_h = QHBoxLayout(); np_h.addWidget(QLabel(self._tr("nginx_port"))); self.nginx_port = QLineEdit("80"); np_h.addWidget(self.nginx_port); settings_layout.addLayout(np_h)
         tls_h = QHBoxLayout(); tls_h.addWidget(QLabel(self._tr("tls_cert"))); self.tls_cert = QLineEdit(""); tls_h.addWidget(self.tls_cert); settings_layout.addLayout(tls_h)
@@ -359,8 +366,144 @@ class InstallerWindow(QMainWindow):
         self.btn_save_secret.setText(self._tr("save_secret"))
         self.btn_check_updates.setText(self._tr("check_updates"))
 
+        # Settings labels
+        try:
+            # These widgets may not exist in older configs
+            self.create_default_user_check.setText(self._tr("create_default_user"))
+        except Exception:
+            pass
+
     def _apply_platform_rules(self):
-        pass
+        # GUI installer is meant to always target Postgres.
+        # Keep Postgres enabled and selected so user bootstrapping can run.
+        try:
+            self.chk_postgres.setChecked(True)
+            self.chk_postgres.setEnabled(False)
+        except Exception:
+            pass
+
+    def _on_component_toggle(self):
+        # Persist toggles and enforce required components.
+        try:
+            # Always keep Postgres selected (and disabled where possible).
+            self.chk_postgres.setChecked(True)
+        except Exception:
+            pass
+        self._save_config_silent()
+
+    def _selected_components(self):
+        comps = []
+        try:
+            if self.chk_postgres.isChecked():
+                comps.append("postgres")
+        except Exception:
+            comps.append("postgres")
+        try:
+            if self.chk_redis.isChecked():
+                comps.append("redis")
+        except Exception:
+            pass
+        try:
+            if self.chk_nginx.isChecked():
+                comps.append("nginx")
+        except Exception:
+            pass
+        try:
+            if self.chk_python.isChecked():
+                comps.append("python")
+        except Exception:
+            pass
+        # Guarantee Postgres presence
+        if "postgres" not in comps:
+            comps.insert(0, "postgres")
+        return comps
+
+    def _resolve_dependencies(self, comps, mode):
+        # Minimal dependency resolver; keep behavior predictable.
+        resolved = list(dict.fromkeys(comps or []))
+        notes = []
+        if "postgres" not in resolved:
+            resolved.insert(0, "postgres")
+            notes.append("postgres required")
+        return resolved, notes
+
+    def _apply_preset(self, preset: str):
+        # Simple presets; keep Postgres always on.
+        p = (preset or "").lower().strip()
+        try:
+            self.chk_postgres.setChecked(True)
+        except Exception:
+            pass
+        if p == "dev":
+            self.chk_redis.setChecked(True)
+            self.chk_nginx.setChecked(True)
+            self.chk_python.setChecked(True)
+        elif p == "staging":
+            self.chk_redis.setChecked(True)
+            self.chk_nginx.setChecked(True)
+            self.chk_python.setChecked(True)
+        elif p == "prod":
+            self.chk_redis.setChecked(True)
+            self.chk_nginx.setChecked(True)
+            self.chk_python.setChecked(True)
+        self._save_config_silent()
+
+    def _run_preflight(self):
+        try:
+            missing = check_system_deps()
+            if missing:
+                self._append_output("Preflight: missing system deps", {"missing": missing}, severity="warn")
+                QMessageBox.warning(self, "Preflight", "Missing dependencies:\n" + "\n".join(missing))
+            else:
+                self._append_output("Preflight: ok", {"missing": []}, severity="info")
+                QMessageBox.information(self, "Preflight", "All required dependencies appear installed.")
+        except Exception as e:
+            self._append_output("Preflight failed", {"error": str(e)}, severity="error")
+            QMessageBox.critical(self, "Preflight", f"Preflight failed: {e}")
+
+    def _show_cli_command(self):
+        try:
+            comps = self._selected_components()
+            domain = self.domain_input.text().strip() or "localhost"
+            dry = self.dry_run_check.isChecked()
+            op = "install" if self.install_radio.isChecked() else "uninstall"
+            cmd = ["python3", "-m", "tools.installer", "--cli", op, "--domain", domain]
+            if op == "install":
+                cmd += ["--components", ",".join(comps)]
+                if dry:
+                    cmd.append("--dry-run")
+            else:
+                if self.preserve_data_check.isChecked():
+                    cmd.append("--preserve-data")
+                if dry:
+                    cmd.append("--dry-run")
+            text = " ".join(cmd)
+            self._append_output("CLI equivalent", {"cmd": text}, severity="info")
+            QMessageBox.information(self, "CLI", text)
+        except Exception as e:
+            QMessageBox.critical(self, "CLI", f"Failed to build CLI command: {e}")
+
+    def _on_wizard(self):
+        # Keep wizard minimal in this PoC.
+        QMessageBox.information(self, "Wizard", "Wizard is not implemented in this GUI PoC. Use Settings + Run.")
+
+    def _on_save_secret(self):
+        # Minimal secret persistence: store DB password to user config file.
+        try:
+            cfg = self._config_snapshot()
+            # Avoid writing password unless user explicitly hits this button.
+            cfg["db_pass"] = self.db_pass.text()
+            cfg["admin_password"] = getattr(self, "admin_password", QLineEdit("")).text()
+            cfg_dir = os.path.dirname(self._config_path)
+            os.makedirs(cfg_dir, exist_ok=True)
+            secrets_path = os.path.join(cfg_dir, "secrets.json")
+            with open(secrets_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2)
+            self._append_output("Saved secrets", {"path": secrets_path}, severity="info")
+            QMessageBox.information(self, "Secrets", f"Secrets saved to: {secrets_path}")
+        except Exception as e:
+            self._append_output("Failed to save secrets", {"error": str(e)}, severity="error")
+            QMessageBox.critical(self, "Secrets", f"Failed to save secrets: {e}")
 
     def _toggle_theme(self):
         dark = self.dark_mode_check.isChecked()
@@ -524,6 +667,11 @@ class InstallerWindow(QMainWindow):
             "dark_mode": self.dark_mode_check.isChecked(),
             "domain": self.domain_input.text().strip(),
             "components": self._selected_components(),
+            "db_user": self.db_user.text(),
+            "db_pass": self.db_pass.text(),
+            "admin_email": getattr(self, "admin_email", QLineEdit("")).text(),
+            "admin_password": getattr(self, "admin_password", QLineEdit("")).text(),
+            "create_default_user": getattr(self, "create_default_user_check", QCheckBox()).isChecked() if hasattr(self, "create_default_user_check") else True,
             "redis_port": self.redis_port.text(),
             "nginx_port": self.nginx_port.text(),
             "preset": self.preset_select.currentText(),
@@ -543,6 +691,12 @@ class InstallerWindow(QMainWindow):
             self.chk_redis.setChecked("redis" in comps)
             self.chk_nginx.setChecked("nginx" in comps)
             self.chk_python.setChecked("python" in comps)
+            if cfg.get("db_user") is not None: self.db_user.setText(str(cfg.get("db_user")))
+            if cfg.get("db_pass") is not None: self.db_pass.setText(str(cfg.get("db_pass")))
+            if cfg.get("admin_email") is not None and hasattr(self, "admin_email"): self.admin_email.setText(str(cfg.get("admin_email")))
+            if cfg.get("admin_password") is not None and hasattr(self, "admin_password"): self.admin_password.setText(str(cfg.get("admin_password")))
+            if hasattr(self, "create_default_user_check") and (cfg.get("create_default_user") is not None):
+                self.create_default_user_check.setChecked(bool(cfg.get("create_default_user")))
             if cfg.get("redis_port"): self.redis_port.setText(str(cfg.get("redis_port")))
             if cfg.get("nginx_port"): self.nginx_port.setText(str(cfg.get("nginx_port")))
             preset = cfg.get("preset")
@@ -626,7 +780,57 @@ class InstallerWindow(QMainWindow):
             max_retries = 0; backoff_ms = 0
         if mode == "install":
             self._append_output(f"Starting {'dry-run ' if dry else ''}install for components: {comps_resolved}")
-            self.thread = QThread(); self.worker = Worker(install_all, domain, comps_resolved, True, dry, _max_retries=max_retries, _backoff_ms=backoff_ms)
+            # Create a system_admin user during install (user-defined).
+            create_default_user = True
+            try:
+                create_default_user = bool(self.create_default_user_check.isChecked())
+            except Exception:
+                create_default_user = True
+            admin_email = ""
+            admin_password = ""
+            try:
+                admin_email = (self.admin_email.text() or "").strip()
+                admin_password = (self.admin_password.text() or "").strip()
+            except Exception:
+                pass
+            if create_default_user and (not dry):
+                if not admin_email:
+                    QMessageBox.warning(self, "Admin User", "Admin Email is required to create the default admin user.")
+                    self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
+                    return
+                if not admin_password:
+                    QMessageBox.warning(self, "Admin User", "Admin Password is required (no auto-generate in GUI mode).")
+                    self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
+                    return
+
+            # Always target Postgres for bootstrapping.
+            db_uri = None
+            try:
+                from urllib.parse import quote_plus
+
+                user = (self.db_user.text() or "paneluser").strip()
+                pw = (self.db_pass.text() or "").strip()
+                # DB name is not configurable in the GUI PoC; use Panel default.
+                db_uri = f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(pw)}@127.0.0.1:5432/paneldb"
+            except Exception:
+                db_uri = None
+            if create_default_user and (not dry) and not db_uri:
+                QMessageBox.critical(self, "Database", "Postgres connection string could not be built. Check DB User/Password.")
+                self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
+                return
+            self.thread = QThread(); self.worker = Worker(
+                install_all,
+                domain,
+                comps_resolved,
+                True,
+                dry,
+                create_default_user=create_default_user,
+                admin_email=admin_email or None,
+                admin_password=admin_password or None,
+                db_uri=db_uri,
+                _max_retries=max_retries,
+                _backoff_ms=backoff_ms,
+            )
         else:
             preserve = self.preserve_data_check.isChecked()
             self._append_output(f"Starting {'dry-run ' if dry else ''}uninstall (preserve_data={preserve}) for components: {comps_resolved}")
