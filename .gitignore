@@ -94,6 +94,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
+dump.rdb
 
 # Coverage directory used by tools like istanbul
 coverage/
