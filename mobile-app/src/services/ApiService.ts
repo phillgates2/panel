@@ -150,7 +150,9 @@ class ApiService {
   }
 
   async register(userData: any): Promise<any> {
-    const response = await this.api.post('/api/auth/register', userData);
+    // Registration endpoint is not fully standardized yet.
+    // Use the v2 API prefix for consistency with the rest of the mobile client.
+    const response = await this.api.post('/api/v2/auth/register', userData);
     return response.data;
   }
 
@@ -166,37 +168,37 @@ class ApiService {
   }
 
   async createServer(serverConfig: any): Promise<any> {
-    const response = await this.api.post('/api/servers', serverConfig);
+    const response = await this.api.post('/api/v2/servers', serverConfig);
     return response.data;
   }
 
   async updateServer(serverId: string, updates: any): Promise<any> {
-    const response = await this.api.put(`/api/servers/${serverId}`, updates);
+    const response = await this.api.put(`/api/v2/servers/${serverId}`, updates);
     return response.data;
   }
 
   async deleteServer(serverId: string): Promise<void> {
-    await this.api.delete(`/api/servers/${serverId}`);
+    await this.api.delete(`/api/v2/servers/${serverId}`);
   }
 
   async startServer(serverId: string): Promise<any> {
-    const response = await this.api.post(`/api/servers/${serverId}/start`);
+    const response = await this.api.post(`/api/v2/servers/${serverId}/start`);
     return response.data;
   }
 
   async stopServer(serverId: string): Promise<any> {
-    const response = await this.api.post(`/api/servers/${serverId}/stop`);
+    const response = await this.api.post(`/api/v2/servers/${serverId}/stop`);
     return response.data;
   }
 
   async restartServer(serverId: string): Promise<any> {
-    const response = await this.api.post(`/api/servers/${serverId}/restart`);
+    const response = await this.api.post(`/api/v2/servers/${serverId}/restart`);
     return response.data;
   }
 
   // Analytics APIs
   async getAnalytics(timeRange: string = '24h'): Promise<any> {
-    const response = await this.api.get('/api/analytics/dashboard', {
+    const response = await this.api.get('/api/v2/analytics/dashboard', {
       params: { timeRange },
     });
     return response.data;
@@ -208,63 +210,63 @@ class ApiService {
   }
 
   async getPlayerAnalytics(): Promise<any> {
-    const response = await this.api.get('/api/analytics/players');
+    const response = await this.api.get('/api/v2/analytics/players');
     return response.data;
   }
 
   // Plugin Marketplace APIs
   async searchPlugins(query: string, filters?: any): Promise<any[]> {
-    const response = await this.api.get('/api/plugins/search', {
+    const response = await this.api.get('/api/v2/plugins/search', {
       params: { q: query, ...filters },
     });
     return response.data;
   }
 
   async getPluginDetails(pluginId: string): Promise<any> {
-    const response = await this.api.get(`/api/plugins/${pluginId}`);
+    const response = await this.api.get(`/api/v2/plugins/${pluginId}`);
     return response.data;
   }
 
   async installPlugin(pluginId: string): Promise<any> {
-    const response = await this.api.post(`/api/plugins/${pluginId}/install`);
+    const response = await this.api.post(`/api/v2/plugins/${pluginId}/install`);
     return response.data;
   }
 
   async uninstallPlugin(pluginId: string): Promise<any> {
-    const response = await this.api.post(`/api/plugins/${pluginId}/uninstall`);
+    const response = await this.api.post(`/api/v2/plugins/${pluginId}/uninstall`);
     return response.data;
   }
 
   // Notification APIs
   async registerDevice(deviceToken: string): Promise<void> {
-    await this.api.post('/api/notifications/register', {
+    await this.api.post('/api/v2/notifications/register', {
       deviceToken,
       platform: Platform.OS,
     });
   }
 
   async getNotifications(): Promise<any[]> {
-    const response = await this.api.get('/api/notifications');
+    const response = await this.api.get('/api/v2/notifications');
     return response.data;
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
-    await this.api.put(`/api/notifications/${notificationId}/read`);
+    await this.api.post(`/api/v2/notifications/${notificationId}/read`);
   }
 
   // User Profile APIs
   async getUserProfile(): Promise<any> {
-    const response = await this.api.get('/api/user/profile');
+    const response = await this.api.get('/api/v2/user/profile');
     return response.data;
   }
 
   async updateUserProfile(updates: any): Promise<any> {
-    const response = await this.api.put('/api/user/profile', updates);
+    const response = await this.api.put('/api/v2/user/profile', updates);
     return response.data;
   }
 
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    await this.api.post('/api/user/password', {
+    await this.api.post('/api/v2/user/password', {
       oldPassword,
       newPassword,
     });
@@ -272,17 +274,17 @@ class ApiService {
 
   // Blockchain APIs
   async getWalletBalance(): Promise<any> {
-    const response = await this.api.get('/api/blockchain/wallet/balance');
+    const response = await this.api.get('/api/v2/blockchain/wallet/balance');
     return response.data;
   }
 
   async getNFTAssets(): Promise<any[]> {
-    const response = await this.api.get('/api/blockchain/nfts');
+    const response = await this.api.get('/api/v2/blockchain/nfts');
     return response.data;
   }
 
   async mintAchievementNFT(achievementId: string): Promise<any> {
-    const response = await this.api.post('/api/blockchain/nfts/mint', {
+    const response = await this.api.post('/api/v2/blockchain/nfts/mint', {
       achievementId,
     });
     return response.data;
@@ -290,17 +292,17 @@ class ApiService {
 
   // Support APIs
   async createSupportTicket(ticket: any): Promise<any> {
-    const response = await this.api.post('/api/support/tickets', ticket);
+    const response = await this.api.post('/api/v2/support/tickets', ticket);
     return response.data;
   }
 
   async getSupportTickets(): Promise<any[]> {
-    const response = await this.api.get('/api/support/tickets');
+    const response = await this.api.get('/api/v2/support/tickets');
     return response.data;
   }
 
   async searchKnowledgeBase(query: string): Promise<any[]> {
-    const response = await this.api.get('/api/support/kb/search', {
+    const response = await this.api.get('/api/v2/support/kb/search', {
       params: { q: query },
     });
     return response.data;

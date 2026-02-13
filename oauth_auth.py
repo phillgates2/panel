@@ -208,7 +208,9 @@ class OAuthManager:
                     "user": {
                         "id": user.id,
                         "email": user.email,
-                        "username": user.username,
+                        "first_name": getattr(user, "first_name", None),
+                        "last_name": getattr(user, "last_name", None),
+                        "display_name": getattr(user, "display_name", None),
                         "is_admin": user.is_system_admin(),
                     },
                 }
