@@ -4,6 +4,7 @@ from flask_compress import Compress
 from flask_socketio import SocketIO
 
 from config import config
+from app.secret_key import ensure_secret_key
 from src.panel.security_headers import configure_security_headers
 from src.panel.structured_logging import setup_structured_logging
 
@@ -55,7 +56,7 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
         _app.config.from_object(config)
     else:
         _app.config.from_object(config_obj)
-    _app.secret_key = _app.config.get("SECRET_KEY", getattr(config, "SECRET_KEY", None))
+    ensure_secret_key(_app, candidates=[getattr(config, "SECRET_KEY", None)])
 
     # --- Initialize extensions and configure app ---
 

@@ -19,6 +19,7 @@ from flask_swagger_ui import get_swaggerui_blueprint
 from graphene import ObjectType, Schema as GraphQLSchema, String
 
 from config import config
+from app.secret_key import ensure_secret_key
 from src.panel.api_documentation import api_bp
 from src.panel.celery_app import init_celery
 from src.panel.config_manager import init_config_manager
@@ -37,7 +38,7 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     """
     # Load configuration
     app.config.from_object(config)
-    app.secret_key = config.SECRET_KEY
+    ensure_secret_key(app, candidates=[getattr(config, "SECRET_KEY", None)])
 
     # Database configuration with connection pooling
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
@@ -115,12 +116,16 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
 
     # Initialize API documentation
     try:
-        app.register_blueprint(api_bp)
+        # Avoid duplicate registration when the app (or init) runs twice.
+        if api_bp.name not in app.blueprints and "api_docs.specs" not in app.view_functions:
+            app.register_blueprint(api_bp)
     except Exception as e:
         app.logger.warning(f"API documentation blueprint skipped: {e}")
 
     # Add Swagger UI for API documentation
     try:
+        if "swaggerui" in app.blueprints:
+            raise RuntimeError("Swagger UI already registered")
         swaggerui_blueprint = get_swaggerui_blueprint(
             "/api/docs",
             "/api/swagger.json",
