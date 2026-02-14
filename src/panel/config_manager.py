@@ -17,6 +17,11 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+try:
+    from app.secret_key import ensure_secret_key
+except Exception:  # pragma: no cover
+    ensure_secret_key = None
+
 
 class Environment(Enum):
     """Environment types"""
@@ -239,7 +244,6 @@ class ConfigManager:
         flask_config = {
             "DEBUG": config.debug,
             "TESTING": config.testing,
-            "SECRET_KEY": config.secret_key,
             "SQLALCHEMY_DATABASE_URI": config.database_url,
             "REDIS_URL": config.redis_url,
             "MAIL_SERVER": config.mail_server,
@@ -253,6 +257,11 @@ class ConfigManager:
             "MAX_LOGIN_ATTEMPTS": config.max_login_attempts,
             "LOCKOUT_DURATION": config.lockout_duration,
         }
+
+        # Only set SECRET_KEY when explicitly configured.
+        # (Otherwise leave any existing SECRET_KEY intact so session/OAuth works.)
+        if config.secret_key:
+            flask_config["SECRET_KEY"] = config.secret_key
 
         # Add OAuth providers
         for provider, settings in config.oauth_providers.items():
@@ -481,6 +490,17 @@ def init_config_manager(app):
     # Load configuration into Flask app
     flask_config = config_manager.get_flask_config(env.value)
     app.config.update(flask_config)
+
+    # IMPORTANT:
+    # Our environment JSON configs intentionally do not persist `secret_key`.
+    # When such a config is loaded, `config.secret_key` becomes an empty string,
+    # and app.config.update() would wipe a previously-valid SECRET_KEY.
+    # Guarantee a usable secret key after applying config-manager settings.
+    try:
+        if ensure_secret_key is not None:
+            ensure_secret_key(app, candidates=[app.config.get("SECRET_KEY")])
+    except Exception:
+        pass
 
     app.logger.info(f"Configuration loaded for environment: {env.value}")
 
