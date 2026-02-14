@@ -13,12 +13,66 @@ log = logging.getLogger(__name__)
 
 
 def is_installed():
-    return shutil.which("redis-server") is not None or shutil.which("redis-cli") is not None
+    # Important: redis-cli can be installed standalone via redis-tools; we
+    # consider Redis "installed" only when the server is present.
+    return shutil.which("redis-server") is not None
+
+
+def _try_systemctl(*args: str) -> bool:
+    if not shutil.which("systemctl"):
+        return False
+    try:
+        subprocess.check_call(["systemctl", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
+
+
+def _redis_service_candidates() -> list[str]:
+    # Debian/Ubuntu typically: redis-server
+    # Some distros: redis
+    return ["redis-server", "redis"]
+
+
+def _start_enable_redis_service() -> dict:
+    """Best-effort enable+start Redis service.
+
+    Returns dict with ok/service used.
+    """
+    if not shutil.which("systemctl"):
+        return {"ok": False, "error": "systemctl not available"}
+
+    # Prefer an existing unit name if any.
+    existing = None
+    for name in _redis_service_candidates():
+        if _try_systemctl("cat", name):
+            existing = name
+            break
+
+    # If we can't find an existing unit, still try the common one.
+    to_try = [existing] if existing else []
+    to_try += [n for n in _redis_service_candidates() if n not in to_try]
+
+    last_error = None
+    for svc in to_try:
+        if not svc:
+            continue
+        if _try_systemctl("enable", svc) and _try_systemctl("start", svc):
+            return {"ok": True, "service": svc}
+        last_error = f"failed to enable/start {svc}"
+    return {"ok": False, "error": last_error or "unable to enable/start redis service"}
 
 
 def install(dry_run=False, target=None, elevate=True):
     if is_installed():
-        return {"installed": True, "skipped": True, "msg": "redis already available"}
+        svc_res = _start_enable_redis_service()
+        # Even if service start fails, the server binary exists; report installed.
+        out = {"installed": True, "skipped": True, "msg": "redis-server already available"}
+        if svc_res.get("ok"):
+            out["service"] = svc_res.get("service")
+        else:
+            out["service_error"] = svc_res.get("error")
+        return out
 
     if not elevate:
         cmd_preview = "apt-get update && apt-get install -y redis-server"
@@ -71,13 +125,13 @@ def install(dry_run=False, target=None, elevate=True):
         else:
             subprocess.check_call(cmd)
 
-        try:
-            subprocess.check_call(["systemctl", "enable", "redis-server"])
-            subprocess.check_call(["systemctl", "start", "redis-server"])
-        except Exception:
-            log.debug("systemctl not available or enabling service failed; continuing")
-
-        return {"installed": True, "skipped": False, "msg": "redis installed"}
+        svc_res = _start_enable_redis_service()
+        out = {"installed": True, "skipped": False, "msg": "redis installed"}
+        if svc_res.get("ok"):
+            out["service"] = svc_res.get("service")
+        else:
+            out["service_error"] = svc_res.get("error")
+        return out
     except subprocess.CalledProcessError as e:
         return {"installed": False, "error": str(e), "cmd": cmd_str}
 
@@ -88,14 +142,18 @@ def uninstall(preserve_data=True, dry_run=False):
 
     out = {"stopped": False, "disabled": False, "packages_removed": False}
     try:
-        subprocess.check_call(["systemctl", "stop", "redis-server"])  # may fail
-        out["stopped"] = True
-    except Exception:
-        pass
-
-    try:
-        subprocess.check_call(["systemctl", "disable", "redis-server"])  # may fail
-        out["disabled"] = True
+        for svc in _redis_service_candidates():
+            try:
+                subprocess.check_call(["systemctl", "stop", svc])
+                out["stopped"] = True
+            except Exception:
+                pass
+        for svc in _redis_service_candidates():
+            try:
+                subprocess.check_call(["systemctl", "disable", svc])
+                out["disabled"] = True
+            except Exception:
+                pass
     except Exception:
         pass
 
