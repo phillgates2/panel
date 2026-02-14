@@ -5,6 +5,7 @@ Implements sophisticated rate limiting with IP blocking, behavior analysis, and 
 
 import json
 import logging
+import os
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
@@ -256,9 +257,16 @@ class AdvancedRateLimiter:
         self.cloudflare = None
 
         # Configuration
-        self.abuse_threshold = float(
-            app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", "10.0")
-        )
+        default_threshold = "10.0"
+        try:
+            env = (os.environ.get("FLASK_ENV") or "").lower()
+            if app.debug or app.testing or env in ("development", "testing"):
+                # Browsers/dev tooling easily exceed 10 req/min; avoid self-bans.
+                default_threshold = "60.0"
+        except Exception:
+            pass
+
+        self.abuse_threshold = float(app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", default_threshold))
         self.block_duration = int(app.config.get("RATE_LIMIT_BLOCK_DURATION", "3600"))
 
         # Initialize components
