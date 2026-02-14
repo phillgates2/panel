@@ -129,16 +129,36 @@ class PerformanceMonitor:
                 except Exception:
                     content_length = 0
 
+            req = getattr(g, "request_metrics", None) or {}
+            # If before_request didn't run (or failed), fall back to request object.
+            if not req:
+                try:
+                    req = {
+                        "method": request.method,
+                        "endpoint": request.endpoint,
+                        "path": request.path,
+                        "user_agent": request.headers.get("User-Agent", ""),
+                        "ip": request.remote_addr,
+                    }
+                except Exception:
+                    req = {
+                        "method": "GET",
+                        "endpoint": None,
+                        "path": "unknown",
+                        "user_agent": "",
+                        "ip": None,
+                    }
+
             request_metric = {
                 "timestamp": datetime.utcnow().isoformat(),
-                "method": g.request_metrics["method"],
-                "endpoint": g.request_metrics["endpoint"],
-                "path": g.request_metrics["path"],
+                "method": req.get("method"),
+                "endpoint": req.get("endpoint"),
+                "path": req.get("path"),
                 "status_code": response.status_code,
                 "response_time": response_time,
                 "content_length": content_length,
-                "user_agent": g.request_metrics["user_agent"],
-                "ip": g.request_metrics["ip"],
+                "user_agent": req.get("user_agent", ""),
+                "ip": req.get("ip"),
             }
 
             self.metrics["requests"].append(request_metric)
@@ -155,10 +175,10 @@ class PerformanceMonitor:
                 error_metric = {
                     "timestamp": datetime.utcnow().isoformat(),
                     "status_code": response.status_code,
-                    "method": g.request_metrics["method"],
-                    "path": g.request_metrics["path"],
+                    "method": req.get("method"),
+                    "path": req.get("path"),
                     "error_message": getattr(response, "error_message", ""),
-                    "ip": g.request_metrics["ip"],
+                    "ip": req.get("ip"),
                 }
                 self.metrics["errors"].append(error_metric)
 

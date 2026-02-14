@@ -117,10 +117,23 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     # Initialize API documentation
     try:
         # Avoid duplicate registration when the app (or init) runs twice.
-        if api_bp.name not in app.blueprints and "api_docs.specs" not in app.view_functions:
+        already_registered = (
+            api_bp.name in app.blueprints
+            or any(endpoint.startswith("api_docs.") for endpoint in app.view_functions.keys())
+        )
+        if not already_registered:
             app.register_blueprint(api_bp)
     except Exception as e:
-        app.logger.warning(f"API documentation blueprint skipped: {e}")
+        msg = str(e)
+        # If it's a duplicate-registration case, skip without noisy warning.
+        if (
+            "overwriting an existing endpoint function: api_docs.specs" in msg
+            or "already registered" in msg.lower()
+            or "api_docs" in msg
+        ):
+            pass
+        else:
+            app.logger.warning(f"API documentation blueprint skipped: {e}")
 
     # Add Swagger UI for API documentation
     try:

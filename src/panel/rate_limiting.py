@@ -89,7 +89,11 @@ class IPBlocklist:
     def _trigger_fail2ban(self, ip: str, reason: str) -> None:
         """Trigger fail2ban ban"""
         try:
+            import shutil
             import subprocess
+
+            if not shutil.which("fail2ban-client"):
+                return
 
             # Use fail2ban-client to ban IP
             subprocess.run(
