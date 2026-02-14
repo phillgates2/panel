@@ -67,7 +67,15 @@ def _ensure_panel_systemd_unit(venv_path: str, workdir: str, port: int = 8080) -
             return False
 
     if use_gunicorn:
-        exec_start = f"{gunicorn} --bind 0.0.0.0:{port} --workers 4 app:app"
+        # SQLite is the default DB in many installs; multiple worker processes
+        # can trigger frequent "database is locked" errors. Default to 1 worker
+        # when PANEL_USE_SQLITE isn't explicitly disabled.
+        use_sqlite = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
+        workers = 1 if use_sqlite else 4
+        exec_start = (
+            f"{gunicorn} --bind 0.0.0.0:{port} --workers {workers} "
+            f"--access-logfile - --error-logfile - app:app"
+        )
         extra_env = ""
     else:
         exec_start = f"{python} {app_py}"
@@ -212,6 +220,10 @@ def ensure_default_admin_user(
         # Import lazily so the installer can still run in minimal environments.
         from flask import Flask
         from app.db import db
+        # Import models module to ensure all SQLAlchemy models are registered
+        # before calling create_all(). Otherwise the app can 500 due to missing
+        # tables (e.g. "no such table") after install.
+        import src.panel.models as _panel_models  # noqa: F401
         from src.panel.models import User
 
         app = Flask("panel-installer-bootstrap")
