@@ -337,11 +337,6 @@ class TestMobileResponsiveness:
 class TestAccessibility:
     """Test accessibility features."""
 
-    def test_skip_link_present(self, client):
-        """Test that skip link is present for accessibility."""
-        response = client.get("/")
-        assert b"Skip to main content" in response.data
-
     def test_main_content_id(self, client):
         """Test that main content has proper ID."""
         with app.app_context():

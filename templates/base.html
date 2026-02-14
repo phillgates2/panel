@@ -29,8 +29,8 @@
             var local = localStorage.getItem('theme');
             var theme = local || serverPref;
             if (!theme) {
-              var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-              theme = prefersLight ? 'light' : 'dark';
+              // Default to dark for consistent Panel styling.
+              theme = 'dark';
             }
             root.setAttribute('data-theme', theme);
           }
@@ -54,7 +54,6 @@
     </script>
   </head>
   <body class="fade-in">
-    <a href="#main-content" class="skip-link">Skip to main content</a>
     <header role="banner">
       <div class="container">
         <nav aria-label="Main navigation">

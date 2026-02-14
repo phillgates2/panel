@@ -18,6 +18,17 @@ from src.panel.models import User
 oauth = OAuth()
 
 
+def _safe_flash(message: str, category: str = "error") -> None:
+    try:
+        flash(message, category)
+    except Exception:
+        # If sessions aren't available (e.g., missing SECRET_KEY), flashing will fail.
+        try:
+            current_app.logger.warning("Failed to flash message", exc_info=True)
+        except Exception:
+            pass
+
+
 def login_required(fn):
     """Minimal login guard for optional OAuth routes."""
 
@@ -234,10 +245,24 @@ def init_oauth_routes(app: Flask) -> None:
     def oauth_login(provider):
         """Initiate OAuth login"""
         try:
-            redirect_url = OAuthHandler.get_login_url(provider)
-            return redirect(redirect_url)
-        except ValueError as e:
-            flash(str(e), "error")
+            client = get_oauth_client(provider)
+            if not client:
+                _safe_flash(f"OAuth provider '{provider}' not configured", "error")
+                return redirect(url_for("main.login"))
+
+            redirect_uri = url_for("oauth_callback", provider=provider, _external=True)
+            # Let Authlib build the proper redirect response.
+            return client.authorize_redirect(redirect_uri)
+        except RuntimeError as e:
+            # Common in misconfigured deployments: sessions require a SECRET_KEY.
+            current_app.logger.error(f"OAuth login runtime error for {provider}: {e}")
+            return (
+                "OAuth is temporarily unavailable (server session not configured).",
+                503,
+            )
+        except Exception as e:
+            current_app.logger.exception(f"OAuth login error for {provider}: {e}")
+            _safe_flash("OAuth login failed. Please try again later.", "error")
             return redirect(url_for("main.login"))
 
     @app.route("/oauth/callback/<provider>")
