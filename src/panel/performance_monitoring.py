@@ -106,6 +106,20 @@ class PerformanceMonitor:
                 time.time() - g.start_time
             ) * 1000  # Convert to milliseconds
 
+            content_length = 0
+            try:
+                if getattr(response, "direct_passthrough", False):
+                    content_length = int(getattr(response, "content_length", 0) or 0)
+                else:
+                    data = response.get_data()
+                    content_length = len(data) if data else 0
+            except Exception:
+                # Best-effort: never let monitoring break request handling.
+                try:
+                    content_length = int(getattr(response, "content_length", 0) or 0)
+                except Exception:
+                    content_length = 0
+
             request_metric = {
                 "timestamp": datetime.utcnow().isoformat(),
                 "method": g.request_metrics["method"],
@@ -113,9 +127,7 @@ class PerformanceMonitor:
                 "path": g.request_metrics["path"],
                 "status_code": response.status_code,
                 "response_time": response_time,
-                "content_length": (
-                    len(response.get_data()) if response.get_data() else 0
-                ),
+                "content_length": content_length,
                 "user_agent": g.request_metrics["user_agent"],
                 "ip": g.request_metrics["ip"],
             }

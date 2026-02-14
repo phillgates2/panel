@@ -66,10 +66,11 @@ def configure_panel_reverse_proxy(
     cfg_path, enable_path = _nginx_config_paths()
 
     upstream = f"{upstream_host}:{int(upstream_port)}"
+    server_names = f"_ {domain}" if domain and domain != "_" else "_"
     content = f"""# Managed by Panel installer
 server {{
-    listen {int(listen_port)};
-    server_name {domain};
+    listen {int(listen_port)} default_server;
+    server_name {server_names};
 
     location / {{
         proxy_pass http://{upstream};
@@ -107,6 +108,15 @@ server {{
                 enabled = True
             except Exception as e:
                 return {"ok": False, "error": f"failed to enable nginx site: {e}", "config": cfg_path, "enable": enable_path}
+
+            # Best-effort: disable the distro default site so our vhost is used.
+            # On Debian/Ubuntu the default site is usually a symlink named 'default'.
+            try:
+                default_site = "/etc/nginx/sites-enabled/default"
+                if os.path.islink(default_site) or os.path.exists(default_site):
+                    os.remove(default_site)
+            except Exception:
+                pass
 
         # Validate config before reloading.
         try:

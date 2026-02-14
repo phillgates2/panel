@@ -45,7 +45,11 @@ class Process:
 
 @dataclass
 class _VirtMem:
-    used: int
+    total: int = 0
+    available: int = 0
+    used: int = 0
+    free: int = 0
+    percent: float = 0.0
 
 
 @dataclass
@@ -95,9 +99,14 @@ def cpu_percent(interval: float = 0.0) -> float:
 
 
 def virtual_memory() -> _VirtMem:
-    """Return a small virtual memory struct with `.used`."""
+    """Return a small virtual memory struct.
+
+    Provides a subset compatible with psutil's `svmem`:
+    - total, available, used, free, percent
+    """
     mem_total = 0
     mem_available = 0
+    mem_free = 0
     try:
         with open("/proc/meminfo", "r", encoding="utf-8") as f:
             for line in f:
@@ -105,10 +114,23 @@ def virtual_memory() -> _VirtMem:
                     mem_total = int(line.split()[1]) * 1024
                 elif line.startswith("MemAvailable:"):
                     mem_available = int(line.split()[1]) * 1024
+                elif line.startswith("MemFree:"):
+                    mem_free = int(line.split()[1]) * 1024
     except Exception:
         pass
     used = max(0, mem_total - mem_available)
-    return _VirtMem(used=used)
+
+    percent = 0.0
+    if mem_total > 0:
+        percent = max(0.0, min(100.0, 100.0 * used / mem_total))
+
+    return _VirtMem(
+        total=mem_total,
+        available=mem_available,
+        used=used,
+        free=mem_free,
+        percent=percent,
+    )
 
 
 def disk_partitions() -> List[_Partition]:

@@ -9,7 +9,7 @@
             <h2>Configuration Management</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="{{ url_for('admin_server_manage_users', server_id=server.id) }}">{{ server.name }}</a></li>
                     <li class="breadcrumb-item active">Configuration</li>
                 </ol>
