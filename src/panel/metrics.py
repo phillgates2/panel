@@ -93,7 +93,9 @@ class MetricsCollector:
         app.after_request(self.after_request)
 
         # Add metrics endpoint
-        app.add_url_rule("/metrics", "metrics", self.metrics_endpoint)
+        # Use a unique endpoint name to avoid collisions with other monitoring
+        # integrations that also register an endpoint called 'metrics'.
+        app.add_url_rule("/metrics", "panel_metrics", self.metrics_endpoint)
 
         # Start background metrics collection (skip in tests to avoid noisy
         # daemon threads accessing a transient DB after teardown).

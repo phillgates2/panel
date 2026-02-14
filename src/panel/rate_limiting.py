@@ -11,6 +11,25 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from flask import Flask, g, request
+
+try:
+    # Canonical location for auth helpers in this repo
+    from src.panel.tools.auth import admin_required as auth_admin_required
+except Exception:
+    # Best-effort fallback: keep the app booting even if auth helpers aren't available.
+    # This is only used for the optional rate-limiting admin endpoints.
+    from functools import wraps
+
+    from flask import abort, session
+
+    def auth_admin_required(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            if session.get("admin_authenticated"):
+                return fn(*args, **kwargs)
+            abort(403)
+
+        return wrapped
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 

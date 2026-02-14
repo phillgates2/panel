@@ -1,19 +1,34 @@
-"""
-OAuth 2.0 Social Login Integration
-Supports Google, GitHub, and Discord authentication
+"""OAuth 2.0 Social Login Integration.
+
+Supports Google, GitHub, and Discord authentication.
 """
 
 import os
+from datetime import datetime
+from functools import wraps
 
 from authlib.integrations.base_client import OAuthError
 from authlib.integrations.flask_client import OAuth
-from flask import Flask, current_app, flash, redirect, session, url_for
+from flask import Flask, current_app, flash, redirect, request, session, url_for
 from werkzeug.security import generate_password_hash
 
 from src.panel import db
 from src.panel.models import User
 
 oauth = OAuth()
+
+
+def login_required(fn):
+    """Minimal login guard for optional OAuth routes."""
+
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        if not session.get("user_id"):
+            flash("Authentication required", "error")
+            return redirect(url_for("main.login", next=request.path))
+        return fn(*args, **kwargs)
+
+    return wrapped
 
 
 def init_oauth(app: Flask) -> None:
@@ -223,30 +238,39 @@ def init_oauth_routes(app: Flask) -> None:
             return redirect(redirect_url)
         except ValueError as e:
             flash(str(e), "error")
-            return redirect(url_for("login"))
+            return redirect(url_for("main.login"))
 
     @app.route("/oauth/callback/<provider>")
     def oauth_callback(provider):
         """Handle OAuth callback"""
         try:
             user = OAuthHandler.handle_callback(provider, request)
-            next_url = session.pop("next", url_for("index"))
+            next_url = session.pop("next", url_for("main.index"))
             return redirect(next_url)
         except Exception as e:
             current_app.logger.error(f"OAuth callback error: {e}")
             flash("Authentication failed. Please try again.", "error")
-            return redirect(url_for("login"))
+            return redirect(url_for("main.login"))
 
     @app.route("/oauth/unlink/<provider>", methods=["POST"])
     @login_required
     def oauth_unlink(provider):
         """Unlink OAuth account"""
-        user = get_current_user()
-        if user and user.oauth_provider == provider:
-            user.unlink_oauth_account()
-            db.session.commit()
-            flash(f"{provider.title()} account unlinked successfully.", "success")
+        try:
+            user_id = session.get("user_id")
+            user = db.session.get(User, user_id) if user_id else None
+        except Exception:
+            user = None
+
+        if user and getattr(user, "oauth_provider", None) == provider:
+            try:
+                user.unlink_oauth_account()
+                db.session.commit()
+                flash(f"{provider.title()} account unlinked successfully.", "success")
+            except Exception:
+                db.session.rollback()
+                flash("Failed to unlink OAuth account.", "error")
         else:
             flash("OAuth account not found.", "error")
 
-        return redirect(url_for("profile"))
+        return redirect(url_for("main.profile"))

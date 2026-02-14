@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
 from flask_caching import Cache
-from tools.auth import admin_required as auth_admin_required
+from src.panel.tools.auth import admin_required as auth_admin_required
 
 from app import User, db, verify_csrf
 

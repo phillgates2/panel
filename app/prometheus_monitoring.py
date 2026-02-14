@@ -7,7 +7,7 @@ This module configures Prometheus metrics collection and Grafana dashboard integ
 import os
 from typing import Dict, Any
 
-from flask import Flask, Response
+from flask import Flask, Response, request
 from prometheus_client import (
     Counter,
     Gauge,
@@ -120,14 +120,12 @@ def init_prometheus_metrics(app: Flask) -> Dict[str, Any]:
         'forum_posts': forum_posts,
     }
 
-    # Add Prometheus metrics endpoint
-    @app.route('/metrics')
-    def metrics():
-        """Expose Prometheus metrics."""
-        return Response(
-            generate_latest(),
-            mimetype=CONTENT_TYPE_LATEST
-        )
+    # Add Prometheus metrics endpoint.
+    # Keep /metrics reserved for the auth-protected endpoint in src.panel.metrics.
+    @app.route('/metrics/prometheus')
+    def metrics_prometheus():
+        """Expose Prometheus metrics (unauthenticated)."""
+        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
     # Middleware to collect request metrics
     @app.before_request
