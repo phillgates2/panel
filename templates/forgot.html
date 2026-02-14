@@ -27,7 +27,7 @@
           <button type="button" id="audio" class="btn btn-secondary">🔊 Audio</button>
         </div>
       </div>
-      <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
+      <img id="captcha-img" src="{{ url_for('main.captcha_png') }}" alt="Security captcha image" class="captcha-image" />
       <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
     </div>
 
@@ -50,6 +50,8 @@
 {% if not config.TESTING %}
 <script>
 (function(){
+  const captchaUrl = "{{ url_for('main.captcha_png') }}";
+  const captchaAudioUrl = "{{ url_for('main.captcha_audio') }}";
   const img = document.getElementById('captcha-img');
   const banner = document.getElementById('captcha-expired');
   const input = document.querySelector('input[name="captcha"]');
@@ -58,7 +60,7 @@
   let countdownTimer = null;
   const countdown = document.getElementById('captcha-countdown');
 
-  function refreshCaptcha(){ img.src = '/captcha.png?_' + Date.now(); }
+  function refreshCaptcha(){ img.src = captchaUrl + '?_' + Date.now(); }
   function scheduleExpiry(){
     if (timer) clearTimeout(timer);
     timer = setTimeout(()=>{
@@ -78,7 +80,7 @@
   }
   img.addEventListener('load', ()=>{ if (banner) banner.style.display = 'none'; scheduleExpiry(); startCountdown(); });
   document.getElementById('refresh').addEventListener('click', refreshCaptcha);
-  document.getElementById('audio').addEventListener('click', ()=>{ const a = new Audio('/captcha_audio?_' + Date.now()); a.play(); });
+  document.getElementById('audio').addEventListener('click', ()=>{ const a = new Audio(captchaAudioUrl + '?_' + Date.now()); a.play(); });
   scheduleExpiry();
   startCountdown();
 })();

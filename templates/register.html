@@ -49,7 +49,7 @@
           <button type="button" id="audio" class="btn btn-secondary">🔊 Audio</button>
         </div>
       </div>
-      <img id="captcha-img" src="/captcha.png" alt="Security captcha image" class="captcha-image" />
+      <img id="captcha-img" src="{{ url_for('main.captcha_png') }}" alt="Security captcha image" class="captcha-image" />
       <span id="captcha-countdown" class="text-muted" style="font-size: 0.85rem;"></span>
     </div>
 
@@ -95,6 +95,8 @@
   </form>
 </div>
 <script>
+const captchaUrl = "{{ url_for('main.captcha_png') }}";
+const captchaAudioUrl = "{{ url_for('main.captcha_audio') }}";
 const pw = document.getElementById('password');
 const meter = document.getElementById('pw-meter');
 pw.addEventListener('input', ()=>{
@@ -130,13 +132,13 @@ form.addEventListener('submit', (e)=>{
 document.getElementById('refresh').addEventListener('click', ()=>{
   const img = document.getElementById('captcha-img');
   const input = document.querySelector('input[name="captcha"]');
-  img.src = '/captcha.png?_' + Date.now();
+  img.src = captchaUrl + '?_' + Date.now();
   if (input) input.value = '';
 });
 document.getElementById('audio').addEventListener('click', ()=>{
   const img = document.getElementById('captcha-img');
   if (img && !img.complete) return;
-  const a = new Audio('/captcha_audio?_' + Date.now());
+  const a = new Audio(captchaAudioUrl + '?_' + Date.now());
   a.play().catch(()=>{});
 });
 </script>
