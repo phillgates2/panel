@@ -69,10 +69,29 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     celery = init_celery(app)
 
     # Initialize advanced rate limiting
+    # Prefer Redis when configured/available, but don't crash the whole app if
+    # Redis isn't running yet.
+    storage_uri = (
+        os.environ.get("RATELIMIT_STORAGE_URI")
+        or os.environ.get("PANEL_RATELIMIT_STORAGE_URI")
+        or os.environ.get("PANEL_REDIS_URL")
+        or "memory://"
+    )
+    if isinstance(storage_uri, str) and storage_uri.startswith(("redis://", "rediss://")):
+        try:
+            import redis  # type: ignore
+
+            client = redis.Redis.from_url(storage_uri, socket_connect_timeout=0.5, socket_timeout=0.5)
+            client.ping()
+        except Exception as e:
+            app.logger.warning(f"Redis not available for rate limiting; falling back to memory storage: {e}")
+            storage_uri = "memory://"
+
     limiter = Limiter(
         app=app,
         key_func=get_remote_address,
         default_limits=["200 per day", "50 per hour"],
+        storage_uri=storage_uri,
     )
 
     # Initialize OAuth
