@@ -97,6 +97,15 @@ def create_app(config_name="default"):
             if not key.startswith("_"):
                 app.config[key.upper()] = value
 
+    # Ensure a usable SECRET_KEY is always present (sessions/OAuth depend on it).
+    try:
+        from app.secret_key import ensure_secret_key
+
+        ensure_secret_key(app, candidates=[app.config.get("SECRET_KEY")])
+    except Exception:
+        # Best-effort: keep app creation resilient in minimal environments
+        pass
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)

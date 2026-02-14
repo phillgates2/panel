@@ -18,6 +18,7 @@ from app.context_processors import inject_user
 from app.db import db
 from app.error_handlers import internal_error, page_not_found
 from app.extensions import init_app_extensions
+from app.secret_key import ensure_secret_key
 
 # Import configuration
 from config import config
@@ -75,10 +76,12 @@ except Exception:
     # Best-effort: keep app booting in minimal/test environments.
     pass
 
-# Explicitly set Flask's secret key attribute (used by sessions).
+# Ensure a usable SECRET_KEY is always present (sessions/OAuth depend on it).
+# This is critical for deployments that import `app:app` from this module.
 try:
-    app.secret_key = app.config.get("SECRET_KEY")
+    ensure_secret_key(app, candidates=[getattr(config, "SECRET_KEY", None)])
 except Exception:
+    # Best-effort: keep app booting even if secret-key persistence fails.
     pass
 
 # Initialize all extensions and configurations
