@@ -371,6 +371,29 @@ def install_all(
                 actions.append({"component": "nginx", "result": res})
                 if progress_cb:
                     progress_cb("installed", c, res)
+
+                # Configure nginx to reverse-proxy :80 -> Panel :8080.
+                # Do this even when nginx is already installed (skipped=True).
+                if not dry_run and (res.get("installed") or res.get("skipped")):
+                    try:
+                        cfg_res = ng.configure_panel_reverse_proxy(
+                            domain=(domain or "localhost"),
+                            upstream_host="127.0.0.1",
+                            upstream_port=8080,
+                            listen_port=80,
+                            dry_run=dry_run,
+                            elevate=elevate,
+                        )
+                    except Exception as e:
+                        cfg_res = {"ok": False, "error": str(e)}
+
+                    actions.append({"component": "nginx", "result": {"panel_proxy": cfg_res}})
+                    if progress_cb:
+                        progress_cb("config", c, {"panel_proxy": cfg_res})
+
+                    if isinstance(cfg_res, dict) and not cfg_res.get("ok", False):
+                        errors.append({"component": "nginx", "error": "failed to configure panel reverse proxy", "details": cfg_res})
+
                 if not dry_run and res.get("installed"):
                     from .service_manager import manager_available
                     if not manager_available():
