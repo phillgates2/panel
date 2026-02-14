@@ -60,12 +60,21 @@ class PerformanceMonitor:
             try:
                 # Memory usage
                 memory = psutil.virtual_memory()
+
+                memory_percent = getattr(memory, "percent", None)
+                if memory_percent is None:
+                    total = float(getattr(memory, "total", 0) or 0)
+                    used = float(getattr(memory, "used", 0) or 0)
+                    memory_percent = (100.0 * used / total) if total > 0 else 0.0
+
+                memory_used = float(getattr(memory, "used", 0) or 0)
+                memory_available = float(getattr(memory, "available", 0) or 0)
                 self.metrics["memory_usage"].append(
                     {
                         "timestamp": datetime.utcnow().isoformat(),
-                        "percentage": memory.percent,
-                        "used_mb": memory.used / 1024 / 1024,
-                        "available_mb": memory.available / 1024 / 1024,
+                        "percentage": float(memory_percent),
+                        "used_mb": memory_used / 1024 / 1024,
+                        "available_mb": memory_available / 1024 / 1024,
                     }
                 )
 

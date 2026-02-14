@@ -19,6 +19,11 @@ class MetricsCollector:
     def __init__(self, app: Optional[Flask] = None):
         self.app = app
 
+        # Tracks whether key tables exist; avoids noisy logs on fresh installs
+        self._user_table_exists: Optional[bool] = None
+        self._next_user_table_check_at: float = 0.0
+        self._missing_user_table_warned: bool = False
+
         # HTTP request metrics
         self.http_requests_total = Counter(
             "http_requests_total",
@@ -196,22 +201,62 @@ class MetricsCollector:
             from src.panel.models import User
 
             with self.app.app_context():
+                now = time.time()
+                if self._user_table_exists is False and now < self._next_user_table_check_at:
+                    return
+
+                user_table_name = getattr(User, "__tablename__", "user")
+                has_user_table = True
+                try:
+                    from sqlalchemy import inspect
+
+                    has_user_table = bool(inspect(db.engine).has_table(user_table_name))
+                except Exception:
+                    # Best-effort: if inspection fails, fall back to attempting queries.
+                    has_user_table = True
+
+                if not has_user_table:
+                    self._user_table_exists = False
+                    self._next_user_table_check_at = now + 600  # retry every 10 minutes
+                    if not self._missing_user_table_warned and self.app:
+                        self._missing_user_table_warned = True
+                        self.app.logger.warning(
+                            "Skipping user metrics: database not initialized/migrated (missing user table)"
+                        )
+                    return
+
                 # Database connection count (approximate)
                 # This is a simple gauge, actual connection pooling metrics would be better
                 self.db_connections_active.set(1)  # Placeholder
 
                 # User counts
-                total_users = User.query.count()
-                self.registered_users_total.set(total_users)
+                try:
+                    total_users = User.query.count()
+                    self.registered_users_total.set(total_users)
+                    self._user_table_exists = True
+                except Exception as e:
+                    msg = str(e).lower()
+                    if "no such table" in msg or "does not exist" in msg:
+                        self._user_table_exists = False
+                        self._next_user_table_check_at = time.time() + 600
+                        if not self._missing_user_table_warned and self.app:
+                            self._missing_user_table_warned = True
+                            self.app.logger.warning(
+                                "Skipping user metrics: database not initialized/migrated (missing user table)"
+                            )
+                        return
+                    raise
 
                 # Active users (rough estimate: users who logged in recently)
                 from datetime import datetime, timedelta, timezone
 
                 recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-                active_users = User.query.filter(
-                    User.last_login >= recent_cutoff
-                ).count()
-                self.active_users.set(active_users)
+                try:
+                    active_users = User.query.filter(User.last_login >= recent_cutoff).count()
+                    self.active_users.set(active_users)
+                except Exception:
+                    # If schema is partially initialized, skip without spamming logs.
+                    pass
 
         except Exception as e:
             if self.app:
