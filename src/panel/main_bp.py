@@ -205,7 +205,10 @@ def captcha_audio() -> Any:
     except Exception:
         return Response(b"", status=204, mimetype="audio/wav")
 
-    text = session.get("captcha_text")
+    try:
+        text = session.get("captcha_text")
+    except Exception:
+        text = None
     if not text:
         return Response(b"", status=204, mimetype="audio/wav")
     try:

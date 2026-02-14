@@ -67,6 +67,20 @@ except Exception:
 # Initialize the Flask app
 app = Flask(__name__)
 
+# Load configuration early so extensions (sessions, CSRF, etc.) have access to
+# SECRET_KEY and other required settings.
+try:
+    app.config.from_object(config)
+except Exception:
+    # Best-effort: keep app booting in minimal/test environments.
+    pass
+
+# Explicitly set Flask's secret key attribute (used by sessions).
+try:
+    app.secret_key = app.config.get("SECRET_KEY")
+except Exception:
+    pass
+
 # Initialize all extensions and configurations
 extensions = init_app_extensions(app)
 
