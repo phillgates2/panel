@@ -170,11 +170,23 @@ def captcha_png() -> Any:
         # If captcha module is unavailable for any reason, avoid 500.
         return Response(status=204)
 
-    text = generate_captcha_image()
-    session["captcha_text"] = str(text).strip().upper()
-    session["captcha_ts"] = int(datetime.now().timestamp())
+    try:
+        text = generate_captcha_image()
+    except Exception:
+        return Response(status=204)
 
-    img = last_image_bytes()
+    # Session may be unavailable/misconfigured in some deployments; captcha image
+    # should still render even if we can't persist the expected text.
+    try:
+        session["captcha_text"] = str(text).strip().upper()
+        session["captcha_ts"] = int(datetime.now().timestamp())
+    except Exception:
+        pass
+
+    try:
+        img = last_image_bytes()
+    except Exception:
+        img = None
     if not img:
         return Response(status=204)
 
