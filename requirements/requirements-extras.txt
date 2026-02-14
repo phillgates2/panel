@@ -1,0 +1,30 @@
+# Optional / heavy dependencies (not required for base Panel runtime)
+# Install with:
+#   /opt/panel/venv/bin/python -m pip install -r requirements/requirements-extras.txt
+
+# AI / ML / analytics
+openai>=1.0.0
+numpy>=1.26.0
+pandas>=2.1.0
+scikit-learn>=1.4.0
+joblib>=1.3.0
+transformers>=4.38.0
+plotly>=5.18.0
+
+# Blockchain
+web3>=6.15.0
+
+# Cloud / orchestration
+boto3>=1.34.0
+kubernetes>=29.0.0
+google-cloud-compute>=1.18.0
+google-cloud-aiplatform>=1.45.0
+azure-identity>=1.15.0
+azure-mgmt-compute>=30.0.0
+
+# Monitoring / APM
+newrelic>=9.0.0
+datadog>=0.49.0
+
+# Realtime / networking
+websockets>=12.0

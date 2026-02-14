@@ -472,6 +472,9 @@ def install_all(
                             progress_cb("pip", "panel", {"action": "install_requirements_result", **pip_res})
                         # Re-check after installation attempt
                         req_res = check_requirements_installed(venv_path=venv_path, requirements_path=req_path)
+                        if not pip_res.get("ok"):
+                            # Preserve pip failure details (e.g., DNS/network issues) for UI/CLI.
+                            req_res.setdefault("pip_install", pip_res)
 
                 if progress_cb:
                     progress_cb("requirements", "panel", req_res)

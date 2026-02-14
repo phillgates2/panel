@@ -223,6 +223,22 @@ def install_requirements(
         p = subprocess.run(cmd, text=True, capture_output=True)
         return p.returncode, (p.stdout or "").strip(), (p.stderr or "").strip()
 
+    def _network_hint(stderr: str) -> str | None:
+        s = (stderr or "").lower()
+        needles = [
+            "temporary failure in name resolution",
+            "name or service not known",
+            "failed to establish a new connection",
+            "nodename nor servname provided",
+            "read time out",
+            "readtimeouterror",
+            "connection timed out",
+            "max retries exceeded",
+        ]
+        if any(n in s for n in needles):
+            return "Network/DNS error reaching PyPI. Fix DNS/connectivity (e.g. ensure the host can resolve files.pythonhosted.org) and re-run the installer."
+        return None
+
     # Ensure pip exists in the venv.
     rc, out, err = _run([python, "-m", "pip", "--version"])
     if rc != 0:
@@ -237,12 +253,14 @@ def install_requirements(
 
     cmd = [python, "-m", "pip", "install", "--disable-pip-version-check", "-r", requirements_path]
     rc3, out3, err3 = _run(cmd)
+    hint = _network_hint(err3)
     return {
         "ok": rc3 == 0,
         "cmd": " ".join(cmd),
         "returncode": rc3,
         "stdout": out3[-4000:],
         "stderr": err3[-4000:],
+        "hint": hint,
         "requirements": requirements_path,
         "python": python,
         "venv_path": venv_path,
