@@ -4,6 +4,7 @@ Provides a text-based flow suitable for remote/terminal sessions.
 Streams progress and returns JSON summaries for automation.
 """
 import argparse
+import getpass
 import re
 import json
 import logging
@@ -42,6 +43,31 @@ def build_parser():
     ip.add_argument("--no-auto-start", dest="auto_start", action="store_false", help="Do not auto-start Panel app service after install")
     ip.set_defaults(auto_start=True)
 
+    ip.add_argument(
+        "--create-default-user",
+        dest="create_default_user",
+        action="store_true",
+        help="Create a default system admin user if none exists",
+    )
+    ip.add_argument(
+        "--no-create-default-user",
+        dest="create_default_user",
+        action="store_false",
+        help="Do not create a default system admin user",
+    )
+    ip.set_defaults(create_default_user=True)
+    ip.add_argument("--admin-email", default=None, help="Admin username/email to create (Panel uses email as login)")
+    ip.add_argument(
+        "--admin-password",
+        default=None,
+        help="Admin password to set (WARNING: may be visible in shell history / process list). Prefer --admin-password-stdin.",
+    )
+    ip.add_argument(
+        "--admin-password-stdin",
+        action="store_true",
+        help="Read admin password from stdin (single line).",
+    )
+
     up = sub.add_parser("uninstall", help="Uninstall panel via recorded state (streams progress)")
     up.add_argument("--preserve-data", action="store_true")
     up.add_argument("--dry-run", action="store_true")
@@ -67,6 +93,12 @@ def main(argv: Optional[List[str]] = None):
 
     if args.cmd == "install":
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
+
+        admin_password = args.admin_password
+        if getattr(args, "admin_password_stdin", False):
+            # Read a single line from stdin. This avoids exposing the password in argv.
+            admin_password = (sys.stdin.readline() or "").rstrip("\n")
+
         result = install_all(
             args.domain,
             comps,
@@ -75,6 +107,9 @@ def main(argv: Optional[List[str]] = None):
             progress_cb=_progress_printer,
             venv_path=args.venv_path,
             auto_start=args.auto_start,
+            create_default_user=args.create_default_user,
+            admin_email=args.admin_email,
+            admin_password=admin_password,
         )
         print(json.dumps(result) if args.json else result)
         return
@@ -148,6 +183,63 @@ def _parse_components(s: str) -> List[str]:
     return [c.strip() for c in s.split(',') if c.strip()]
 
 
+def _validate_admin_email(value: str) -> str | None:
+    v = (value or "").strip()
+    if not v:
+        return "Email must not be empty"
+    # Keep validation light; Panel uses email as login identifier.
+    if "@" not in v or v.startswith("@") or v.endswith("@"): 
+        return "Email must look like an email address (e.g. admin@example.com)"
+    return None
+
+
+def _validate_password_complexity(password: str) -> str | None:
+    # Mirror src/panel/models.py complexity rules so the installer fails fast.
+    if len(password or "") < 12:
+        return "Password must be at least 12 characters long"
+    if not re.search(r"[A-Z]", password):
+        return "Password must contain at least one uppercase letter"
+    if not re.search(r"[a-z]", password):
+        return "Password must contain at least one lowercase letter"
+    if not re.search(r"\d", password):
+        return "Password must contain at least one digit"
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return "Password must contain at least one special character"
+    weak_passwords = {"password", "123456", "qwerty", "admin", "letmein", "password123"}
+    if password.lower() in weak_passwords:
+        return "Password is too common; choose a stronger password"
+    return None
+
+
+def _ask_admin_credentials(default_email: str = "admin@panel.local") -> tuple[str, str | None, bool]:
+    """Return (email, password_or_none, password_generated).
+
+    When password is None, the installer will auto-generate a strong password.
+    """
+    while True:
+        email = _ask_input("Admin username/email (login email)", default=default_email).strip().lower()
+        err = _validate_admin_email(email)
+        if err:
+            print(err)
+            continue
+        break
+
+    print("Admin password: enter one now, or leave blank to auto-generate.")
+    while True:
+        pw1 = getpass.getpass("Admin password: ").strip()
+        if not pw1:
+            return email, None, True
+        pw2 = getpass.getpass("Confirm password: ").strip()
+        if pw1 != pw2:
+            print("Passwords do not match. Try again.")
+            continue
+        perr = _validate_password_complexity(pw1)
+        if perr:
+            print(perr)
+            continue
+        return email, pw1, False
+
+
 def _run_wizard(json_only: bool = False):
     print("Panel Installer (SSH Wizard)")
     print("This guided flow will help you install or uninstall components.")
@@ -192,6 +284,13 @@ def _run_wizard(json_only: bool = False):
                 # Fallback to original prompt if home detection fails
                 venv_path = _ask_input("Python venv path", default=venv_path)
         auto_start = _ask_yes_no("Auto-start Panel app after install", default=True)
+
+        create_default_user = _ask_yes_no("Create default admin user", default=True)
+        admin_email = None
+        admin_password = None
+        password_generated = False
+        if create_default_user:
+            admin_email, admin_password, password_generated = _ask_admin_credentials(default_email="admin@panel.local")
         print("\nSummary:")
         print(f"  Operation : install")
         print(f"  Domain    : {domain}")
@@ -230,6 +329,11 @@ def _run_wizard(json_only: bool = False):
                 pass
         print(f"  Dry-run   : {dry_run}")
         print(f"  No-elevate: {no_elevate}")
+        if create_default_user:
+            print(f"  Admin     : {admin_email}")
+            print(f"  Password  : {'auto-generate' if password_generated else 'user-provided'}")
+        else:
+            print(f"  Admin     : (skip default admin creation)")
         if not _ask_yes_no("Proceed?", default=True):
             print("Aborted by user.")
             return
@@ -243,6 +347,13 @@ def _run_wizard(json_only: bool = False):
             from .os_utils import is_admin
 
             if (not no_elevate) and (not dry_run) and (not is_admin()):
+                if create_default_user and (not password_generated):
+                    print(
+                        "\nA custom admin password was provided, but the wizard needs to elevate and cannot safely pass it to the elevated process.\n"
+                        "Re-run the wizard already elevated (e.g. 'sudo python3 -m tools.installer --ssh wizard') and try again."
+                    )
+                    return
+
                 elev = shutil.which("pkexec") or shutil.which("sudo")
                 if not elev:
                     print(
@@ -272,6 +383,10 @@ def _run_wizard(json_only: bool = False):
                     cmd.append("--auto-start")
                 else:
                     cmd.append("--no-auto-start")
+                if not create_default_user:
+                    cmd.append("--no-create-default-user")
+                elif admin_email:
+                    cmd += ["--admin-email", admin_email]
                 if json_only:
                     cmd.append("--json")
 
@@ -292,6 +407,9 @@ def _run_wizard(json_only: bool = False):
             progress_cb=_progress_printer,
             venv_path=venv_path,
             auto_start=auto_start,
+            create_default_user=create_default_user,
+            admin_email=admin_email,
+            admin_password=admin_password,
         )
         print(json.dumps(result) if json_only else result)
         return

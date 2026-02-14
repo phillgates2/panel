@@ -1,6 +1,7 @@
 import argparse
 import logging
 import json
+import sys
 from .core import install_all, uninstall_all, start_component_service, stop_component_service, get_component_service_status
 
 log = logging.getLogger(__name__)
@@ -19,6 +20,30 @@ def build_parser():
     ip.add_argument("--auto-start", dest="auto_start", action="store_true", help="Auto-start Panel app service after install")
     ip.add_argument("--no-auto-start", dest="auto_start", action="store_false", help="Do not auto-start Panel app service after install")
     ip.set_defaults(auto_start=True)
+    ip.add_argument(
+        "--create-default-user",
+        dest="create_default_user",
+        action="store_true",
+        help="Create a default system admin user if none exists",
+    )
+    ip.add_argument(
+        "--no-create-default-user",
+        dest="create_default_user",
+        action="store_false",
+        help="Do not create a default system admin user",
+    )
+    ip.set_defaults(create_default_user=True)
+    ip.add_argument("--admin-email", default=None, help="Admin username/email to create (Panel uses email as login)")
+    ip.add_argument(
+        "--admin-password",
+        default=None,
+        help="Admin password to set (WARNING: may be visible in shell history / process list). Prefer --admin-password-stdin.",
+    )
+    ip.add_argument(
+        "--admin-password-stdin",
+        action="store_true",
+        help="Read admin password from stdin (single line).",
+    )
     ip.add_argument("--json", action="store_true", help="Emit structured JSON output")
 
     up = sub.add_parser("uninstall", help="Uninstall panel")
@@ -45,7 +70,20 @@ def main(argv=None):
 
     if args.cmd == "install":
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
-        result = install_all(args.domain, comps, elevate=(not args.no_elevate), dry_run=args.dry_run, venv_path=args.venv_path, auto_start=args.auto_start)
+        admin_password = args.admin_password
+        if getattr(args, "admin_password_stdin", False):
+            admin_password = (sys.stdin.readline() or "").rstrip("\n")
+        result = install_all(
+            args.domain,
+            comps,
+            elevate=(not args.no_elevate),
+            dry_run=args.dry_run,
+            venv_path=args.venv_path,
+            auto_start=args.auto_start,
+            create_default_user=args.create_default_user,
+            admin_email=args.admin_email,
+            admin_password=admin_password,
+        )
         print(json.dumps(result) if args.json else result)
     elif args.cmd == "uninstall":
         comps = None
