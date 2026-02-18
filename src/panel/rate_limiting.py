@@ -11,7 +11,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
-from flask import Flask, g, request
+from flask import Flask, abort, g, jsonify, request
 
 try:
     # Canonical location for auth helpers in this repo
@@ -256,18 +256,52 @@ class AdvancedRateLimiter:
         self.behavior_analyzer = None
         self.cloudflare = None
 
-        # Configuration
-        default_threshold = "10.0"
-        try:
-            env = (os.environ.get("FLASK_ENV") or "").lower()
-            if app.debug or app.testing or env in ("development", "testing"):
-                # Browsers/dev tooling easily exceed 10 req/min; avoid self-bans.
-                default_threshold = "60.0"
-        except Exception:
-            pass
+        def _detect_environment() -> str:
+            try:
+                for key in (
+                    "FLASK_ENV",
+                    "PANEL_ENV",
+                    "APP_ENV",
+                    "ENV",
+                ):
+                    value = (os.environ.get(key) or "").strip()
+                    if value:
+                        return value.lower()
+            except Exception:
+                pass
 
-        self.abuse_threshold = float(app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", default_threshold))
+            try:
+                for key in (
+                    "ENV",
+                    "ENVIRONMENT",
+                    "PANEL_ENV",
+                    "FLASK_ENV",
+                ):
+                    value = (app.config.get(key) or "").strip()
+                    if value:
+                        return str(value).lower()
+            except Exception:
+                pass
+
+            return ""
+
+        env = _detect_environment()
+        is_dev = bool(app.debug or app.testing or env in ("development", "testing"))
+
+        # Configuration
+        # In development/testing, browsers/dev tooling can easily exceed 10 req/min.
+        # Avoid self-bans unless explicitly enabled via config.
+        default_threshold = "60.0" if is_dev else "10.0"
+        self.abuse_threshold = float(
+            app.config.get("RATE_LIMIT_ABUSE_THRESHOLD", default_threshold)
+        )
         self.block_duration = int(app.config.get("RATE_LIMIT_BLOCK_DURATION", "3600"))
+
+        auto_block = app.config.get("RATE_LIMIT_AUTO_BLOCK_ENABLED")
+        if auto_block is None:
+            self.auto_block_enabled = not is_dev
+        else:
+            self.auto_block_enabled = str(auto_block).lower() in ("1", "true", "yes", "on")
 
         # Initialize components
         self._init_components()
@@ -316,10 +350,17 @@ class AdvancedRateLimiter:
         if self.behavior_analyzer.detect_anomaly(
             identifier, current_rate, self.abuse_threshold
         ):
-            # Block the IP
             reason = f"Anomalous behavior detected (rate: {current_rate:.1f} req/min)"
-            self.block_ip(ip, reason)
-            return False, reason
+
+            if self.auto_block_enabled:
+                # Block the IP
+                self.block_ip(ip, reason)
+                return False, reason
+
+            logger.warning(
+                f"Anomalous behavior detected but auto-block is disabled; allowing request: {ip} ({reason})"
+            )
+            return True, None
 
         return True, None
 
@@ -491,6 +532,40 @@ def setup_rate_limiting(app: Flask):
 # Admin endpoints for rate limiting management
 def init_rate_limiting_admin(app: Flask):
     """Initialize admin endpoints for rate limiting management"""
+
+    def _is_production() -> bool:
+        # Prefer environment variables since they are what systemd/docker usually set.
+        for key in ("FLASK_ENV", "PANEL_ENV", "APP_ENV", "ENV"):
+            value = (os.environ.get(key) or "").strip().lower()
+            if value:
+                return value == "production"
+
+        # Fall back to app.config for unusual setups.
+        for key in ("ENV", "ENVIRONMENT", "PANEL_ENV", "FLASK_ENV"):
+            value = str(app.config.get(key) or "").strip().lower()
+            if value:
+                return value == "production"
+
+        return False
+
+    @app.route("/__maintenance/unblock-my-ip", methods=["GET", "POST"])
+    def maintenance_unblock_my_ip():
+        """Development-only helper to unblock the caller's IP."""
+        if _is_production():
+            abort(404)
+
+        limiter = getattr(app, "advanced_limiter", None)
+        if not limiter:
+            return jsonify({"error": "Advanced rate limiter not initialized"}), 500
+
+        ip = get_remote_address()
+        try:
+            limiter.unblock_ip(ip)
+        except Exception as e:
+            logger.warning(f"Failed to unblock IP via maintenance endpoint: {ip}: {e}")
+            return jsonify({"error": "Failed to unblock IP", "ip": ip}), 500
+
+        return jsonify({"status": "ok", "ip": ip, "unblocked": True}), 200
 
     @app.route("/admin/rate-limiting/stats")
     @auth_admin_required

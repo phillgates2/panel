@@ -2,9 +2,18 @@ from typing import Any, Dict
 
 import io
 
-from flask import (Blueprint, current_app, jsonify, redirect, render_template,
-                   request, url_for)
+from flask import (
+    Blueprint,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user
+
+from sqlalchemy.exc import OperationalError
 
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
@@ -29,7 +38,16 @@ def login() -> str:
         email = request.form.get("email")
         password = request.form.get("password")
         if email and password:
-            u = db.session.query(User).filter_by(email=email).first()
+            try:
+                u = db.session.query(User).filter_by(email=email).first()
+            except OperationalError as e:
+                message = str(e).lower()
+                if "no such table" in message or "does not exist" in message:
+                    current_app.logger.error(
+                        "Login failed because database is not initialized/migrated (missing user table)"
+                    )
+                    return render_template("503.html"), 503
+                raise
             if u and u.check_password(password):
                 # establish session
                 from flask import session
