@@ -491,6 +491,40 @@ def init_config_manager(app):
     flask_config = config_manager.get_flask_config(env.value)
     app.config.update(flask_config)
 
+    # Allow environment variables to override the DB config.
+    # This is important for packaged installs where systemd provides an
+    # EnvironmentFile (/etc/panel/panel.env) and the installer writes PANEL_DB_*.
+    try:
+        from urllib.parse import quote_plus
+
+        override_db = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+
+        panel_use_sqlite = os.environ.get("PANEL_USE_SQLITE")
+        if not override_db and panel_use_sqlite is not None:
+            if str(panel_use_sqlite).strip() in ("1", "true", "yes"):
+                override_db = os.environ.get("PANEL_SQLITE_URI") or "sqlite:///panel_dev.db"
+            elif str(panel_use_sqlite).strip() in ("0", "false", "no"):
+                db_user = os.environ.get("PANEL_DB_USER", "paneluser")
+                db_pass = os.environ.get("PANEL_DB_PASS", "")
+                db_host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
+                db_port = os.environ.get("PANEL_DB_PORT", "5432")
+                db_name = os.environ.get("PANEL_DB_NAME", "paneldb")
+                override_db = f"postgresql+psycopg2://{quote_plus(db_user)}:{quote_plus(db_pass)}@{db_host}:{db_port}/{db_name}"
+
+        # If PANEL_DB_* is set but PANEL_USE_SQLITE isn't, assume Postgres.
+        if not override_db and any(os.environ.get(k) for k in ("PANEL_DB_HOST", "PANEL_DB_USER", "PANEL_DB_NAME")):
+            db_user = os.environ.get("PANEL_DB_USER", "paneluser")
+            db_pass = os.environ.get("PANEL_DB_PASS", "")
+            db_host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
+            db_port = os.environ.get("PANEL_DB_PORT", "5432")
+            db_name = os.environ.get("PANEL_DB_NAME", "paneldb")
+            override_db = f"postgresql+psycopg2://{quote_plus(db_user)}:{quote_plus(db_pass)}@{db_host}:{db_port}/{db_name}"
+
+        if override_db:
+            app.config["SQLALCHEMY_DATABASE_URI"] = override_db
+    except Exception:
+        pass
+
     # IMPORTANT:
     # Our environment JSON configs intentionally do not persist `secret_key`.
     # When such a config is loaded, `config.secret_key` becomes an empty string,
