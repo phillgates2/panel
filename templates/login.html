@@ -86,8 +86,6 @@
     </div>
   </form>
 </div>
-{% endblock %}
-
 {% if not config.TESTING %}
 <script>
 (function(){
@@ -143,9 +141,7 @@
   refreshBtn.addEventListener('click', refreshCaptcha);
   audioBtn.addEventListener('click', ()=>{
     // Ensure the captcha has loaded at least once so the server-side session value exists.
-    if (!img.complete) {
-      return;
-    }
+    if (!img.complete) return;
     const a = new Audio(captchaAudioUrl + '?_' + Date.now());
     a.play().catch(()=>{});
   });
@@ -155,3 +151,5 @@
 })();
 </script>
 {% endif %}
+
+{% endblock %}
