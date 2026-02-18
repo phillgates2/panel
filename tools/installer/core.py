@@ -1,5 +1,9 @@
 import logging
 import os
+import re
+import subprocess
+from pathlib import Path
+from urllib.parse import urlparse, unquote
 from .deps import check_system_deps
 from .os_utils import is_admin, ensure_elevated
 import platform
@@ -34,7 +38,13 @@ SERVICE_MAP = {
 }
 
 
-def _ensure_panel_systemd_unit(venv_path: str, workdir: str, port: int = 8080) -> bool:
+def _ensure_panel_systemd_unit(
+    venv_path: str,
+    workdir: str,
+    port: int = 8080,
+    *,
+    env_file: str | None = None,
+) -> bool:
     """Best-effort creation of a systemd unit for the Panel gunicorn service.
 
     This installer currently does not lay down application code into a fixed
@@ -81,6 +91,11 @@ def _ensure_panel_systemd_unit(venv_path: str, workdir: str, port: int = 8080) -
         exec_start = f"{python} {app_py}"
         extra_env = f"Environment=HOST=0.0.0.0\nEnvironment=PORT={port}\nEnvironment=FLASK_DEBUG=0\n"
 
+    env_file_line = ""
+    if env_file:
+        # Leading '-' means optional (systemd won't fail if missing).
+        env_file_line = f"EnvironmentFile=-{env_file}\n"
+
     content = f"""[Unit]
 Description=Panel
 After=network.target
@@ -89,7 +104,7 @@ After=network.target
 Type=simple
 WorkingDirectory={workdir}
 Environment=PATH={venv_path}/bin
-{extra_env}ExecStart={exec_start}
+{env_file_line}{extra_env}ExecStart={exec_start}
 Restart=always
 RestartSec=5
 
@@ -106,6 +121,118 @@ WantedBy=multi-user.target
         return True
     except Exception:
         return False
+
+
+def _normalize_env_name(env_name: str | None) -> str:
+    name = (env_name or "").strip().lower()
+    if name in ("prod", "production"):
+        return "production"
+    if name in ("stage", "staging"):
+        return "staging"
+    if name in ("test", "testing"):
+        return "testing"
+    return "development"
+
+
+def _write_env_file(path: str, env_vars: dict[str, str], *, mode: int = 0o600) -> dict:
+    try:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+        def _escape(value: str) -> str:
+            v = str(value)
+            v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            return f'"{v}"'
+
+        lines: list[str] = []
+        for key in sorted(env_vars.keys()):
+            if not re.match(r"^[A-Z0-9_]+$", key):
+                continue
+            lines.append(f"{key}={_escape(env_vars[key])}")
+        lines.append("")
+
+        p.write_text("\n".join(lines), encoding="utf-8")
+        try:
+            os.chmod(str(p), mode)
+        except Exception:
+            pass
+        return {"ok": True, "path": str(p), "keys": sorted(env_vars.keys())}
+    except Exception as e:
+        return {"ok": False, "path": path, "error": str(e)}
+
+
+def _parse_db_uri(db_uri: str | None) -> dict:
+    if not db_uri:
+        return {"ok": False, "type": "unknown"}
+    uri = (db_uri or "").strip()
+    if uri.startswith("sqlite:"):
+        return {"ok": True, "type": "sqlite", "sqlite_uri": uri}
+
+    parsed = urlparse(uri)
+    scheme = (parsed.scheme or "").lower()
+    if scheme.startswith("postgres"):
+        return {
+            "ok": True,
+            "type": "postgres",
+            "user": unquote(parsed.username or ""),
+            "password": unquote(parsed.password or ""),
+            "host": parsed.hostname or "127.0.0.1",
+            "port": str(parsed.port or 5432),
+            "db_name": (parsed.path or "").lstrip("/"),
+        }
+
+    return {"ok": False, "type": "unknown", "scheme": scheme}
+
+
+def _build_panel_env(
+    *,
+    env_name: str,
+    domain: str,
+    db_uri: str | None,
+    redis_port: int | None = None,
+) -> dict[str, str]:
+    env: dict[str, str] = {
+        "FLASK_ENV": _normalize_env_name(env_name),
+    }
+
+    if domain:
+        env["PANEL_PUBLIC_BASE_URL"] = (
+            "http://localhost" if domain.strip().lower() == "localhost" else f"http://{domain.strip()}"
+        )
+
+    env.setdefault(
+        "PANEL_SECRET_KEY",
+        os.environ.get("PANEL_SECRET_KEY") or os.environ.get("SECRET_KEY") or secrets.token_urlsafe(48),
+    )
+
+    db = _parse_db_uri(db_uri)
+    if db.get("type") == "sqlite":
+        env["PANEL_USE_SQLITE"] = "1"
+        env["PANEL_SQLITE_URI"] = db.get("sqlite_uri")
+    elif db.get("type") == "postgres":
+        env["PANEL_USE_SQLITE"] = "0"
+        env["PANEL_DB_USER"] = db.get("user") or "paneluser"
+        env["PANEL_DB_PASS"] = db.get("password") or ""
+        env["PANEL_DB_HOST"] = db.get("host") or "127.0.0.1"
+        env["PANEL_DB_PORT"] = db.get("port") or "5432"
+        if db.get("db_name"):
+            env["PANEL_DB_NAME"] = db.get("db_name")
+
+    rp = int(redis_port) if redis_port else 6379
+    env.setdefault("PANEL_REDIS_URL", f"redis://127.0.0.1:{rp}/0")
+
+    return env
+
+
+def _run_alembic_upgrade(*, python_exe: str, workdir: str, env: dict[str, str], progress_cb=None) -> dict:
+    cmd = [python_exe, "-m", "alembic", "upgrade", "head"]
+    if progress_cb:
+        progress_cb("db", "panel", {"action": "alembic_upgrade", "cmd": " ".join(cmd)})
+    try:
+        subprocess.check_call(cmd, cwd=workdir, env=env)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "cmd": " ".join(cmd)}
 
 
 def _service_name(component):
@@ -300,6 +427,9 @@ def install_all(
     admin_email: str | None = None,
     admin_password: str | None = None,
     db_uri: str | None = None,
+    environment: str | None = None,
+    redis_port: int | None = None,
+    panel_env_file: str | None = None,
 ):
     """High level install orchestrator (stub/PoC).
 
@@ -463,30 +593,55 @@ def install_all(
     if (not dry_run) and python_failed:
         return {"status": "error", "actions": actions, "errors": errors}
 
-    # Best-effort: ensure a default admin user exists so the UI is accessible.
-    if (not dry_run) and create_default_user:
-        try:
-            user_res = ensure_default_admin_user(
-                admin_email=admin_email,
-                admin_password=admin_password,
-                db_uri=db_uri,
-                progress_cb=progress_cb,
-            )
-            actions.append({"component": "panel", "result": {"default_user": user_res}})
-            if progress_cb:
-                progress_cb("bootstrap", "panel", user_res)
-            if isinstance(user_res, dict) and not user_res.get("ok", False):
-                errors.append({"component": "panel", "error": user_res.get("error") or "default user creation failed"})
-        except Exception as e:
-            if progress_cb:
-                progress_cb("bootstrap", "panel", {"ok": False, "error": str(e)})
-            errors.append({"component": "panel", "error": str(e)})
+    env_file = panel_env_file
+    if auto_start or create_default_user:
+        # Persist Panel runtime configuration so the service starts with the correct DB/secret/env.
+        if not env_file:
+            env_file = "/etc/panel/panel.env" if platform.system() == "Linux" else os.path.abspath("panel.env")
 
-    # Attempt to start the Panel app service after install
-    if not dry_run and auto_start:
+        panel_env = _build_panel_env(
+            env_name=(environment or os.environ.get("FLASK_ENV") or "development"),
+            domain=(domain or "localhost"),
+            db_uri=db_uri,
+            redis_port=redis_port,
+        )
+
+        if dry_run:
+            env_res = {"ok": True, "dry_run": True, "path": env_file, "keys": sorted(panel_env.keys())}
+        else:
+            env_res = _write_env_file(env_file, panel_env)
+
+        actions.append({"component": "panel", "result": {"env_file": env_res}})
+        if progress_cb:
+            progress_cb("config", "panel", {"env_file": env_res})
+        if isinstance(env_res, dict) and not env_res.get("ok", False):
+            errors.append({"component": "panel", "error": "failed to write env file", "details": env_res})
+            return {"status": "error", "actions": actions, "errors": errors}
+
+        # Apply to current process so subsequent steps use the same config.
+        for k, v in panel_env.items():
+            os.environ[str(k)] = str(v)
+
+        # If postgres is selected and a postgres URI was provided, create DB/user best-effort.
         try:
-            # Before starting Panel, verify Python dependencies from requirements.txt
-            # are installed in the venv that the service will run under.
+            db_info = _parse_db_uri(db_uri)
+            if (not dry_run) and ("postgres" in components) and db_info.get("type") == "postgres":
+                try:
+                    setup_res = pg.setup_database(
+                        db_name=db_info.get("db_name") or "paneldb",
+                        db_user=db_info.get("user") or "panel",
+                        db_pass=db_info.get("password") or None,
+                    )
+                except Exception as e:
+                    setup_res = {"created": False, "error": str(e)}
+                actions.append({"component": "postgres", "result": {"setup_database": setup_res}})
+                if progress_cb:
+                    progress_cb("config", "postgres", {"setup_database": setup_res})
+        except Exception:
+            pass
+
+        # Ensure Python requirements exist before DB init/migrations.
+        if not dry_run:
             try:
                 from .py_requirements import (
                     find_panel_requirements_file,
@@ -498,32 +653,81 @@ def install_all(
                 if not req_path:
                     req_res = {"ok": False, "error": "panel requirements file not found"}
                 else:
-                    req_res = check_requirements_installed(venv_path=venv_path, requirements_path=req_path)
+                    req_res = check_requirements_installed(
+                        venv_path=venv_path, requirements_path=req_path
+                    )
                     if (not req_res.get("ok")) and install_requirements:
                         if progress_cb:
-                            progress_cb("pip", "panel", {"action": "install_requirements", "requirements": req_path})
-                        pip_res = _install_requirements(venv_path=venv_path, requirements_path=req_path)
+                            progress_cb(
+                                "pip",
+                                "panel",
+                                {"action": "install_requirements", "requirements": req_path},
+                            )
+                        pip_res = _install_requirements(
+                            venv_path=venv_path, requirements_path=req_path
+                        )
                         if progress_cb:
-                            progress_cb("pip", "panel", {"action": "install_requirements_result", **pip_res})
-                        # Re-check after installation attempt
-                        req_res = check_requirements_installed(venv_path=venv_path, requirements_path=req_path)
+                            progress_cb(
+                                "pip",
+                                "panel",
+                                {"action": "install_requirements_result", **pip_res},
+                            )
+                        req_res = check_requirements_installed(
+                            venv_path=venv_path, requirements_path=req_path
+                        )
                         if not pip_res.get("ok"):
-                            # Preserve pip failure details (e.g., DNS/network issues) for UI/CLI.
                             req_res.setdefault("pip_install", pip_res)
 
+                actions.append({"component": "panel", "result": {"requirements": req_res}})
                 if progress_cb:
                     progress_cb("requirements", "panel", req_res)
                 if not req_res.get("ok"):
-                    errors.append({"component": "panel", "error": "python requirements not satisfied", "details": req_res})
-                    # Skip starting the service; it would fail without deps.
+                    errors.append(
+                        {
+                            "component": "panel",
+                            "error": "python requirements not satisfied",
+                            "details": req_res,
+                        }
+                    )
                     return {"status": "error", "actions": actions, "errors": errors}
             except Exception as e:
-                # Don't crash the whole install due to the check itself.
-                if progress_cb:
-                    progress_cb("requirements", "panel", {"ok": False, "error": str(e)})
                 errors.append({"component": "panel", "error": "requirements check failed", "details": str(e)})
                 return {"status": "error", "actions": actions, "errors": errors}
 
+            # Run DB migrations.
+            py = os.path.join(venv_path, "bin", "python")
+            if not os.path.exists(py):
+                py = "python"
+            db_res = _run_alembic_upgrade(python_exe=py, workdir=os.getcwd(), env=os.environ.copy(), progress_cb=progress_cb)
+            actions.append({"component": "panel", "result": {"db_migrate": db_res}})
+            if progress_cb:
+                progress_cb("db", "panel", db_res)
+            if not db_res.get("ok"):
+                errors.append({"component": "panel", "error": "database migration failed", "details": db_res})
+                return {"status": "error", "actions": actions, "errors": errors}
+
+            # Ensure a default admin user exists so the UI is accessible.
+            if create_default_user:
+                try:
+                    user_res = ensure_default_admin_user(
+                        admin_email=admin_email,
+                        admin_password=admin_password,
+                        db_uri=db_uri,
+                        progress_cb=progress_cb,
+                    )
+                    actions.append({"component": "panel", "result": {"default_user": user_res}})
+                    if progress_cb:
+                        progress_cb("bootstrap", "panel", user_res)
+                    if isinstance(user_res, dict) and not user_res.get("ok", False):
+                        errors.append({"component": "panel", "error": user_res.get("error") or "default user creation failed"})
+                        return {"status": "error", "actions": actions, "errors": errors}
+                except Exception as e:
+                    errors.append({"component": "panel", "error": str(e)})
+                    return {"status": "error", "actions": actions, "errors": errors}
+
+    # Attempt to start the Panel app service after install
+    if not dry_run and auto_start:
+        try:
             name = _service_name("panel")
             from .service_manager import service_exists, manager_available
             if not manager_available():
@@ -533,7 +737,12 @@ def install_all(
                 # Best-effort: create a systemd unit on Linux so auto-start can work.
                 created = False
                 try:
-                    created = _ensure_panel_systemd_unit(venv_path=venv_path, workdir=os.getcwd(), port=8080)
+                    created = _ensure_panel_systemd_unit(
+                        venv_path=venv_path,
+                        workdir=os.getcwd(),
+                        port=8080,
+                        env_file=env_file,
+                    )
                 except Exception:
                     created = False
                 if progress_cb:

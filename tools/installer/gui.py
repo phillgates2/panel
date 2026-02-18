@@ -818,6 +818,27 @@ class InstallerWindow(QMainWindow):
                 QMessageBox.critical(self, "Database", "Postgres connection string could not be built. Check DB User/Password.")
                 self.btn_action.setEnabled(True); self.btn_cancel.setEnabled(False)
                 return
+
+            env_name = None
+            try:
+                env_name = (self.preset_select.currentText() or "").strip().lower()
+                if env_name == "dev":
+                    env_name = "development"
+                elif env_name == "prod":
+                    env_name = "production"
+                elif env_name == "staging":
+                    env_name = "staging"
+                else:
+                    env_name = None
+            except Exception:
+                env_name = None
+
+            redis_port_val = 6379
+            try:
+                redis_port_val = int((self.redis_port.text() or "6379").strip() or "6379")
+            except Exception:
+                redis_port_val = 6379
+
             self.thread = QThread(); self.worker = Worker(
                 install_all,
                 domain,
@@ -828,6 +849,8 @@ class InstallerWindow(QMainWindow):
                 admin_email=admin_email or None,
                 admin_password=admin_password or None,
                 db_uri=db_uri,
+                environment=env_name,
+                redis_port=redis_port_val,
                 _max_retries=max_retries,
                 _backoff_ms=backoff_ms,
             )
