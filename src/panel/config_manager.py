@@ -120,7 +120,7 @@ class ConfigManager:
         # Environment-specific defaults
         if env_name == "development":
             config.debug = True
-            config.database_url = "sqlite:///dev.db"
+            config.database_url = "sqlite:///panel_dev.db"
             config.redis_url = "redis://localhost:6379/0"
             config.mail_server = "localhost"
             config.secret_key = self._generate_secret_key()
