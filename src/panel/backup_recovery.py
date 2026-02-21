@@ -399,13 +399,15 @@ class DatabaseBackup:
         backup_manager = get_backup_manager()
         backup_dir = backup_manager.backup_dir
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        backup_file = backup_dir / f"db_backup_{timestamp}.sql"
 
-        if self.db_url.startswith("postgresql://"):
+        if self.db_url.startswith("postgresql"):
+            backup_file = backup_dir / f"db_backup_{timestamp}.dump"
             self._backup_postgresql(str(backup_file))
-        elif self.db_url.startswith("mysql://"):
+        elif self.db_url.startswith("mysql"):
+            backup_file = backup_dir / f"db_backup_{timestamp}.sql"
             self._backup_mysql(str(backup_file))
-        elif self.db_url.startswith("sqlite:///"):
+        elif self.db_url.startswith("sqlite"):
+            backup_file = backup_dir / f"db_backup_{timestamp}.sql"
             self._backup_sqlite(str(backup_file))
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
@@ -414,11 +416,11 @@ class DatabaseBackup:
 
     def restore_backup(self, backup_file: str) -> Dict[str, Any]:
         """Restore database from backup"""
-        if self.db_url.startswith("postgresql://"):
+        if self.db_url.startswith("postgresql"):
             self._restore_postgresql(backup_file)
-        elif self.db_url.startswith("mysql://"):
+        elif self.db_url.startswith("mysql"):
             self._restore_mysql(backup_file)
-        elif self.db_url.startswith("sqlite:///"):
+        elif self.db_url.startswith("sqlite"):
             self._restore_sqlite(backup_file)
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
@@ -429,6 +431,7 @@ class DatabaseBackup:
         """Backup PostgreSQL database"""
         # Parse connection details
         from urllib.parse import urlparse
+        import shutil
 
         parsed = urlparse(self.db_url)
         db_name = parsed.path.lstrip("/")
@@ -436,6 +439,9 @@ class DatabaseBackup:
         port = parsed.port or 5432
         user = parsed.username
         password = parsed.password
+
+        if not shutil.which("pg_dump"):
+            raise FileNotFoundError("pg_dump not found on PATH; install postgresql-client to enable Postgres backups")
 
         env = os.environ.copy()
         env["PGPASSWORD"] = password or ""
@@ -463,6 +469,7 @@ class DatabaseBackup:
     def _restore_postgresql(self, backup_file: str):
         """Restore PostgreSQL database"""
         from urllib.parse import urlparse
+        import shutil
 
         parsed = urlparse(self.db_url)
         db_name = parsed.path.lstrip("/")
@@ -470,6 +477,11 @@ class DatabaseBackup:
         port = parsed.port or 5432
         user = parsed.username
         password = parsed.password
+
+        if not shutil.which("pg_restore"):
+            raise FileNotFoundError(
+                "pg_restore not found on PATH; install postgresql-client to enable Postgres restores"
+            )
 
         env = os.environ.copy()
         env["PGPASSWORD"] = password or ""

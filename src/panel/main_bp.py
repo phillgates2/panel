@@ -13,7 +13,7 @@ from flask import (
 )
 from flask_login import current_user
 
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.utils import moderate_message
 from src.panel.models import ChatMessage, db
@@ -40,7 +40,7 @@ def login() -> str:
         if email and password:
             try:
                 u = db.session.query(User).filter_by(email=email).first()
-            except OperationalError as e:
+            except (OperationalError, ProgrammingError) as e:
                 message = str(e).lower()
                 if "no such table" in message or "does not exist" in message:
                     current_app.logger.error(
