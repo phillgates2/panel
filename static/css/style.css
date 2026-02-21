@@ -276,6 +276,119 @@ nav a.active {
     box-shadow: 0 2px 8px rgba(31, 111, 235, 0.2);
 }
 
+/* Make dropdown menu links match the “fancy button” vibe without
+   inheriting the navbar link lift animation (which can cause flicker). */
+nav .nav-dropdown-menu a {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+nav .nav-dropdown-menu a:hover,
+nav .nav-dropdown-menu a:focus-visible {
+    color: #fff;
+    background: var(--gradient);
+    text-decoration: none;
+    transform: none;
+    box-shadow: 0 8px 25px rgba(31, 111, 235, 0.25);
+}
+
+nav .nav-dropdown-menu a.active {
+    color: var(--text);
+    background: var(--panel-hover);
+    border-color: var(--border);
+    box-shadow: none;
+}
+
+/* Bootstrap-style dropdown items used across templates */
+.dropdown-item {
+    display: block;
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus-visible {
+    color: #fff;
+    background: var(--gradient);
+    text-decoration: none;
+}
+
+/* Breadcrumb links: keep them compact but polished */
+.breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.breadcrumb .breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-muted);
+}
+
+.breadcrumb .breadcrumb-item a {
+    color: var(--text-secondary);
+    padding: 0.25rem 0.55rem;
+    border-radius: 10px;
+    text-decoration: none;
+}
+
+.breadcrumb .breadcrumb-item a:hover,
+.breadcrumb .breadcrumb-item a:focus-visible {
+    color: var(--text);
+    background: var(--panel-hover);
+    text-decoration: none;
+}
+
+.breadcrumb .breadcrumb-item.active {
+    color: var(--text-muted);
+}
+
+/* Pagination links (Bootstrap-style) */
+.pagination {
+    display: inline-flex;
+    gap: 0.4rem;
+    list-style: none;
+    padding-left: 0;
+}
+
+.page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.page-link:hover,
+.page-link:focus-visible {
+    color: #fff;
+    background: var(--gradient);
+    border-color: transparent;
+    text-decoration: none;
+}
+
+.page-item.active .page-link {
+    color: #fff;
+    background: var(--gradient);
+    border-color: transparent;
+}
+
 /* ===== FORMS ===== */
 form {
     display: flex;
