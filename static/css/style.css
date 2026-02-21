@@ -201,25 +201,22 @@ nav {
 }
 
 nav .nav-dropdown-trigger {
-    appearance: none;
-    border: none;
-    cursor: pointer;
-    background: transparent;
-    color: var(--text-secondary);
-    text-decoration: none;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    font-weight: 500;
-    position: relative;
-    font-size: 0.9rem;
+    /* Let the global button styling apply (gradient, shadow, etc).
+       Only tune sizing so it fits the navbar. */
+    padding: 10px 16px;
+    font-size: 0.95rem;
 }
 
-nav .nav-dropdown-trigger:hover,
-nav .nav-dropdown:focus-within .nav-dropdown-trigger {
-    color: var(--text);
-    background: var(--panel-hover);
-    transform: translateY(-2px);
+.nav-dropdown-heading {
+    padding: 0.45rem 0.75rem;
+    margin: 0.25rem 0.25rem 0.35rem;
+    border-radius: 10px;
+    background: var(--gradient);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
 .nav-dropdown-menu {

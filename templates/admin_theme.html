@@ -47,10 +47,10 @@
       <li style="display:flex; align-items:center; margin:6px 0;">
         <input type="checkbox" name="asset_ids" value="{{ a.id }}" />
         <div style="width:48px; height:48px; margin-left:8px;">
-          <img src="{{ url_for('theme_asset_thumb', asset_id=a.id) }}" style="max-width:48px; max-height:48px;" alt="{{ a.filename }}" />
+          <img src="{{ url_for('main.theme_asset_thumb', asset_id=a.id) }}" style="max-width:48px; max-height:48px;" alt="{{ a.filename }}" />
         </div>
         <div style="margin-left:8px; flex:1;">
-          <a href="{{ url_for('theme_asset_by_id', asset_id=a.id) }}" target="_blank">{{ a.filename }}</a>
+          <a href="{{ url_for('main.theme_asset_by_id', asset_id=a.id) }}" target="_blank">{{ a.filename }}</a>
           <div style="font-size:0.9rem; color:#666;">Uploaded: {{ a.created_at }}</div>
         </div>
         <div>

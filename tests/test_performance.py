@@ -122,20 +122,7 @@ class TestCachePerformance:
 class TestDatabasePerformance:
     """Performance tests for database operations"""
 
-    def setup_method(self):
-        """Set up test database"""
-        self.app = create_app("testing")
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-
-    def teardown_method(self):
-        """Clean up test database"""
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
-
-    def test_bulk_user_creation_performance(self):
+    def test_bulk_user_creation_performance(self, db_session):
         """Test performance of bulk user creation"""
         from services.user_service import UserService
 
@@ -162,7 +149,7 @@ class TestDatabasePerformance:
         assert len(created_users) == 100
         assert creation_time < 10.0  # Should complete within 10 seconds
 
-    def test_user_query_performance(self):
+    def test_user_query_performance(self, db_session):
         """Test user query performance"""
         from models import User
         from services.user_service import UserService
@@ -190,7 +177,7 @@ class TestDatabasePerformance:
         assert len(users) >= 95
         assert query_time < 1.0  # Should complete within 1 second
 
-    def test_user_authentication_performance(self):
+    def test_user_authentication_performance(self, db_session):
         """Test authentication performance"""
         from services.user_service import UserService
 
