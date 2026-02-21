@@ -169,6 +169,8 @@ header .container {
     background: transparent;
     border: none;
     box-shadow: none;
+    /* Allow nav dropdowns to extend outside the header container */
+    overflow: visible;
 }
 
 nav {
@@ -233,7 +235,7 @@ nav .nav-dropdown:focus-within .nav-dropdown-trigger {
     box-shadow: 0 10px 30px var(--shadow);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    z-index: 200;
+    z-index: 1000;
 }
 
 .nav-dropdown:hover .nav-dropdown-menu,
