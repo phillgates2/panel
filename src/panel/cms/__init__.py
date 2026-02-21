@@ -326,6 +326,10 @@ def blog_index():
         except Exception as exc:
             # Fresh installs may not have a reachable DB / migrated tables yet.
             logger.warning("Blog DB query failed; rendering empty blog index", exc_info=exc)
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             posts = []
         else:
             try:
@@ -355,5 +359,9 @@ def blog_post(slug):
             pass
         # If DB isn't ready, avoid a 500 for a public page.
         logger.warning("Blog post lookup failed; returning 404", exc_info=exc)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         abort(404)
     return render_template("cms/blog_post.html", post=post)
