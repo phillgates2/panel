@@ -3,7 +3,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote_plus
 from .deps import check_system_deps
 from .os_utils import is_admin, ensure_elevated
 import platform
@@ -119,6 +119,57 @@ WantedBy=multi-user.target
         return False
 
 
+def _best_effort_ensure_systemd_env_file(*, unit_name: str, env_file: str) -> bool:
+    """Best-effort patch for existing systemd units to load an EnvironmentFile.
+
+    This avoids a common drift where `/etc/panel/panel.env` is updated by the
+    installer but the already-installed `panel-gunicorn.service` doesn't source
+    it, causing the running service to use stale DB credentials.
+    """
+    if platform.system() != "Linux":
+        return False
+    try:
+        import shutil
+
+        if not shutil.which("systemctl"):
+            return False
+
+        candidates = [
+            os.path.join("/etc/systemd/system", unit_name),
+            os.path.join("/lib/systemd/system", unit_name),
+            os.path.join("/usr/lib/systemd/system", unit_name),
+        ]
+        unit_path = next((p for p in candidates if os.path.exists(p)), None)
+        if not unit_path:
+            return False
+
+        with open(unit_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if "EnvironmentFile=" in content:
+            return True
+
+        lines = content.splitlines(True)
+        for idx, line in enumerate(lines):
+            if line.strip() == "[Service]":
+                lines.insert(idx + 1, f"EnvironmentFile=-{env_file}\n")
+                break
+        else:
+            return False
+
+        with open(unit_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+        subprocess.check_call(
+            ["systemctl", "daemon-reload"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def _normalize_env_name(env_name: str | None) -> str:
     name = (env_name or "").strip().lower()
     if name in ("prod", "production"):
@@ -211,7 +262,7 @@ def _build_panel_env(
         # Provide an explicit SQLAlchemy-style URL so the running service and
         # migration tooling are guaranteed to target the same database.
         env["DATABASE_URL"] = (
-            f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@"
+            f"postgresql+psycopg2://{quote_plus(env['PANEL_DB_USER'])}:{quote_plus(env['PANEL_DB_PASS'])}@"
             f"{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}"
         )
         env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
@@ -224,7 +275,7 @@ def _build_panel_env(
         env.setdefault("PANEL_DB_NAME", os.environ.get("PANEL_DB_NAME", "paneldb"))
         env.setdefault(
             "DATABASE_URL",
-            f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}",
+            f"postgresql+psycopg2://{quote_plus(env['PANEL_DB_USER'])}:{quote_plus(env['PANEL_DB_PASS'])}@{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}",
         )
         env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
 
@@ -353,11 +404,33 @@ def ensure_default_admin_user(
         or f"postgresql+psycopg2://{os.environ.get('PANEL_DB_USER','paneluser')}:{os.environ.get('PANEL_DB_PASS','panelpass')}@{os.environ.get('PANEL_DB_HOST','127.0.0.1')}:{os.environ.get('PANEL_DB_PORT','5432')}/{os.environ.get('PANEL_DB_NAME','paneldb')}"
     )
 
+    def _redact_db_uri(value: str) -> str:
+        if not isinstance(value, str):
+            return str(value)
+        # Redact password in URIs like: scheme://user:pass@host/db
+        # Keep it conservative; if parsing fails, fall back to a simple regex.
+        try:
+            from urllib.parse import urlsplit, urlunsplit
+
+            parts = urlsplit(value)
+            if parts.username and parts.password:
+                netloc = parts.netloc
+                # Replace ':password@' segment.
+                netloc = netloc.replace(f":{parts.password}@", ":***@")
+                return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+        except Exception:
+            pass
+        return re.sub(r"(//[^:/@]+:)([^@]+)(@)", r"\1***\3", value)
+
     if isinstance(uri, str) and uri.strip().lower().startswith("sqlite"):
         return {"ok": False, "created": False, "error": "SQLite is not supported", "email": email, "password_generated": generated}
 
     if progress_cb:
-        progress_cb("bootstrap", "panel", {"action": "ensure_default_admin_user", "email": email, "db_uri": uri})
+        progress_cb(
+            "bootstrap",
+            "panel",
+            {"action": "ensure_default_admin_user", "email": email, "db_uri": _redact_db_uri(uri)},
+        )
 
     try:
         # Import lazily so the installer can still run in minimal environments.
@@ -637,6 +710,18 @@ def install_all(
         # Apply to current process so subsequent steps use the same config.
         for k, v in panel_env.items():
             os.environ[str(k)] = str(v)
+
+        # Best-effort: if an existing systemd unit is present, ensure it loads
+        # the same EnvironmentFile we just wrote. This prevents stale DB creds
+        # when the service predates the installer.
+        try:
+            if env_file:
+                _best_effort_ensure_systemd_env_file(
+                    unit_name="panel-gunicorn.service",
+                    env_file=env_file,
+                )
+        except Exception:
+            pass
 
         # If postgres is selected, ensure the app DB/user exist using the
         # resolved PANEL_DB_* env values (idempotent). This must work even
