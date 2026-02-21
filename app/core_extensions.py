@@ -40,10 +40,10 @@ def init_core_extensions(app: Flask) -> Dict[str, Any]:
     app.config.from_object(config)
     ensure_secret_key(app, candidates=[getattr(config, "SECRET_KEY", None)])
 
-    # Database configuration with connection pooling
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-        "PANEL_SQLITE_URI", "sqlite:///panel_dev.db"
-    )
+    # Database configuration
+    # NOTE: Panel is PostgreSQL-only. Do not overwrite SQLALCHEMY_DATABASE_URI
+    # here (especially not to a different backend), as it can cause the running
+    # service to point at a different DB than the one migrations were applied to.
     app.config["SQLALCHEMY_POOL_SIZE"] = int(os.environ.get("PANEL_DB_POOL_SIZE", "10"))
     app.config["SQLALCHEMY_MAX_OVERFLOW"] = int(
         os.environ.get("PANEL_DB_MAX_OVERFLOW", "20")

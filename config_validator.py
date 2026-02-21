@@ -137,21 +137,10 @@ class ConfigValidator:
                 config = load_config()
 
                 # Check database configuration
-                if config.database.use_sqlite:
-                    db_path = config.database.sqlite_uri.replace("sqlite:///", "")
-                    if (
-                        not os.path.exists(os.path.dirname(db_path))
-                        and db_path != ":memory:"
-                    ):
-                        issues.append(
-                            f"SQLite database directory does not exist: {os.path.dirname(db_path)}"
-                        )
-                else:
-                    # Check PostgreSQL connection (basic check)
-                    if config.database.postgres_password == "panelpass":
-                        issues.append(
-                            "Using default PostgreSQL password - change in production"
-                        )
+                if config.database.postgres_password == "panelpass":
+                    issues.append(
+                        "Using default PostgreSQL password - change in production"
+                    )
 
                 # Check secret key
                 if config.security.secret_key in [

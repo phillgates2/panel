@@ -26,12 +26,14 @@ class DatabaseConfig:
     """Database configuration"""
 
     def __init__(self):
-        self.use_sqlite = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
-        self.sqlite_uri = os.environ.get("PANEL_SQLITE_URI", "sqlite:///panel_dev.db")
+        self.database_url = os.environ.get("DATABASE_URL") or os.environ.get(
+            "SQLALCHEMY_DATABASE_URI"
+        )
         self.postgres_user = os.environ.get("PANEL_DB_USER", "paneluser")
         self.postgres_password = os.environ.get("PANEL_DB_PASS", "panelpass")
         self.postgres_host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
         self.postgres_port = int(os.environ.get("PANEL_DB_PORT", "5432"))
+        self.postgres_database = os.environ.get("PANEL_DB_NAME", "paneldb")
         self.pool_pre_ping = True
         self.pool_recycle = 300
         self.pool_size = 10
@@ -42,14 +44,18 @@ class DatabaseConfig:
     @property
     def sqlalchemy_database_uri(self) -> str:
         """Generate SQLAlchemy database URI"""
-        if self.use_sqlite:
-            return self.sqlite_uri
-        else:
-            return (
-                f"postgresql+psycopg2://{quote_plus(self.postgres_user)}:"
-                f"{quote_plus(self.postgres_password)}@{self.postgres_host}:"
-                f"{self.postgres_port}/{self.postgres_database}"
-            )
+        if self.database_url:
+            if self.database_url.startswith("sqlite"):
+                raise ValueError(
+                    "SQLite is no longer supported. Configure PostgreSQL via DATABASE_URL or PANEL_DB_* env vars."
+                )
+            return self.database_url
+
+        return (
+            f"postgresql+psycopg2://{quote_plus(self.postgres_user)}:"
+            f"{quote_plus(self.postgres_password)}@{self.postgres_host}:"
+            f"{self.postgres_port}/{self.postgres_database}"
+        )
 
     @property
     def sqlalchemy_engine_options(self) -> dict:
@@ -260,7 +266,13 @@ def generate_config_template(output_file: Union[str, Path]) -> None:
     config_path = Path(output_file)
 
     template_config = {
-        "database": {"use_sqlite": True, "sqlite_uri": "sqlite:///panel_dev.db"},
+        "database": {
+            "postgres_user": "paneluser",
+            "postgres_password": "change-me",
+            "postgres_host": "127.0.0.1",
+            "postgres_port": 5432,
+            "postgres_database": "paneldb",
+        },
         "logging": {"level": "INFO", "format": "json"},
         "security": {
             "secret_key": "your-very-secure-secret-key-here-minimum-16-chars",

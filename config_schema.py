@@ -18,12 +18,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseConfig(BaseModel):
     """Database configuration schema"""
 
-    use_sqlite: bool = Field(
-        default=True, description="Use SQLite instead of PostgreSQL"
-    )
-    sqlite_uri: str = Field(
-        default="sqlite:///panel_dev.db", description="SQLite database URI"
-    )
     postgres_user: str = Field(default="paneluser", description="PostgreSQL username")
     postgres_password: str = Field(
         default="panelpass", description="PostgreSQL password"
@@ -57,14 +51,11 @@ class DatabaseConfig(BaseModel):
     @property
     def sqlalchemy_database_uri(self) -> str:
         """Generate SQLAlchemy database URI"""
-        if self.use_sqlite:
-            return self.sqlite_uri
-        else:
-            return (
-                f"postgresql+psycopg2://{quote_plus(self.postgres_user)}:"
-                f"{quote_plus(self.postgres_password)}@{self.postgres_host}:"
-                f"{self.postgres_port}/{self.postgres_database}"
-            )
+        return (
+            f"postgresql+psycopg2://{quote_plus(self.postgres_user)}:"
+            f"{quote_plus(self.postgres_password)}@{self.postgres_host}:"
+            f"{self.postgres_port}/{self.postgres_database}"
+        )
 
     @property
     def sqlalchemy_engine_options(self) -> dict:
@@ -227,20 +218,17 @@ class PanelConfig(BaseSettings):
     @model_validator(mode="after")
     def validate_database_config(self) -> "PanelConfig":
         """Cross-field validation for database configuration"""
-        if not self.database.use_sqlite:
-            # Validate PostgreSQL required fields
-            required_fields = [
-                "postgres_user",
-                "postgres_password",
-                "postgres_host",
-                "postgres_database",
-            ]
-            for field in required_fields:
-                value = getattr(self.database, field)
-                if not value or str(value).strip() == "":
-                    raise ValueError(
-                        f"PostgreSQL {field} is required when not using SQLite"
-                    )
+        # Validate PostgreSQL required fields
+        required_fields = [
+            "postgres_user",
+            "postgres_password",
+            "postgres_host",
+            "postgres_database",
+        ]
+        for field in required_fields:
+            value = getattr(self.database, field)
+            if not value or str(value).strip() == "":
+                raise ValueError(f"PostgreSQL {field} is required")
         return self
 
     @field_validator("redis_url")

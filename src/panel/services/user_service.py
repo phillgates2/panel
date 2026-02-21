@@ -68,7 +68,7 @@ class UserService:
             else:
                 email = email.lower()
 
-            # Ensure dob is a date for SQLite performance tests
+            # Ensure dob is a date for downstream operations
             from datetime import datetime as _dt, date as _date
             if isinstance(dob, str):
                 try:

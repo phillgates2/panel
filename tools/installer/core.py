@@ -77,11 +77,7 @@ def _ensure_panel_systemd_unit(
             return False
 
     if use_gunicorn:
-        # SQLite is the default DB in many installs; multiple worker processes
-        # can trigger frequent "database is locked" errors. Default to 1 worker
-        # when PANEL_USE_SQLITE isn't explicitly disabled.
-        use_sqlite = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
-        workers = 1 if use_sqlite else 4
+        workers = int(os.environ.get("PANEL_GUNICORN_WORKERS", "4"))
         exec_start = (
             f"{gunicorn} --bind 0.0.0.0:{port} --workers {workers} "
             f"--access-logfile - --error-logfile - app:app"
@@ -165,8 +161,8 @@ def _parse_db_uri(db_uri: str | None) -> dict:
     if not db_uri:
         return {"ok": False, "type": "unknown"}
     uri = (db_uri or "").strip()
-    if uri.startswith("sqlite:"):
-        return {"ok": True, "type": "sqlite", "sqlite_uri": uri}
+    if uri.lower().startswith("sqlite:"):
+        return {"ok": False, "type": "sqlite", "error": "SQLite is not supported"}
 
     parsed = urlparse(uri)
     scheme = (parsed.scheme or "").lower()
@@ -206,17 +202,29 @@ def _build_panel_env(
     )
 
     db = _parse_db_uri(db_uri)
-    if db.get("type") == "sqlite":
-        env["PANEL_USE_SQLITE"] = "1"
-        env["PANEL_SQLITE_URI"] = db.get("sqlite_uri")
-    elif db.get("type") == "postgres":
-        env["PANEL_USE_SQLITE"] = "0"
+    if db.get("type") == "postgres":
         env["PANEL_DB_USER"] = db.get("user") or "paneluser"
         env["PANEL_DB_PASS"] = db.get("password") or ""
         env["PANEL_DB_HOST"] = db.get("host") or "127.0.0.1"
         env["PANEL_DB_PORT"] = db.get("port") or "5432"
-        if db.get("db_name"):
-            env["PANEL_DB_NAME"] = db.get("db_name")
+        env["PANEL_DB_NAME"] = db.get("db_name") or "paneldb"
+        # Provide an explicit SQLAlchemy-style URL so the running service and
+        # migration tooling are guaranteed to target the same database.
+        env["DATABASE_URL"] = (
+            f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@"
+            f"{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}"
+        )
+    else:
+        # Default: local Postgres.
+        env.setdefault("PANEL_DB_USER", os.environ.get("PANEL_DB_USER", "paneluser"))
+        env.setdefault("PANEL_DB_PASS", os.environ.get("PANEL_DB_PASS", "panelpass"))
+        env.setdefault("PANEL_DB_HOST", os.environ.get("PANEL_DB_HOST", "127.0.0.1"))
+        env.setdefault("PANEL_DB_PORT", os.environ.get("PANEL_DB_PORT", "5432"))
+        env.setdefault("PANEL_DB_NAME", os.environ.get("PANEL_DB_NAME", "paneldb"))
+        env.setdefault(
+            "DATABASE_URL",
+            f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}",
+        )
 
     rp = int(redis_port) if redis_port else 6379
     env.setdefault("PANEL_REDIS_URL", f"redis://127.0.0.1:{rp}/0")
@@ -336,9 +344,15 @@ def ensure_default_admin_user(
         password = _generate_strong_password()
         generated = True
 
-    # Default to Panel's dev sqlite database if db_uri isn't provided.
-    # Note: this is relative to the current working directory.
-    uri = db_uri or os.environ.get("PANEL_SQLITE_URI") or "sqlite:///panel_dev.db"
+    uri = (
+        db_uri
+        or os.environ.get("DATABASE_URL")
+        or os.environ.get("SQLALCHEMY_DATABASE_URI")
+        or f"postgresql+psycopg2://{os.environ.get('PANEL_DB_USER','paneluser')}:{os.environ.get('PANEL_DB_PASS','panelpass')}@{os.environ.get('PANEL_DB_HOST','127.0.0.1')}:{os.environ.get('PANEL_DB_PORT','5432')}/{os.environ.get('PANEL_DB_NAME','paneldb')}"
+    )
+
+    if isinstance(uri, str) and uri.strip().lower().startswith("sqlite"):
+        return {"ok": False, "created": False, "error": "SQLite is not supported", "email": email, "password_generated": generated}
 
     if progress_cb:
         progress_cb("bootstrap", "panel", {"action": "ensure_default_admin_user", "email": email, "db_uri": uri})

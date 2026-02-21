@@ -1,8 +1,8 @@
 import os
 import pathlib
 import sys
+from urllib.parse import urlparse
 
-os.environ["PANEL_USE_SQLITE"] = "1"
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import os
@@ -15,28 +15,25 @@ from app import SiteSetting, app, db
 
 @pytest.fixture()
 def client(request):
-    fd, path = tempfile.mkstemp(prefix="panel_test_", suffix=".db")
-    os.close(fd)
-    try:
-        from app import create_app
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    if not db_url:
+        pytest.skip("Set DATABASE_URL to run tests (PostgreSQL-only)")
+    if db_url.startswith("postgresql+psycopg2://"):
+        db_url = "postgresql://" + db_url[len("postgresql+psycopg2://") :]
+    if "test" not in (urlparse(db_url).path or "").lower():
+        pytest.skip("DATABASE_URL must point to a test database")
 
-        local_app = create_app()
-        local_app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{path}"
-        local_app.config["TESTING"] = True
-        request.module.app = local_app
-        try:
-            with local_app.app_context():
-                db.create_all()
-                yield local_app.test_client()
-        finally:
-            with local_app.app_context():
-                db.session.remove()
-                db.drop_all()
-    finally:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+    from app import create_app
+
+    local_app = create_app()
+    local_app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+    local_app.config["TESTING"] = True
+    request.module.app = local_app
+    with local_app.app_context():
+        db.create_all()
+        yield local_app.test_client()
+        db.session.remove()
+        db.drop_all()
 
 
 def test_theme_link_and_css_serving(client):

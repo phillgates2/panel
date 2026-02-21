@@ -15,7 +15,7 @@ class BackupManager:
 
     This class provides functionality to create, restore, and manage backups
     for databases, configuration files, and server data. It supports PostgreSQL
-    and SQLite databases, and can back up configuration files as tar.gz archives.
+    databases, and can back up configuration files as tar.gz archives.
     Server data is backed up as JSON files. The backups are organized in a
     directory structure by type, and can be listed, cleaned up, and analyzed
     for statistics.
@@ -77,13 +77,8 @@ class BackupManager:
                     logger.error(f"Database backup failed: {result.stderr}")
                     return None
 
-            else:
-                # For SQLite or other databases, copy the file
-                db_path = self._get_db_path()
-                if db_path and db_path.exists():
-                    shutil.copy2(db_path, backup_file)
-                    logger.info(f"Database backup created: {backup_file}")
-                    return str(backup_file)
+            logger.error("Database backup requires a PostgreSQL db_url")
+            return None
 
         except Exception as e:
             logger.error(f"Database backup failed: {e}")
@@ -189,13 +184,8 @@ class BackupManager:
                     logger.error(f"Database restore failed: {result.stderr}")
                     return False
 
-            else:
-                # SQLite restore
-                db_path = self._get_db_path()
-                if db_path:
-                    shutil.copy2(backup_path, db_path)
-                    logger.info(f"Database restored from: {backup_file}")
-                    return True
+            logger.error("Unsupported database backup format (expected .sql)")
+            return False
 
         except Exception as e:
             logger.error(f"Database restore failed: {e}")
@@ -310,12 +300,6 @@ class BackupManager:
                 stats["newest_backup"] = type_stats["newest"]
 
         return stats
-
-    def _get_db_path(self):
-        """Get database file path (for SQLite)."""
-        # This would need to be configured based on your setup
-        # For now, return None - implement based on your database config
-        return None
 
     def _create_env_backup(self):
         """Create a redacted backup of environment variables."""

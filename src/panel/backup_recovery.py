@@ -406,9 +406,6 @@ class DatabaseBackup:
         elif self.db_url.startswith("mysql"):
             backup_file = backup_dir / f"db_backup_{timestamp}.sql"
             self._backup_mysql(str(backup_file))
-        elif self.db_url.startswith("sqlite"):
-            backup_file = backup_dir / f"db_backup_{timestamp}.sql"
-            self._backup_sqlite(str(backup_file))
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
 
@@ -420,8 +417,6 @@ class DatabaseBackup:
             self._restore_postgresql(backup_file)
         elif self.db_url.startswith("mysql"):
             self._restore_mysql(backup_file)
-        elif self.db_url.startswith("sqlite"):
-            self._restore_sqlite(backup_file)
         else:
             raise ValueError(f"Unsupported database type: {self.db_url}")
 
@@ -560,17 +555,6 @@ class DatabaseBackup:
             result = subprocess.run(cmd, stdin=f, stderr=subprocess.PIPE, text=True)
             if result.returncode != 0:
                 raise Exception(f"MySQL restore failed: {result.stderr}")
-
-    def _backup_sqlite(self, output_file: str):
-        """Backup SQLite database"""
-        db_path = self.db_url.replace("sqlite:///", "")
-        shutil.copy2(db_path, output_file)
-
-    def _restore_sqlite(self, backup_file: str):
-        """Restore SQLite database"""
-        db_path = self.db_url.replace("sqlite:///", "")
-        shutil.copy2(backup_file, db_path)
-
 
 class FilesystemBackup:
     """Handles filesystem backups"""

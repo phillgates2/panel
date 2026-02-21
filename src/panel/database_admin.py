@@ -1,138 +1,88 @@
 """
 Database Admin Integration for Panel
-Provides embedded database management interface for SQLite and PostgreSQL
+Provides embedded database management interface for PostgreSQL
 Replaces legacy phpMyAdmin with modern Python-based admin UI
 """
 
 import os
-import sqlite3
 
-try:
-    import psycopg2
-    import psycopg2.extras
-
-    POSTGRES_AVAILABLE = True
-except ImportError:
-    POSTGRES_AVAILABLE = False
+from sqlalchemy import text
 
 
 class DatabaseAdmin:
-    """Embedded database admin functionality for Panel (SQLite & PostgreSQL)"""
+    """Embedded database admin functionality for Panel (PostgreSQL-only)"""
 
     def __init__(self, app, db):
         self.app = app
         self.db = db
 
-    def is_postgres(self):
-        """Check if using PostgreSQL"""
-        return POSTGRES_AVAILABLE and os.environ.get("PANEL_USE_SQLITE", "1") != "1"
+    def _is_select(self, query: str) -> bool:
+        q = (query or "").lstrip().upper()
+        return q.startswith("SELECT") or q.startswith("SHOW") or q.startswith("WITH")
 
-    def get_db_connection(self):
-        """Get database connection based on configuration"""
-        if self.is_postgres():
-            return psycopg2.connect(
-                host=os.environ.get("PANEL_DB_HOST", "localhost"),
-                port=int(os.environ.get("PANEL_DB_PORT", "5432")),
-                user=os.environ.get("PANEL_DB_USER", "paneluser"),
-                password=os.environ.get("PANEL_DB_PASS", ""),
-                database=os.environ.get("PANEL_DB_NAME", "paneldb"),
-                cursor_factory=psycopg2.extras.RealDictCursor,
-            )
-        else:
-            db_path = os.path.join(self.app.instance_path, "panel.db")
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row  # Dict-like access
-            return conn
+    def _quote_ident(self, identifier: str) -> str:
+        return '"' + identifier.replace('"', '""') + '"'
 
     def execute_query(self, query, params=None):
         """Execute a database query safely"""
         try:
-            conn = self.get_db_connection()
-            if self.is_postgres():
-                with conn.cursor() as cursor:
-                    cursor.execute(query, params or ())
-                    if query.strip().upper().startswith(
-                        "SELECT"
-                    ) or query.strip().upper().startswith("SHOW"):
-                        results = cursor.fetchall()
-                        conn.close()
-                        return {"success": True, "data": results}
-                    else:
-                        conn.commit()
-                        conn.close()
-                        return {
-                            "success": True,
-                            "message": f"Query executed successfully. {cursor.rowcount} rows affected.",
-                        }
-            else:
-                cursor = conn.cursor()
-                cursor.execute(query, params or ())
-                if query.strip().upper().startswith(
-                    "SELECT"
-                ) or query.strip().upper().startswith("PRAGMA"):
-                    results = [dict(row) for row in cursor.fetchall()]
-                    conn.close()
-                    return {"success": True, "data": results}
-                else:
-                    conn.commit()
-                    conn.close()
-                    return {
-                        "success": True,
-                        "message": f"Query executed successfully. {cursor.rowcount} rows affected.",
-                    }
+            result = self.db.session.execute(text(query), params or {})
+            if self._is_select(query):
+                rows = result.mappings().all()
+                return {"success": True, "data": [dict(r) for r in rows]}
+
+            self.db.session.commit()
+            return {
+                "success": True,
+                "message": f"Query executed successfully. {result.rowcount} rows affected.",
+            }
         except Exception as e:
+            try:
+                self.db.session.rollback()
+            except Exception:
+                pass
             return {"success": False, "error": str(e)}
 
     def get_tables(self):
         """Get list of tables in the database"""
-        if self.is_postgres():
-            result = self.execute_query(
-                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-            )
-            if result["success"]:
-                return [row["tablename"] for row in result["data"]]
-        else:
-            result = self.execute_query(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
-            if result["success"]:
-                return [row["name"] for row in result["data"]]
+        result = self.execute_query(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
+        )
+        if result["success"]:
+            return [row["tablename"] for row in result["data"]]
         return []
 
     def get_table_structure(self, table_name):
         """Get table structure"""
-        if self.is_postgres():
-            query = """SELECT column_name, data_type, is_nullable, column_default
-                       FROM information_schema.columns
-                       WHERE table_name = %s AND table_schema = 'public'"""
-            return self.execute_query(query, (table_name,))
-        else:
-            return self.execute_query(f"PRAGMA table_info('{table_name}')")
+        query = """SELECT column_name, data_type, is_nullable, column_default
+                   FROM information_schema.columns
+                   WHERE table_name = :table_name AND table_schema = 'public'
+                   ORDER BY ordinal_position"""
+        return self.execute_query(query, {"table_name": table_name})
 
     def get_table_data(self, table_name, limit=100, offset=0):
         """Get table data with pagination"""
-        if self.is_postgres():
-            query = f'SELECT * FROM "{table_name}" LIMIT {limit} OFFSET {offset}'
-        else:
-            query = f"SELECT * FROM '{table_name}' LIMIT {limit} OFFSET {offset}"
-        return self.execute_query(query)
+        safe_table = self._quote_ident(str(table_name))
+        query = f"SELECT * FROM {safe_table} LIMIT :limit OFFSET :offset"
+        return self.execute_query(query, {"limit": int(limit), "offset": int(offset)})
 
     def get_database_info(self):
         """Get database information"""
         info = {
-            "type": "PostgreSQL" if self.is_postgres() else "SQLite",
+            "type": "PostgreSQL",
             "tables": self.get_tables(),
         }
 
-        if self.is_postgres():
-            result = self.execute_query("SELECT version()")
-            if result["success"] and result["data"]:
-                info["version"] = result["data"][0]["version"]
-
-        result = self.execute_query("SELECT sqlite_version() as version")
+        result = self.execute_query("SELECT version()")
         if result["success"] and result["data"]:
-            info["version"] = result["data"][0]["version"]
-        info["database"] = "panel.db"
+            version_value = (
+                result["data"][0].get("version")
+                if isinstance(result["data"][0], dict)
+                else None
+            )
+            info["version"] = version_value or "unknown"
+
+        info["database"] = os.environ.get("PANEL_DB_NAME", "paneldb")
 
         return info
 
@@ -330,7 +280,7 @@ DATABASE_ADMIN_QUERY_TEMPLATE = """
 
     <h3>Quick Queries</h3>
     <div>
-        <a href="{{ url_for('admin_db_query') }}?query=SELECT name FROM sqlite_master WHERE type='table'\" class="btn">Show Tables</a>
+        <a href="{{ url_for('admin_db_query') }}?query=SELECT tablename FROM pg_tables WHERE schemaname='public'" class="btn">Show Tables</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT * FROM user LIMIT 10" class="btn">View Users</a>
         <a href="{{ url_for('admin_db_query') }}?query=SELECT COUNT(*) as total_users FROM user" class="btn">Count Users</a>
     </div>

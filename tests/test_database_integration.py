@@ -185,9 +185,6 @@ class TestDatabaseAdmin:
 
     def test_database_connection(self):
         """Test database connection"""
-        # Set environment for SQLite testing
-        os.environ["PANEL_USE_SQLITE"] = "1"
-
         # Would need actual app and db instances
         # This is a placeholder for integration tests
 

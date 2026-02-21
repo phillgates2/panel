@@ -10,9 +10,11 @@ import gzip
 import json
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -45,7 +47,12 @@ class BackupManager:
     def load_config(self):
         """Load backup configuration."""
         default_config = {
-            "database": {"path": "panel.db"},
+            "database": {
+                "url": os.environ.get(
+                    "DATABASE_URL",
+                    "postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/paneldb",
+                )
+            },
             "backup": {
                 "directory": DEFAULT_BACKUP_DIR,
                 "retention_days": 30,
@@ -134,14 +141,14 @@ class BackupManager:
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate backup filename
-        backup_name = f"panel_backup_{backup_type}_{timestamp}.db"
+        backup_name = f"panel_backup_{backup_type}_{timestamp}.sql"
         backup_path = backup_dir / backup_name
 
         print(f"Creating {backup_type} backup: {backup_name}")
 
         try:
-            # Create SQLite backup
-            self._create_sqlite_backup(backup_path)
+            # Create PostgreSQL backup
+            self._create_postgres_backup(backup_path)
 
             # Compress if enabled
             if self.config["backup"]["compress"]:
@@ -173,28 +180,38 @@ class BackupManager:
             self._send_notification("error", error_msg)
             raise
 
-    def _create_sqlite_backup(self, backup_path):
-        """Create SQLite database backup."""
-        # Find the SQLite database file
-        # Try common locations
-        possible_db_paths = [
-            "panel_dev.db",
-            "panel.db",
-            "instance/panel.db",
-            "instance/panel_dev.db",
+    def _normalize_pg_url(self, url: str) -> str:
+        url = (url or "").strip()
+        if url.startswith("postgresql+psycopg2://"):
+            return "postgresql://" + url[len("postgresql+psycopg2://") :]
+        return url
+
+    def _get_database_url(self, override_url: Optional[str] = None) -> str:
+        url = override_url or os.environ.get("DATABASE_URL") or self.config["database"].get("url")
+        url = self._normalize_pg_url(url)
+        if not url or not url.startswith("postgresql://"):
+            raise Exception(
+                "PostgreSQL DATABASE_URL is required (expected postgresql://... or postgresql+psycopg2://...)."
+            )
+        return url
+
+    def _create_postgres_backup(self, backup_path):
+        """Create PostgreSQL database backup using pg_dump."""
+        db_url = self._get_database_url()
+        cmd = [
+            "pg_dump",
+            "--no-owner",
+            "--no-privileges",
+            "--clean",
+            "--if-exists",
+            "--file",
+            str(backup_path),
+            "--dbname",
+            db_url,
         ]
-
-        db_path = None
-        for path in possible_db_paths:
-            if os.path.exists(path):
-                db_path = path
-                break
-
-        if not db_path:
-            raise Exception("SQLite database file not found")
-
-        # Copy the SQLite database file
-        shutil.copy2(db_path, backup_path)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception(f"pg_dump failed: {result.stderr.strip()}")
 
     def _compress_backup(self, backup_path):
         """Compress backup file using gzip."""
@@ -334,36 +351,13 @@ class BackupManager:
         if processed_file.suffix == ".gz":
             processed_file = self._decompress_backup(processed_file)
 
-        # Restore SQLite database
-        # Find target database path
-        possible_db_paths = [
-            "panel_dev.db",
-            "panel.db",
-            "instance/panel.db",
-            "instance/panel_dev.db",
-        ]
+        db_url = self._get_database_url(target_database)
+        cmd = ["psql", "--dbname", db_url, "-f", str(processed_file)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception(f"psql restore failed: {result.stderr.strip()}")
 
-        db_path = None
-        for path in possible_db_paths:
-            if os.path.exists(path):
-                db_path = path
-                break
-
-        if not db_path:
-            # Use default location
-            db_path = "instance/panel.db"
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
-        # Backup current database
-        if os.path.exists(db_path):
-            backup_current = f"{db_path}.restore_backup"
-            shutil.copy2(db_path, backup_current)
-            print(f"Current database backed up to: {backup_current}")
-
-        # Restore from backup
-        shutil.copy2(processed_file, db_path)
-
-        print(f"Database restored successfully to {db_path}")
+        print("Database restored successfully")
 
         # Cleanup temporary files
         if processed_file != backup_path:

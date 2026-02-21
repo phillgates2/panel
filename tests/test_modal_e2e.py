@@ -1,6 +1,6 @@
 import os
+from urllib.parse import urlparse
 
-os.environ["PANEL_USE_SQLITE"] = "1"
 import asyncio
 from datetime import date
 
@@ -26,12 +26,16 @@ def event_loop():
 
 @pytest.fixture()
 def test_app():
-    """Setup test app with SQLite."""
-    import tempfile
+    """Setup test app."""
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    if not db_url:
+        pytest.skip("Set DATABASE_URL to run e2e tests (PostgreSQL-only)")
+    if db_url.startswith("postgresql+psycopg2://"):
+        db_url = "postgresql://" + db_url[len("postgresql+psycopg2://") :]
+    if "test" not in (urlparse(db_url).path or "").lower():
+        pytest.skip("DATABASE_URL must point to a test database")
 
-    fd, path = tempfile.mkstemp(prefix="panel_test_", suffix=".db")
-    os.close(fd)
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{path}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["TESTING"] = True
     try:
         with app.app_context():
@@ -45,10 +49,6 @@ def test_app():
         with app.app_context():
             db.session.remove()
             db.drop_all()
-        try:
-            os.remove(path)
-        except Exception:
-            pass
 
 
 def make_admin_and_server(app):

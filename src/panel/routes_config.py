@@ -669,7 +669,7 @@ def ptero_eggs_browser():
     )
     game_types = [gt[0] for gt in game_types]
 
-    # Get sync status (best-effort; DB tables may not exist in minimal SQLite dev)
+    # Get sync status (best-effort; DB tables may not exist in minimal dev setups)
     sync_status = None
     try:
         from ptero_eggs_updater import PteroEggsUpdater

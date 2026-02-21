@@ -7,7 +7,7 @@ services:
       - "8080:8080"
     environment:
       - PANEL_REDIS_URL=redis://redis:6379/0
-      - PANEL_SQLITE_URI=sqlite:///panel_dev.db
+      - DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@db:5432/paneldb
     depends_on:
       - redis
       - db
@@ -22,8 +22,10 @@ services:
     environment:
       - SERVICE_NAME=auth
       - PANEL_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@db:5432/paneldb
     depends_on:
       - redis
+      - db
     volumes:
       - .:/app
 
@@ -35,6 +37,7 @@ services:
     environment:
       - SERVICE_NAME=chat
       - PANEL_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@db:5432/paneldb
     depends_on:
       - redis
       - db
@@ -75,8 +78,10 @@ services:
     command: celery -A src.panel.celery_app worker --loglevel=info
     environment:
       - PANEL_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@db:5432/paneldb
     depends_on:
       - redis
+      - db
     volumes:
       - .:/app
 

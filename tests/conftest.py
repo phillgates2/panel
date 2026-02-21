@@ -3,6 +3,7 @@ import os
 import warnings
 from datetime import date
 from unittest.mock import Mock
+from urllib.parse import urlparse
 
 import pytest
 from sqlalchemy.exc import SAWarning
@@ -13,10 +14,22 @@ from src.panel.models import User
 
 @pytest.fixture
 def app(tmp_path):
-    dbfile = tmp_path / "test_panel.db"
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    if not db_url:
+        pytest.skip("Set DATABASE_URL to run tests (PostgreSQL-only)")
+
+    if db_url.startswith("postgresql+psycopg2://"):
+        db_url = "postgresql://" + db_url[len("postgresql+psycopg2://") :]
+
+    parsed = urlparse(db_url)
+    db_name = (parsed.path or "").lstrip("/")
+    if "test" not in db_name.lower():
+        pytest.skip(
+            "Refusing to run DB-destructive tests: DATABASE_URL must point to a test database (dbname contains 'test')"
+        )
+
     cfg = type("Cfg", (), {})()
-    cfg.USE_SQLITE = True
-    cfg.SQLALCHEMY_DATABASE_URI = f"sqlite:///{dbfile}"
+    cfg.SQLALCHEMY_DATABASE_URI = db_url
     cfg.TESTING = True
     cfg.SECRET_KEY = "test-secret"
     a = create_app(cfg)

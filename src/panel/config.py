@@ -9,21 +9,26 @@ class Config:
 
     SECRET_KEY = os.environ.get("PANEL_SECRET_KEY", "dev-secret-key-change")
 
-    # Database configuration: PostgreSQL for production, SQLite for dev
-    USE_SQLITE = os.environ.get("PANEL_USE_SQLITE", "1") == "1"
+    # Database configuration: PostgreSQL only.
+    # Only PostgreSQL is supported to avoid split-brain installs where migrations
+    # are applied to one DB but the running service points at another.
+    DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
+    DB_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
+    DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
+    DB_PORT = os.environ.get("PANEL_DB_PORT", "5432")
+    DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
 
-    if USE_SQLITE:
-        SQLALCHEMY_DATABASE_URI = os.environ.get(
-            "PANEL_SQLITE_URI", "sqlite:///panel_dev.db"
-        )
+    _override_db = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    if isinstance(_override_db, str) and _override_db.strip():
+        if _override_db.strip().lower().startswith("sqlite"):
+            raise ValueError(
+                "SQLite is no longer supported. Configure PostgreSQL via DATABASE_URL/SQLALCHEMY_DATABASE_URI or PANEL_DB_*."
+            )
+        SQLALCHEMY_DATABASE_URI = _override_db.strip()
     else:
-        # PostgreSQL configuration
-        DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
-        DB_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
-        DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
-        DB_PORT = os.environ.get("PANEL_DB_PORT", "5432")
-        DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
-        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        SQLALCHEMY_DATABASE_URI = (
+            f"postgresql+psycopg2://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -47,18 +52,14 @@ class Config:
 
     # Session and security defaults
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "auto")
-    # Interpret 'auto' as True in production (USE_SQLITE False)
+    # Interpret 'auto' as True in production.
     if SESSION_COOKIE_SECURE in ("", None):
         SESSION_COOKIE_SECURE = False
     elif isinstance(SESSION_COOKIE_SECURE, str) and SESSION_COOKIE_SECURE.lower() == "auto":
-        SESSION_COOKIE_SECURE = not USE_SQLITE
+        env_name = (os.environ.get("FLASK_ENV") or "development").strip().lower()
+        SESSION_COOKIE_SECURE = env_name in ("production", "prod")
     else:
         SESSION_COOKIE_SECURE = str(SESSION_COOKIE_SECURE).lower() in ("1", "true", "yes")
-
-    # In dev/SQLite mode, force non-secure cookies so sessions work over HTTP.
-    # (Flask will otherwise set a Secure cookie that the browser won't send.)
-    if USE_SQLITE:
-        SESSION_COOKIE_SECURE = False
 
     SESSION_COOKIE_HTTPONLY = os.environ.get("SESSION_COOKIE_HTTPONLY", "true").lower() in ("1", "true", "yes")
     SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
@@ -97,7 +98,6 @@ class DevelopmentConfig(Config):
 
     DEBUG = True
     TESTING = False
-    USE_SQLITE = True
     SESSION_COOKIE_SECURE = False
     SQLALCHEMY_ECHO = True
     LOG_LEVEL = "DEBUG"
@@ -108,7 +108,6 @@ class ProductionConfig(Config):
 
     DEBUG = False
     TESTING = False
-    USE_SQLITE = False
     LOG_LEVEL = "INFO"
 
 
@@ -117,11 +116,7 @@ class TestingConfig(Config):
 
     DEBUG = True
     TESTING = True
-    USE_SQLITE = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
-    # Use minimal engine options for in-memory SQLite
-    SQLALCHEMY_ENGINE_OPTIONS = {}
     # Relax session security for tests
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True

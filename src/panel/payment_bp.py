@@ -123,34 +123,18 @@ def donation_analytics_data():
     total = db.session.query(func.sum(Donation.amount)).scalar() or 0
     total /= 100  # Convert to dollars
 
-    # Monthly breakdown (SQLite doesn't support date_trunc)
-    if getattr(db.engine.dialect, "name", "") == "sqlite":
-        monthly = (
-            db.session.query(
-                func.strftime("%Y-%m", Donation.timestamp).label("month"),
-                func.sum(Donation.amount).label("amount"),
-            )
-            .filter(Donation.status == "completed")
-            .group_by("month")
-            .order_by("month")
-            .all()
+    monthly = (
+        db.session.query(
+            func.date_trunc("month", Donation.timestamp).label("month"),
+            func.sum(Donation.amount).label("amount"),
         )
-        monthly_data = [
-            {"month": str(m.month), "amount": (m.amount or 0) / 100} for m in monthly
-        ]
-    else:
-        monthly = (
-            db.session.query(
-                func.date_trunc("month", Donation.timestamp).label("month"),
-                func.sum(Donation.amount).label("amount"),
-            )
-            .filter(Donation.status == "completed")
-            .group_by("month")
-            .order_by("month")
-            .all()
-        )
-        monthly_data = [
-            {"month": str(m.month)[:7], "amount": (m.amount or 0) / 100} for m in monthly
-        ]
+        .filter(Donation.status == "completed")
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+    monthly_data = [
+        {"month": str(m.month)[:7], "amount": (m.amount or 0) / 100} for m in monthly
+    ]
 
     return {"total": total, "monthly": monthly_data, "count": len(monthly_data)}

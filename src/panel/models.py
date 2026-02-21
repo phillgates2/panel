@@ -204,7 +204,7 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def _coerce_date(value):
-        """Coerce string dates to Python date objects for SQLite compatibility."""
+        """Coerce string dates to Python date objects."""
         from datetime import datetime as _dt, date as _date
         if isinstance(value, str):
             try:

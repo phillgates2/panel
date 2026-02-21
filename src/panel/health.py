@@ -74,16 +74,15 @@ class HealthChecker:
                 db_time = time.time() - start_time
 
                 # Get connection info
+                dialect = getattr(db.engine.dialect, "name", "unknown")
                 connection_info = {
                     "status": "healthy",
                     "response_time_ms": round(db_time * 1000, 2),
-                    "type": (
-                        "postgresql" if "postgresql" in str(db.engine.url) else "sqlite"
-                    ),
+                    "type": dialect,
                 }
 
                 # Additional checks for PostgreSQL
-                if connection_info["type"] == "postgresql":
+                if dialect in {"postgresql", "postgres"}:
                     try:
                         result = db.session.execute(text("SELECT version()")).scalar()
                         connection_info["version"] = (

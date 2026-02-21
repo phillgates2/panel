@@ -2,7 +2,7 @@
 
 Usage (from repo root):
 
-    PANEL_USE_SQLITE=1 python -m tools.check_dynamic_routes
+    DATABASE_URL=postgresql+psycopg2://... python -m tools.check_dynamic_routes
 
 This boots the app in testing mode, seeds a minimal set of
 objects (dedicated test user, server, forum thread), and then issues

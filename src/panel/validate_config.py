@@ -77,28 +77,42 @@ class ConfigValidator:
             self.info.append(f"✓ SECRET_KEY configured ({len(secret)} chars)")
 
     def check_database_config(self):
-        """Validate database configuration (SQLite only)."""
-        self.info.append("✓ Using SQLite")
-        sqlite_uri = os.environ.get("PANEL_SQLITE_URI")
-        if not sqlite_uri:
+        """Validate database configuration (PostgreSQL only)."""
+        db_url = (
+            os.environ.get("DATABASE_URL")
+            or os.environ.get("SQLALCHEMY_DATABASE_URI")
+            or os.environ.get("PANEL_DATABASE_URL")
+        )
+
+        if not db_url:
+            # Try to read from config.py as fallback
             try:
                 import config
 
-                sqlite_uri = getattr(
-                    config, "SQLALCHEMY_DATABASE_URI", "sqlite:///panel_dev.db"
-                )
-            except ImportError:
-                sqlite_uri = "sqlite:///panel_dev.db"
+                db_url = getattr(config, "SQLALCHEMY_DATABASE_URI", "")
+            except Exception:
+                db_url = ""
 
-        # Extract path from sqlite:/// URI
-        if sqlite_uri.startswith("sqlite:///"):
-            db_path = sqlite_uri[10:]
-            if not db_path.startswith("/"):
-                db_path = Path(db_path)
-                if not db_path.parent.exists():
-                    self.warnings.append(
-                        f"SQLite directory doesn't exist: {db_path.parent}"
-                    )
+        if not db_url:
+            self.errors.append(
+                "Database not configured. Set DATABASE_URL (preferred) or PANEL_DB_* variables."
+            )
+            return
+
+        if str(db_url).strip().lower().startswith("sqlite"):
+            self.errors.append("SQLite is not supported. Configure PostgreSQL instead.")
+            return
+
+        try:
+            parsed = urlparse(str(db_url))
+            if not (parsed.scheme or "").lower().startswith("postgres"):
+                self.errors.append(f"Unsupported DB scheme: {parsed.scheme} (PostgreSQL only)")
+                return
+            if not parsed.hostname or not parsed.path or parsed.path == "/":
+                self.warnings.append("PostgreSQL URL looks incomplete (missing host or database name)")
+            self.info.append("✓ Using PostgreSQL")
+        except Exception as e:
+            self.errors.append(f"Invalid database URL: {e}")
 
     def check_redis_config(self):
         """Validate Redis configuration."""

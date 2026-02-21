@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from urllib.parse import urlparse
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -17,8 +18,17 @@ from config_manager import ConfigTemplate
 @pytest.fixture(scope="module")
 def test_app():
     """Create application context for testing."""
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    if not db_url:
+        pytest.skip("Set DATABASE_URL to run tests (PostgreSQL-only)")
+    if db_url.startswith("postgresql+psycopg2://"):
+        db_url = "postgresql://" + db_url[len("postgresql+psycopg2://") :]
+    parsed = urlparse(db_url)
+    if "test" not in (parsed.path or "").lower():
+        pytest.skip("DATABASE_URL must point to a test database")
+
     app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 
     with app.app_context():
         db.create_all()
