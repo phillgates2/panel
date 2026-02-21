@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 
 from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
@@ -302,23 +303,57 @@ def admin_blog_delete(post_id):
 
 @cms_bp.route("/blog")
 def blog_index():
-    from flask_caching import Cache
-
-    cache = Cache(current_app)
-    # Try to get from cache
+    logger = logging.getLogger(__name__)
     cache_key = "blog_index_posts"
-    posts = cache.get(cache_key)
+
+    posts = None
+    try:
+        cache = Cache(current_app)
+        try:
+            posts = cache.get(cache_key)
+        except Exception:
+            posts = None
+    except Exception:
+        posts = None
+
     if posts is None:
-        posts = (
-            BlogPost.query.filter_by(is_published=True)
-            .order_by(BlogPost.created_at.desc())
-            .all()
-        )
-        cache.set(cache_key, posts, timeout=600)
-    return render_template("cms/blog_index.html", posts=posts)
+        try:
+            posts = (
+                BlogPost.query.filter_by(is_published=True)
+                .order_by(BlogPost.created_at.desc())
+                .all()
+            )
+        except Exception as exc:
+            # Fresh installs may not have a reachable DB / migrated tables yet.
+            logger.warning("Blog DB query failed; rendering empty blog index", exc_info=exc)
+            posts = []
+        else:
+            try:
+                cache = Cache(current_app)
+                cache.set(cache_key, posts, timeout=600)
+            except Exception:
+                # Cache backend may be unavailable or unable to serialize ORM objects.
+                pass
+
+    return render_template("cms/blog_index.html", posts=posts or [])
 
 
 @cms_bp.route("/blog/<slug>")
 def blog_post(slug):
-    post = BlogPost.query.filter_by(slug=slug, is_published=True).first_or_404()
+    logger = logging.getLogger(__name__)
+    try:
+        post = BlogPost.query.filter_by(slug=slug, is_published=True).first_or_404()
+    except Exception as exc:
+        try:
+            from werkzeug.exceptions import HTTPException
+
+            if isinstance(exc, HTTPException):
+                raise
+        except Exception:
+            # If werkzeug isn't available for some reason, fall back to treating
+            # this as an unexpected exception.
+            pass
+        # If DB isn't ready, avoid a 500 for a public page.
+        logger.warning("Blog post lookup failed; returning 404", exc_info=exc)
+        abort(404)
     return render_template("cms/blog_post.html", post=post)
