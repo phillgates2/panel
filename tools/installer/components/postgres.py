@@ -125,15 +125,20 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
     psql = ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1"]
 
     def _query_scalar(sql: str) -> str:
-        return subprocess.check_output(psql + ["-t", "-A", "-c", sql], text=True).strip()
+        # Use stdin instead of -c so behavior is consistent across psql versions.
+        return subprocess.check_output(
+            psql + ["-t", "-A"],
+            input=(sql.rstrip(";\n") + ";\n"),
+            text=True,
+        ).strip()
 
-    def _exec(sql: str, *, vars: dict[str, str] | None = None) -> None:
-        cmd = list(psql)
-        if vars:
-            for k, v in vars.items():
-                cmd += ["-v", f"{k}={v}"]
-        cmd += ["-c", sql]
-        subprocess.check_call(cmd)
+    def _exec(sql: str) -> None:
+        # Use stdin so secrets don't appear in argv and to avoid :var substitution quirks.
+        subprocess.check_call(
+            psql,
+            input=(sql.rstrip(";\n") + ";\n"),
+            text=True,
+        )
 
     try:
         # 1) Ensure role exists.
@@ -141,12 +146,11 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
         if not role_exists:
             _exec(f"CREATE ROLE {db_user} LOGIN;")
 
-        # 2) Set/reset password if provided (safe quoting handled by psql via :'pass').
+        # 2) Set/reset password if provided.
         if db_pass:
-            _exec(
-                f"ALTER ROLE {db_user} WITH LOGIN PASSWORD :'pass';",
-                vars={"pass": db_pass},
-            )
+            # SQL-escape single quotes for a literal.
+            pw = db_pass.replace("'", "''")
+            _exec(f"ALTER ROLE {db_user} WITH LOGIN PASSWORD '{pw}'")
         else:
             _exec(f"ALTER ROLE {db_user} WITH LOGIN;")
 
