@@ -78,8 +78,8 @@
               <div class="nav-dropdown-menu" role="menu" aria-label="Menu">
                 <div class="nav-dropdown-heading" aria-hidden="true">Main</div>
                 <a role="menuitem" href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">🏠 Home</a>
-                {# <a role="menuitem" href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a> #}
-                {# <a role="menuitem" href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'blog' in request.endpoint }}">📰 Blog</a> #}
+                <a role="menuitem" href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a>
+                <a role="menuitem" href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'cms' in request.endpoint }}">📰 Blog</a>
                 {% if not logged_in %}
                   <div class="nav-dropdown-heading" aria-hidden="true">Account</div>
                   <a role="menuitem" href="{{ url_for('main.login') }}" class="{{ 'active' if request.endpoint == 'main.login' }}">🔐 Login</a>
@@ -120,7 +120,6 @@
           </ol>
         </nav>
         {% endif %}
-
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             <div class="alerts-container">
@@ -547,8 +546,8 @@ window.socket = socket;
           <div class="footer-section">
             <h4>Community</h4>
             <ul>
-              {# <li><a href="{{ url_for('forum.index') }}">Forum</a></li> #}
-              {# <li><a href="{{ url_for('cms.blog_index') }}">Blog</a></li> #}
+              <li><a href="{{ url_for('forum.index') }}">Forum</a></li>
+              <li><a href="{{ url_for('cms.blog_index') }}">Blog</a></li>
               <li><a href="{{ url_for('main.status') }}">Status</a></li>
             </ul>
           </div>
