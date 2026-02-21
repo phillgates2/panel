@@ -68,6 +68,25 @@ def register() -> str:
     return render_template("register.html")
 
 
+@main_bp.route("/logout")
+def logout() -> str:
+    # Clear session-based auth and flask-login state.
+    try:
+        from flask import session
+
+        session.pop("user_id", None)
+        session.pop("session_token", None)
+    except Exception:
+        pass
+    try:
+        from flask_login import logout_user
+
+        logout_user()
+    except Exception:
+        pass
+    return redirect(url_for("main.login"))
+
+
 @main_bp.route("/status")
 def status() -> Dict[str, Any]:
     import time

@@ -92,29 +92,17 @@
                 <section class="admin-section mt-3" aria-labelledby="admin-tools-title">
                     <h4 id="admin-tools-title">Admin Tools</h4>
                     <div class="d-grid gap-2" role="group" aria-label="Administrative tools">
-                        <a href="{{ url_for('admin_users') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage users">
-                            <i class="fas fa-users" aria-hidden="true"></i> User Management
-                        </a>
-                        <a href="{{ url_for('admin_servers') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage servers">
+                        <a href="{{ url_for('admin.admin_servers') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage servers">
                             <i class="fas fa-server" aria-hidden="true"></i> Server Management
                         </a>
                         <a href="{{ url_for('cms.admin_blog_list') }}" class="btn btn-outline-danger btn-sm" aria-label="Manage blog posts">
                             <i class="fas fa-blog" aria-hidden="true"></i> Blog Management
                         </a>
-                        <a href="{{ url_for('admin_audit') }}" class="btn btn-outline-danger btn-sm" aria-label="View audit logs">
+                        <a href="{{ url_for('admin.admin_audit') }}" class="btn btn-outline-danger btn-sm" aria-label="View audit logs">
                             <i class="fas fa-history" aria-hidden="true"></i> Audit Log
                         </a>
-                        <a href="{{ url_for('admin_jobs') }}" class="btn btn-outline-danger btn-sm" aria-label="Monitor background jobs">
-                            <i class="fas fa-tasks" aria-hidden="true"></i> Background Jobs
-                        </a>
-                        <a href="{{ url_for('admin_theme') }}" class="btn btn-outline-danger btn-sm" aria-label="Customize theme">
+                        <a href="{{ url_for('admin.admin_theme') }}" class="btn btn-outline-danger btn-sm" aria-label="Customize theme">
                             <i class="fas fa-palette" aria-hidden="true"></i> Theme Customization
-                        </a>
-                        <a href="{{ url_for('admin_database') }}" class="btn btn-outline-danger btn-sm" aria-label="Database administration">
-                            <i class="fas fa-database" aria-hidden="true"></i> Database Admin
-                        </a>
-                        <a href="{{ url_for('admin_tools') }}" class="btn btn-outline-danger btn-sm" aria-label="System tools">
-                            <i class="fas fa-tools" aria-hidden="true"></i> System Tools
                         </a>
                     </div>
                 </section>
