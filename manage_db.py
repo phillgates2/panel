@@ -17,7 +17,7 @@ from pathlib import Path
 
 def run_alembic(args):
     """Run alembic command with proper environment."""
-    cmd = ["alembic"] + args
+    cmd = [sys.executable, "-m", "alembic"] + args
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode
 
