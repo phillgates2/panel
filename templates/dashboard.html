@@ -74,18 +74,18 @@
             </div>
             <div class="card-body">
                 <nav class="action-list" aria-label="Account management options">
-                    <a href="{{ url_for('account_sessions') }}" class="action-item">
-                        <span>💻 Active Sessions</span>
+                    <a href="{{ url_for('main.profile') }}" class="action-item">
+                        <span>👤 Profile</span>
                         <span class="arrow" aria-hidden="true">→</span>
                     </a>
-                    <div class="button-group" role="group" aria-label="Account tools">
-                        <a href="{{ url_for('account_api_keys') }}" class="btn btn-outline-primary btn-sm" aria-label="Manage API keys">
-                            <i class="fas fa-key" aria-hidden="true"></i> API Keys
-                        </a>
-                        <a href="{{ url_for('account_2fa') }}" class="btn btn-outline-primary btn-sm" aria-label="Configure two-factor authentication">
-                            <i class="fas fa-shield-alt" aria-hidden="true"></i> Two-Factor Auth
-                        </a>
-                    </div>
+                    <a href="{{ url_for('main.settings') }}" class="action-item">
+                        <span>⚙️ Settings</span>
+                        <span class="arrow" aria-hidden="true">→</span>
+                    </a>
+                    <a href="{{ url_for('main.notifications') }}" class="action-item">
+                        <span>🔔 Notifications</span>
+                        <span class="arrow" aria-hidden="true">→</span>
+                    </a>
                 </nav>
 
                 {% if user.is_system_admin() %}
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function refreshServerStatus() {
     if (window.socket) {
         window.socket.emit('server_status_request', {
-            server_ids: ['main'
+            server_ids: ['main']
         });
     }
 }
