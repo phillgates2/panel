@@ -109,17 +109,75 @@ a:active {
 }
 
 /* Content area links - more visible */
-.container a:not(.btn):not([class*="btn-"]):not(.nav-link):not(.brand-link):not(.action-item):not(.feature-link):not(.read-more):not(.view-all-link) {
-    color: var(--accent);
-    font-weight: 500;
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 2px;
+.container a:where(
+    :not(.btn)
+    :not([class*="btn-"])
+    :not(.nav-link)
+    :not(.brand-link)
+    :not(.action-item)
+    :not(.feature-link)
+    :not(.read-more)
+    :not(.view-all-link)
+    :not(.page-link)
+    :not(.dropdown-item)
+) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 10px;
+    background: var(--gradient);
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(31, 111, 235, 0.25);
+    border: 1px solid transparent;
 }
 
-.container a:not(.btn):not([class*="btn-"]):not(.nav-link):not(.brand-link):not(.action-item):not(.feature-link):not(.read-more):not(.view-all-link):hover {
-    color: var(--accent-hover);
-    text-decoration-thickness: 2px;
+.container a:where(
+    :not(.btn)
+    :not([class*="btn-"])
+    :not(.nav-link)
+    :not(.brand-link)
+    :not(.action-item)
+    :not(.feature-link)
+    :not(.read-more)
+    :not(.view-all-link)
+    :not(.page-link)
+    :not(.dropdown-item)
+):hover,
+.container a:where(
+    :not(.btn)
+    :not([class*="btn-"])
+    :not(.nav-link)
+    :not(.brand-link)
+    :not(.action-item)
+    :not(.feature-link)
+    :not(.read-more)
+    :not(.view-all-link)
+    :not(.page-link)
+    :not(.dropdown-item)
+):focus-visible {
+    color: #fff;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(31, 111, 235, 0.35);
+}
+
+.container a:where(
+    :not(.btn)
+    :not([class*="btn-"])
+    :not(.nav-link)
+    :not(.brand-link)
+    :not(.action-item)
+    :not(.feature-link)
+    :not(.read-more)
+    :not(.view-all-link)
+    :not(.page-link)
+    :not(.dropdown-item)
+):active {
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(31, 111, 235, 0.25);
 }
 
 /* ===== LAYOUT ===== */

@@ -77,6 +77,9 @@ class Config:
     PERMANENT_SESSION_LIFETIME = int(os.environ.get("PERMANENT_SESSION_LIFETIME", 2592000))  # 30 days
 
     # ET:Legacy server settings (used by RCON and autodeployer)
+    # Treat defaults as placeholders; only consider the server “configured”
+    # when the operator explicitly sets env vars.
+    ET_SERVER_CONFIGURED = ("ET_SERVER_HOST" in os.environ) or ("ET_SERVER_PORT" in os.environ)
     ET_SERVER_HOST = os.environ.get("ET_SERVER_HOST", "127.0.0.1")
     ET_SERVER_PORT = int(os.environ.get("ET_SERVER_PORT", 27960))
     ET_RCON_PASSWORD = os.environ.get("ET_RCON_PASSWORD", "changeme")

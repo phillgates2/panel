@@ -143,7 +143,16 @@ def _should_skip_route(app, path: str, method: str) -> bool:
 def main() -> int:
     app = create_app("testing")
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as exc:  # pragma: no cover
+            # This script is often run in environments without a local Postgres.
+            # If the DB isn't reachable, skip rather than crashing.
+            message = str(exc).lower()
+            if "connection refused" in message or "could not connect" in message:
+                print("SKIP: database is not reachable; set DATABASE_URL to run dynamic route checks")
+                return 0
+            raise
 
         user, server, deletable_server, thread = seed_data()
 

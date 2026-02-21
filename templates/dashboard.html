@@ -19,19 +19,19 @@
                 </div>
             </div>
             <div class="card-body">
-                <div class="server-info">
-                    <div class="info-row">
-                        <span class="label">🌐 ET Server:</span>
-                        <span class="value">{{ config.ET_SERVER_HOST }}:{{ config.ET_SERVER_PORT }}</span>
+                {% if config.ET_SERVER_CONFIGURED %}
+                    <div class="server-info">
+                        <div class="info-row">
+                            <span class="label">🌐 ET Server:</span>
+                            <span class="value">{{ config.ET_SERVER_HOST }}:{{ config.ET_SERVER_PORT }}</span>
+                        </div>
                     </div>
-                    <div class="info-row">
-                        <span class="label">🔧 Status:</span>
-                        <span class="value status-online" aria-live="polite">🟢 Online</span>
+                    <div class="card-actions">
+                        <a href="{{ url_for('main.rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
                     </div>
-                </div>
-                <div class="card-actions">
-                    <a href="{{ url_for('main.rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
-                </div>
+                {% else %}
+                    <p class="text-muted">No game server configured yet.</p>
+                {% endif %}
             </div>
         </div>
 
@@ -44,23 +44,27 @@
                 </div>
             </div>
             <div class="card-body">
-                <div id="server-status-container" aria-live="polite" aria-label="Server status updates">
-                    <div class="server-status-item" data-server-id="main" aria-label="Main server status">
-                        <div class="server-info">
-                            <span class="server-name">Main Server</span>
-                            <span class="server-status status-loading" aria-live="polite">⏳ Loading...</span>
-                        </div>
-                        <div class="server-details">
-                            <span class="server-players">Players: --/--</span>
-                            <span class="server-map">Map: --</span>
-                            <span class="server-ping">Ping: --ms</span>
+                {% if config.ET_SERVER_CONFIGURED %}
+                    <div id="server-status-container" aria-live="polite" aria-label="Server status updates">
+                        <div class="server-status-item" data-server-id="main" aria-label="Main server status">
+                            <div class="server-info">
+                                <span class="server-name">Main Server</span>
+                                <span class="server-status status-loading" aria-live="polite">⏳ Loading...</span>
+                            </div>
+                            <div class="server-details">
+                                <span class="server-players">Players: --/--</span>
+                                <span class="server-map">Map: --</span>
+                                <span class="server-ping">Ping: --ms</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="card-actions">
-                    <a href="{{ url_for('main.rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
-                    <button onclick="refreshServerStatus()" class="btn btn-secondary" aria-label="Refresh server status">🔄 Refresh</button>
-                </div>
+                    <div class="card-actions">
+                        <a href="{{ url_for('main.rcon_console') }}" class="btn btn-primary" aria-label="Open RCON Console">🖥️ RCON Console</a>
+                        <button onclick="refreshServerStatus()" class="btn btn-secondary" aria-label="Refresh server status">🔄 Refresh</button>
+                    </div>
+                {% else %}
+                    <p class="text-muted">Server status will appear after you configure a game server.</p>
+                {% endif %}
             </div>
         </div>
 
@@ -116,6 +120,7 @@
 <script>
 // Dashboard real-time features
 document.addEventListener('DOMContentLoaded', function() {
+    {% if config.ET_SERVER_CONFIGURED %}
     // Request server status updates
     if (window.socket) {
         window.socket.emit('server_status_request', {
@@ -129,13 +134,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }, 30000);
     }
+    {% endif %}
 });
 
 function refreshServerStatus() {
+    {% if config.ET_SERVER_CONFIGURED %}
     if (window.socket) {
         window.socket.emit('server_status_request', {
             server_ids: ['main']
         });
     }
+    {% endif %}
 }
 </script>
