@@ -14,13 +14,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 try:
     from app import app, db
     
-    # Import optional feature modules so their models are registered
+    # Import optional feature modules so their models are registered.
+    # These live under src.panel.* (not top-level modules).
     try:
-        import cms  # noqa: F401
+        import src.panel.cms  # noqa: F401
     except Exception:
         pass
     try:
-        import forum  # noqa: F401
+        import src.panel.forum  # noqa: F401
     except Exception:
         pass
     

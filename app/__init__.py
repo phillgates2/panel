@@ -110,6 +110,18 @@ def create_app(config_name="default"):
     db.init_app(app)
     login_manager.init_app(app)
 
+    @app.teardown_request
+    def _rollback_session_on_exception(exception):
+        if exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        try:
+            db.session.remove()
+        except Exception:
+            pass
+
     # Initialize database migrations (optional)
     try:
         if migrate is not None:
