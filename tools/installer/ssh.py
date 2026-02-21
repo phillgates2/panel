@@ -242,51 +242,51 @@ def _ask_admin_credentials(default_email: str = "admin@panel.local") -> tuple[st
         return email, pw1, False
 
 
-    def _validate_pg_ident(value: str, field: str) -> str | None:
-        v = (value or "").strip()
-        if not v:
-            return f"{field} must not be empty"
-        # Match installer postgres.setup_database identifier rules.
-        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", v):
-            return f"{field} contains unsupported characters: {v!r}"
-        return None
+def _validate_pg_ident(value: str, field: str) -> str | None:
+    v = (value or "").strip()
+    if not v:
+        return f"{field} must not be empty"
+    # Match installer postgres.setup_database identifier rules.
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", v):
+        return f"{field} contains unsupported characters: {v!r}"
+    return None
 
 
-    def _ask_postgres_config() -> dict[str, str]:
-        """Prompt for Postgres DB settings.
+def _ask_postgres_config() -> dict[str, str]:
+    """Prompt for Postgres DB settings.
 
-        Returns dict with keys: host, port, name, user, password.
-        """
-        host = _ask_input("PostgreSQL host", default=os.environ.get("PANEL_DB_HOST", "127.0.0.1")).strip()
-        port = _ask_input("PostgreSQL port", default=os.environ.get("PANEL_DB_PORT", "5432")).strip()
-        while True:
-            if not port.isdigit() or not (1 <= int(port) <= 65535):
-                print("Port must be a number between 1 and 65535")
-                port = _ask_input("PostgreSQL port", default="5432").strip()
-                continue
-            break
+    Returns dict with keys: host, port, name, user, password.
+    """
+    host = _ask_input("PostgreSQL host", default=os.environ.get("PANEL_DB_HOST", "127.0.0.1")).strip()
+    port = _ask_input("PostgreSQL port", default=os.environ.get("PANEL_DB_PORT", "5432")).strip()
+    while True:
+        if not port.isdigit() or not (1 <= int(port) <= 65535):
+            print("Port must be a number between 1 and 65535")
+            port = _ask_input("PostgreSQL port", default="5432").strip()
+            continue
+        break
 
-        while True:
-            name = _ask_input("PostgreSQL database name", default=os.environ.get("PANEL_DB_NAME", "paneldb")).strip()
-            err = _validate_pg_ident(name, "db_name")
-            if err:
-                print(err)
-                continue
-            break
+    while True:
+        name = _ask_input("PostgreSQL database name", default=os.environ.get("PANEL_DB_NAME", "paneldb")).strip()
+        err = _validate_pg_ident(name, "db_name")
+        if err:
+            print(err)
+            continue
+        break
 
-        while True:
-            user = _ask_input("PostgreSQL username", default=os.environ.get("PANEL_DB_USER", "paneluser")).strip()
-            err = _validate_pg_ident(user, "db_user")
-            if err:
-                print(err)
-                continue
-            break
+    while True:
+        user = _ask_input("PostgreSQL username", default=os.environ.get("PANEL_DB_USER", "paneluser")).strip()
+        err = _validate_pg_ident(user, "db_user")
+        if err:
+            print(err)
+            continue
+        break
 
-        # Password can be any string; hide input.
-        print("PostgreSQL password: enter one now, or leave blank to use the default 'panelpass'.")
-        password = getpass.getpass("PostgreSQL password: ").strip() or os.environ.get("PANEL_DB_PASS", "panelpass")
+    # Password can be any string; hide input.
+    print("PostgreSQL password: enter one now, or leave blank to use the default 'panelpass'.")
+    password = getpass.getpass("PostgreSQL password: ").strip() or os.environ.get("PANEL_DB_PASS", "panelpass")
 
-        return {"host": host, "port": port, "name": name, "user": user, "password": password}
+    return {"host": host, "port": port, "name": name, "user": user, "password": password}
 
 
 def _run_wizard(json_only: bool = False):
