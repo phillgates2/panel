@@ -11,6 +11,21 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: panel_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d panel_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     
     strategy:
       matrix:
@@ -36,8 +51,8 @@ jobs:
     
     - name: Run tests with coverage
       run: |
-        export PANEL_SQLITE_URI="sqlite:///:memory:"
         export FLASK_ENV="testing"
+        export DATABASE_URL="postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/panel_test"
         if [ -d "tests" ] && command -v pytest >/dev/null 2>&1; then
           pytest tests/ \
             --cov=app \

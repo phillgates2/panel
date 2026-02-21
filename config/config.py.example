@@ -22,11 +22,14 @@ BCRYPT_ROUNDS = 12
 # DATABASE SETTINGS
 # =============================================================================
 
-# SQLite (development)
-SQLALCHEMY_DATABASE_URI = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
-
-# PostgreSQL (production) - uncomment and configure
-# SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://user:password@localhost/panel')
+# Panel is PostgreSQL-only.
+# Prefer providing a full URL via DATABASE_URL (recommended), otherwise configure
+# PANEL_DB_* variables and let the application build a URL.
+SQLALCHEMY_DATABASE_URI = (
+    os.environ.get('DATABASE_URL')
+    or os.environ.get('SQLALCHEMY_DATABASE_URI')
+    or 'postgresql+psycopg2://paneluser:change-me@127.0.0.1:5432/paneldb'
+)
 
 # Database connection pool
 SQLALCHEMY_POOL_SIZE = int(os.environ.get('PANEL_DB_POOL_SIZE', '10'))

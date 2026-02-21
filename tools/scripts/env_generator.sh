@@ -9,7 +9,7 @@ ENV_TEMPLATE="""
 # Example .env file
 FLASK_ENV=development
 SECRET_KEY=your-secret-key
-DATABASE_URL=sqlite:///instance/app.db
+DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/paneldb
 REDIS_URL=redis://localhost:6379/0
 LOG_FORMAT=text
 """

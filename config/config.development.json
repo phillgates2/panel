@@ -2,7 +2,7 @@
   "name": "development",
   "debug": true,
   "testing": false,
-  "database_url": "sqlite:///dev.db",
+  "database_url": "postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/panel_dev",
   "redis_url": "redis://localhost:6379/0",
   "mail_server": "localhost",
   "mail_port": 587,

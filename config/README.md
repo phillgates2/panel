@@ -94,8 +94,15 @@ PANEL_HOST=0.0.0.0               # Listen address
 PANEL_PORT=5000                  # Listen port
 
 # Database
-PANEL_DATABASE_TYPE=sqlite       # or postgresql
-PANEL_SQLITE_PATH=panel.db       # For SQLite
+# PostgreSQL-only (recommended)
+DATABASE_URL=postgresql+psycopg2://paneluser:strong_password@127.0.0.1:5432/paneldb
+
+# Or provide connection parts (the app will build DATABASE_URL)
+PANEL_DB_HOST=127.0.0.1
+PANEL_DB_PORT=5432
+PANEL_DB_NAME=paneldb
+PANEL_DB_USER=paneluser
+PANEL_DB_PASS=strong_password
 
 # Redis
 PANEL_REDIS_URL=redis://localhost:6379/0
@@ -117,8 +124,7 @@ See `.env.example` for complete list with descriptions.
 ```bash
 PANEL_ENV=development
 PANEL_DEBUG=true
-PANEL_DATABASE_TYPE=sqlite
-PANEL_SQLITE_PATH=panel_dev.db
+DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/panel_dev
 PANEL_LOG_LEVEL=DEBUG
 ```
 
@@ -127,8 +133,7 @@ PANEL_LOG_LEVEL=DEBUG
 ```bash
 PANEL_ENV=staging
 PANEL_DEBUG=false
-PANEL_DATABASE_TYPE=postgresql
-PANEL_DATABASE_PASSWORD=staging_password
+DATABASE_URL=postgresql+psycopg2://paneluser:staging_password@db.example.com:5432/panel_staging
 PANEL_LOG_LEVEL=INFO
 ```
 
@@ -137,8 +142,7 @@ PANEL_LOG_LEVEL=INFO
 ```bash
 PANEL_ENV=production
 PANEL_DEBUG=false
-PANEL_DATABASE_TYPE=postgresql
-PANEL_DATABASE_PASSWORD=strong_production_password
+DATABASE_URL=postgresql+psycopg2://paneluser:strong_production_password@db.example.com:5432/paneldb
 PANEL_SESSION_COOKIE_SECURE=true
 PANEL_LOG_LEVEL=WARNING
 ```
@@ -203,22 +207,17 @@ sudo systemctl restart panel
 
 ## Common Configuration Patterns
 
-### **SQLite (Development)**
+### **PostgreSQL**
 
 ```bash
-PANEL_DATABASE_TYPE=sqlite
-PANEL_SQLITE_PATH=panel_dev.db
-```
+DATABASE_URL=postgresql+psycopg2://paneluser:secure_password@db.example.com:5432/paneldb
 
-### **PostgreSQL (Production)**
-
-```bash
-PANEL_DATABASE_TYPE=postgresql
-PANEL_DATABASE_HOST=db.example.com
-PANEL_DATABASE_PORT=5432
-PANEL_DATABASE_NAME=panel
-PANEL_DATABASE_USER=paneluser
-PANEL_DATABASE_PASSWORD=secure_password
+# Or split configuration:
+PANEL_DB_HOST=db.example.com
+PANEL_DB_PORT=5432
+PANEL_DB_NAME=paneldb
+PANEL_DB_USER=paneluser
+PANEL_DB_PASS=secure_password
 ```
 
 ### **Redis for Caching**

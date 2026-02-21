@@ -395,17 +395,18 @@ PANEL_PORT=5000                          # Application port
 # ----------------------------------------------------------------------------
 # DATABASE CONFIGURATION
 # ----------------------------------------------------------------------------
-PANEL_DATABASE_TYPE=postgresql           # postgresql or sqlite
-PANEL_DATABASE_HOST=localhost            # Database host
-PANEL_DATABASE_PORT=5432                 # Database port
-PANEL_DATABASE_NAME=panel                # Database name
-PANEL_DATABASE_USER=paneluser            # Database username
-PANEL_DATABASE_PASSWORD=                 # REQUIRED: Database password
+# Panel is PostgreSQL-only.
+DATABASE_URL=postgresql+psycopg2://paneluser:strong_password@localhost:5432/paneldb
+
+# Or provide connection parts (the app will build DATABASE_URL)
+PANEL_DB_HOST=localhost
+PANEL_DB_PORT=5432
+PANEL_DB_NAME=paneldb
+PANEL_DB_USER=paneluser
+PANEL_DB_PASS=                           # REQUIRED: Database password
+
 PANEL_DATABASE_POOL_SIZE=10              # Connection pool size
 PANEL_DATABASE_MAX_OVERFLOW=20           # Max overflow connections
-
-# SQLite (for development)
-PANEL_SQLITE_PATH=panel_dev.db           # SQLite database file
 
 # ----------------------------------------------------------------------------
 # REDIS CONFIGURATION
@@ -645,24 +646,20 @@ class BaseConfig:
     # DATABASE CONFIGURATION
     # ========================================================================
     
-    DATABASE_TYPE: str = os.getenv('PANEL_DATABASE_TYPE', 'sqlite')
-    
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        """Build database URI based on type."""
-        if self.DATABASE_TYPE == 'sqlite':
-            db_path = os.getenv('PANEL_SQLITE_PATH', 'panel_dev.db')
-            return f'sqlite:///{db_path}'
-        elif self.DATABASE_TYPE == 'postgresql':
-            user = os.getenv('PANEL_DATABASE_USER', 'paneluser')
-            password = os.getenv('PANEL_DATABASE_PASSWORD', '')
-            host = os.getenv('PANEL_DATABASE_HOST', 'localhost')
-            port = os.getenv('PANEL_DATABASE_PORT', '5432')
-            name = os.getenv('PANEL_DATABASE_NAME', 'panel')
-            
-            return f'postgresql+psycopg2://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{name}'
-        else:
-            raise ConfigValidationError(f'Unsupported database type: {self.DATABASE_TYPE}')
+        """Build the PostgreSQL database URI."""
+        override_db = os.getenv('DATABASE_URL') or os.getenv('SQLALCHEMY_DATABASE_URI')
+        if override_db:
+            return override_db
+
+        user = os.getenv('PANEL_DB_USER', 'paneluser')
+        password = os.getenv('PANEL_DB_PASS', '')
+        host = os.getenv('PANEL_DB_HOST', 'localhost')
+        port = os.getenv('PANEL_DB_PORT', '5432')
+        name = os.getenv('PANEL_DB_NAME', 'paneldb')
+
+        return f'postgresql+psycopg2://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{name}'
     
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
     SQLALCHEMY_ECHO: bool = os.getenv('PANEL_QUERY_PROFILING', 'false').lower() == 'true'

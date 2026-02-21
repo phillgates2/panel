@@ -49,7 +49,11 @@ import os
 
 # Basic development configuration
 SECRET_KEY = os.environ.get('PANEL_SECRET_KEY', 'dev-secret-key-change-in-production')
-SQLALCHEMY_DATABASE_URI = os.environ.get('PANEL_SQLITE_URI', 'sqlite:///panel_dev.db')
+SQLALCHEMY_DATABASE_URI = (
+    os.environ.get('DATABASE_URL')
+    or os.environ.get('SQLALCHEMY_DATABASE_URI')
+    or 'postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/panel_dev'
+)
 REDIS_URL = os.environ.get('PANEL_REDIS_URL', 'redis://127.0.0.1:6379/0')
 CACHE_TYPE = 'redis'
 CACHE_REDIS_URL = REDIS_URL
@@ -101,7 +105,11 @@ fi
 # Initialize database
 echo "???  Initializing database..."
 export FLASK_ENV=development
-python -c "from app import db, create_app; app = create_app(); app.app_context().push(); db.create_all()" 2>/dev/null || echo "Database initialization may have failed - check config.py"
+if command -v alembic >/dev/null 2>&1; then
+    alembic upgrade head 2>/dev/null || echo "Alembic migrations failed - check your PostgreSQL connection and migration state"
+else
+    echo "Alembic not found in the venv; install requirements and retry"
+fi
 
 # Seed database with sample data
 echo "?? Seeding database with sample data..."

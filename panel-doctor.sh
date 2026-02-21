@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Panel Doctor: Self-healing diagnostics and auto-fix
+# Panel Doctor: diagnostics and auto-fix
 # Usage: bash panel-doctor.sh [--fix]
-# Checks: systemd/OpenRC services, MariaDB socket, HTTP port, Flask migrations, instance dirs
+# Checks: services, HTTP port, DB env, DB connectivity, migrations state
 
 FIX_MODE=false
 for arg in "$@"; do
@@ -55,14 +55,57 @@ check_service() {
     fi
 }
 
-# 2. Check MariaDB socket
-check_mariadb_socket() {
-    local socket="/var/run/mysqld/mysqld.sock"
-    [[ -S "$socket" ]] && log "MariaDB socket found: $socket" && return 0
-    socket="/var/lib/mysql/mysql.sock"
-    [[ -S "$socket" ]] && log "MariaDB socket found: $socket" && return 0
-    warn "MariaDB socket not found"
-    return 1
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+load_env_file_if_present() {
+    local env_file="/etc/panel/panel.env"
+    if [[ -f "$env_file" ]]; then
+        # shellcheck disable=SC1090
+        set -a
+        source "$env_file"
+        set +a
+        log "Loaded env file: $env_file"
+    else
+        warn "Env file missing: $env_file"
+    fi
+}
+
+normalize_pg_url_for_psql() {
+    # psql does not understand SQLAlchemy driver URLs like postgresql+psycopg2://
+    local url="$1"
+    echo "${url/postgresql+psycopg2:\/\//postgresql:\/\/}"
+}
+
+check_db_env() {
+    if [[ -n "${DATABASE_URL:-}" || -n "${SQLALCHEMY_DATABASE_URI:-}" ]]; then
+        log "DB env present (DATABASE_URL/SQLALCHEMY_DATABASE_URI)"
+    else
+        warn "DB env missing: set DATABASE_URL (recommended)"
+    fi
+}
+
+check_db_connectivity() {
+    local url="${DATABASE_URL:-${SQLALCHEMY_DATABASE_URI:-}}"
+    if [[ -z "${url:-}" ]]; then
+        warn "Skipping DB connectivity check (no DB URL in env)"
+        return 0
+    fi
+
+    if command -v psql &>/dev/null; then
+        local psql_url
+        psql_url="$(normalize_pg_url_for_psql "$url")"
+        if PGPASSWORD="${PANEL_DB_PASS:-${PGPASSWORD:-}}" psql "$psql_url" -Atc "select 1" &>/dev/null; then
+            log "PostgreSQL connection OK"
+        else
+            warn "PostgreSQL connection FAILED"
+        fi
+    else
+        warn "psql not found; skipping direct connectivity check"
+    fi
+
+    if command -v python3 &>/dev/null && [[ -f "$ROOT_DIR/tools/scripts/db_verify.py" ]]; then
+        python3 "$ROOT_DIR/tools/scripts/db_verify.py" || warn "db_verify.py reported an issue"
+    fi
 }
 
 # 3. Check HTTP port (default 8080)
@@ -78,17 +121,15 @@ check_http_port() {
     fi
 }
 
-# 4. Check Flask migrations
 check_migrations() {
-    local db="instance/panel_dev.db"
-    if [[ -f "$db" ]]; then
-        log "SQLite DB exists: $db"
-    else
-        warn "SQLite DB missing: $db"
-        if $FIX_MODE; then
-            log "Attempting Flask DB migration..."
-            $SUDO bash -c 'source venv/bin/activate && flask db upgrade' && log "Migration attempted" || warn "Migration failed"
+    if command -v alembic &>/dev/null; then
+        if alembic current &>/dev/null; then
+            log "Alembic is runnable"
+        else
+            warn "Alembic current failed (check env + DB URL)"
         fi
+    else
+        warn "alembic not found; skipping alembic current"
     fi
 }
 
@@ -110,9 +151,10 @@ check_instance_dirs() {
 log "Panel Doctor: Starting diagnostics..."
 check_service "panel-gunicorn.service"
 check_service "rq-worker-supervised.service"
-check_service "mariadb"
-check_mariadb_socket
+load_env_file_if_present
+check_db_env
 check_http_port
+check_db_connectivity
 check_migrations
 check_instance_dirs
 log "Panel Doctor: Diagnostics complete."

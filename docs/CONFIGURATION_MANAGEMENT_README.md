@@ -59,12 +59,15 @@ Configuration can be set via environment variables:
 
 ```bash
 # Database
-PANEL_USE_SQLITE=true
-PANEL_SQLITE_URI=sqlite:///panel_dev.db
+# Preferred
+DATABASE_URL=postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/paneldb
+
+# Or split connection parts (the app will build a PostgreSQL URL)
 PANEL_DB_USER=paneluser
 PANEL_DB_PASS=panelpass
 PANEL_DB_HOST=127.0.0.1
 PANEL_DB_PORT=5432
+PANEL_DB_NAME=paneldb
 
 # Logging
 LOG_LEVEL=INFO
