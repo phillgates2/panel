@@ -123,7 +123,6 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
 
     # Build commands as lists to avoid shell interpolation.
     psql_base = ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1"]
-    psql_tac = psql_base + ["-tAc"]
 
     try:
         # 1) Ensure role exists; set password when provided.
@@ -157,14 +156,22 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
                 f"db_user={db_user}",
                 "-v",
                 f"db_pass={db_pass}",
-                "-tAc",
+                "-t",
+                "-A",
+                "-c",
                 sql_role,
             ]
         )
 
         # 2) Ensure database exists.
         exists = subprocess.check_output(
-            psql_tac + [f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'"],
+            psql_base
+            + [
+                "-t",
+                "-A",
+                "-c",
+                f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'",
+            ],
             text=True,
         ).strip()
         if not exists:
@@ -220,7 +227,9 @@ def verify_connection(*, db_name: str, db_user: str, db_pass: str, db_host: str 
             "-X",
             "-v",
             "ON_ERROR_STOP=1",
-            "-tAc",
+            "-t",
+            "-A",
+            "-c",
             "SELECT 1",
         ]
         subprocess.check_call(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
