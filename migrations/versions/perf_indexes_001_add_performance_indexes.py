@@ -19,115 +19,120 @@ depends_on = None
 
 def upgrade() -> None:
     # ### Performance indexes for better query performance ###
+    #
+    # This migration was historically authored against a richer schema than
+    # some deployments have. To avoid breaking fresh installs, we only create
+    # an index when its table + required columns exist.
+
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    def _table_exists(table_name: str) -> bool:
+        try:
+            return table_name in inspector.get_table_names()
+        except Exception:
+            return False
+
+    def _columns_exist(table_name: str, columns: list[str]) -> bool:
+        try:
+            existing = {c["name"] for c in inspector.get_columns(table_name)}
+        except Exception:
+            return False
+        return all(col in existing for col in columns)
+
+    def _safe_create_index(index_name: str, table_name: str, columns: list[str], *, unique: bool = False) -> None:
+        if not _table_exists(table_name):
+            return
+        if not _columns_exist(table_name, columns):
+            return
+        op.create_index(index_name, table_name, columns, unique=unique)
 
     # User table indexes
-    with op.batch_alter_table("user", schema=None) as batch_op:
-        batch_op.create_index("idx_user_email", ["email"], unique=False)
-        batch_op.create_index("idx_user_is_active", ["is_active"], unique=False)
-        batch_op.create_index(
-            "idx_user_is_system_admin", ["is_system_admin"], unique=False
-        )
-        batch_op.create_index("idx_user_created_at", ["created_at"], unique=False)
+    _safe_create_index("idx_user_email", "user", ["email"], unique=False)
+    _safe_create_index("idx_user_is_active", "user", ["is_active"], unique=False)
+    _safe_create_index("idx_user_is_system_admin", "user", ["is_system_admin"], unique=False)
+    _safe_create_index("idx_user_created_at", "user", ["created_at"], unique=False)
 
     # Server table indexes
-    with op.batch_alter_table("server", schema=None) as batch_op:
-        batch_op.create_index("idx_server_user_id", ["user_id"], unique=False)
-        batch_op.create_index("idx_server_status", ["status"], unique=False)
-        batch_op.create_index("idx_server_created_at", ["created_at"], unique=False)
-        batch_op.create_index("idx_server_name", ["name"], unique=False)
+    _safe_create_index("idx_server_user_id", "server", ["user_id"], unique=False)
+    _safe_create_index("idx_server_status", "server", ["status"], unique=False)
+    _safe_create_index("idx_server_created_at", "server", ["created_at"], unique=False)
+    _safe_create_index("idx_server_name", "server", ["name"], unique=False)
 
-    # Audit log indexes (critical for performance)
-    with op.batch_alter_table("audit_log", schema=None) as batch_op:
-        batch_op.create_index("idx_audit_log_user_id", ["user_id"], unique=False)
-        batch_op.create_index("idx_audit_log_action", ["action"], unique=False)
-        batch_op.create_index("idx_audit_log_created_at", ["created_at"], unique=False)
-        batch_op.create_index(
-            "idx_audit_log_user_action", ["user_id", "action"], unique=False
-        )
-        batch_op.create_index("idx_audit_log_timestamp", ["created_at"], unique=False)
+    # Audit log indexes
+    _safe_create_index("idx_audit_log_user_id", "audit_log", ["user_id"], unique=False)
+    _safe_create_index("idx_audit_log_action", "audit_log", ["action"], unique=False)
+    _safe_create_index("idx_audit_log_created_at", "audit_log", ["created_at"], unique=False)
+    _safe_create_index("idx_audit_log_user_action", "audit_log", ["user_id", "action"], unique=False)
+    _safe_create_index("idx_audit_log_timestamp", "audit_log", ["created_at"], unique=False)
 
     # User session indexes
-    with op.batch_alter_table("user_session", schema=None) as batch_op:
-        batch_op.create_index("idx_user_session_user_id", ["user_id"], unique=False)
-        batch_op.create_index("idx_user_session_token", ["session_token"], unique=True)
-        batch_op.create_index("idx_user_session_active", ["is_active"], unique=False)
-        batch_op.create_index("idx_user_session_expires", ["expires_at"], unique=False)
+    _safe_create_index("idx_user_session_user_id", "user_session", ["user_id"], unique=False)
+    _safe_create_index("idx_user_session_token", "user_session", ["session_token"], unique=True)
+    _safe_create_index("idx_user_session_active", "user_session", ["is_active"], unique=False)
+    _safe_create_index("idx_user_session_expires", "user_session", ["expires_at"], unique=False)
 
     # API key indexes
-    with op.batch_alter_table("api_key", schema=None) as batch_op:
-        batch_op.create_index("idx_api_key_user_id", ["user_id"], unique=False)
-        batch_op.create_index("idx_api_key_prefix", ["key_prefix"], unique=False)
+    _safe_create_index("idx_api_key_user_id", "api_key", ["user_id"], unique=False)
+    _safe_create_index("idx_api_key_prefix", "api_key", ["key_prefix"], unique=False)
 
     # Server metrics indexes
-    with op.batch_alter_table("server_metrics", schema=None) as batch_op:
-        batch_op.create_index(
-            "idx_server_metrics_server_id", ["server_id"], unique=False
-        )
-        batch_op.create_index(
-            "idx_server_metrics_timestamp", ["timestamp"], unique=False
-        )
-        batch_op.create_index("idx_server_metrics_cpu", ["cpu_usage"], unique=False)
+    _safe_create_index("idx_server_metrics_server_id", "server_metrics", ["server_id"], unique=False)
+    _safe_create_index("idx_server_metrics_timestamp", "server_metrics", ["timestamp"], unique=False)
+    _safe_create_index("idx_server_metrics_cpu", "server_metrics", ["cpu_usage"], unique=False)
 
     # Player session indexes
-    with op.batch_alter_table("player_session", schema=None) as batch_op:
-        batch_op.create_index(
-            "idx_player_session_server_id", ["server_id"], unique=False
-        )
-        batch_op.create_index(
-            "idx_player_session_player_id", ["player_id"], unique=False
-        )
-        batch_op.create_index(
-            "idx_player_session_start_time", ["start_time"], unique=False
-        )
-        batch_op.create_index("idx_player_session_end_time", ["end_time"], unique=False)
+    _safe_create_index("idx_player_session_server_id", "player_session", ["server_id"], unique=False)
+    _safe_create_index("idx_player_session_player_id", "player_session", ["player_id"], unique=False)
+    _safe_create_index("idx_player_session_start_time", "player_session", ["start_time"], unique=False)
+    _safe_create_index("idx_player_session_end_time", "player_session", ["end_time"], unique=False)
 
 
 def downgrade() -> None:
-    # ### Drop performance indexes ###
+    # ### Drop performance indexes (best-effort) ###
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    # Player session indexes
-    with op.batch_alter_table("player_session", schema=None) as batch_op:
-        batch_op.drop_index("idx_player_session_end_time")
-        batch_op.drop_index("idx_player_session_start_time")
-        batch_op.drop_index("idx_player_session_player_id")
-        batch_op.drop_index("idx_player_session_server_id")
+    def _has_index(table_name: str, index_name: str) -> bool:
+        try:
+            return any(i.get("name") == index_name for i in inspector.get_indexes(table_name))
+        except Exception:
+            return False
 
-    # Server metrics indexes
-    with op.batch_alter_table("server_metrics", schema=None) as batch_op:
-        batch_op.drop_index("idx_server_metrics_cpu")
-        batch_op.drop_index("idx_server_metrics_timestamp")
-        batch_op.drop_index("idx_server_metrics_server_id")
+    def _safe_drop_index(index_name: str, table_name: str) -> None:
+        if not _has_index(table_name, index_name):
+            return
+        op.drop_index(index_name, table_name=table_name)
 
-    # API key indexes
-    with op.batch_alter_table("api_key", schema=None) as batch_op:
-        batch_op.drop_index("idx_api_key_prefix")
-        batch_op.drop_index("idx_api_key_user_id")
+    _safe_drop_index("idx_player_session_end_time", "player_session")
+    _safe_drop_index("idx_player_session_start_time", "player_session")
+    _safe_drop_index("idx_player_session_player_id", "player_session")
+    _safe_drop_index("idx_player_session_server_id", "player_session")
 
-    # User session indexes
-    with op.batch_alter_table("user_session", schema=None) as batch_op:
-        batch_op.drop_index("idx_user_session_expires")
-        batch_op.drop_index("idx_user_session_active")
-        batch_op.drop_index("idx_user_session_token")
-        batch_op.drop_index("idx_user_session_user_id")
+    _safe_drop_index("idx_server_metrics_cpu", "server_metrics")
+    _safe_drop_index("idx_server_metrics_timestamp", "server_metrics")
+    _safe_drop_index("idx_server_metrics_server_id", "server_metrics")
 
-    # Audit log indexes
-    with op.batch_alter_table("audit_log", schema=None) as batch_op:
-        batch_op.drop_index("idx_audit_log_timestamp")
-        batch_op.drop_index("idx_audit_log_user_action")
-        batch_op.drop_index("idx_audit_log_created_at")
-        batch_op.drop_index("idx_audit_log_action")
-        batch_op.drop_index("idx_audit_log_user_id")
+    _safe_drop_index("idx_api_key_prefix", "api_key")
+    _safe_drop_index("idx_api_key_user_id", "api_key")
 
-    # Server table indexes
-    with op.batch_alter_table("server", schema=None) as batch_op:
-        batch_op.drop_index("idx_server_name")
-        batch_op.drop_index("idx_server_created_at")
-        batch_op.drop_index("idx_server_status")
-        batch_op.drop_index("idx_server_user_id")
+    _safe_drop_index("idx_user_session_expires", "user_session")
+    _safe_drop_index("idx_user_session_active", "user_session")
+    _safe_drop_index("idx_user_session_token", "user_session")
+    _safe_drop_index("idx_user_session_user_id", "user_session")
 
-    # User table indexes
-    with op.batch_alter_table("user", schema=None) as batch_op:
-        batch_op.drop_index("idx_user_created_at")
-        batch_op.drop_index("idx_user_is_system_admin")
-        batch_op.drop_index("idx_user_is_active")
-        batch_op.drop_index("idx_user_email")
+    _safe_drop_index("idx_audit_log_timestamp", "audit_log")
+    _safe_drop_index("idx_audit_log_user_action", "audit_log")
+    _safe_drop_index("idx_audit_log_created_at", "audit_log")
+    _safe_drop_index("idx_audit_log_action", "audit_log")
+    _safe_drop_index("idx_audit_log_user_id", "audit_log")
+
+    _safe_drop_index("idx_server_name", "server")
+    _safe_drop_index("idx_server_created_at", "server")
+    _safe_drop_index("idx_server_status", "server")
+    _safe_drop_index("idx_server_user_id", "server")
+
+    _safe_drop_index("idx_user_created_at", "user")
+    _safe_drop_index("idx_user_is_system_admin", "user")
+    _safe_drop_index("idx_user_is_active", "user")
+    _safe_drop_index("idx_user_email", "user")
