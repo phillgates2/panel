@@ -478,6 +478,33 @@ def init_config_manager(app):
     """Initialize configuration manager for Flask app"""
     global config_manager
 
+    def _redact_db_url(url: str) -> str:
+        try:
+            from urllib.parse import urlsplit, urlunsplit
+
+            parts = urlsplit(url)
+            if not parts.scheme or not parts.netloc:
+                return url
+
+            if parts.username is None and parts.password is None:
+                return url
+
+            host = parts.hostname or ""
+            if parts.port is not None:
+                host = f"{host}:{parts.port}"
+
+            userinfo = ""
+            if parts.username:
+                if parts.password is not None:
+                    userinfo = f"{parts.username}:***@"
+                else:
+                    userinfo = f"{parts.username}@"
+
+            redacted_netloc = f"{userinfo}{host}"
+            return urlunsplit((parts.scheme, redacted_netloc, parts.path, parts.query, parts.fragment))
+        except Exception:
+            return url
+
     # Detect environment
     env_name = os.getenv("FLASK_ENV", "development")
     try:
@@ -533,6 +560,16 @@ def init_config_manager(app):
     try:
         if ensure_secret_key is not None:
             ensure_secret_key(app, candidates=[app.config.get("SECRET_KEY")])
+    except Exception:
+        pass
+
+    # Emit a high-signal startup log showing the effective DB target.
+    # This helps diagnose cases where Alembic migrations were applied to one
+    # database but the running systemd service points to another.
+    try:
+        effective_db = app.config.get("SQLALCHEMY_DATABASE_URI")
+        if isinstance(effective_db, str) and effective_db:
+            app.logger.info(f"Effective SQLALCHEMY_DATABASE_URI: {_redact_db_url(effective_db)}")
     except Exception:
         pass
 
