@@ -17,6 +17,10 @@ class Config:
     DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
     DB_PORT = os.environ.get("PANEL_DB_PORT", "5432")
     DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
+    # Ensure the app can find tables created in the expected schema.
+    # In PostgreSQL, an altered role/database `search_path` can cause runtime
+    # errors like "relation 'user' does not exist" even when migrations ran.
+    DB_SEARCH_PATH = os.environ.get("PANEL_DB_SEARCH_PATH", "public")
 
     _override_db = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
     if isinstance(_override_db, str) and _override_db.strip():
@@ -39,6 +43,13 @@ class Config:
         "pool_size": 10,  # Base pool size
         "max_overflow": 20,  # Maximum overflow connections
         "pool_timeout": 30,  # Connection timeout
+        # Force the schema search path for every new DB connection.
+        # Psycopg2 supports the `options` argument for runtime parameters.
+        "connect_args": (
+            {"options": f"-c search_path={DB_SEARCH_PATH}"}
+            if isinstance(DB_SEARCH_PATH, str) and DB_SEARCH_PATH.strip()
+            else {}
+        ),
     }
 
     # Query optimization settings

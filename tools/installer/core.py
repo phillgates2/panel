@@ -214,6 +214,7 @@ def _build_panel_env(
             f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@"
             f"{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}"
         )
+        env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
     else:
         # Default: local Postgres.
         env.setdefault("PANEL_DB_USER", os.environ.get("PANEL_DB_USER", "paneluser"))
@@ -225,6 +226,7 @@ def _build_panel_env(
             "DATABASE_URL",
             f"postgresql+psycopg2://{env['PANEL_DB_USER']}:{env['PANEL_DB_PASS']}@{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}",
         )
+        env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
 
     rp = int(redis_port) if redis_port else 6379
     env.setdefault("PANEL_REDIS_URL", f"redis://127.0.0.1:{rp}/0")
@@ -636,23 +638,52 @@ def install_all(
         for k, v in panel_env.items():
             os.environ[str(k)] = str(v)
 
-        # If postgres is selected and a postgres URI was provided, create DB/user best-effort.
-        try:
-            db_info = _parse_db_uri(db_uri)
-            if (not dry_run) and ("postgres" in components) and db_info.get("type") == "postgres":
-                try:
-                    setup_res = pg.setup_database(
-                        db_name=db_info.get("db_name") or "paneldb",
-                        db_user=db_info.get("user") or "panel",
-                        db_pass=db_info.get("password") or None,
-                    )
-                except Exception as e:
-                    setup_res = {"created": False, "error": str(e)}
+        # If postgres is selected, ensure the app DB/user exist using the
+        # resolved PANEL_DB_* env values (idempotent). This must work even
+        # when `db_uri` was not explicitly provided.
+        if (not dry_run) and ("postgres" in components):
+            try:
+                db_name = os.environ.get("PANEL_DB_NAME", "paneldb")
+                db_user = os.environ.get("PANEL_DB_USER", "paneluser")
+                db_pass = os.environ.get("PANEL_DB_PASS", "")
+                db_host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
+                db_port = os.environ.get("PANEL_DB_PORT", "5432")
+
+                setup_res = pg.setup_database(
+                    db_name=db_name,
+                    db_user=db_user,
+                    db_pass=db_pass or None,
+                )
                 actions.append({"component": "postgres", "result": {"setup_database": setup_res}})
                 if progress_cb:
                     progress_cb("config", "postgres", {"setup_database": setup_res})
-        except Exception:
-            pass
+
+                # Fail fast if we still cannot connect as the app role.
+                verify_res = pg.verify_connection(
+                    db_name=db_name,
+                    db_user=db_user,
+                    db_pass=db_pass,
+                    db_host=db_host,
+                    db_port=db_port,
+                )
+                actions.append({"component": "postgres", "result": {"verify_connection": verify_res}})
+                if progress_cb:
+                    progress_cb("check", "postgres", {"verify_connection": verify_res})
+                if not verify_res.get("ok"):
+                    errors.append({
+                        "component": "postgres",
+                        "error": "database connection failed for app role",
+                        "details": {
+                            **verify_res,
+                            "hint": "Check /etc/panel/panel.env PANEL_DB_USER/PANEL_DB_PASS, and ensure pg_hba.conf allows password auth for 127.0.0.1.",
+                        },
+                    })
+                    return {"status": "error", "actions": actions, "errors": errors}
+            except Exception as e:
+                setup_res = {"created": False, "error": str(e)}
+                actions.append({"component": "postgres", "result": {"setup_database": setup_res}})
+                if progress_cb:
+                    progress_cb("config", "postgres", {"setup_database": setup_res})
 
         # Ensure Python requirements exist before DB init/migrations.
         if not dry_run:
