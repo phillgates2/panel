@@ -13,6 +13,8 @@ import shutil
 import sys
 from typing import Any, Dict, List, Optional
 
+from urllib.parse import quote_plus
+
 from .core import install_all, uninstall_all, start_component_service, stop_component_service, get_component_service_status
 from .deps import check_system_deps, suggest_install_commands
 
@@ -240,6 +242,53 @@ def _ask_admin_credentials(default_email: str = "admin@panel.local") -> tuple[st
         return email, pw1, False
 
 
+    def _validate_pg_ident(value: str, field: str) -> str | None:
+        v = (value or "").strip()
+        if not v:
+            return f"{field} must not be empty"
+        # Match installer postgres.setup_database identifier rules.
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", v):
+            return f"{field} contains unsupported characters: {v!r}"
+        return None
+
+
+    def _ask_postgres_config() -> dict[str, str]:
+        """Prompt for Postgres DB settings.
+
+        Returns dict with keys: host, port, name, user, password.
+        """
+        host = _ask_input("PostgreSQL host", default=os.environ.get("PANEL_DB_HOST", "127.0.0.1")).strip()
+        port = _ask_input("PostgreSQL port", default=os.environ.get("PANEL_DB_PORT", "5432")).strip()
+        while True:
+            if not port.isdigit() or not (1 <= int(port) <= 65535):
+                print("Port must be a number between 1 and 65535")
+                port = _ask_input("PostgreSQL port", default="5432").strip()
+                continue
+            break
+
+        while True:
+            name = _ask_input("PostgreSQL database name", default=os.environ.get("PANEL_DB_NAME", "paneldb")).strip()
+            err = _validate_pg_ident(name, "db_name")
+            if err:
+                print(err)
+                continue
+            break
+
+        while True:
+            user = _ask_input("PostgreSQL username", default=os.environ.get("PANEL_DB_USER", "paneluser")).strip()
+            err = _validate_pg_ident(user, "db_user")
+            if err:
+                print(err)
+                continue
+            break
+
+        # Password can be any string; hide input.
+        print("PostgreSQL password: enter one now, or leave blank to use the default 'panelpass'.")
+        password = getpass.getpass("PostgreSQL password: ").strip() or os.environ.get("PANEL_DB_PASS", "panelpass")
+
+        return {"host": host, "port": port, "name": name, "user": user, "password": password}
+
+
 def _run_wizard(json_only: bool = False):
     print("Panel Installer (SSH Wizard)")
     print("This guided flow will help you install or uninstall components.")
@@ -285,6 +334,16 @@ def _run_wizard(json_only: bool = False):
                 venv_path = _ask_input("Python venv path", default=venv_path)
         auto_start = _ask_yes_no("Auto-start Panel app after install", default=True)
 
+        # Optional: allow customizing Postgres DB creds.
+        db_uri = None
+        if "postgres" in comps:
+            pg_cfg = _ask_postgres_config()
+            db_uri = (
+                "postgresql+psycopg2://"
+                f"{quote_plus(pg_cfg['user'])}:{quote_plus(pg_cfg['password'])}"
+                f"@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['name']}"
+            )
+
         create_default_user = _ask_yes_no("Create default admin user", default=True)
         admin_email = None
         admin_password = None
@@ -329,6 +388,9 @@ def _run_wizard(json_only: bool = False):
                 pass
         print(f"  Dry-run   : {dry_run}")
         print(f"  No-elevate: {no_elevate}")
+        if db_uri:
+            # Avoid printing credentials.
+            print(f"  Postgres  : {pg_cfg['user']}@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['name']}")
         if create_default_user:
             print(f"  Admin     : {admin_email}")
             print(f"  Password  : {'auto-generate' if password_generated else 'user-provided'}")
@@ -410,6 +472,7 @@ def _run_wizard(json_only: bool = False):
             create_default_user=create_default_user,
             admin_email=admin_email,
             admin_password=admin_password,
+            db_uri=db_uri,
         )
         print(json.dumps(result) if json_only else result)
         return

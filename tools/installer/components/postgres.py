@@ -126,18 +126,22 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
 
     def _query_scalar(sql: str) -> str:
         # Use stdin instead of -c so behavior is consistent across psql versions.
-        return subprocess.check_output(
+        completed = subprocess.run(
             psql + ["-t", "-A"],
             input=(sql.rstrip(";\n") + ";\n"),
             text=True,
-        ).strip()
+            check=True,
+            capture_output=True,
+        )
+        return (completed.stdout or "").strip()
 
     def _exec(sql: str) -> None:
         # Use stdin so secrets don't appear in argv and to avoid :var substitution quirks.
-        subprocess.check_call(
+        subprocess.run(
             psql,
             input=(sql.rstrip(";\n") + ";\n"),
             text=True,
+            check=True,
         )
 
     try:
