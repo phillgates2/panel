@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "ptero_eggs_001"
-down_revision = None  # Set this to your latest migration revision
+down_revision = "config_templates_001"
 branch_labels = None
 depends_on = None
 
