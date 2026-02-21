@@ -122,86 +122,46 @@ def setup_database(db_name='panel', db_user='panel', db_pass=None):
         db_pass = ""
 
     # Build commands as lists to avoid shell interpolation.
-    psql_base = ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1"]
+    psql = ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1"]
+
+    def _query_scalar(sql: str) -> str:
+        return subprocess.check_output(psql + ["-t", "-A", "-c", sql], text=True).strip()
+
+    def _exec(sql: str, *, vars: dict[str, str] | None = None) -> None:
+        cmd = list(psql)
+        if vars:
+            for k, v in vars.items():
+                cmd += ["-v", f"{k}={v}"]
+        cmd += ["-c", sql]
+        subprocess.check_call(cmd)
 
     try:
-        # 1) Ensure role exists; set password when provided.
-        sql_role = (
-            "DO $$\n"
-            "DECLARE\n"
-            "  v_user text := :'db_user';\n"
-            "  v_pass text := :'db_pass';\n"
-            "BEGIN\n"
-            "  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_user) THEN\n"
-            "    IF v_pass <> '' THEN\n"
-            "      EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', v_user, v_pass);\n"
-            "    ELSE\n"
-            "      EXECUTE format('CREATE ROLE %I LOGIN', v_user);\n"
-            "    END IF;\n"
-            "  ELSE\n"
-            "    IF v_pass <> '' THEN\n"
-            "      EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', v_user, v_pass);\n"
-            "    ELSE\n"
-            "      EXECUTE format('ALTER ROLE %I WITH LOGIN', v_user);\n"
-            "    END IF;\n"
-            "  END IF;\n"
-            "END\n"
-            "$$;"
-        )
+        # 1) Ensure role exists.
+        role_exists = _query_scalar(f"SELECT 1 FROM pg_roles WHERE rolname = '{db_user}'")
+        if not role_exists:
+            _exec(f"CREATE ROLE {db_user} LOGIN;")
 
-        subprocess.check_call(
-            psql_base
-            + [
-                "-v",
-                f"db_user={db_user}",
-                "-v",
-                f"db_pass={db_pass}",
-                "-t",
-                "-A",
-                "-c",
-                sql_role,
-            ]
-        )
-
-        # 2) Ensure database exists.
-        exists = subprocess.check_output(
-            psql_base
-            + [
-                "-t",
-                "-A",
-                "-c",
-                f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'",
-            ],
-            text=True,
-        ).strip()
-        if not exists:
-            subprocess.check_call(
-                ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-c", f"CREATE DATABASE {db_name} OWNER {db_user};"]
+        # 2) Set/reset password if provided (safe quoting handled by psql via :'pass').
+        if db_pass:
+            _exec(
+                f"ALTER ROLE {db_user} WITH LOGIN PASSWORD :'pass';",
+                vars={"pass": db_pass},
             )
+        else:
+            _exec(f"ALTER ROLE {db_user} WITH LOGIN;")
 
-        # 3) Ensure ownership + basic privileges.
-        subprocess.check_call(
-            ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-c", f"ALTER DATABASE {db_name} OWNER TO {db_user};"]
-        )
-        subprocess.check_call(
-            ["sudo", "-u", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-c", f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {db_user};"]
-        )
+        # 3) Ensure database exists.
+        db_exists = _query_scalar(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'")
+        if not db_exists:
+            _exec(f"CREATE DATABASE {db_name} OWNER {db_user};")
 
-        # 4) Ensure the role finds tables in public by default.
+        # 4) Ensure ownership + basic privileges.
+        _exec(f"ALTER DATABASE {db_name} OWNER TO {db_user};")
+        _exec(f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {db_user};")
+
+        # 5) Ensure the role finds tables in public by default.
         try:
-            subprocess.check_call(
-                [
-                    "sudo",
-                    "-u",
-                    "postgres",
-                    "psql",
-                    "-X",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-c",
-                    f"ALTER ROLE {db_user} IN DATABASE {db_name} SET search_path = public;",
-                ]
-            )
+            _exec(f"ALTER ROLE {db_user} IN DATABASE {db_name} SET search_path = public;")
         except Exception:
             # Not fatal; app also forces search_path at connect-time.
             pass
