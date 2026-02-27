@@ -14,6 +14,8 @@ except Exception:  # pragma: no cover
 from flask import (Blueprint, current_app, flash, redirect, render_template,
                    request, session, url_for)
 
+from src.panel.csrf import generate_csrf_token
+
 from src.panel import db
 from src.panel.models import Server, User
 
@@ -23,7 +25,7 @@ server_bp = Blueprint("server", __name__, url_prefix="/servers")
 @server_bp.context_processor
 def inject_csrf_token():
     """Inject csrf_token function into server templates"""
-    return {"csrf_token": lambda: session.get("csrf_token", "")}
+    return {"csrf_token": generate_csrf_token}
 
 
 def get_current_user():

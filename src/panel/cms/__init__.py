@@ -5,6 +5,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
 from flask_caching import Cache
 from src.panel.tools.auth import admin_required as auth_admin_required
+from src.panel.csrf import generate_csrf_token
 
 from app import User, db, verify_csrf
 
@@ -14,7 +15,7 @@ cms_bp = Blueprint("cms", __name__, url_prefix="/cms")
 @cms_bp.context_processor
 def inject_csrf_token():
     """Inject csrf_token function into CMS templates"""
-    return {"csrf_token": lambda: session.get("csrf_token", "")}
+    return {"csrf_token": generate_csrf_token}
 
 
 def admin_required(fn):

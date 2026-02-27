@@ -42,7 +42,9 @@ def ensure_csrf_after(response):
 
 def ensure_csrf_for_templates():
     """Context processor to inject CSRF token into templates."""
-    return {"csrf_token": generate_csrf_token()}
+    # Templates in this repo frequently call `csrf_token()`.
+    # Provide a callable that generates a token lazily.
+    return {"csrf_token": generate_csrf_token}
 
 
 def ensure_theme_migration_once():

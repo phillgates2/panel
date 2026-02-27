@@ -4,6 +4,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect,
                    render_template, request, session, url_for)
 
 from app import User, db, verify_csrf
+from src.panel.csrf import generate_csrf_token
 
 forum_bp = Blueprint("forum", __name__, url_prefix="/forum")
 
@@ -11,7 +12,7 @@ forum_bp = Blueprint("forum", __name__, url_prefix="/forum")
 @forum_bp.context_processor
 def inject_csrf_token():
     """Inject csrf_token function into forum templates"""
-    return {"csrf_token": lambda: session.get("csrf_token", "")}
+    return {"csrf_token": generate_csrf_token}
 
 
 def get_current_user():

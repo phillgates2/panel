@@ -19,6 +19,7 @@ from app.db import db
 from app.error_handlers import internal_error, page_not_found
 from app.extensions import init_app_extensions
 from app.secret_key import ensure_secret_key
+from src.panel.csrf import ensure_csrf_after, ensure_csrf_for_templates
 
 # Import configuration
 from config import config
@@ -163,6 +164,16 @@ _register_optional_blueprints(app)
 
 # Register context processor and error handlers
 app.context_processor(inject_user)
+try:
+    # Ensure CSRF token exists and templates can render it.
+    app.after_request(ensure_csrf_after)
+except Exception:
+    pass
+try:
+    # Provide csrf_token() callable for templates.
+    app.context_processor(ensure_csrf_for_templates)
+except Exception:
+    pass
 app.errorhandler(404)(page_not_found)
 app.errorhandler(500)(internal_error)
 
