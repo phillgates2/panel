@@ -50,6 +50,12 @@ try:
 except Exception:
     payment_bp = None
 
+# Server management (RCON, server dashboard)
+try:
+    from src.panel.server_management import server_bp
+except Exception:
+    server_bp = None
+
 # Initialize New Relic APM (optional)
 try:
     import newrelic.agent as _nr_agent
@@ -186,6 +192,42 @@ if payment_bp is not None:
     app.register_blueprint(payment_bp)
 if admin_bp is not None:
     app.register_blueprint(admin_bp)
+
+# Optional server management blueprint. Some deployments run via `app:app`
+# from this module; ensure the blueprint is registered there as well.
+if server_bp is not None:
+    try:
+        app.register_blueprint(server_bp)
+    except Exception:
+        pass
+
+# Backwards-compat endpoint aliases.
+# A lot of older code uses url_for('login') / url_for('index') rather than
+# url_for('main.login') / url_for('main.index'). When running via this
+# module-level app, create endpoint aliases that point at the real rules.
+def _alias_endpoint(alias: str, target: str) -> None:
+    try:
+        if alias in app.view_functions:
+            return
+        target_view = app.view_functions.get(target)
+        if not target_view:
+            return
+
+        for rule in list(app.url_map.iter_rules()):
+            if rule.endpoint != target:
+                continue
+            methods = [m for m in (rule.methods or []) if m not in ("HEAD", "OPTIONS")]
+            try:
+                app.add_url_rule(rule.rule, endpoint=alias, view_func=target_view, methods=methods or None)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+_alias_endpoint("index", "main.index")
+_alias_endpoint("login", "main.login")
+_alias_endpoint("logout", "main.logout")
 
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "main")
 
