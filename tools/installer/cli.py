@@ -1,8 +1,10 @@
 import argparse
 import logging
 import json
+import os
 import sys
 from .core import install_all, uninstall_all, start_component_service, stop_component_service, get_component_service_status
+from .db_utils import build_postgres_uri, is_postgres_uri, validate_postgres_ssl_options
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +46,39 @@ def build_parser():
         action="store_true",
         help="Read admin password from stdin (single line).",
     )
+
+    ip.add_argument(
+        "--db-uri",
+        default=None,
+        help="Full PostgreSQL SQLAlchemy URL (e.g. postgresql+psycopg2://user:pass@host:5432/db?sslmode=require).",
+    )
+    ip.add_argument("--db-host", default=None, help="PostgreSQL host")
+    ip.add_argument("--db-port", type=int, default=None, help="PostgreSQL port")
+    ip.add_argument("--db-name", default=None, help="PostgreSQL database name")
+    ip.add_argument("--db-user", default=None, help="PostgreSQL username")
+    ip.add_argument(
+        "--db-password",
+        default=None,
+        help="PostgreSQL password (WARNING: may be visible in shell history / process list). Prefer --db-password-stdin.",
+    )
+    ip.add_argument(
+        "--db-password-stdin",
+        action="store_true",
+        help="Read PostgreSQL password from stdin (single line).",
+    )
+    ip.add_argument(
+        "--db-search-path",
+        default=None,
+        help="PostgreSQL schema search_path (sets PANEL_DB_SEARCH_PATH; e.g. 'public' or 'my_schema,public').",
+    )
+    ip.add_argument(
+        "--db-sslmode",
+        default=None,
+        help="PostgreSQL sslmode (disable|allow|prefer|require|verify-ca|verify-full)",
+    )
+    ip.add_argument("--db-sslrootcert", default=None, help="Path to CA/root certificate")
+    ip.add_argument("--db-sslcert", default=None, help="Path to client certificate")
+    ip.add_argument("--db-sslkey", default=None, help="Path to client key")
     ip.add_argument("--json", action="store_true", help="Emit structured JSON output")
 
     up = sub.add_parser("uninstall", help="Uninstall panel")
@@ -71,8 +106,68 @@ def main(argv=None):
     if args.cmd == "install":
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
         admin_password = args.admin_password
+
+        db_password = getattr(args, "db_password", None)
+
+        # Stdin parsing: if both are requested, read admin password first then DB password.
         if getattr(args, "admin_password_stdin", False):
             admin_password = (sys.stdin.readline() or "").rstrip("\n")
+        if getattr(args, "db_password_stdin", False):
+            db_password = (sys.stdin.readline() or "").rstrip("\n")
+
+        ssl_err = validate_postgres_ssl_options(
+            sslmode=getattr(args, "db_sslmode", None),
+            sslrootcert=getattr(args, "db_sslrootcert", None),
+            sslcert=getattr(args, "db_sslcert", None),
+            sslkey=getattr(args, "db_sslkey", None),
+        )
+        if ssl_err:
+            parser.error(ssl_err)
+
+        db_uri = None
+        db_uri_raw = (getattr(args, "db_uri", None) or "").strip() or None
+        any_db_parts = any(
+            getattr(args, name, None)
+            for name in (
+                "db_host",
+                "db_port",
+                "db_name",
+                "db_user",
+                "db_password",
+                "db_sslmode",
+                "db_sslrootcert",
+                "db_sslcert",
+                "db_sslkey",
+            )
+        )
+
+        if db_uri_raw:
+            if any_db_parts:
+                parser.error("--db-uri cannot be combined with --db-host/--db-port/--db-user/--db-password or SSL flags")
+            if not is_postgres_uri(db_uri_raw):
+                parser.error("Only PostgreSQL is supported for --db-uri")
+            db_uri = db_uri_raw
+        elif any_db_parts:
+            host = (getattr(args, "db_host", None) or os.environ.get("PANEL_DB_HOST") or "127.0.0.1").strip()
+            port = int(getattr(args, "db_port", None) or os.environ.get("PANEL_DB_PORT") or 5432)
+            name = (getattr(args, "db_name", None) or os.environ.get("PANEL_DB_NAME") or "paneldb").strip()
+            user = (getattr(args, "db_user", None) or os.environ.get("PANEL_DB_USER") or "paneluser").strip()
+            password = (db_password if db_password is not None else os.environ.get("PANEL_DB_PASS"))
+            if password is None:
+                password = "panelpass"
+
+            db_uri = build_postgres_uri(
+                host=host,
+                port=port,
+                db_name=name,
+                user=user,
+                password=str(password),
+                sslmode=getattr(args, "db_sslmode", None),
+                sslrootcert=getattr(args, "db_sslrootcert", None),
+                sslcert=getattr(args, "db_sslcert", None),
+                sslkey=getattr(args, "db_sslkey", None),
+            )
+
         result = install_all(
             args.domain,
             comps,
@@ -83,6 +178,8 @@ def main(argv=None):
             create_default_user=args.create_default_user,
             admin_email=args.admin_email,
             admin_password=admin_password,
+            db_uri=db_uri,
+            db_search_path=getattr(args, "db_search_path", None),
         )
         print(json.dumps(result) if args.json else result)
     elif args.cmd == "uninstall":

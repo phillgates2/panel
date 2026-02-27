@@ -13,9 +13,8 @@ import shutil
 import sys
 from typing import Any, Dict, List, Optional
 
-from urllib.parse import quote_plus
-
 from .core import install_all, uninstall_all, start_component_service, stop_component_service, get_component_service_status
+from .db_utils import build_postgres_uri, is_postgres_uri, validate_postgres_ssl_options
 from .deps import check_system_deps, suggest_install_commands
 
 log = logging.getLogger(__name__)
@@ -70,6 +69,39 @@ def build_parser():
         help="Read admin password from stdin (single line).",
     )
 
+    ip.add_argument(
+        "--db-uri",
+        default=None,
+        help="Full PostgreSQL SQLAlchemy URL (e.g. postgresql+psycopg2://user:pass@host:5432/db?sslmode=require).",
+    )
+    ip.add_argument("--db-host", default=None, help="PostgreSQL host")
+    ip.add_argument("--db-port", type=int, default=None, help="PostgreSQL port")
+    ip.add_argument("--db-name", default=None, help="PostgreSQL database name")
+    ip.add_argument("--db-user", default=None, help="PostgreSQL username")
+    ip.add_argument(
+        "--db-password",
+        default=None,
+        help="PostgreSQL password (WARNING: may be visible in shell history / process list). Prefer --db-password-stdin.",
+    )
+    ip.add_argument(
+        "--db-password-stdin",
+        action="store_true",
+        help="Read PostgreSQL password from stdin (single line).",
+    )
+    ip.add_argument(
+        "--db-search-path",
+        default=None,
+        help="PostgreSQL schema search_path (sets PANEL_DB_SEARCH_PATH; e.g. 'public' or 'my_schema,public').",
+    )
+    ip.add_argument(
+        "--db-sslmode",
+        default=None,
+        help="PostgreSQL sslmode (disable|allow|prefer|require|verify-ca|verify-full)",
+    )
+    ip.add_argument("--db-sslrootcert", default=None, help="Path to CA/root certificate")
+    ip.add_argument("--db-sslcert", default=None, help="Path to client certificate")
+    ip.add_argument("--db-sslkey", default=None, help="Path to client key")
+
     up = sub.add_parser("uninstall", help="Uninstall panel via recorded state (streams progress)")
     up.add_argument("--preserve-data", action="store_true")
     up.add_argument("--dry-run", action="store_true")
@@ -97,9 +129,65 @@ def main(argv: Optional[List[str]] = None):
         comps = [c.strip() for c in args.components.split(",") if c.strip()]
 
         admin_password = args.admin_password
+        db_password = getattr(args, "db_password", None)
+
+        # Read from stdin in a stable order when both are requested.
         if getattr(args, "admin_password_stdin", False):
             # Read a single line from stdin. This avoids exposing the password in argv.
             admin_password = (sys.stdin.readline() or "").rstrip("\n")
+        if getattr(args, "db_password_stdin", False):
+            db_password = (sys.stdin.readline() or "").rstrip("\n")
+
+        ssl_err = validate_postgres_ssl_options(
+            sslmode=getattr(args, "db_sslmode", None),
+            sslrootcert=getattr(args, "db_sslrootcert", None),
+            sslcert=getattr(args, "db_sslcert", None),
+            sslkey=getattr(args, "db_sslkey", None),
+        )
+        if ssl_err:
+            parser.error(ssl_err)
+
+        db_uri = None
+        db_uri_raw = (getattr(args, "db_uri", None) or "").strip() or None
+        any_db_parts = any(
+            getattr(args, name, None)
+            for name in (
+                "db_host",
+                "db_port",
+                "db_name",
+                "db_user",
+                "db_password",
+                "db_sslmode",
+                "db_sslrootcert",
+                "db_sslcert",
+                "db_sslkey",
+            )
+        )
+        if db_uri_raw:
+            if any_db_parts:
+                parser.error("--db-uri cannot be combined with --db-host/--db-port/--db-user/--db-password or SSL flags")
+            if not is_postgres_uri(db_uri_raw):
+                parser.error("Only PostgreSQL is supported for --db-uri")
+            db_uri = db_uri_raw
+        elif any_db_parts:
+            host = (getattr(args, "db_host", None) or os.environ.get("PANEL_DB_HOST") or "127.0.0.1").strip()
+            port = int(getattr(args, "db_port", None) or os.environ.get("PANEL_DB_PORT") or 5432)
+            name = (getattr(args, "db_name", None) or os.environ.get("PANEL_DB_NAME") or "paneldb").strip()
+            user = (getattr(args, "db_user", None) or os.environ.get("PANEL_DB_USER") or "paneluser").strip()
+            password = (db_password if db_password is not None else os.environ.get("PANEL_DB_PASS"))
+            if password is None:
+                password = "panelpass"
+            db_uri = build_postgres_uri(
+                host=host,
+                port=port,
+                db_name=name,
+                user=user,
+                password=str(password),
+                sslmode=getattr(args, "db_sslmode", None),
+                sslrootcert=getattr(args, "db_sslrootcert", None),
+                sslcert=getattr(args, "db_sslcert", None),
+                sslkey=getattr(args, "db_sslkey", None),
+            )
 
         result = install_all(
             args.domain,
@@ -112,6 +200,8 @@ def main(argv: Optional[List[str]] = None):
             create_default_user=args.create_default_user,
             admin_email=args.admin_email,
             admin_password=admin_password,
+            db_uri=db_uri,
+            db_search_path=getattr(args, "db_search_path", None),
         )
         print(json.dumps(result) if args.json else result)
         return
@@ -255,7 +345,8 @@ def _validate_pg_ident(value: str, field: str) -> str | None:
 def _ask_postgres_config() -> dict[str, str]:
     """Prompt for Postgres DB settings.
 
-    Returns dict with keys: host, port, name, user, password.
+    Returns dict with keys: host, port, name, user, password, password_is_default,
+    search_path, sslmode, sslrootcert, sslcert, sslkey.
     """
     host = _ask_input("PostgreSQL host", default=os.environ.get("PANEL_DB_HOST", "127.0.0.1")).strip()
     port = _ask_input("PostgreSQL port", default=os.environ.get("PANEL_DB_PORT", "5432")).strip()
@@ -284,9 +375,56 @@ def _ask_postgres_config() -> dict[str, str]:
 
     # Password can be any string; hide input.
     print("PostgreSQL password: enter one now, or leave blank to use the default 'panelpass'.")
-    password = getpass.getpass("PostgreSQL password: ").strip() or os.environ.get("PANEL_DB_PASS", "panelpass")
+    pw_input = getpass.getpass("PostgreSQL password: ").strip()
+    password_is_default = not bool(pw_input)
+    password = pw_input or os.environ.get("PANEL_DB_PASS", "panelpass")
 
-    return {"host": host, "port": port, "name": name, "user": user, "password": password}
+    search_path = _ask_input(
+        "PostgreSQL search_path (schema)",
+        default=os.environ.get("PANEL_DB_SEARCH_PATH", "public"),
+    ).strip() or "public"
+
+    sslmode = _ask_input(
+        "PostgreSQL sslmode (blank/disable/allow/prefer/require/verify-ca/verify-full)",
+        default="",
+    ).strip() or None
+    sslrootcert = sslcert = sslkey = None
+    while True:
+        if sslmode and sslmode.lower() in ("verify-ca", "verify-full"):
+            sslrootcert = _ask_input("PostgreSQL sslrootcert path", default="").strip() or None
+        else:
+            sslrootcert = _ask_input("PostgreSQL sslrootcert path (optional)", default="").strip() or None
+        sslcert = _ask_input("PostgreSQL sslcert path (optional)", default="").strip() or None
+        sslkey = _ask_input("PostgreSQL sslkey path (optional)", default="").strip() or None
+        ssl_err = validate_postgres_ssl_options(
+            sslmode=sslmode,
+            sslrootcert=sslrootcert,
+            sslcert=sslcert,
+            sslkey=sslkey,
+        )
+        if ssl_err:
+            print(ssl_err)
+            # Allow adjusting without re-entering everything else.
+            sslmode = _ask_input(
+                "PostgreSQL sslmode (blank/disable/allow/prefer/require/verify-ca/verify-full)",
+                default=(sslmode or ""),
+            ).strip() or None
+            continue
+        break
+
+    return {
+        "host": host,
+        "port": port,
+        "name": name,
+        "user": user,
+        "password": password,
+        "password_is_default": "true" if password_is_default else "false",
+        "search_path": search_path,
+        "sslmode": sslmode or "",
+        "sslrootcert": sslrootcert or "",
+        "sslcert": sslcert or "",
+        "sslkey": sslkey or "",
+    }
 
 
 def _run_wizard(json_only: bool = False):
@@ -336,12 +474,21 @@ def _run_wizard(json_only: bool = False):
 
         # Optional: allow customizing Postgres DB creds.
         db_uri = None
+        db_search_path = None
+        pg_cfg = None
         if "postgres" in comps:
             pg_cfg = _ask_postgres_config()
-            db_uri = (
-                "postgresql+psycopg2://"
-                f"{quote_plus(pg_cfg['user'])}:{quote_plus(pg_cfg['password'])}"
-                f"@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['name']}"
+            db_search_path = (pg_cfg.get("search_path") or "public").strip() or "public"
+            db_uri = build_postgres_uri(
+                host=pg_cfg["host"],
+                port=int(pg_cfg["port"]),
+                db_name=pg_cfg["name"],
+                user=pg_cfg["user"],
+                password=pg_cfg["password"],
+                sslmode=(pg_cfg.get("sslmode") or None),
+                sslrootcert=(pg_cfg.get("sslrootcert") or None),
+                sslcert=(pg_cfg.get("sslcert") or None),
+                sslkey=(pg_cfg.get("sslkey") or None),
             )
 
         create_default_user = _ask_yes_no("Create default admin user", default=True)
@@ -391,6 +538,11 @@ def _run_wizard(json_only: bool = False):
         if db_uri:
             # Avoid printing credentials.
             print(f"  Postgres  : {pg_cfg['user']}@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['name']}")
+            if db_search_path:
+                print(f"  Schema    : {db_search_path}")
+            sslmode = (pg_cfg.get("sslmode") or "").strip()
+            if sslmode:
+                print(f"  SSL       : sslmode={sslmode}")
         if create_default_user:
             print(f"  Admin     : {admin_email}")
             print(f"  Password  : {'auto-generate' if password_generated else 'user-provided'}")
@@ -412,6 +564,13 @@ def _run_wizard(json_only: bool = False):
                 if create_default_user and (not password_generated):
                     print(
                         "\nA custom admin password was provided, but the wizard needs to elevate and cannot safely pass it to the elevated process.\n"
+                        "Re-run the wizard already elevated (e.g. 'sudo python3 -m tools.installer --ssh wizard') and try again."
+                    )
+                    return
+
+                if pg_cfg and (pg_cfg.get("password_is_default") != "true"):
+                    print(
+                        "\nA custom PostgreSQL password was provided, but the wizard needs to elevate and cannot safely pass it to the elevated process.\n"
                         "Re-run the wizard already elevated (e.g. 'sudo python3 -m tools.installer --ssh wizard') and try again."
                     )
                     return
@@ -449,6 +608,31 @@ def _run_wizard(json_only: bool = False):
                     cmd.append("--no-create-default-user")
                 elif admin_email:
                     cmd += ["--admin-email", admin_email]
+
+                if pg_cfg:
+                    cmd += [
+                        "--db-host",
+                        pg_cfg["host"],
+                        "--db-port",
+                        str(pg_cfg["port"]),
+                        "--db-name",
+                        pg_cfg["name"],
+                        "--db-user",
+                        pg_cfg["user"],
+                    ]
+                    if db_search_path:
+                        cmd += ["--db-search-path", db_search_path]
+                    sslmode = (pg_cfg.get("sslmode") or "").strip()
+                    if sslmode:
+                        cmd += ["--db-sslmode", sslmode]
+                    for flag, key in (
+                        ("--db-sslrootcert", "sslrootcert"),
+                        ("--db-sslcert", "sslcert"),
+                        ("--db-sslkey", "sslkey"),
+                    ):
+                        v = (pg_cfg.get(key) or "").strip()
+                        if v:
+                            cmd += [flag, v]
                 if json_only:
                     cmd.append("--json")
 
@@ -473,6 +657,7 @@ def _run_wizard(json_only: bool = False):
             admin_email=admin_email,
             admin_password=admin_password,
             db_uri=db_uri,
+            db_search_path=db_search_path,
         )
         print(json.dumps(result) if json_only else result)
         return

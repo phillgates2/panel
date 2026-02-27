@@ -9,6 +9,7 @@ import os
 import re
 import json
 import shutil
+from urllib.parse import urlencode
 
 # Attempt to import PySide6 widgets and core. In headless/CI environments this may fail.
 try:
@@ -57,6 +58,14 @@ _STRINGS = {
         "export_json": "Export JSON Log…",
         "db_user": "DB User:",
         "db_pass": "DB Password:",
+        "db_host": "DB Host:",
+        "db_port": "DB Port:",
+        "db_name": "DB Name:",
+        "db_search_path": "DB search_path:",
+        "db_sslmode": "DB SSL Mode:",
+        "db_sslrootcert": "DB SSL Root Cert:",
+        "db_sslcert": "DB SSL Client Cert:",
+        "db_sslkey": "DB SSL Client Key:",
         "redis_port": "Redis Port:",
         "nginx_port": "Nginx Port:",
         "tls_cert": "TLS Cert Path:",
@@ -306,6 +315,17 @@ class InstallerWindow(QMainWindow):
         settings_tab = QWidget(); settings_layout = QVBoxLayout()
         db_h = QHBoxLayout(); db_h.addWidget(QLabel(self._tr("db_user"))); self.db_user = QLineEdit("panel"); db_h.addWidget(self.db_user); settings_layout.addLayout(db_h)
         dp_h = QHBoxLayout(); dp_h.addWidget(QLabel(self._tr("db_pass"))); self.db_pass = QLineEdit(""); self.db_pass.setEchoMode(QLineEdit.Password); dp_h.addWidget(self.db_pass); settings_layout.addLayout(dp_h)
+        dh_h = QHBoxLayout(); dh_h.addWidget(QLabel(self._tr("db_host"))); self.db_host = QLineEdit("127.0.0.1"); dh_h.addWidget(self.db_host); settings_layout.addLayout(dh_h)
+        dport_h = QHBoxLayout(); dport_h.addWidget(QLabel(self._tr("db_port"))); self.db_port = QLineEdit("5432"); dport_h.addWidget(self.db_port); settings_layout.addLayout(dport_h)
+        dn_h = QHBoxLayout(); dn_h.addWidget(QLabel(self._tr("db_name"))); self.db_name = QLineEdit("paneldb"); dn_h.addWidget(self.db_name); settings_layout.addLayout(dn_h)
+        dsp_h = QHBoxLayout(); dsp_h.addWidget(QLabel(self._tr("db_search_path"))); self.db_search_path = QLineEdit("public"); dsp_h.addWidget(self.db_search_path); settings_layout.addLayout(dsp_h)
+
+        sslm_h = QHBoxLayout(); sslm_h.addWidget(QLabel(self._tr("db_sslmode")))
+        self.db_sslmode = QComboBox(); self.db_sslmode.addItems(["", "disable", "prefer", "require", "verify-ca", "verify-full"])
+        sslm_h.addWidget(self.db_sslmode); settings_layout.addLayout(sslm_h)
+        sslrc_h = QHBoxLayout(); sslrc_h.addWidget(QLabel(self._tr("db_sslrootcert"))); self.db_sslrootcert = QLineEdit(""); sslrc_h.addWidget(self.db_sslrootcert); settings_layout.addLayout(sslrc_h)
+        sslc_h = QHBoxLayout(); sslc_h.addWidget(QLabel(self._tr("db_sslcert"))); self.db_sslcert = QLineEdit(""); sslc_h.addWidget(self.db_sslcert); settings_layout.addLayout(sslc_h)
+        sslk_h = QHBoxLayout(); sslk_h.addWidget(QLabel(self._tr("db_sslkey"))); self.db_sslkey = QLineEdit(""); sslk_h.addWidget(self.db_sslkey); settings_layout.addLayout(sslk_h)
         ae_h = QHBoxLayout(); ae_h.addWidget(QLabel(self._tr("admin_email"))); self.admin_email = QLineEdit("admin@panel.local"); ae_h.addWidget(self.admin_email); settings_layout.addLayout(ae_h)
         ap_h = QHBoxLayout(); ap_h.addWidget(QLabel(self._tr("admin_password"))); self.admin_password = QLineEdit(""); self.admin_password.setEchoMode(QLineEdit.Password); ap_h.addWidget(self.admin_password); settings_layout.addLayout(ap_h)
         self.create_default_user_check = QCheckBox(self._tr("create_default_user")); self.create_default_user_check.setChecked(True); settings_layout.addWidget(self.create_default_user_check)
@@ -669,6 +689,14 @@ class InstallerWindow(QMainWindow):
             "components": self._selected_components(),
             "db_user": self.db_user.text(),
             "db_pass": self.db_pass.text(),
+            "db_host": getattr(self, "db_host", QLineEdit("127.0.0.1")).text(),
+            "db_port": getattr(self, "db_port", QLineEdit("5432")).text(),
+            "db_name": getattr(self, "db_name", QLineEdit("paneldb")).text(),
+            "db_search_path": getattr(self, "db_search_path", QLineEdit("public")).text(),
+            "db_sslmode": getattr(self, "db_sslmode", QComboBox()).currentText() if hasattr(self, "db_sslmode") else "",
+            "db_sslrootcert": getattr(self, "db_sslrootcert", QLineEdit("")).text() if hasattr(self, "db_sslrootcert") else "",
+            "db_sslcert": getattr(self, "db_sslcert", QLineEdit("")).text() if hasattr(self, "db_sslcert") else "",
+            "db_sslkey": getattr(self, "db_sslkey", QLineEdit("")).text() if hasattr(self, "db_sslkey") else "",
             "admin_email": getattr(self, "admin_email", QLineEdit("")).text(),
             "admin_password": getattr(self, "admin_password", QLineEdit("")).text(),
             "create_default_user": getattr(self, "create_default_user_check", QCheckBox()).isChecked() if hasattr(self, "create_default_user_check") else True,
@@ -693,6 +721,14 @@ class InstallerWindow(QMainWindow):
             self.chk_python.setChecked("python" in comps)
             if cfg.get("db_user") is not None: self.db_user.setText(str(cfg.get("db_user")))
             if cfg.get("db_pass") is not None: self.db_pass.setText(str(cfg.get("db_pass")))
+            if cfg.get("db_host") is not None and hasattr(self, "db_host"): self.db_host.setText(str(cfg.get("db_host")))
+            if cfg.get("db_port") is not None and hasattr(self, "db_port"): self.db_port.setText(str(cfg.get("db_port")))
+            if cfg.get("db_name") is not None and hasattr(self, "db_name"): self.db_name.setText(str(cfg.get("db_name")))
+            if cfg.get("db_search_path") is not None and hasattr(self, "db_search_path"): self.db_search_path.setText(str(cfg.get("db_search_path")))
+            if cfg.get("db_sslmode") is not None and hasattr(self, "db_sslmode"): self.db_sslmode.setCurrentText(str(cfg.get("db_sslmode")) or "")
+            if cfg.get("db_sslrootcert") is not None and hasattr(self, "db_sslrootcert"): self.db_sslrootcert.setText(str(cfg.get("db_sslrootcert")) or "")
+            if cfg.get("db_sslcert") is not None and hasattr(self, "db_sslcert"): self.db_sslcert.setText(str(cfg.get("db_sslcert")) or "")
+            if cfg.get("db_sslkey") is not None and hasattr(self, "db_sslkey"): self.db_sslkey.setText(str(cfg.get("db_sslkey")) or "")
             if cfg.get("admin_email") is not None and hasattr(self, "admin_email"): self.admin_email.setText(str(cfg.get("admin_email")))
             if cfg.get("admin_password") is not None and hasattr(self, "admin_password"): self.admin_password.setText(str(cfg.get("admin_password")))
             if hasattr(self, "create_default_user_check") and (cfg.get("create_default_user") is not None):
@@ -810,8 +846,38 @@ class InstallerWindow(QMainWindow):
 
                 user = (self.db_user.text() or "paneluser").strip()
                 pw = (self.db_pass.text() or "").strip()
-                # DB name is not configurable in the GUI PoC; use Panel default.
-                db_uri = f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(pw)}@127.0.0.1:5432/paneldb"
+                host = (getattr(self, "db_host", QLineEdit("127.0.0.1")).text() or "127.0.0.1").strip()
+                port_txt = (getattr(self, "db_port", QLineEdit("5432")).text() or "5432").strip()
+                name = (getattr(self, "db_name", QLineEdit("paneldb")).text() or "paneldb").strip()
+
+                if not host:
+                    raise ValueError("DB Host is required")
+                if not name:
+                    raise ValueError("DB Name is required")
+                if any(c.isspace() for c in name):
+                    raise ValueError("DB Name must not contain spaces")
+                port_val = int(port_txt)
+                if port_val < 1 or port_val > 65535:
+                    raise ValueError("DB Port must be between 1 and 65535")
+
+                sslmode = (getattr(self, "db_sslmode", QComboBox()).currentText() or "").strip() if hasattr(self, "db_sslmode") else ""
+                sslrootcert = (getattr(self, "db_sslrootcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslrootcert") else ""
+                sslcert = (getattr(self, "db_sslcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslcert") else ""
+                sslkey = (getattr(self, "db_sslkey", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslkey") else ""
+
+                query = {}
+                if sslmode:
+                    query["sslmode"] = sslmode
+                if sslrootcert:
+                    query["sslrootcert"] = sslrootcert
+                if sslcert:
+                    query["sslcert"] = sslcert
+                if sslkey:
+                    query["sslkey"] = sslkey
+                qs = ("?" + urlencode(query)) if query else ""
+
+                # Force PostgreSQL only.
+                db_uri = f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(pw)}@{host}:{port_val}/{quote_plus(name)}{qs}"
             except Exception:
                 db_uri = None
             if create_default_user and (not dry) and not db_uri:
@@ -845,10 +911,13 @@ class InstallerWindow(QMainWindow):
                 comps_resolved,
                 True,
                 dry,
+                install_extras=True,
+                require_extras=True,
                 create_default_user=create_default_user,
                 admin_email=admin_email or None,
                 admin_password=admin_password or None,
                 db_uri=db_uri,
+                db_search_path=(getattr(self, "db_search_path", QLineEdit("public")).text() if hasattr(self, "db_search_path") else "public"),
                 environment=env_name,
                 redis_port=redis_port_val,
                 _max_retries=max_retries,
@@ -900,13 +969,32 @@ class InstallerWindow(QMainWindow):
             try:
                 import psycopg2  # type: ignore
                 user = self.db_user.text() or "postgres"; pw = self.db_pass.text() or None
-                conn = psycopg2.connect(host="127.0.0.1", port=5432, user=user, password=pw or "", connect_timeout=1)
+                host = (getattr(self, "db_host", QLineEdit("127.0.0.1")).text() or "127.0.0.1").strip()
+                port_val = int((getattr(self, "db_port", QLineEdit("5432")).text() or "5432").strip() or "5432")
+                sslmode = (getattr(self, "db_sslmode", QComboBox()).currentText() or "").strip() if hasattr(self, "db_sslmode") else ""
+                sslrootcert = (getattr(self, "db_sslrootcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslrootcert") else ""
+                sslcert = (getattr(self, "db_sslcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslcert") else ""
+                sslkey = (getattr(self, "db_sslkey", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslkey") else ""
+
+                kwargs = {"host": host, "port": port_val, "user": user, "password": pw or "", "connect_timeout": 1}
+                if sslmode:
+                    kwargs["sslmode"] = sslmode
+                if sslrootcert:
+                    kwargs["sslrootcert"] = sslrootcert
+                if sslcert:
+                    kwargs["sslcert"] = sslcert
+                if sslkey:
+                    kwargs["sslkey"] = sslkey
+
+                conn = psycopg2.connect(**kwargs)
                 cur = conn.cursor(); cur.execute("SELECT 1"); cur.fetchone(); conn.close(); results["postgres"] = True
             except Exception:
                 try:
                     import socket
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(1)
-                    rc = s.connect_ex(("127.0.0.1", 5432)); s.close(); results["postgres"] = (rc == 0)
+                    host = (getattr(self, "db_host", QLineEdit("127.0.0.1")).text() or "127.0.0.1").strip()
+                    port_val = int((getattr(self, "db_port", QLineEdit("5432")).text() or "5432").strip() or "5432")
+                    rc = s.connect_ex((host, port_val)); s.close(); results["postgres"] = (rc == 0)
                 except Exception:
                     results["postgres"] = False
         if "python" in components:
@@ -1008,10 +1096,19 @@ class InstallerWindow(QMainWindow):
             status = None
             try:
                 import socket
-                port_map = {"redis": int(self.redis_port.text() or 6379), "nginx": int(self.nginx_port.text() or 80), "postgres": 5432}
+                port_map = {
+                    "redis": int(self.redis_port.text() or 6379),
+                    "nginx": int(self.nginx_port.text() or 80),
+                    "postgres": int((getattr(self, "db_port", QLineEdit("5432")).text() or "5432").strip() or "5432"),
+                }
+                host_map = {
+                    "redis": "127.0.0.1",
+                    "nginx": "127.0.0.1",
+                    "postgres": (getattr(self, "db_host", QLineEdit("127.0.0.1")).text() or "127.0.0.1").strip(),
+                }
                 if comp in port_map:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(0.5)
-                    rc = s.connect_ex(("127.0.0.1", port_map[comp])); s.close(); status = (rc == 0)
+                    rc = s.connect_ex((host_map.get(comp, "127.0.0.1"), port_map[comp])); s.close(); status = (rc == 0)
                 else:
                     status = True
             except Exception:
@@ -1038,6 +1135,72 @@ class InstallerWindow(QMainWindow):
         self._append_output("Error: " + err + hint, {"error": err}, severity="error")
         QMessageBox.critical(self, "Error", err + hint)
         self._cleanup_thread()
+
+    def _validate_settings(self):
+        """Basic validation for Postgres-only settings."""
+        try:
+            # Enforce Postgres as the only DB.
+            host = (getattr(self, "db_host", QLineEdit("127.0.0.1")).text() or "").strip()
+            port_txt = (getattr(self, "db_port", QLineEdit("5432")).text() or "").strip()
+            name = (getattr(self, "db_name", QLineEdit("paneldb")).text() or "").strip()
+            user = (self.db_user.text() or "").strip()
+            search_path = (getattr(self, "db_search_path", QLineEdit("public")).text() or "public").strip()
+            sslmode = (getattr(self, "db_sslmode", QComboBox()).currentText() or "").strip() if hasattr(self, "db_sslmode") else ""
+            sslrootcert = (getattr(self, "db_sslrootcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslrootcert") else ""
+            sslcert = (getattr(self, "db_sslcert", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslcert") else ""
+            sslkey = (getattr(self, "db_sslkey", QLineEdit("")).text() or "").strip() if hasattr(self, "db_sslkey") else ""
+
+            if not host:
+                raise ValueError("DB Host is required")
+            if not port_txt:
+                raise ValueError("DB Port is required")
+            port_val = int(port_txt)
+            if port_val < 1 or port_val > 65535:
+                raise ValueError("DB Port must be between 1 and 65535")
+            if not name:
+                raise ValueError("DB Name is required")
+            if any(c.isspace() for c in name):
+                raise ValueError("DB Name must not contain spaces")
+            if not user:
+                raise ValueError("DB User is required")
+
+            if not search_path:
+                raise ValueError("DB search_path is required")
+            if ("\n" in search_path) or ("\r" in search_path) or (";" in search_path):
+                raise ValueError("DB search_path contains invalid characters")
+
+            if sslmode in ("verify-ca", "verify-full") and not sslrootcert:
+                raise ValueError("sslrootcert is required for verify-ca/verify-full")
+            for p in (sslrootcert, sslcert, sslkey):
+                if p and ("\n" in p or "\r" in p):
+                    raise ValueError("SSL file paths must not contain newlines")
+
+            # Validate we can build a PostgreSQL URL.
+            from urllib.parse import quote_plus
+            pw = (self.db_pass.text() or "").strip()
+            query = {}
+            if sslmode:
+                query["sslmode"] = sslmode
+            if sslrootcert:
+                query["sslrootcert"] = sslrootcert
+            if sslcert:
+                query["sslcert"] = sslcert
+            if sslkey:
+                query["sslkey"] = sslkey
+            qs = ("?" + urlencode(query)) if query else ""
+            db_uri = f"postgresql+psycopg2://{quote_plus(user)}:{quote_plus(pw)}@{host}:{port_val}/{quote_plus(name)}{qs}"
+            if not db_uri.lower().startswith("postgres"):
+                raise ValueError("Only PostgreSQL is supported")
+
+            self._append_output(
+                "Settings validation ok",
+                {"db": {"host": host, "port": port_val, "name": name, "search_path": search_path, "sslmode": sslmode or None}},
+                severity="info",
+            )
+            QMessageBox.information(self, "Settings", "Settings look valid for PostgreSQL.")
+        except Exception as e:
+            self._append_output("Settings validation failed", {"error": str(e)}, severity="error")
+            QMessageBox.critical(self, "Settings", f"Invalid settings: {e}")
 
     def _on_export_log(self):
         default_name = f"installer-log-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"

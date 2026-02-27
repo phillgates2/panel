@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+import codecs
 from pathlib import Path
 from urllib.parse import urlparse, unquote, quote_plus
 from .deps import check_system_deps
@@ -208,6 +209,104 @@ def _write_env_file(path: str, env_vars: dict[str, str], *, mode: int = 0o600) -
         return {"ok": False, "path": path, "error": str(e)}
 
 
+def _read_env_file(path: str | None) -> dict[str, str]:
+    """Parse the installer-written env file (KEY="value" lines).
+
+    The installer writes values with a minimal escaping scheme (\\, \", \n).
+    This reader is intentionally conservative and ignores malformed lines.
+    """
+    if not path:
+        return {}
+    try:
+        p = Path(path)
+        if not p.exists():
+            return {}
+        env: dict[str, str] = {}
+        for raw_line in p.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not re.match(r"^[A-Z0-9_]+$", key):
+                continue
+
+            if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+                value = value[1:-1]
+                try:
+                    value = codecs.decode(value, "unicode_escape")
+                except Exception:
+                    # Best-effort: keep raw string if decoding fails.
+                    pass
+            env[key] = value
+        return env
+    except Exception:
+        return {}
+
+
+def _start_panel_background(*, venv_path: str, workdir: str, port: int, env_file: str | None) -> dict:
+    """Start Panel in the background without a service manager (systemd-less hosts).
+
+    Returns: {ok: bool, pid?: int, log_path?: str, cmd?: str, error?: str}
+    """
+    try:
+        gunicorn = os.path.join(venv_path, "bin", "gunicorn")
+        python = os.path.join(venv_path, "bin", "python")
+        app_py = os.path.join(workdir, "app.py")
+
+        env = os.environ.copy()
+        env.update(_read_env_file(env_file))
+        env.setdefault("HOST", "0.0.0.0")
+        env.setdefault("PORT", str(port))
+        # Prevent Werkzeug reloader multi-process behavior.
+        env["FLASK_DEBUG"] = "0"
+
+        if os.path.exists(gunicorn):
+            workers = int(env.get("PANEL_GUNICORN_WORKERS", "4"))
+            cmd = [
+                gunicorn,
+                "--bind",
+                f"0.0.0.0:{port}",
+                "--workers",
+                str(workers),
+                "--access-logfile",
+                "-",
+                "--error-logfile",
+                "-",
+                "app:app",
+            ]
+        else:
+            if not os.path.exists(app_py):
+                return {"ok": False, "error": f"app.py not found at {app_py}"}
+            if not os.path.exists(python):
+                python = "python"
+            cmd = [python, app_py]
+
+        log_path = "/var/log/panel/app.out"
+        try:
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            log_fp = open(log_path, "a", encoding="utf-8")
+        except Exception:
+            log_path = os.path.join(workdir, "app.out")
+            log_fp = open(log_path, "a", encoding="utf-8")
+
+        # Detach from the installer so the process survives after exit.
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workdir,
+            env=env,
+            stdout=log_fp,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        return {"ok": True, "pid": proc.pid, "log_path": log_path, "cmd": " ".join(cmd)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def _parse_db_uri(db_uri: str | None) -> dict:
     if not db_uri:
         return {"ok": False, "type": "unknown"}
@@ -237,6 +336,7 @@ def _build_panel_env(
     domain: str,
     db_uri: str | None,
     redis_port: int | None = None,
+    db_search_path: str | None = None,
 ) -> dict[str, str]:
     env: dict[str, str] = {
         "FLASK_ENV": _normalize_env_name(env_name),
@@ -259,13 +359,24 @@ def _build_panel_env(
         env["PANEL_DB_HOST"] = db.get("host") or "127.0.0.1"
         env["PANEL_DB_PORT"] = db.get("port") or "5432"
         env["PANEL_DB_NAME"] = db.get("db_name") or "paneldb"
-        # Provide an explicit SQLAlchemy-style URL so the running service and
-        # migration tooling are guaranteed to target the same database.
-        env["DATABASE_URL"] = (
-            f"postgresql+psycopg2://{quote_plus(env['PANEL_DB_USER'])}:{quote_plus(env['PANEL_DB_PASS'])}@"
-            f"{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}"
-        )
-        env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
+        # Preserve the operator-provided DB URL verbatim when available.
+        # This is important for Postgres SSL options (e.g. ?sslmode=require)
+        # so we do not drop query parameters.
+        if isinstance(db_uri, str) and db_uri.strip():
+            env["DATABASE_URL"] = db_uri.strip()
+        else:
+            env["DATABASE_URL"] = (
+                f"postgresql+psycopg2://{quote_plus(env['PANEL_DB_USER'])}:{quote_plus(env['PANEL_DB_PASS'])}@"
+                f"{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}"
+            )
+
+        # Allow explicit override from the installer GUI/CLI.
+        sp = (db_search_path or os.environ.get("PANEL_DB_SEARCH_PATH") or "public").strip()
+        # Avoid unsafe characters in a value that is later used in a libpq
+        # runtime option (-c search_path=...). Keep it conservative.
+        if ("\n" in sp) or ("\r" in sp) or (";" in sp):
+            sp = "public"
+        env["PANEL_DB_SEARCH_PATH"] = sp
     else:
         # Default: local Postgres.
         env.setdefault("PANEL_DB_USER", os.environ.get("PANEL_DB_USER", "paneluser"))
@@ -277,7 +388,10 @@ def _build_panel_env(
             "DATABASE_URL",
             f"postgresql+psycopg2://{quote_plus(env['PANEL_DB_USER'])}:{quote_plus(env['PANEL_DB_PASS'])}@{env['PANEL_DB_HOST']}:{env['PANEL_DB_PORT']}/{env['PANEL_DB_NAME']}",
         )
-        env.setdefault("PANEL_DB_SEARCH_PATH", os.environ.get("PANEL_DB_SEARCH_PATH", "public"))
+        sp = (db_search_path or os.environ.get("PANEL_DB_SEARCH_PATH") or "public").strip()
+        if ("\n" in sp) or ("\r" in sp) or (";" in sp):
+            sp = "public"
+        env.setdefault("PANEL_DB_SEARCH_PATH", sp)
 
     rp = int(redis_port) if redis_port else 6379
     env.setdefault("PANEL_REDIS_URL", f"redis://127.0.0.1:{rp}/0")
@@ -512,6 +626,8 @@ def install_all(
     auto_start=True,
     install_requirements: bool = True,
     *,
+    install_extras: bool = False,
+    require_extras: bool = False,
     create_default_user: bool = True,
     admin_email: str | None = None,
     admin_password: str | None = None,
@@ -519,6 +635,7 @@ def install_all(
     environment: str | None = None,
     redis_port: int | None = None,
     panel_env_file: str | None = None,
+    db_search_path: str | None = None,
 ):
     """High level install orchestrator (stub/PoC).
 
@@ -693,6 +810,7 @@ def install_all(
             domain=(domain or "localhost"),
             db_uri=db_uri,
             redis_port=redis_port,
+            db_search_path=db_search_path,
         )
 
         if dry_run:
@@ -778,6 +896,7 @@ def install_all(
                     check_requirements_installed,
                     install_requirements as _install_requirements,
                 )
+                from pathlib import Path
 
                 req_path = find_panel_requirements_file()
                 if not req_path:
@@ -820,6 +939,73 @@ def install_all(
                         }
                     )
                     return {"status": "error", "actions": actions, "errors": errors}
+
+                # Optional: install heavyweight extras that enable advanced features.
+                # Keep base install reliable: extras are best-effort and do not fail the install.
+                if install_extras and install_requirements:
+                    repo_root = Path(__file__).resolve().parents[2]
+                    optional_files = [
+                        repo_root / "requirements" / "requirements-extras.txt",
+                        repo_root / "requirements" / "requirements-ml.txt",
+                    ]
+                    for opt in optional_files:
+                        opt_path = str(opt)
+                        if not opt.exists():
+                            continue
+
+                        # TensorFlow wheels are commonly unavailable on musl (e.g. Alpine).
+                        try:
+                            if opt.name == "requirements-ml.txt":
+                                import platform as _pf
+
+                                libc = (_pf.libc_ver()[0] or "").lower()
+                                if libc and "musl" in libc:
+                                    res = {
+                                        "ok": True,
+                                        "skipped": True,
+                                        "requirements": opt_path,
+                                        "reason": "ml optional requirements skipped on musl-based systems (TensorFlow wheels often unavailable)",
+                                    }
+                                    actions.append({"component": "panel", "result": {"optional_requirements": res}})
+                                    if progress_cb:
+                                        progress_cb("requirements", "panel", res)
+                                    continue
+                        except Exception:
+                            pass
+
+                        opt_res = check_requirements_installed(venv_path=venv_path, requirements_path=opt_path)
+                        if (not opt_res.get("ok")):
+                            if progress_cb:
+                                progress_cb(
+                                    "pip",
+                                    "panel",
+                                    {"action": "install_optional_requirements", "requirements": opt_path},
+                                )
+                            pip_res = _install_requirements(venv_path=venv_path, requirements_path=opt_path)
+                            if progress_cb:
+                                progress_cb(
+                                    "pip",
+                                    "panel",
+                                    {"action": "install_optional_requirements_result", **pip_res},
+                                )
+                            opt_res = check_requirements_installed(venv_path=venv_path, requirements_path=opt_path)
+                            if not pip_res.get("ok"):
+                                opt_res.setdefault("pip_install", pip_res)
+
+                        # Record the result but do not fail the install.
+                        actions.append({"component": "panel", "result": {"optional_requirements": opt_res}})
+                        if progress_cb:
+                            progress_cb("requirements", "panel", opt_res)
+
+                        if require_extras and (not opt_res.get("ok")):
+                            errors.append(
+                                {
+                                    "component": "panel",
+                                    "error": "optional requirements not satisfied",
+                                    "details": opt_res,
+                                }
+                            )
+                            return {"status": "error", "actions": actions, "errors": errors}
             except Exception as e:
                 errors.append({"component": "panel", "error": "requirements check failed", "details": str(e)})
                 return {"status": "error", "actions": actions, "errors": errors}
@@ -861,8 +1047,18 @@ def install_all(
             name = _service_name("panel")
             from .service_manager import service_exists, manager_available
             if not manager_available():
+                # Common in LXC/containers: no systemd bus. Fall back to a
+                # detached background process so installs are usable.
+                bg_res = _start_panel_background(
+                    venv_path=venv_path,
+                    workdir=os.getcwd(),
+                    port=8080,
+                    env_file=env_file,
+                )
                 if progress_cb:
-                    progress_cb("skipped", "panel", {"service": name, "reason": "service manager not available"})
+                    meta = {"service": name, "method": "background", **bg_res}
+                    progress_cb("service", "panel", meta if isinstance(meta, dict) else {"service": name, "started": False})
+                actions.append({"component": "panel", "result": {"auto_start": bg_res}})
             elif not service_exists(name):
                 # Best-effort: create a systemd unit on Linux so auto-start can work.
                 created = False
