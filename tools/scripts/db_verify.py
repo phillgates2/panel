@@ -23,12 +23,20 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 def _build_db_url_from_env() -> str:
-    override = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    override = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("SQLALCHEMY_DATABASE_URI")
+        or os.environ.get("PANEL_DATABASE_URL")
+    )
     if isinstance(override, str) and override.strip():
         url = override.strip()
     else:
         user = os.environ.get("PANEL_DB_USER", "paneluser")
-        password = os.environ.get("PANEL_DB_PASS", "panelpass")
+        password = (
+            os.environ.get("PANEL_DB_PASS")
+            or os.environ.get("PANEL_DB_PASSWORD")
+            or "panelpass"
+        )
         host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
         port = os.environ.get("PANEL_DB_PORT", "5432")
         name = os.environ.get("PANEL_DB_NAME", "paneldb")
