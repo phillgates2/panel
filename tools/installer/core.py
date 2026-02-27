@@ -122,6 +122,94 @@ WantedBy=multi-user.target
         return False
 
 
+def _ensure_rq_worker_systemd_unit(
+    venv_path: str,
+    workdir: str,
+    *,
+    env_file: str | None = None,
+) -> bool:
+    """Best-effort creation of a systemd unit for the Panel RQ worker."""
+    if platform.system() != "Linux":
+        return False
+    import shutil
+    import subprocess
+
+    if not shutil.which("systemctl"):
+        return False
+
+    unit_name = "panel-rq-worker.service"
+    unit_path = os.path.join("/etc/systemd/system", unit_name)
+    python = os.path.join(venv_path, "bin", "python")
+    worker_py = os.path.join(workdir, "src", "panel", "rq_worker.py")
+    if not (os.path.exists(python) and os.path.exists(worker_py)):
+        return False
+
+    env_file_line = ""
+    if env_file:
+        env_file_line = f"EnvironmentFile=-{env_file}\n"
+
+    content = f"""[Unit]
+Description=Panel RQ Worker
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={workdir}
+Environment=PATH={venv_path}/bin
+{env_file_line}ExecStart={python} {worker_py}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+    try:
+        os.makedirs(os.path.dirname(unit_path), exist_ok=True)
+        with open(unit_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        subprocess.check_call(
+            ["systemctl", "daemon-reload"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _start_rq_worker_background(*, venv_path: str, workdir: str, env_file: str | None) -> dict:
+    """Start the RQ worker in the background (systemd-less hosts)."""
+    try:
+        python = os.path.join(venv_path, "bin", "python")
+        worker_py = os.path.join(workdir, "src", "panel", "rq_worker.py")
+        if not (os.path.exists(python) and os.path.exists(worker_py)):
+            return {"ok": False, "error": "rq_worker.py not found"}
+
+        env = os.environ.copy()
+        # Load the env file into the worker environment when possible.
+        try:
+            env.update(_read_env_file(env_file))
+        except Exception:
+            pass
+
+        log_dir = os.path.join(workdir, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "rq_worker.log")
+        stdout = open(log_path, "a", encoding="utf-8")
+
+        proc = subprocess.Popen(
+            [python, worker_py],
+            cwd=workdir,
+            env=env,
+            stdout=stdout,
+            stderr=subprocess.STDOUT,
+        )
+        return {"ok": True, "pid": proc.pid, "log_path": log_path, "cmd": f"{python} {worker_py}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def _best_effort_ensure_systemd_env_file(*, unit_name: str, env_file: str) -> bool:
     """Best-effort patch for existing systemd units to load an EnvironmentFile.
 
@@ -1246,6 +1334,46 @@ def install_all(
         except Exception as e:
             if progress_cb:
                 progress_cb("error", "panel", {"error": str(e)})
+
+        # Start the RQ worker as well so background installs (egg scripts) run.
+        try:
+            from .service_manager import manager_available
+
+            worker_name = "panel-rq-worker.service"
+            if not manager_available():
+                bg_res = _start_rq_worker_background(
+                    venv_path=venv_path,
+                    workdir=os.getcwd(),
+                    env_file=env_file,
+                )
+                if progress_cb:
+                    progress_cb("service", "panel", {"service": worker_name, "method": "background", **bg_res})
+                actions.append({"component": "panel", "result": {"rq_worker_auto_start": bg_res}})
+            else:
+                created = _ensure_rq_worker_systemd_unit(
+                    venv_path=venv_path,
+                    workdir=os.getcwd(),
+                    env_file=env_file,
+                )
+                if progress_cb:
+                    progress_cb(
+                        "info",
+                        "panel",
+                        {"service": worker_name, "action": "create_unit", "created": created, "workdir": os.getcwd()},
+                    )
+                if created:
+                    # Enable + restart to pick up changes.
+                    subprocess.run(["systemctl", "enable", "--now", worker_name], capture_output=True)
+                    subprocess.run(["systemctl", "restart", worker_name], capture_output=True)
+                    if progress_cb:
+                        progress_cb("service", "panel", {"service": worker_name, "started": True})
+                    actions.append({"component": "panel", "result": {"rq_worker_auto_start": {"ok": True, "created_unit": True}}})
+                else:
+                    if progress_cb:
+                        progress_cb("skipped", "panel", {"service": worker_name, "reason": "unit not created"})
+        except Exception as e:
+            if progress_cb:
+                progress_cb("error", "panel", {"service": "panel-rq-worker.service", "error": str(e)})
 
     status = "ok" if not errors else "error"
     return {"status": status, "actions": actions, "errors": errors}

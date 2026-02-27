@@ -60,12 +60,13 @@ def extract_config_from_egg(egg_data):
                     "rules": var.get("rules", ""),
                 }
 
-    # Add installation script reference
+    # Add installation script (needed for Docker-based install)
     if "scripts" in egg_data and "installation" in egg_data["scripts"]:
-        installation = egg_data["scripts"]["installation"]
+        installation = egg_data["scripts"]["installation"] or {}
         config["installation"] = {
-            "script_summary": f"Container: {installation.get('container', 'N/A')}",
-            "entrypoint": installation.get("entrypoint", "bash"),
+            "container": installation.get("container"),
+            "entrypoint": installation.get("entrypoint") or "bash",
+            "script": installation.get("script") or "",
         }
 
     # Add features

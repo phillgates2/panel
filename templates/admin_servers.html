@@ -21,6 +21,21 @@
 
     <div class="card mt-3">
         <div class="card-body">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <strong>Job Status</strong>
+                <div class="text-secondary" style="font-size: 0.9rem;">Paste a background job id to view progress and logs</div>
+              </div>
+              <form action="{{ url_for('admin.admin_jobs') }}" method="get" class="d-flex gap-2" style="min-width: 320px;">
+                <input type="text" name="job_id" class="form-control" placeholder="job_id" aria-label="Job ID">
+                <button type="submit" class="btn btn-outline-primary">View</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
             {% if servers %}
             <div class="table-responsive">
                 <table class="table">

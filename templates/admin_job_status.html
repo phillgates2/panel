@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-page">
+  <div class="dashboard-header">
+    <div class="welcome-section">
+      <h1>Job Status</h1>
+      <p class="text-secondary">View background job progress and output</p>
+    </div>
+    <div class="header-actions">
+      <a href="{{ url_for('admin.admin_servers') }}" class="btn btn-outline-secondary">Back to Servers</a>
+      <a href="{{ url_for('admin.admin_job_status', job_id=job_id, queue=queue_name if queue_name not in ['(unknown)'] else None) }}" class="btn btn-outline-primary">Refresh</a>
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-body">
+      {% if job_status and job_status.error %}
+        <div class="alert alert-error">❌ {{ job_status.error }}</div>
+      {% endif %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div><strong>Job ID:</strong> {{ job_id }}</div>
+          <div><strong>Queue:</strong> {{ queue_name }}</div>
+          <div><strong>Status:</strong> {{ job_status.status if job_status else '' }}</div>
+          <div><strong>Progress:</strong> {{ job_status.progress if job_status else 0 }}%</div>
+          {% if job_status and job_status.message %}
+            <div><strong>Message:</strong> {{ job_status.message }}</div>
+          {% endif %}
+          {% if job_status and job_status.server_dir %}
+            <div><strong>Server Dir:</strong> {{ job_status.server_dir }}</div>
+          {% endif %}
+          {% if job_status and job_status.exit_code is not none %}
+            <div><strong>Exit Code:</strong> {{ job_status.exit_code }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <div class="mb-2"><strong>Created:</strong> {{ job_status.created_at if job_status else '' }}</div>
+          <div class="mb-2"><strong>Ended:</strong> {{ job_status.ended_at if job_status else '' }}</div>
+          {% if job_status and job_status.error %}
+            <div class="alert alert-warning">⚠️ {{ job_status.error }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mt-3" style="background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+        <div style="height: 10px; background: rgba(255,255,255,0.08);">
+          <div style="height: 10px; width: {{ job_status.progress if job_status else 0 }}%; background: var(--accent);"></div>
+        </div>
+      </div>
+
+      {% if job_status and job_status.stdout %}
+        <div class="card mt-4">
+          <div class="card-header"><strong>STDOUT</strong></div>
+          <div class="card-body">
+            <pre style="white-space: pre-wrap; margin: 0;">{{ job_status.stdout }}</pre>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if job_status and job_status.stderr %}
+        <div class="card mt-3">
+          <div class="card-header"><strong>STDERR</strong></div>
+          <div class="card-body">
+            <pre style="white-space: pre-wrap; margin: 0;">{{ job_status.stderr }}</pre>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

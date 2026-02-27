@@ -14,6 +14,15 @@ from rq import Connection, Queue, Worker
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Also add repo root so imports like `background_jobs` resolve even when the
+# worker is started with a different working directory.
+try:
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+except Exception:
+    pass
+
 # Import job functions
 from background_jobs import (backup_queue, default_queue, maintenance_queue,
                              notification_queue)

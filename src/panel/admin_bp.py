@@ -63,6 +63,73 @@ def admin_servers():
     return render_template("admin_servers.html", servers=servers)
 
 
+@admin_bp.route("/admin/jobs")
+def admin_jobs():
+    """Redirect helper to view a job by job_id (from a simple form)."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("main.login"))
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    job_id = (request.args.get("job_id") or "").strip()
+    queue = (request.args.get("queue") or "").strip()
+    if not job_id:
+        flash("Job ID is required", "error")
+        return redirect(url_for("admin.admin_servers"))
+
+    return redirect(url_for("admin.admin_job_status", job_id=job_id, queue=queue) if queue else url_for("admin.admin_job_status", job_id=job_id))
+
+
+@admin_bp.route("/admin/jobs/<job_id>")
+def admin_job_status(job_id):
+    """View RQ job status, progress and output."""
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("main.login"))
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    queue_param = (request.args.get("queue") or "").strip()
+    status = None
+    found_in = None
+
+    try:
+        from background_jobs import job_manager
+
+        if queue_param:
+            status = job_manager.get_job_status(job_id, queue_name=queue_param)
+            found_in = queue_param
+        else:
+            for q in ["default", "backup", "notification", "maintenance"]:
+                st = job_manager.get_job_status(job_id, queue_name=q)
+                # st is None when not found, or dict with error on fetch exception
+                if st and (not st.get("error")):
+                    status = st
+                    found_in = q
+                    break
+                if st is None:
+                    continue
+            if status is None:
+                # last attempt might have been an error dict; show it if present
+                status = st if isinstance(st, dict) else None
+    except Exception as e:
+        status = {"error": str(e)}
+
+    if status is None:
+        flash("Job not found", "error")
+        return redirect(url_for("admin.admin_servers"))
+
+    return render_template(
+        "admin_job_status.html",
+        job_id=job_id,
+        queue_name=found_in or queue_param or "(unknown)",
+        job_status=status,
+    )
+
+
 @admin_bp.route("/admin/servers/create", methods=["GET", "POST"])
 def admin_create_server():
     # Require session-based auth used by tests
@@ -244,6 +311,23 @@ def admin_create_server():
         ip=request.remote_addr,
         ua=request.headers.get("User-Agent"),
     )
+
+    # If this was created from an egg template that includes an installer script,
+    # enqueue a background job to populate server files via Docker.
+    try:
+        install_script = ""
+        if isinstance(template_data, dict):
+            installation = template_data.get("installation")
+            if isinstance(installation, dict):
+                install_script = (installation.get("script") or "").strip()
+        if install_script and template is not None:
+            from background_jobs import job_manager
+
+            job_id = job_manager.enqueue_server_install(server.id, template.id)
+            flash(f"Install job enqueued (job_id={job_id})", "info")
+    except Exception as e:
+        flash(f"Server created, but install job could not be enqueued: {e}", "warning")
+
     flash(f'Server "{server.name}" created', "success")
     return redirect(url_for("admin.admin_servers"))
 

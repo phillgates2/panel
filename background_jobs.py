@@ -5,7 +5,10 @@ Handles long-running tasks like server backups, bulk operations, and notificatio
 """
 
 import os
+import re
 import time
+import json
+import subprocess
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -26,6 +29,170 @@ maintenance_queue = Queue("maintenance", connection=redis_conn)
 
 
 # ===== Job Functions =====
+
+
+def _slugify(value: str) -> str:
+    v = (value or "").strip().lower()
+    v = re.sub(r"[^a-z0-9\-_]+", "-", v)
+    v = re.sub(r"-+", "-", v).strip("-")
+    return v or "server"
+
+
+def _resolve_servers_dir(servers_dir: str | None = None) -> str:
+    base = (servers_dir or os.environ.get("PANEL_SERVERS_DIR") or "~/panel/servers").strip()
+    return os.path.abspath(os.path.expanduser(base))
+
+
+def install_server_files_from_template(
+    server_id: int,
+    template_id: int,
+    *,
+    servers_dir: str | None = None,
+    docker_binary: str | None = None,
+    timeout_seconds: int = 3600,
+) -> Dict[str, Any]:
+    """Run a Ptero-Eggs installation script in Docker to populate server files.
+
+    The script is executed inside the egg's installation container with the
+    destination server directory mounted at /mnt/server.
+    """
+    job = get_current_job()
+    job.meta["progress"] = 0
+    job.meta["message"] = "Preparing install"
+    job.save_meta()
+
+    from app import create_app, db
+    from models import Server
+    from config_manager import ConfigTemplate
+
+    app = create_app()
+    with app.app_context():
+        server = db.session.get(Server, server_id)
+        template = db.session.get(ConfigTemplate, template_id)
+        if not server:
+            raise ValueError(f"Server {server_id} not found")
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        try:
+            template_data = json.loads(template.template_data or "{}")
+        except Exception:
+            template_data = {}
+
+        installation = template_data.get("installation") if isinstance(template_data, dict) else None
+        installation = installation if isinstance(installation, dict) else {}
+        script = (installation.get("script") or "").strip()
+        container = (installation.get("container") or "").strip()
+        entrypoint = (installation.get("entrypoint") or "bash").strip()
+
+        # Fall back to the first docker_images entry if container isn't present
+        if not container:
+            docker_images = template_data.get("docker_images") if isinstance(template_data, dict) else None
+            if isinstance(docker_images, dict) and docker_images:
+                # Prefer the first image in the dict
+                try:
+                    container = str(next(iter(docker_images.values()))).strip()
+                except Exception:
+                    container = ""
+
+        if not script:
+            raise ValueError("Template does not include an installation script")
+        if not container:
+            raise ValueError("Template does not specify an installation container")
+
+        base_dir = _resolve_servers_dir(servers_dir)
+        slug = _slugify(server.name)
+        dest_dir = os.path.join(base_dir, f"{server.id}_{slug}")
+        os.makedirs(dest_dir, exist_ok=True)
+
+        job.meta["progress"] = 10
+        job.meta["message"] = f"Running installer container: {container}"
+        job.meta["server_dir"] = dest_dir
+        job.save_meta()
+
+        # Build environment variables from egg variables defaults.
+        env_defaults: dict[str, str] = {}
+        variables = template_data.get("variables") if isinstance(template_data, dict) else None
+        if isinstance(variables, dict):
+            for env_key, meta in variables.items():
+                if not env_key or not isinstance(env_key, str):
+                    continue
+                default_val = ""
+                if isinstance(meta, dict):
+                    default_val = meta.get("default", "")
+                env_defaults[env_key] = str(default_val)
+
+        # Common Pterodactyl-ish defaults
+        env_defaults.setdefault("P_SERVER_LOCATION", "/mnt/server")
+        env_defaults.setdefault("SERVER_ID", str(server.id))
+
+        docker = (docker_binary or os.environ.get("PANEL_DOCKER_BIN") or "docker").strip()
+
+        cmd = [
+            docker,
+            "run",
+            "--rm",
+            "-i",
+            "-v",
+            f"{dest_dir}:/mnt/server",
+            "-w",
+            "/mnt/server",
+        ]
+        for k, v in env_defaults.items():
+            # Avoid injecting weird keys
+            if not re.match(r"^[A-Z0-9_]+$", k):
+                continue
+            cmd.extend(["-e", f"{k}={v}"])
+        cmd.append(container)
+        # Run with bash-compatible flags; most eggs use bash.
+        cmd.extend([entrypoint, "-se"])
+
+        job.meta["progress"] = 20
+        job.meta["message"] = "Starting Docker install"
+        job.meta["docker_cmd"] = " ".join(cmd[:8] + ["..."])
+        job.save_meta()
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=script,
+                text=True,
+                capture_output=True,
+                timeout=timeout_seconds,
+            )
+        except FileNotFoundError:
+            raise RuntimeError(
+                "Docker binary not found. Install Docker or set PANEL_DOCKER_BIN."
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"Install timed out after {timeout_seconds} seconds")
+
+        # Truncate logs to keep Redis job meta small.
+        stdout = (result.stdout or "")
+        stderr = (result.stderr or "")
+        max_len = 15000
+        if len(stdout) > max_len:
+            stdout = stdout[:max_len] + "\n... (truncated)"
+        if len(stderr) > max_len:
+            stderr = stderr[:max_len] + "\n... (truncated)"
+
+        job.meta["progress"] = 100
+        job.meta["message"] = "Install completed" if result.returncode == 0 else "Install failed"
+        job.meta["exit_code"] = result.returncode
+        job.meta["stdout"] = stdout
+        job.meta["stderr"] = stderr
+        job.save_meta()
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Installer exited with code {result.returncode}")
+
+        return {
+            "status": "completed",
+            "server_id": server.id,
+            "template_id": template.id,
+            "server_dir": dest_dir,
+            "exit_code": result.returncode,
+        }
 
 
 def process_server_backup(server_id: int, backup_type: str = "full") -> Dict[str, Any]:
@@ -326,6 +493,17 @@ class JobManager:
         )
         return job.id
 
+    def enqueue_server_install(self, server_id: int, template_id: int) -> str:
+        """Enqueue a Docker-based server files install job from a template."""
+        job = default_queue.enqueue(
+            install_server_files_from_template,
+            server_id,
+            template_id,
+            job_timeout=7200,  # 2 hours timeout
+            result_ttl=86400,  # Keep results for 24 hours
+        )
+        return job.id
+
     def get_job_status(
         self, job_id: str, queue_name: str = "default"
     ) -> Optional[Dict[str, Any]]:
@@ -343,6 +521,10 @@ class JobManager:
                 "progress": job.meta.get("progress", 0),
                 "message": job.meta.get("message", ""),
                 "error": job.meta.get("error"),
+                "exit_code": job.meta.get("exit_code"),
+                "server_dir": job.meta.get("server_dir"),
+                "stdout": job.meta.get("stdout"),
+                "stderr": job.meta.get("stderr"),
                 "result": job.result,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "ended_at": job.ended_at.isoformat() if job.ended_at else None,
