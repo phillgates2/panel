@@ -529,7 +529,7 @@ def init_config_manager(app):
         # Panel is PostgreSQL-only. If PANEL_DB_* is set, derive a Postgres URL.
         if not override_db and any(os.environ.get(k) for k in ("PANEL_DB_HOST", "PANEL_DB_USER", "PANEL_DB_NAME")):
             db_user = os.environ.get("PANEL_DB_USER", "paneluser")
-            db_pass = os.environ.get("PANEL_DB_PASS", "")
+            db_pass = os.environ.get("PANEL_DB_PASS") or os.environ.get("PANEL_DB_PASSWORD", "")
             db_host = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
             db_port = os.environ.get("PANEL_DB_PORT", "5432")
             db_name = os.environ.get("PANEL_DB_NAME", "paneldb")

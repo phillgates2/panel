@@ -13,7 +13,12 @@ class Config:
     # Only PostgreSQL is supported to avoid split-brain installs where migrations
     # are applied to one DB but the running service points at another.
     DB_USER = os.environ.get("PANEL_DB_USER", "paneluser")
-    DB_PASS = os.environ.get("PANEL_DB_PASS", "panelpass")
+    # Support common alias PANEL_DB_PASSWORD used by docker-compose templates.
+    DB_PASS = (
+        os.environ.get("PANEL_DB_PASS")
+        or os.environ.get("PANEL_DB_PASSWORD")
+        or "panelpass"
+    )
     DB_HOST = os.environ.get("PANEL_DB_HOST", "127.0.0.1")
     DB_PORT = os.environ.get("PANEL_DB_PORT", "5432")
     DB_NAME = os.environ.get("PANEL_DB_NAME", "paneldb")
@@ -22,7 +27,12 @@ class Config:
     # errors like "relation 'user' does not exist" even when migrations ran.
     DB_SEARCH_PATH = os.environ.get("PANEL_DB_SEARCH_PATH", "public")
 
-    _override_db = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
+    # Support common alias PANEL_DATABASE_URL used in some deployment configs.
+    _override_db = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("SQLALCHEMY_DATABASE_URI")
+        or os.environ.get("PANEL_DATABASE_URL")
+    )
     if isinstance(_override_db, str) and _override_db.strip():
         if _override_db.strip().lower().startswith("sqlite"):
             raise ValueError(
