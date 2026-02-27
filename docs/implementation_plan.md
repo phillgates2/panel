@@ -16,7 +16,7 @@
 - Testing script (`api_test.py`) and documentation (`API_README.md`)
 
 ## ✅ Priority 3: Automated Backup System (COMPLETED)
-- Database backup functionality with PostgreSQL/SQLite support
+- Database backup functionality with PostgreSQL support (SQLite references are legacy)
 - Server configuration backup (files + environment variables)
 - Individual server configuration snapshots
 - Point-in-time recovery capabilities

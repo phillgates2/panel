@@ -1,5 +1,7 @@
 # Cloud-Init Configuration Analysis Report
 
+> Note: Panel is PostgreSQL-only. This analysis references older SQLite cloud-init templates for historical context; SQLite is not supported by the current application/runtime.
+
 ## Date: $(date)
 ## Location: F:\repos\phillgates2\panel\cloud-init
 

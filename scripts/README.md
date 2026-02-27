@@ -2,6 +2,8 @@
 
 This directory contains utility scripts for managing the Panel application.
 
+> Note: The Panel application/runtime is PostgreSQL-only. Some older scripts and documentation in this directory still mention SQLite; treat those references as legacy/historical.
+
 ## Installation & Setup
 
 ### 📦 install-interactive.sh
@@ -49,7 +51,7 @@ bash scripts/install-interactive.sh --help
 - Interactive prompts for configuration
 - System requirements validation (integrated preflight checks)
 - Multi-version Python support (3.8-3.12)
-- Database setup (SQLite, PostgreSQL, or external)
+- Database setup (PostgreSQL or external PostgreSQL)
 - Redis installation and configuration (local, external, or cluster)
 - Virtual environment creation
 - Admin user creation
@@ -427,6 +429,8 @@ These scripts are created in the installation directory during setup:
 ### 🔄 migrate-db.sh
 **Migrate between SQLite and PostgreSQL**
 
+> Note: Panel is PostgreSQL-only. SQLite migrations are legacy and are not part of the supported runtime configuration.
+
 ```bash
 # Interactive migration
 bash scripts/migrate-db.sh
@@ -434,8 +438,8 @@ bash scripts/migrate-db.sh
 # Migrate to PostgreSQL
 bash scripts/migrate-db.sh --to-postgresql localhost 5432 panel panel password
 
-# Migrate to SQLite
-bash scripts/migrate-db.sh --to-sqlite ./panel.db
+# (Legacy) Migrate to SQLite
+# bash scripts/migrate-db.sh --to-sqlite ./panel.db
 
 # Backup only
 bash scripts/migrate-db.sh --backup
@@ -470,7 +474,7 @@ bash scripts/backup.sh --cleanup
 
 **Backup includes:**
 - Configuration files (config.py, .env)
-- Database (SQLite file or PostgreSQL dump)
+- Database (PostgreSQL dump)
 - Uploaded files
 - Custom static files
 - Logs

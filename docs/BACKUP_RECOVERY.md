@@ -14,7 +14,7 @@ The backup and recovery system provides:
 ## Backup Types
 
 ### Database Backups
-- **Supported Databases**: PostgreSQL, MySQL, SQLite
+- **Supported Databases**: PostgreSQL (Panel is PostgreSQL-only)
 - **Backup Methods**: Native database tools (pg_dump, mysqldump)
 - **Compression**: Automatic gzip compression
 - **Encryption**: Optional AES-256 encryption

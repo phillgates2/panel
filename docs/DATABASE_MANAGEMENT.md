@@ -45,25 +45,23 @@ JOIN user u ON s.owner_id = u.id;
 ## Common Tasks
 
 ### View Database Tables
-For SQLite:
+For PostgreSQL:
 ```sql
-SELECT name FROM sqlite_master WHERE type='table';
-```
-
-For MySQL/MariaDB:
-```sql
-SHOW TABLES;
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+   AND table_type = 'BASE TABLE'
+ORDER BY table_name;
 ```
 
 ### View Table Structure
-For SQLite:
+For PostgreSQL:
 ```sql
-PRAGMA table_info(table_name);
-```
-
-For MySQL/MariaDB:
-```sql
-DESCRIBE table_name;
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+   AND table_name = 'table_name'
+ORDER BY ordinal_position;
 ```
 
 ### Count Records

@@ -1,5 +1,7 @@
 # Installer Enhancement Implementation Plan
 
+> Note (current state): Panel is PostgreSQL-only. Any SQLite references in this plan are legacy.
+
 ## Status: Iteration 5 - IN PROGRESS
 
 This document tracks the implementation of 10 advanced features for the install-interactive.sh script.
@@ -25,7 +27,7 @@ This document tracks the implementation of 10 advanced features for the install-
   - Enhance interactive prompts section (line ~460)
   - Add advanced configuration options:
     - Deployment type (dev/prod/HA/container)
-    - Database configuration (SQLite/PostgreSQL/External)
+    - Database configuration (PostgreSQL/External; SQLite is legacy)
     - Redis setup (local/external/cluster)
     - Performance tuning (worker processes, connections)
     - Security options (firewall, fail2ban, hardening)

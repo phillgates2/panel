@@ -1,5 +1,7 @@
 # Installer Audit Report
 
+> Note (current state): Panel is PostgreSQL-only. References to SQLite/MySQL in this audit reflect older installer scripts and are not part of the supported runtime configuration.
+
 ## ?? Comprehensive Installer Check - December 2024
 
 **Status**: ? **GOOD** with recommendations  
@@ -13,7 +15,7 @@
 The Panel installer is comprehensive and feature-rich with:
 - ? Excellent interactive configuration
 - ? Multi-OS support (Ubuntu, Debian, CentOS, RHEL, macOS)
-- ? Multiple database options (SQLite, PostgreSQL, MySQL)
+- ? Database configuration (PostgreSQL; SQLite/MySQL references are legacy)
 - ? SSL/TLS support with Let's Encrypt
 - ? AI features integration
 - ? Monitoring stack setup

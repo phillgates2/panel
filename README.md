@@ -1,259 +1,181 @@
 # Panel
 
-Enterprise game server management platform — Cloud-ready, secure, and observable.
+Panel is a Flask-based control panel for managing game servers and related operational tooling.
 
 [![CI/CD](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/ci-cd.yml)
 [![Security](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml/badge.svg)](https://github.com/phillgates2/panel/actions/workflows/security-monitoring.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
+## What’s In Here
 
-Panel is a modern platform for running and managing multiplayer game servers at scale. It includes:
+- Web app: Flask + SQLAlchemy
+- Datastores: PostgreSQL (required), Redis (optional but recommended)
+- Installers: GUI, CLI, SSH (wizard + non-interactive flags)
+- Deploy options: Docker Compose or direct-venv
 
-- Orchestration (RCON, server templates, provisioning)
-- Secure auth (OAuth2/OIDC, JWT) and RBAC
-- Observability (Prometheus metrics, Grafana dashboards, structured logs)
-- Multiple installers: GUI, CLI, and SSH wizard
-- DevOps-ready deployment via Docker Compose
+Important: SQLite is not supported. Some legacy docs/scripts in this repo still mention SQLite; treat those as historical and not part of the supported setup.
 
-Use Panel to host, monitor, and operate servers with enterprise-grade features.
-
----
-
-## Getting the Installer and Files
-
-You can install Panel using the GUI/CLI/SSH installer, or via Docker/manual setup.
-
-### 1) Download the repository
+## Quick Start (Recommended)
 
 ```bash
-# Clone the repo
 git clone https://github.com/phillgates2/panel.git
 cd panel
 ```
 
-Installer modules live in `tools/installer/` and support GUI, CLI, and SSH-guided flows.
-
-GUI (desktop environment required):
+### Option A: GUI installer (desktop environment)
 
 ```bash
-# Requires Python 3.10+ and PySide6
-python -m tools.installer.gui
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements/requirements-gui.txt
+
+# Default entrypoint prefers GUI when available
+python -m tools.installer
 ```
 
-CLI (scriptable, structured output):
+GUI notes:
+
+- PostgreSQL-only DB configuration (host/port/dbname/user/password)
+- Supports `search_path` (schema) and Postgres SSL options
+- Installs “extra features” dependencies by default (see “Extras”)
+
+### Option B: CLI installer (scriptable)
 
 ```bash
-# General help
 python3 -m tools.installer --cli --help
 
-# Dry-run install
-python3 -m tools.installer --cli install --domain example.com --components postgres,redis,nginx,python --dry-run --json
-
-# Uninstall (state-based)
-python3 -m tools.installer --cli uninstall --preserve-data --components postgres,redis --json
-
-# Dependency check
-python3 -m tools.installer --cli check --json
-
-# Service management
-python3 -m tools.installer --cli service status --components postgres,redis,nginx --json
-python3 -m tools.installer --cli service start --components postgres,redis
-python3 -m tools.installer --cli service stop --components postgres
+# Dry-run
+python3 -m tools.installer --cli install \
+  --domain example.com \
+  --components postgres,redis,nginx,python \
+  --dry-run --json
 ```
 
-SSH (interactive wizard for terminals):
+Database flags (PostgreSQL only):
 
 ```bash
-# Launch wizard (guided prompts for install/uninstall)
+printf '%s' "$PANEL_DB_PASS" | python3 -m tools.installer --cli install \
+  --domain example.com \
+  --components postgres,redis,nginx,python \
+  --db-host 127.0.0.1 --db-port 5432 --db-name paneldb --db-user paneluser \
+  --db-password-stdin \
+  --db-search-path "public" \
+  --db-sslmode require \
+  --json
+```
+
+### Option C: SSH installer (terminal + wizard)
+
+```bash
+# Wizard (prompts for DB/search_path/SSL)
 python3 -m tools.installer --ssh wizard
 
-# Or run directly with progress streaming
-python3 -m tools.installer --ssh install --domain example.com --components postgres,redis,nginx,python --dry-run --json
-python3 -m tools.installer --ssh uninstall --preserve-data --components postgres,redis --dry-run
-python3 -m tools.installer --ssh service status --components postgres,redis,nginx
+# Or non-interactive
+python3 -m tools.installer --ssh install \
+  --domain example.com \
+  --components postgres,redis,nginx,python \
+  --db-uri 'postgresql+psycopg2://user:pass@db:5432/paneldb?sslmode=require' \
+  --db-search-path public \
+  --json
 ```
 
 Notes:
 
-- Use `PANEL_INSTALLER_MODE=cli` or `PANEL_INSTALLER_MODE=ssh` to select non-GUI mode by default.
-- SSH/CLI installers stream progress lines prefixed with `PROGRESS:` and can emit final JSON summaries with `--json`.
+- CLI/SSH modes can be selected by default with `PANEL_INSTALLER_MODE=cli` or `PANEL_INSTALLER_MODE=ssh`.
+- CLI/SSH installers stream progress lines prefixed with `PROGRESS:` and can emit a final JSON summary with `--json`.
+- On Linux hosts without a service manager (common in LXC containers), the installer can start Panel via a detached background process and logs to `/var/log/panel/app.out` when possible.
 
-### 3) Docker Compose (fastest setup)
+## Docker Compose
 
 ```bash
-# From the repo root
-docker-compose up -d
+docker compose up -d
 # App at http://localhost:8080
 ```
 
 Compose variants:
 
-- `docker-compose.yml` — base stack
-- `docker-compose.monitoring.yml` — Prometheus/Grafana
+- `docker-compose.yml` (base)
+- `docker-compose.monitoring.yml` (Prometheus/Grafana)
 
-### 4) Manual installation (venv)
+## Manual (venv)
 
 ```bash
-python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements/requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements/requirements.txt
+
 cp .env.example .env
-# edit .env with your settings
-flask db upgrade
+# Edit .env (see config/README.md)
+
+python -m alembic upgrade head
 python app.py
 ```
 
----
-
-## Quick Start
-
-After installation:
-
-- Access the app: `http://localhost:8080` (or your domain)
-- Sign in with the admin user configured during setup
-- Create servers via Servers → Add New
-- Visit `/metrics` for Prometheus metrics
-
----
-
-## Key Features
-
-- Game servers: multi-game, RCON, templates, health checks
-- Community: forum/CMS, real-time chat, roles
-- Security: OAuth2/OIDC, JWT, RBAC, CSP/HSTS, rate limiting
-- Analytics: app metrics at `/metrics`, Grafana dashboards
-- Operations: backups, Alembic migrations, structured logging
-
----
-
-## Architecture
-
-- Backend: Python (Flask), SQLAlchemy
-- Data: PostgreSQL, Redis
-- Frontend: Bootstrap 5, Jinja2
-- Monitoring: Prometheus, Grafana
-- Deploy: Docker Compose
-
-See `docs/README.md` for the detailed diagram and component guides.
-
----
-
 ## Configuration
 
-Configure via environment (`.env`). Example:
+Panel is configured via environment variables (local `.env`, or `/etc/panel/panel.env` when installed).
+
+PostgreSQL-only options:
 
 ```env
-FLASK_ENV=production
-DATABASE_URL=postgresql://panel_user:password@localhost:5432/panel_db
-REDIS_URL=redis://localhost:6379/0
-PROMETHEUS_ENABLED=true
+# Preferred: full URL (supports SSL query params)
+DATABASE_URL=postgresql+psycopg2://paneluser:strong_password@127.0.0.1:5432/paneldb?sslmode=require
+
+# Or parts (installer writes these too)
+PANEL_DB_HOST=127.0.0.1
+PANEL_DB_PORT=5432
+PANEL_DB_NAME=paneldb
+PANEL_DB_USER=paneluser
+PANEL_DB_PASS=strong_password
+
+# Schema/search_path
+PANEL_DB_SEARCH_PATH=public
 ```
 
-More in `config/README.md`.
+More details: `config/README.md`.
 
----
+## Extras (Advanced Features)
 
-## Installer Highlights
+Some functionality depends on optional/heavier dependencies in:
 
-- Preflight checks and configuration validation
-- GUI wizard (presets for dev/staging/prod), SSH numeric-toggle menu
-- Secrets saved to OS keyring (GUI)
-- Advanced logging (filters/search/severity, redaction)
-- Progress streaming (SSH/CLI) and JSON output (`--json`)
-- Service management: start/stop/status per component
-- Crash recovery via state rollback
-- Telemetry opt-in and sandbox mode
+- `requirements/requirements-extras.txt` (AI/ML/cloud/blockchain/monitoring/realtime)
+- `requirements/requirements-ml.txt` (TensorFlow)
 
-Docs: `tools/installer/README.md` and `docs/INSTALLER_GUIDE.md`.
+GUI behavior:
 
----
+- The GUI installer attempts to install these extras automatically.
+- If extras installation fails, the GUI install fails (strict mode).
+- On musl-based systems (e.g., Alpine), ML extras may be skipped because TensorFlow wheels are often unavailable.
 
-## Monitoring & Troubleshooting
+## Troubleshooting
 
-### Health & Metrics
+Common checks:
 
-- Health endpoints: `GET /health`, `GET /health/detailed`
-- Metrics endpoint: `GET /metrics`
-
-### Logs
-
-- App logs: see your configured logging directory or the GUI installer Logs tab
+- App logs: `/var/log/panel/app.out` (installer background-start) or the installer log output
 - Nginx logs: `/var/log/nginx/access.log`, `/var/log/nginx/error.log`
-- PostgreSQL logs: typically `/var/log/postgresql/*.log`
+- Postgres connectivity:
 
-### Common Panel Issues & Fixes
+```bash
+psql -h 127.0.0.1 -p 5432 -U paneluser -d paneldb -c 'SELECT 1'
+```
 
-- Port conflict on 8080/80/443
-  - Check with: `netstat -tlnp | grep 8080` (Linux) or `Get-NetTCPConnection -LocalPort 8080` (Windows)
-  - Change `PANEL_PORT` or stop the conflicting service
-- Database connection failure
-  - Verify PostgreSQL: `sudo systemctl status postgresql`
-  - Test: `psql -U panel_user -d panel_db -h localhost -c "SELECT 1"`
-  - Check `DATABASE_URL` in `.env`
-- Redis not reachable
-  - `redis-cli ping` should return `PONG`
-  - Check `REDIS_URL`
-- Health check fails
-  - Ensure app running: `ps aux | grep app.py` (Linux)
-  - Review logs for stack traces and config errors
+Installer docs:
 
-### Installer Troubleshooting
-
-- GUI won’t start
-  - Ensure PySide6 installed: `pip show PySide6`
-  - Try `python -m tools.installer.gui` from repo root
-- Preflight reports ports in use
-  - Free the ports or adjust panel/nginx ports in Settings
-- Elevation/Admin required errors
-  - Run installer with admin/sudo or enable elevation
-- Crash recovery needed
-  - Use the GUI “Crash Recovery” to rollback recorded actions
-- Secrets storage issues
-  - Install `keyring` and ensure OS keychain is accessible
-
----
+- `tools/installer/README.md`
+- `docs/INSTALLER_GUIDE.md`
 
 ## Development
 
 ```bash
-pip install -r requirements/requirements-dev.txt
-make lint format test
+python3 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install -r requirements/requirements-test.txt
+python -m pytest -q
 ```
 
-Contribution guide: `docs/CONTRIBUTING.md`.
-
----
-
-## Mobile App
-
-The React Native mobile client lives in `mobile-app/`.
-
-- Mobile app docs: `mobile-app/README.md`
-- API client: `mobile-app/src/services/ApiService.ts`
-
-Local development notes:
-
-- iOS simulator can typically use `http://localhost:5000` for the API base URL
-- Android emulator typically needs `http://10.0.2.2:5000`
-
----
-
-## Roadmap
-
-Planned improvements: cloud installers, deeper game integrations, workflow automation.
-Track progress in `docs/README.md` and issues.
-
----
+Docs index: `docs/README.md`.
 
 ## License
 
-MIT © Contributors. See `LICENSE`.
-
----
-
-## Links
-
-- Docs index: `docs/README.md`
-- Installer guide: `docs/INSTALLER_GUIDE.md`
-- Issues: <https://github.com/phillgates2/panel/issues>
-- Discussions: <https://github.com/phillgates2/panel/discussions>
+MIT. See `LICENSE`.

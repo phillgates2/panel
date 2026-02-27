@@ -146,7 +146,6 @@ pytest tests/
 ### Path 2: New Deployment
 ```bash
 # 1. Choose config
-# SQLite: cloud-init/ubuntu-user-data-enhanced.yaml
 # PostgreSQL: cloud-init/ubuntu-postgres-user-data-enhanced.yaml
 
 # 2. Deploy to cloud provider
@@ -191,8 +190,9 @@ pytest tests/
 - `../.github/workflows/*.yml` - All CI/CD workflows
 
 ### Configuration
-- `../cloud-init/ubuntu-user-data-enhanced.yaml` - SQLite deployment
 - `../cloud-init/ubuntu-postgres-user-data-enhanced.yaml` - PostgreSQL deployment
+
+Note: Panel is PostgreSQL-only; SQLite cloud-init configs are legacy.
 
 ---
 

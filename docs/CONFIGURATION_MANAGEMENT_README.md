@@ -2,6 +2,8 @@
 
 This document describes the configuration management system implemented for the Panel application using Python's built-in validation capabilities.
 
+> Note: Panel is PostgreSQL-only. SQLite examples in this document are historical and do not reflect the supported runtime configuration.
+
 ## Overview
 
 The configuration management system provides:
@@ -19,8 +21,7 @@ The configuration management system provides:
 
 ```python
 class DatabaseConfig:
-    use_sqlite: bool = True
-    sqlite_uri: str = "sqlite:///panel_dev.db"
+  # Panel is PostgreSQL-only.
     postgres_user: str = "paneluser"
     postgres_password: str = "panelpass"
     postgres_host: str = "127.0.0.1"
@@ -123,7 +124,7 @@ flask config-validate
 
 # Output:
 ✅ Configuration is valid
-Database: sqlite:///panel_dev.db
+Database: postgresql+psycopg2://paneluser:***@127.0.0.1:5432/paneldb
 Log Level: INFO
 ```
 
@@ -138,7 +139,7 @@ Current Configuration:
 ==================================================
 
 Database:
-  SQLALCHEMY_DATABASE_URI: sqlite:///panel_dev.db
+  SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://paneluser:***@127.0.0.1:5432/paneldb
   SQLALCHEMY_ECHO: False
 
 Logging:
@@ -256,8 +257,10 @@ except ValidationError as e:
 ```json
 {
   "database": {
-    "use_sqlite": true,
-    "sqlite_uri": "sqlite:///panel_dev.db"
+    "postgres_user": "paneluser",
+    "postgres_password": "panelpass",
+    "postgres_host": "127.0.0.1",
+    "postgres_port": 5432
   },
   "logging": {
     "level": "INFO",

@@ -2,6 +2,8 @@
 
 This is a short recipe to test the installer inside a disposable Alpine container. It's intended for quick local validation — the installer expects `systemctl` for some service starts and may need adaptation for production.
 
+Important: Panel is PostgreSQL-only. SQLite-based quick-test modes referenced in older docs are legacy and no longer supported by the application/runtime.
+
 Steps (local Docker):
 
 1) Run an interactive Alpine container and install minimal tools:
@@ -12,17 +14,25 @@ apk update
 apk add --no-cache bash git curl python3 py3-pip py3-virtualenv build-base libffi-dev openssl-dev postgresql-dev
 ```
 
-2) Clone repo and run installer (SQLite mode recommended for quick tests):
+2) Clone repo and run the installer (PostgreSQL required):
 
 ```bash
 git clone https://github.com/phillgates2/panel.git panel-src
 cd panel-src
 export PANEL_NON_INTERACTIVE=true
-export PANEL_DB_TYPE=sqlite
 export PANEL_ADMIN_EMAIL=admin@example.com
 export PANEL_ADMIN_PASS='ChangeMeNow!'
 export PANEL_INSTALL_DIR=/tmp/panel-install
-bash install.sh --non-interactive --sqlite --dir /tmp/panel-install
+
+# Point Panel at a reachable PostgreSQL instance.
+# Example (replace host/user/pass/db):
+export DATABASE_URL='postgresql+psycopg2://paneluser:panelpass@YOUR_DB_HOST:5432/paneldb'
+
+# Legacy install.sh flows may still exist, but the supported path is the Python installer entrypoint:
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements/requirements.txt
+python -m tools.installer --cli install --domain example.com --components redis,nginx,python --dry-run
 ```
 
 Notes & caveats:
@@ -37,6 +47,6 @@ python3 app.py
 # In another shell: curl http://localhost:8080/
 ```
 
-- If Python packages fail to build (psycopg2 on Alpine), prefer `PANEL_DB_TYPE=sqlite` or install `psycopg2` build deps (`postgresql-dev` and `gcc` are included above).
+- If Python packages fail to build (psycopg2 on Alpine), install the build deps (`postgresql-dev`, `gcc`, etc.) or use a glibc-based environment for closer production parity.
 
 If you want, I can also create a ready-to-use `.devcontainer` for VS Code that uses Ubuntu 22.04 for easier parity with the installer.

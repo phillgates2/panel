@@ -14,27 +14,29 @@ sudo apt-get upgrade -y
 sudo apt-get install -y git curl python3-venv python3-pip
 ```
 
-2) Run installer non-interactively (SQLite example):
+2) Run installer non-interactively (PostgreSQL required):
 
 ```bash
 export PANEL_NON_INTERACTIVE=true
-export PANEL_DB_TYPE=sqlite
 export PANEL_ADMIN_EMAIL=admin@example.com
 export PANEL_ADMIN_PASS='ChangeMeNow!'
 export PANEL_INSTALL_DIR=/opt/panel
 cd /tmp
 git clone https://github.com/phillgates2/panel.git panel-src || (cd panel-src && git pull)
 cd panel-src
-bash install.sh --non-interactive --sqlite --dir /opt/panel
+
+# Configure PostgreSQL connection (example)
+export DATABASE_URL='postgresql+psycopg2://paneluser:panelpass@127.0.0.1:5432/paneldb'
+
+# Preferred installer entrypoint
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements/requirements.txt
+python -m tools.installer --cli install --domain example.com --components postgres,redis,nginx,python
 ```
 
-3) For PostgreSQL (managed on same host), set these instead (example):
-
-```bash
-export PANEL_DB_TYPE=postgresql
-export PANEL_DB_PASS='StrongPostgresPass'
-# Optionally provide DB_HOST, DB_PORT, DB_NAME, DB_USER
-```
+Notes:
+- Panel is PostgreSQL-only; SQLite examples in older docs are legacy and not supported.
 
 Cloud provider / user-data usage examples
 

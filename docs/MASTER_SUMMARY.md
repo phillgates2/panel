@@ -1,5 +1,7 @@
 # Panel Application - Complete Analysis & Remediation Summary
 
+> Note (current state): Panel is PostgreSQL-only. Older analysis notes may reference SQLite-based deployment templates; treat those as historical.
+
 ## ?? Analysis Date: December 2024
 ## ?? Repository: https://github.com/phillgates2/panel
 ## ?? Scope: Comprehensive codebase analysis and fixes

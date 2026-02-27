@@ -1,5 +1,7 @@
 # Cloud-Init README
 
+> Important: Panel is PostgreSQL-only. Any SQLite cloud-init configs or variables mentioned below are legacy and are not supported by the current application/runtime.
+
 ## Summary: `\cloud-init` Folder Analysis & Fixes Complete ?
 
 ### **Overall Status: ?? IMPROVED - Enhanced versions created**
@@ -73,7 +75,6 @@
 
 4. **Backups** - Automated daily backups:
    ```yaml
-   # SQLite: Daily database backup
    # PostgreSQL: Daily pg_dump backup
    ```
 
@@ -107,9 +108,9 @@
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `ubuntu-user-data.yaml` | Original SQLite config | ?? Basic, needs improvements |
+| `ubuntu-user-data.yaml` | Legacy SQLite config | ?? Legacy (not supported) |
 | `ubuntu-postgres-user-data.yaml` | Original PostgreSQL config | ?? Basic, needs improvements |
-| `ubuntu-user-data-enhanced.yaml` | **NEW** - Production-ready SQLite | ? Recommended |
+| `ubuntu-user-data-enhanced.yaml` | Legacy SQLite config | ?? Legacy (not supported) |
 | `ubuntu-postgres-user-data-enhanced.yaml` | **NEW** - Production-ready PostgreSQL | ? Recommended |
 | `README.md` | This file | ? Complete guide |
 
@@ -117,24 +118,7 @@
 
 ## Quick Start
 
-### For SQLite (Development/Testing)
-
-```yaml
-# Use: ubuntu-user-data-enhanced.yaml
-# Resources: 1 vCPU, 1GB RAM
-# Deploy time: ~10 minutes
-```
-
-**AWS EC2 Example**:
-1. Launch Ubuntu 22.04 instance
-2. Copy contents of `ubuntu-user-data-enhanced.yaml`
-3. Paste into "User data" field under "Advanced Details"
-4. Launch instance
-5. Wait 10-15 minutes
-6. SSH in: `ssh ubuntu@YOUR_IP`
-7. Get credentials: `sudo cat /root/panel-credentials.txt`
-
-### For PostgreSQL (Production)
+### For PostgreSQL (Supported)
 
 ```yaml
 # Use: ubuntu-postgres-user-data-enhanced.yaml
@@ -155,9 +139,8 @@ PANEL_ADMIN_PASS=SecurePassword123!       # Admin password
 
 # Optional
 PANEL_INSTALL_DIR=/opt/panel              # Installation directory
-PANEL_DB_TYPE=sqlite                      # Database type (sqlite/postgresql)
 
-# PostgreSQL only
+# PostgreSQL
 PANEL_DB_USER=paneluser                   # Database username
 PANEL_DB_NAME=panel_db                    # Database name
 PANEL_DB_PASS=SecureDBPassword123!       # Database password
@@ -353,10 +336,7 @@ Backups are automated, but verify:
 # Check backup directory
 ls -lh /opt/panel/backups/
 
-# For SQLite
-ls -lh /opt/panel/backups/panel_*.db
-
-# For PostgreSQL
+# PostgreSQL
 ls -lh /opt/panel/backups/panel_db_*.sql.gz
 ```
 
@@ -487,9 +467,6 @@ sudo systemctl restart panel
 ### Manual Backup
 
 ```bash
-# SQLite
-sudo cp /opt/panel/instance/panel.db /opt/panel/backups/manual_$(date +%Y%m%d).db
-
 # PostgreSQL
 sudo -u postgres pg_dump panel_db | gzip > /opt/panel/backups/manual_$(date +%Y%m%d).sql.gz
 ```
@@ -524,12 +501,9 @@ sudo cat /var/log/lynis.log
 
 ## Performance Tuning
 
-### For SQLite (Small Scale)
+### Legacy: SQLite (Not Supported)
 
-```bash
-# Enable WAL mode for better concurrency
-sqlite3 /opt/panel/instance/panel.db "PRAGMA journal_mode=WAL;"
-```
+SQLite-based tuning steps are intentionally omitted here because Panel is PostgreSQL-only.
 
 ### For PostgreSQL (Production)
 
@@ -572,13 +546,13 @@ sudo systemctl restart postgresql
 ## Files Created/Updated
 
 ### New Files ?
-- `ubuntu-user-data-enhanced.yaml` - Production-ready SQLite deployment
+- `ubuntu-user-data-enhanced.yaml` - Legacy SQLite deployment (not supported)
 - `ubuntu-postgres-user-data-enhanced.yaml` - Production-ready PostgreSQL deployment  
 - `README.md` - This comprehensive guide
 - `docs/CLOUD_INIT_ANALYSIS.md` - Detailed analysis report
 
 ### Original Files (Preserved)
-- `ubuntu-user-data.yaml` - Original basic SQLite config
+- `ubuntu-user-data.yaml` - Legacy SQLite config (not supported)
 - `ubuntu-postgres-user-data.yaml` - Original basic PostgreSQL config
 
 ---
@@ -586,10 +560,9 @@ sudo systemctl restart postgresql
 ## Recommendations
 
 ### For Development/Testing
-? Use: `ubuntu-user-data-enhanced.yaml`
-- Minimal resources needed
-- Fast deployment
-- SQLite (no DB setup)
+? Use: `ubuntu-postgres-user-data-enhanced.yaml`
+- PostgreSQL-only (supported)
+- Use smaller VM sizes if this is just for testing
 
 ### For Production
 ? Use: `ubuntu-postgres-user-data-enhanced.yaml`
@@ -631,7 +604,7 @@ sudo systemctl restart postgresql
 **Status**: ? **COMPLETE** - Enhanced configs ready for production use!
 
 **Next Steps**:
-1. Choose appropriate config (SQLite or PostgreSQL)
+1. Choose appropriate config (PostgreSQL)
 2. Copy to cloud provider user-data
 3. Launch instance
 4. Wait 10-15 minutes

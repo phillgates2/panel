@@ -43,37 +43,27 @@ pip install -r requirements.txt
 
 #### Database Connection Failed
 ```
-sqlalchemy.exc.OperationalError: (2003, "Can't connect to MySQL server")
+sqlalchemy.exc.OperationalError: could not connect to server
 ```
 
 **Solutions:**
-1. Check MariaDB service:
+1. Check PostgreSQL service:
 ```bash
-sudo systemctl status mariadb
-sudo systemctl start mariadb
+sudo systemctl status postgresql
+sudo systemctl start postgresql
 ```
 
-2. Verify credentials:
+2. Verify connectivity and credentials:
 ```bash
-mysql -u panel -p -h localhost
+psql -h 127.0.0.1 -p 5432 -U paneluser -d paneldb -c 'SELECT 1'
 ```
 
-3. Check firewall:
+3. Check firewall (if connecting remotely):
 ```bash
-sudo ufw allow 3306/tcp
+sudo ufw allow 5432/tcp
 ```
 
-#### SQLite Permission Error
-```
-sqlite3.OperationalError: unable to open database file
-```
-
-**Solution:**
-```bash
-# Ensure instance directory exists and is writable
-mkdir -p instance
-chmod 755 instance
-```
+Note: Panel is PostgreSQL-only; SQLite is not supported.
 
 #### Database Migration Failed
 ```
@@ -336,25 +326,17 @@ SQLALCHEMY_ECHO = True  # Log all SQL queries
 ### Backup and Recovery
 
 #### Backup Database
-**SQLite:**
-```bash
-cp instance/panel.db instance/panel.db.backup.$(date +%Y%m%d)
-```
+Panel is PostgreSQL-only.
 
-**MariaDB:**
+**PostgreSQL:**
 ```bash
-mysqldump -u panel -p panel > panel_backup_$(date +%Y%m%d).sql
+pg_dump -h 127.0.0.1 -p 5432 -U paneluser paneldb | gzip > paneldb_backup_$(date +%Y%m%d).sql.gz
 ```
 
 #### Restore Database
-**SQLite:**
+**PostgreSQL:**
 ```bash
-cp instance/panel.db.backup.20251116 instance/panel.db
-```
-
-**MariaDB:**
-```bash
-mysql -u panel -p panel < panel_backup_20251116.sql
+gunzip -c paneldb_backup_20251116.sql.gz | psql -h 127.0.0.1 -p 5432 -U paneluser -d paneldb
 ```
 
 ### Network Issues
@@ -409,7 +391,7 @@ pip list
 
 # Service status
 sudo systemctl status panel-gunicorn
-sudo systemctl status mariadb
+sudo systemctl status postgresql
 sudo systemctl status redis
 
 # Logs

@@ -8,7 +8,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-- run with SQLite dev config using panel.sh (preferred)
+> Note: Panel is PostgreSQL-only. Older docs may mention SQLite dev configs; treat those references as legacy.
+
+- run with local dev config using panel.sh (preferred)
 
 ```bash
 # Initialize and start via unified CLI
