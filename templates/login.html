@@ -7,7 +7,7 @@
   </div>
 
   <form method="post" class="login-form" role="form" aria-labelledby="login-heading">
-    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
     <div class="form-group">
       <label for="email">📧 Email Address</label>
@@ -32,8 +32,8 @@
       <div class="captcha-header">
         <label>🤖 Security Verification</label>
         <div class="captcha-controls">
-          <button type="button" id="refresh" class="btn btn-secondary">🔄 Refresh</button>
-          <button type="button" id="audio" class="btn btn-secondary">🔊 Audio</button>
+          <a href="{{ request.path }}" id="refresh" class="btn btn-secondary">🔄 Refresh</a>
+          <a href="{{ url_for('main.captcha_audio') }}" id="audio" class="btn btn-secondary" target="_blank" rel="noopener">🔊 Audio</a>
         </div>
       </div>
       <img id="captcha-img" src="{{ url_for('main.captcha_png') }}" alt="Security captcha image" class="captcha-image" />
@@ -138,8 +138,9 @@
   }
 
   img.addEventListener('load', ()=>{ scheduleExpiry(); startCountdown(); });
-  refreshBtn.addEventListener('click', refreshCaptcha);
-  audioBtn.addEventListener('click', ()=>{
+  refreshBtn.addEventListener('click', (e)=>{ e.preventDefault(); refreshCaptcha(); });
+  audioBtn.addEventListener('click', (e)=>{
+    e.preventDefault();
     // Ensure the captcha has loaded at least once so the server-side session value exists.
     if (!img.complete) return;
     const a = new Audio(captchaAudioUrl + '?_' + Date.now());

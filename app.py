@@ -142,6 +142,12 @@ try:
 except Exception:
     forum_bp = None
 
+# Config management blueprint (includes Ptero-Eggs browser/sync)
+try:
+    from src.panel.routes_config import config_bp
+except Exception:
+    config_bp = None
+
 def _register_optional_blueprints(module_app: Flask) -> None:
     try:
         from src.panel import cms as _cms
@@ -167,6 +173,13 @@ def _register_optional_blueprints(module_app: Flask) -> None:
 
 # Register optional blueprints on the module-level app if available
 _register_optional_blueprints(app)
+
+# Register config blueprint (best-effort)
+if config_bp is not None:
+    try:
+        app.register_blueprint(config_bp)
+    except Exception:
+        pass
 
 # Register context processor and error handlers
 app.context_processor(inject_user)

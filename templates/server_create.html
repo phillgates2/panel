@@ -18,20 +18,30 @@
             <form method="post" action="{{ url_for('admin.admin_create_server') }}" class="form-stylish">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
-                {% if config_templates %}
                 <div class="form-group">
                     <label for="template_id">
                         <i class="fas fa-file-import"></i> Config Template (Optional)
                     </label>
                     <select name="template_id" id="template_id">
                         <option value="">-- No template --</option>
-                        {% for t in config_templates %}
-                            <option value="{{ t.id }}">{{ t.name }}</option>
-                        {% endfor %}
+                        {% if config_templates %}
+                            {% for t in config_templates %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="" disabled>(No templates found)</option>
+                        {% endif %}
                     </select>
                     <small class="text-muted">If selected, the server will be seeded from this template (including Ptero-Eggs imports).</small>
+                    {% if not config_templates %}
+                        <div class="alert alert-warning" style="margin-top: 0.75rem;">
+                            No Ptero-Eggs templates found yet.
+                            {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
+                                <a href="{{ url_for('config.ptero_eggs_browser') }}">Open Ptero-Eggs Browser</a> and run a sync.
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </div>
-                {% endif %}
 
                 <div class="form-group">
                     <label for="game_type">

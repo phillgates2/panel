@@ -78,8 +78,12 @@
               <div class="nav-dropdown-menu" role="menu" aria-label="Menu">
                 <div class="nav-dropdown-heading" aria-hidden="true">Main</div>
                 <a role="menuitem" href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">🏠 Home</a>
+                {% if app and 'forum.index' in app.view_functions %}
                 <a role="menuitem" href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a>
+                {% endif %}
+                {% if app and 'cms.blog_index' in app.view_functions %}
                 <a role="menuitem" href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'cms' in request.endpoint }}">📰 Blog</a>
+                {% endif %}
                 {% if not logged_in %}
                   <div class="nav-dropdown-heading" aria-hidden="true">Account</div>
                   <a role="menuitem" href="{{ url_for('main.login') }}" class="{{ 'active' if request.endpoint == 'main.login' }}">🔐 Login</a>
@@ -87,12 +91,27 @@
                 {% else %}
                   <div class="nav-dropdown-heading" aria-hidden="true">Account</div>
                   <a role="menuitem" href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">📊 Dashboard</a>
+                  {% if app and 'server.index' in app.view_functions %}
+                  <a role="menuitem" href="{{ url_for('server.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('server.') }}">🎮 Servers</a>
+                  {% endif %}
                   <a role="menuitem" href="{{ url_for('main.profile') }}" class="{{ 'active' if request.endpoint == 'main.profile' }}">👤 Profile</a>
                   <a role="menuitem" href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint == 'main.settings' }}">⚙️ Settings</a>
                   <a role="menuitem" href="{{ url_for('main.notifications') }}" class="{{ 'active' if request.endpoint == 'main.notifications' }}">🔔 Notifications</a>
                   {% if user.is_system_admin() %}
                     <div class="nav-dropdown-heading" aria-hidden="true">Admin</div>
                     <a role="menuitem" href="{{ url_for('admin.admin_servers') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.') }}">🛠️ Admin</a>
+                    {% if app and 'admin.admin_users' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('admin.admin_users') }}">👥 Users</a>
+                    {% endif %}
+                    {% if app and 'admin.admin_servers' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('admin.admin_servers') }}">🖥️ Servers</a>
+                    {% endif %}
+                    {% if app and 'admin.admin_jobs' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('admin.admin_jobs') }}">🧾 Jobs</a>
+                    {% endif %}
+                    {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('config.ptero_eggs_browser') }}">🥚 Ptero-Eggs</a>
+                    {% endif %}
                   {% endif %}
                   <a role="menuitem" href="{{ url_for('main.logout') }}">🚪 Logout</a>
                 {% endif %}

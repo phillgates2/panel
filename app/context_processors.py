@@ -132,6 +132,12 @@ def inject_user() -> Dict[str, Any]:
     except Exception:
         theme_forced = None
 
+    # Prefer the real CSRF generator when available.
+    try:
+        from src.panel.csrf import generate_csrf_token as _csrf_token
+    except Exception:  # pragma: no cover
+        _csrf_token = (lambda: "")
+
     return dict(
         logged_in=bool(session.get("user_id")),
         current_user=user,
@@ -143,7 +149,6 @@ def inject_user() -> Dict[str, Any]:
         config=current_app.config,
         user_theme_pref=user_theme_pref,
         get_cdn_url=get_cdn_url,
-        # Some templates assume Flask-WTF style CSRF helpers.
-        # Provide a no-op token in environments where CSRF isn't configured.
-        csrf_token=(lambda: ""),
+        # Many templates call csrf_token(); provide the real generator.
+        csrf_token=_csrf_token,
     )

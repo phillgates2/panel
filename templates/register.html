@@ -7,7 +7,7 @@
   </div>
 
   <form method="post" class="login-form">
-    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
     <div class="form-group">
       <label for="first_name">👤 First Name</label>
@@ -45,8 +45,8 @@
       <div class="captcha-header">
         <label>🤖 Security Verification</label>
         <div class="captcha-controls">
-          <button type="button" id="refresh" class="btn btn-secondary">🔄 Refresh</button>
-          <button type="button" id="audio" class="btn btn-secondary">🔊 Audio</button>
+          <a href="{{ request.path }}" id="refresh" class="btn btn-secondary">🔄 Refresh</a>
+          <a href="{{ url_for('main.captcha_audio') }}" id="audio" class="btn btn-secondary" target="_blank" rel="noopener">🔊 Audio</a>
         </div>
       </div>
       <img id="captcha-img" src="{{ url_for('main.captcha_png') }}" alt="Security captcha image" class="captcha-image" />
@@ -129,13 +129,15 @@ form.addEventListener('submit', (e)=>{
   }
 });
 
-document.getElementById('refresh').addEventListener('click', ()=>{
+document.getElementById('refresh').addEventListener('click', (e)=>{
+  try { e.preventDefault(); } catch(_) {}
   const img = document.getElementById('captcha-img');
   const input = document.querySelector('input[name="captcha"]');
   img.src = captchaUrl + '?_' + Date.now();
   if (input) input.value = '';
 });
-document.getElementById('audio').addEventListener('click', ()=>{
+document.getElementById('audio').addEventListener('click', (e)=>{
+  try { e.preventDefault(); } catch(_) {}
   const img = document.getElementById('captcha-img');
   if (img && !img.complete) return;
   const a = new Audio(captchaAudioUrl + '?_' + Date.now());
