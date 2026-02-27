@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD022 MD031 MD032 MD036 MD040 MD024 MD034 MD060 -->
+
 # Cloud-Init README
 
 > Important: Panel is PostgreSQL-only. Any SQLite cloud-init configs or variables mentioned below are legacy and are not supported by the current application/runtime.

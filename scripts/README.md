@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD022 MD031 MD032 MD036 MD024 MD034 -->
+
 # Panel Scripts Directory
 
 This directory contains utility scripts for managing the Panel application.

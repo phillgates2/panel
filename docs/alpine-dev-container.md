@@ -1,4 +1,4 @@
-**Alpine Dev / Quick Test Recipe**
+# Alpine Dev / Quick Test Recipe
 
 This is a short recipe to test the installer inside a disposable Alpine container. It's intended for quick local validation — the installer expects `systemctl` for some service starts and may need adaptation for production.
 
