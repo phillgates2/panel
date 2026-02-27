@@ -274,7 +274,8 @@ class InstallerWindow(QMainWindow):
         # Services tab
         self.services_tab = QWidget(); services_layout = QVBoxLayout()
         self.services_list = QListWidget()
-        for comp in ["postgres", "redis", "nginx", "python"]:
+        # Include Panel + RQ worker so the GUI can control all runtime services.
+        for comp in ["postgres", "redis", "nginx", "panel", "rq_worker", "python"]:
             self.services_list.addItem(QListWidgetItem(comp))
         svc_btns = QHBoxLayout()
         self.btn_service_start = QPushButton(self._tr("services_start")); self.btn_service_start.clicked.connect(lambda: self._service_action("start")); svc_btns.addWidget(self.btn_service_start)

@@ -38,6 +38,11 @@ SERVICE_MAP = {
         "Darwin": "panel",
         "Windows": "Panel",
     },
+    "rq_worker": {
+        "Linux": "panel-rq-worker",
+        "Darwin": "panel-rq-worker",
+        "Windows": "PanelRQWorker",
+    },
 }
 
 
@@ -543,6 +548,50 @@ def _run_ptero_eggs_sync(*, python_exe: str, workdir: str, env: dict[str, str], 
         return data
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "ptero-eggs sync timed out"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _run_default_templates_seed(*, python_exe: str, workdir: str, env: dict[str, str], progress_cb=None) -> dict:
+    """Best-effort seed of built-in default config templates."""
+    sentinel = "__PANEL_DEFAULT_TEMPLATES__"
+    code = (
+        "import json\n"
+        "from app import app\n"
+        "from config_manager import ConfigTemplate, create_default_templates\n"
+        "with app.app_context():\n"
+        "    before = ConfigTemplate.query.count()\n"
+        "    create_default_templates()\n"
+        "    after = ConfigTemplate.query.count()\n"
+        "    print('" + sentinel + "' + json.dumps({'ok': True, 'before': before, 'after': after, 'added': max(0, after - before)}))\n"
+    )
+    cmd = [python_exe, "-c", code]
+    if progress_cb:
+        progress_cb("templates", "panel", {"action": "seed_default_templates", "cmd": " ".join(cmd)})
+    try:
+        proc = subprocess.run(cmd, cwd=workdir, env=env, capture_output=True, text=True, timeout=300)
+        stdout = (proc.stdout or "").splitlines()
+        line = next((ln for ln in reversed(stdout) if ln.startswith(sentinel)), None)
+        if line is None:
+            return {
+                "ok": False,
+                "error": "default templates seed produced no sentinel output",
+                "returncode": proc.returncode,
+                "stdout": (proc.stdout or "").strip(),
+                "stderr": (proc.stderr or "").strip(),
+            }
+        payload = line[len(sentinel) :].strip()
+        try:
+            data = json.loads(payload or "{}")
+        except Exception:
+            data = {"ok": False, "error": "default templates seed returned invalid JSON", "raw": payload}
+
+        if proc.returncode != 0 and data.get("ok") is not True:
+            data.setdefault("returncode", proc.returncode)
+            data.setdefault("stderr", (proc.stderr or "").strip())
+        return data
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "default templates seed timed out"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -1246,6 +1295,23 @@ def install_all(
                 except Exception as e:
                     if progress_cb:
                         progress_cb("bootstrap", "panel", {"ok": False, "created": False, "error": str(e)})
+
+            # Seed built-in default configuration templates.
+            try:
+                seed_res = _run_default_templates_seed(
+                    python_exe=py,
+                    workdir=os.getcwd(),
+                    env=os.environ.copy(),
+                    progress_cb=progress_cb,
+                )
+                actions.append({"component": "panel", "result": {"default_templates": seed_res}})
+                if progress_cb:
+                    progress_cb("templates", "panel", seed_res)
+            except Exception as e:
+                seed_res = {"ok": False, "error": str(e)}
+                actions.append({"component": "panel", "result": {"default_templates": seed_res}})
+                if progress_cb:
+                    progress_cb("templates", "panel", seed_res)
 
             # Optional: Sync Ptero-Eggs templates so server creation can seed from eggs.
             do_sync = sync_ptero_eggs
