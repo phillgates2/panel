@@ -134,7 +134,7 @@ def test_ptero_eggs_updater_initialization():
     """Test PteroEggsUpdater initialization."""
     updater = PteroEggsUpdater()
     assert updater.repo_path == Path("/tmp/game-eggs")
-    assert updater.repo_url == "https://github.com/Ptero-Eggs/game-eggs.git"
+    assert updater.repo_url == "https://github.com/pterodactyl/game-eggs.git"
 
     # Custom path
     updater2 = PteroEggsUpdater("/custom/path")
@@ -174,7 +174,25 @@ def test_clone_or_update_repository_update(mock_run, tmp_path):
 
     assert success is True
     assert "updated" in message.lower()
-    mock_run.assert_called_once()
+    # Update flow ensures origin URL is correct, then pulls.
+    assert mock_run.call_count >= 1
+    calls = [c.args[0] for c in mock_run.call_args_list]
+    assert any(
+        cmd[:6]
+        == [
+            "git",
+            "-C",
+            str(test_repo),
+            "remote",
+            "set-url",
+            "origin",
+        ]
+        for cmd in calls
+    )
+    assert any(
+        cmd[:4] == ["git", "-C", str(test_repo), "pull"]
+        for cmd in calls
+    )
 
 
 def test_ptero_eggs_browser_route_exists():

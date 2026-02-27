@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import subprocess
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -29,7 +30,8 @@ class PteroEggsUpdateMetadata(db.Model):
     repository_url = db.Column(
         db.String(255),
         nullable=False,
-        default="https://github.com/Ptero-Eggs/game-eggs.git",
+        # Default to the official Pterodactyl egg repository.
+        default="https://github.com/pterodactyl/game-eggs.git",
     )
     last_sync_at = db.Column(db.DateTime, nullable=True)
     last_commit_hash = db.Column(db.String(64), nullable=True)
@@ -73,9 +75,15 @@ class PteroEggsTemplateVersion(db.Model):
 class PteroEggsUpdater:
     """Manages updates from the Ptero-Eggs repository."""
 
-    def __init__(self, repo_path: str = "/tmp/game-eggs"):
+    def __init__(self, repo_path: str = "/tmp/game-eggs", repo_url: Optional[str] = None):
         self.repo_path = Path(repo_path)
-        self.repo_url = "https://github.com/Ptero-Eggs/game-eggs.git"
+        # Allow overriding the repo URL at runtime.
+        # Defaults to the official Pterodactyl `game-eggs` repository.
+        self.repo_url = (
+            repo_url
+            or os.environ.get("PANEL_EGGS_REPO_URL")
+            or "https://github.com/pterodactyl/game-eggs.git"
+        )
 
     def clone_or_update_repository(self) -> Tuple[bool, str]:
         """Clone the Ptero-Eggs repository or update if it exists.
@@ -86,6 +94,16 @@ class PteroEggsUpdater:
         try:
             if self.repo_path.exists():
                 logger.info(f"Updating existing repository at {self.repo_path}")
+                # Ensure the existing clone points at the configured origin.
+                try:
+                    subprocess.run(
+                        ["git", "-C", str(self.repo_path), "remote", "set-url", "origin", self.repo_url],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                except Exception:
+                    pass
                 # Update existing repository. Avoid hard-coding branch names
                 # since upstream repos may use main or master.
                 pull_cmds = [
@@ -354,6 +372,7 @@ class PteroEggsUpdater:
                 db.session.add(metadata)
 
             metadata.last_sync_at = datetime.now(timezone.utc)
+            metadata.repository_url = self.repo_url
             metadata.last_commit_hash = commit_info["commit_hash"]
             metadata.last_commit_message = commit_info["commit_message"]
             metadata.last_sync_status = "success"
