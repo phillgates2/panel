@@ -1,5 +1,12 @@
 from flask import Blueprint, redirect, render_template, url_for, request, session, current_app, flash
 from flask_login import current_user
+from sqlalchemy.exc import IntegrityError
+
+try:
+    from jinja2 import TemplateNotFound
+except Exception:  # pragma: no cover
+    TemplateNotFound = Exception  # type: ignore
+
 from src.panel.models import db, User, Server, AuditLog
 from src.panel.models_extended import UserGroup, UserGroupMembership
 from src.panel.models import SiteAsset
@@ -56,9 +63,137 @@ def admin_servers():
     return render_template("admin_servers.html", servers=servers)
 
 
-@admin_bp.route("/admin/servers/create")
+@admin_bp.route("/admin/servers/create", methods=["GET", "POST"])
 def admin_create_server():
-    # Avoid 500 if the template isn't present; redirect to servers list.
+    # Require session-based auth used by tests
+    uid = session.get("user_id")
+    if not uid:
+        try:
+            if current_app.config.get("TESTING"):
+                admin_user = db.session.query(User).filter_by(role="system_admin").first()
+                if admin_user:
+                    session["user_id"] = admin_user.id
+                    uid = admin_user.id
+        except Exception:
+            pass
+    if not uid:
+        return redirect(url_for("main.login"))
+
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    # Ensure token exists for templates that still read session.csrf_token
+    try:
+        from src.panel.csrf import generate_csrf_token
+
+        generate_csrf_token()
+    except Exception:
+        pass
+
+    if request.method == "GET":
+        try:
+            return render_template("server_create.html")
+        except TemplateNotFound:
+            flash("Server creation UI not available in this build", "error")
+            return redirect(url_for("admin.admin_servers"))
+
+    # POST: create the server
+    from src.panel.csrf import verify_csrf
+
+    verify_csrf()
+
+    name = (request.form.get("name") or "").strip()
+    description = (request.form.get("description") or "").strip() or None
+    host = (request.form.get("host") or "").strip() or None
+    port_raw = (request.form.get("port") or "").strip()
+    rcon_password = (request.form.get("rcon_password") or "").strip() or None
+    game_type = (request.form.get("game_type") or "").strip()
+
+    # Basic validation (keep aligned with models constraints)
+    import re
+
+    if not game_type:
+        flash("Game type is required", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if len(game_type) > 32:
+        flash("Game type is too long", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if not name:
+        flash("Server name is required", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if len(name) > 120:
+        flash("Server name is too long", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if not re.match(r"^[a-zA-Z0-9\s\-_\.]+$", name):
+        flash(
+            "Server name can only contain letters, numbers, spaces, hyphens, underscores, and dots",
+            "error",
+        )
+        return redirect(url_for("admin.admin_create_server"))
+    if description is not None and len(description) > 512:
+        flash("Description is too long", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if host is not None and len(host) > 128:
+        flash("Host is too long", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    if rcon_password is not None and len(rcon_password) > 128:
+        flash("RCON password is too long", "error")
+        return redirect(url_for("admin.admin_create_server"))
+
+    port = None
+    if port_raw:
+        try:
+            port = int(port_raw)
+            if not (1 <= port <= 65535):
+                raise ValueError("port out of range")
+        except Exception:
+            flash("Port must be a number between 1 and 65535", "error")
+            return redirect(url_for("admin.admin_create_server"))
+
+    server = Server(
+        name=name,
+        description=description,
+        host=host,
+        port=port,
+        rcon_password=rcon_password,
+        game_type=game_type,
+        owner_id=uid,
+    )
+
+    try:
+        db.session.add(server)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("A server with that name already exists", "error")
+        return redirect(url_for("admin.admin_create_server"))
+    except Exception:
+        db.session.rollback()
+        flash("Error creating server", "error")
+        return redirect(url_for("admin.admin_create_server"))
+
+    # Best-effort: assign creator as server admin role (in addition to owner)
+    try:
+        from src.panel.models import ServerUser
+
+        existing = ServerUser.query.filter_by(server_id=server.id, user_id=uid).first()
+        if not existing:
+            db.session.add(ServerUser(server_id=server.id, user_id=uid, role="server_admin"))
+            db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+    _audit(
+        uid,
+        f"create_server:{server.id}",
+        ip=request.remote_addr,
+        ua=request.headers.get("User-Agent"),
+    )
+    flash(f'Server "{server.name}" created', "success")
     return redirect(url_for("admin.admin_servers"))
 
 

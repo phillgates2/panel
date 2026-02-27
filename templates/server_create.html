@@ -7,7 +7,7 @@
             <p class="text-secondary">Configure a new game server instance</p>
         </div>
         <div class="header-actions">
-            <a href="{{ url_for('admin_servers') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('admin.admin_servers') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Servers
             </a>
         </div>
@@ -15,8 +15,8 @@
 
     <div class="card mt-3">
         <div class="card-body">
-            <form method="post" action="{{ url_for('admin_create_server') }}" class="form-stylish">
-                <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}" />
+            <form method="post" action="{{ url_for('admin.admin_create_server') }}" class="form-stylish">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
                 <div class="form-group">
                     <label for="game_type">
@@ -93,7 +93,7 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Create Server
                     </button>
-                    <a href="{{ url_for('admin_servers') }}" class="btn btn-secondary">
+                    <a href="{{ url_for('admin.admin_servers') }}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancel
                     </a>
                 </div>

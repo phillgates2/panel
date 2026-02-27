@@ -421,9 +421,13 @@ def register_blueprints(app):
             return redirect(url_for("admin.admin_rbac_users"))
         app.add_url_rule("/admin/users", endpoint="admin_users", view_func=_admin_users_alias)
 
-        # Alias for admin servers page expected by templates/tests
+        # Alias for admin servers page expected by templates/tests.
+        # Call through to the real blueprint handler to avoid self-redirect loops.
         def _admin_servers_alias():
-            return redirect(url_for("admin.admin_servers"))
+            try:
+                return app.view_functions["admin.admin_servers"]()
+            except Exception:
+                return redirect(url_for("admin.admin_servers"))
         app.add_url_rule("/admin/servers", endpoint="admin_servers", view_func=_admin_servers_alias)
 
         # Alias for admin audit viewer expected by templates/tests
@@ -567,10 +571,14 @@ def register_blueprints(app):
             return redirect(url_for("main.dashboard"))
         app.add_url_rule("/admin/tools", endpoint="admin_tools", view_func=_admin_tools_alias)
 
-        # Alias for admin create server endpoint used by templates/tests
+        # Alias for admin create server endpoint used by templates/tests.
+        # Call through to the real blueprint handler to avoid self-redirect loops.
         def _admin_create_server_alias():
-            return redirect(url_for("admin.admin_create_server"))
-        app.add_url_rule("/admin/servers/create", endpoint="admin_create_server", view_func=_admin_create_server_alias)
+            try:
+                return app.view_functions["admin.admin_create_server"]()
+            except Exception:
+                return redirect(url_for("admin.admin_create_server"))
+        app.add_url_rule("/admin/servers/create", endpoint="admin_create_server", view_func=_admin_create_server_alias, methods=["GET", "POST"])
 
         # Alias for admin delete server endpoint used by templates/tests
         def _admin_delete_server_alias(server_id):
