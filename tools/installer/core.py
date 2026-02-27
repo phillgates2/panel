@@ -1261,6 +1261,43 @@ def install_all(
                                 }
                             )
                             return {"status": "error", "actions": actions, "errors": errors}
+
+                    # Dev/test toolchains (best-effort). These are useful for local development
+                    # and CI workflows but should not break production installs.
+                    toolchain_files = [
+                        repo_root / "requirements" / "requirements-test.txt",
+                        repo_root / "requirements" / "requirements-e2e.txt",
+                        repo_root / "requirements" / "requirements-load.txt",
+                        repo_root / "requirements" / "requirements-devtools.txt",
+                        repo_root / "requirements" / "requirements-gui.txt",
+                    ]
+                    for opt in toolchain_files:
+                        opt_path = str(opt)
+                        if not opt.exists():
+                            continue
+
+                        opt_res = check_requirements_installed(venv_path=venv_path, requirements_path=opt_path)
+                        if (not opt_res.get("ok")):
+                            if progress_cb:
+                                progress_cb(
+                                    "pip",
+                                    "panel",
+                                    {"action": "install_toolchain_requirements", "requirements": opt_path},
+                                )
+                            pip_res = _install_requirements(venv_path=venv_path, requirements_path=opt_path)
+                            if progress_cb:
+                                progress_cb(
+                                    "pip",
+                                    "panel",
+                                    {"action": "install_toolchain_requirements_result", **pip_res},
+                                )
+                            opt_res = check_requirements_installed(venv_path=venv_path, requirements_path=opt_path)
+                            if not pip_res.get("ok"):
+                                opt_res.setdefault("pip_install", pip_res)
+
+                        actions.append({"component": "panel", "result": {"toolchain_requirements": opt_res}})
+                        if progress_cb:
+                            progress_cb("requirements", "panel", opt_res)
             except Exception as e:
                 errors.append({"component": "panel", "error": "requirements check failed", "details": str(e)})
                 return {"status": "error", "actions": actions, "errors": errors}
