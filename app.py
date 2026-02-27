@@ -90,6 +90,20 @@ extensions = init_app_extensions(app)
 # Bind SQLAlchemy to the app
 db.init_app(app)
 
+# Ensure a failed DB transaction can't poison later requests.
+# This is especially important for the module-level app used by systemd.
+@app.teardown_request
+def _rollback_session_on_exception(exception):
+    if exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+    try:
+        db.session.remove()
+    except Exception:
+        pass
+
 # Initialize Flask-Migrate so `flask db ...` commands are registered
 try:
     from flask_migrate import Migrate

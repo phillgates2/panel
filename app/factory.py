@@ -1,3 +1,6 @@
+import time
+from typing import Optional
+
 from flask import Blueprint, Flask
 from flask_caching import Cache
 from flask_compress import Compress
@@ -90,6 +93,19 @@ def create_app(config_obj: Optional[object] = None) -> Flask:
 
     # Bind SQLAlchemy
     db.init_app(_app)
+
+    # Ensure a failed DB transaction can't poison later requests.
+    @_app.teardown_request
+    def _rollback_session_on_exception(exception):
+        if exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        try:
+            db.session.remove()
+        except Exception:
+            pass
 
     # Initialize database migrations (optional)
     try:
