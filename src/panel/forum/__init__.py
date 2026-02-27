@@ -18,6 +18,14 @@ def get_current_user():
     """Get the currently logged-in user"""
     user_id = session.get("user_id")
     if user_id:
+        # If earlier DB work in this request failed but was swallowed
+        # (e.g., forum tables missing), the session can be left in an
+        # aborted/inactive transaction state on PostgreSQL.
+        try:
+            if hasattr(db.session, "is_active") and not db.session.is_active:
+                db.session.rollback()
+        except Exception:
+            pass
         return db.session.get(User, user_id)
     return None
 
@@ -105,6 +113,10 @@ def index():
         threads = q.offset((page - 1) * per_page).limit(per_page).all()
     except Exception:
         # Best-effort: in dev/test environments the forum tables may not exist yet.
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         threads = []
         total = 0
 
