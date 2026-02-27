@@ -4,6 +4,30 @@ from urllib.parse import urlparse
 import pytest
 
 
+def test_installer_default_user_venv_fallback_parses_sentinel(monkeypatch):
+    """Ensure venv-fallback parsing ignores noisy stdout.
+
+    We don't execute a real subprocess here; we just validate that the
+    sentinel format is JSON-decodable even if other JSON lines are present.
+    """
+    sentinel = "__PANEL_BOOTSTRAP_RESULT__"
+    noisy_stdout = "\n".join(
+        [
+            '{"timestamp":"x","level":"INFO","message":"log"}',
+            f"{sentinel}" + '{"ok": true, "created": true}',
+        ]
+    )
+    # Mimic the parsing logic in tools.installer.core.ensure_default_admin_user.
+    lines = noisy_stdout.splitlines()
+    line = next((ln for ln in reversed(lines) if ln.startswith(sentinel)), None)
+    assert line is not None
+    import json
+
+    parsed = json.loads(line[len(sentinel) :])
+    assert parsed["ok"] is True
+    assert parsed["created"] is True
+
+
 def _get_test_db_url() -> str:
     db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLALCHEMY_DATABASE_URI")
     if not db_url:

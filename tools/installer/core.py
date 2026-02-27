@@ -627,11 +627,12 @@ def ensure_default_admin_user(
                     env.setdefault("PANEL_ADMIN_EMAIL", email)
                     env.setdefault("PANEL_ADMIN_PASS", password)
 
+                    sentinel = "__PANEL_BOOTSTRAP_RESULT__"
                     code = (
-                        "import json, os; "
+                        "import json, os, sys; "
                         "from tools.installer.core import ensure_default_admin_user; "
                         "res = ensure_default_admin_user(db_uri=os.environ.get('DATABASE_URL')); "
-                        "print(json.dumps(res))"
+                        f"sys.stdout.write('{sentinel}' + json.dumps(res) + '\\n')"
                     )
                     proc = subprocess.run(
                         [vpy, "-c", code],
@@ -642,7 +643,15 @@ def ensure_default_admin_user(
                     )
                     if proc.returncode == 0:
                         try:
-                            return json.loads((proc.stdout or "").strip() or "{}")
+                            stdout = (proc.stdout or "").splitlines()
+                            # Ignore any extra logs; parse only our sentinel line.
+                            line = next((ln for ln in reversed(stdout) if ln.startswith(sentinel)), None)
+                            if line is None:
+                                # Fallback: attempt parsing the last non-empty line.
+                                line = next((ln for ln in reversed(stdout) if ln.strip()), "")
+                            if line.startswith(sentinel):
+                                line = line[len(sentinel) :]
+                            return json.loads(line.strip() or "{}")
                         except Exception:
                             return {
                                 "ok": False,
