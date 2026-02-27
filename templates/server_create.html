@@ -18,6 +18,21 @@
             <form method="post" action="{{ url_for('admin.admin_create_server') }}" class="form-stylish">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
+                {% if config_templates %}
+                <div class="form-group">
+                    <label for="template_id">
+                        <i class="fas fa-file-import"></i> Config Template (Optional)
+                    </label>
+                    <select name="template_id" id="template_id">
+                        <option value="">-- No template --</option>
+                        {% for t in config_templates %}
+                            <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">If selected, the server will be seeded from this template (including Ptero-Eggs imports).</small>
+                </div>
+                {% endif %}
+
                 <div class="form-group">
                     <label for="game_type">
                         <i class="fas fa-gamepad"></i> Game Type

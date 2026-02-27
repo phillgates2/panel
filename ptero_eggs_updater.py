@@ -86,32 +86,48 @@ class PteroEggsUpdater:
         try:
             if self.repo_path.exists():
                 logger.info(f"Updating existing repository at {self.repo_path}")
-                # Update existing repository
-                result = subprocess.run(
-                    ["git", "-C", str(self.repo_path), "pull", "origin", "main"],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                )
+                # Update existing repository. Avoid hard-coding branch names
+                # since upstream repos may use main or master.
+                pull_cmds = [
+                    ["git", "-C", str(self.repo_path), "pull", "--ff-only"],
+                    ["git", "-C", str(self.repo_path), "pull", "origin", "main", "--ff-only"],
+                    ["git", "-C", str(self.repo_path), "pull", "origin", "master", "--ff-only"],
+                ]
 
-                if result.returncode != 0:
-                    return False, f"Git pull failed: {result.stderr}"
+                last_err = None
+                for cmd in pull_cmds:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if result.returncode == 0:
+                        return True, "Repository updated successfully"
+                    last_err = (result.stderr or result.stdout or "").strip()
 
-                return True, "Repository updated successfully"
+                return False, f"Git pull failed: {last_err or 'unknown error'}"
             else:
                 logger.info(f"Cloning repository to {self.repo_path}")
                 # Clone repository
-                result = subprocess.run(
+                clone_cmds = [
+                    ["git", "clone", "--depth", "1", self.repo_url, str(self.repo_path)],
                     ["git", "clone", self.repo_url, str(self.repo_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                )
+                ]
 
-                if result.returncode != 0:
-                    return False, f"Git clone failed: {result.stderr}"
+                last_err = None
+                for cmd in clone_cmds:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
+                    if result.returncode == 0:
+                        return True, "Repository cloned successfully"
+                    last_err = (result.stderr or result.stdout or "").strip()
 
-                return True, "Repository cloned successfully"
+                return False, f"Git clone failed: {last_err or 'unknown error'}"
 
         except subprocess.TimeoutExpired:
             return False, "Git operation timed out"

@@ -92,8 +92,24 @@ def admin_create_server():
         pass
 
     if request.method == "GET":
+        # Optional: offer imported config templates (including Ptero-Eggs) for seeding server config.
+        config_templates = []
         try:
-            return render_template("server_create.html")
+            from config_manager import ConfigTemplate
+
+            config_templates = (
+                ConfigTemplate.query.filter(
+                    (ConfigTemplate.is_default.is_(True))
+                    | (ConfigTemplate.name.ilike("%(Ptero-Eggs)%"))
+                )
+                .order_by(ConfigTemplate.name.asc())
+                .limit(500)
+                .all()
+            )
+        except Exception:
+            config_templates = []
+        try:
+            return render_template("server_create.html", config_templates=config_templates)
         except TemplateNotFound:
             flash("Server creation UI not available in this build", "error")
             return redirect(url_for("admin.admin_servers"))
@@ -151,6 +167,24 @@ def admin_create_server():
             flash("Port must be a number between 1 and 65535", "error")
             return redirect(url_for("admin.admin_create_server"))
 
+    # Optional: apply a config template (e.g., imported from Ptero-Eggs) to seed config/variables.
+    template_id_raw = (request.form.get("template_id") or "").strip()
+    template = None
+    template_data = None
+    if template_id_raw:
+        try:
+            template_id = int(template_id_raw)
+            from config_manager import ConfigTemplate
+
+            template = db.session.get(ConfigTemplate, template_id)
+            if template and getattr(template, "template_data", None):
+                import json as _json
+
+                template_data = _json.loads(template.template_data)
+        except Exception:
+            template = None
+            template_data = None
+
     server = Server(
         name=name,
         description=description,
@@ -160,6 +194,23 @@ def admin_create_server():
         game_type=game_type,
         owner_id=uid,
     )
+
+    if template_data is not None:
+        try:
+            import json as _json
+
+            # Prefer template's declared game_type if present.
+            if template is not None and getattr(template, "game_type", None):
+                server.game_type = str(template.game_type)[:32]
+            # Store extracted variables as JSON; keep full template in raw_config for reference.
+            vars_obj = template_data.get("variables") if isinstance(template_data, dict) else None
+            if isinstance(vars_obj, dict):
+                server.variables_json = _json.dumps(vars_obj, indent=2, sort_keys=True)
+            server.raw_config = _json.dumps(template_data, indent=2)
+            if not server.description and template is not None:
+                server.description = (getattr(template, "description", None) or "")[:512] or None
+        except Exception:
+            pass
 
     try:
         db.session.add(server)
@@ -199,27 +250,195 @@ def admin_create_server():
 
 @admin_bp.route("/admin/servers/<int:server_id>/delete", methods=["POST"])
 def admin_delete_server(server_id):
-    # Allow deletion without CSRF for tests
+    # Session-based auth
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("main.login"))
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    # CSRF (skip in tests for convenience)
+    try:
+        if not current_app.config.get("TESTING"):
+            from src.panel.csrf import verify_csrf
+
+            verify_csrf()
+    except Exception:
+        # If CSRF fails, treat as a bad request.
+        flash("Invalid CSRF token", "error")
+        return redirect(url_for("admin.admin_servers"))
+
     try:
         s = db.session.get(Server, server_id)
-        if s:
-            db.session.delete(s)
-            db.session.commit()
-            flash("Server deleted", "success")
-            # Audit
-            _audit(session.get("user_id"), f"delete_server:{server_id}")
-        else:
+        if not s:
             flash("Server not found", "error")
+            return redirect(url_for("admin.admin_servers"))
+
+        # Clean up dependent rows that may have FK constraints.
+        try:
+            from src.panel.models_extended import ScheduledTask, RconCommandHistory
+
+            ScheduledTask.query.filter_by(server_id=server_id).delete(synchronize_session=False)
+            RconCommandHistory.query.filter_by(server_id=server_id).delete(synchronize_session=False)
+        except Exception:
+            pass
+
+        db.session.delete(s)
+        db.session.commit()
+        flash("Server deleted", "success")
+        _audit(uid, f"delete_server:{server_id}", ip=request.remote_addr, ua=request.headers.get("User-Agent"))
     except Exception:
         db.session.rollback()
         flash("Error deleting server", "error")
     return redirect(url_for("admin.admin_servers"))
 
 
-@admin_bp.route("/admin/servers/<int:server_id>/manage-users")
+@admin_bp.route("/admin/servers/<int:server_id>/manage-users", methods=["GET", "POST"])
 def admin_server_manage_users(server_id):
-    # Minimal placeholder for manage users link
-    return redirect(url_for("admin.admin_servers"))
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("main.login"))
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        flash("Server not found", "error")
+        return redirect(url_for("admin.admin_servers"))
+
+    # Ensure token exists for templates that still read session.csrf_token
+    try:
+        from src.panel.csrf import generate_csrf_token
+
+        generate_csrf_token()
+    except Exception:
+        pass
+
+    from src.panel.models import ServerUser
+
+    users = User.query.order_by(User.email.asc()).all()
+    assignments = {su.user_id: su.role for su in ServerUser.query.filter_by(server_id=server_id).all()}
+
+    if request.method == "POST":
+        try:
+            if not current_app.config.get("TESTING"):
+                from src.panel.csrf import verify_csrf
+
+                verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("admin.admin_server_manage_users", server_id=server_id))
+
+        try:
+            for usr in users:
+                field = f"user_{usr.id}"
+                desired = (request.form.get(field) or "").strip() or None
+                existing = ServerUser.query.filter_by(server_id=server_id, user_id=usr.id).first()
+
+                if not desired:
+                    if existing:
+                        db.session.delete(existing)
+                    continue
+                if desired not in ("server_admin", "server_mod"):
+                    continue
+                if existing:
+                    existing.role = desired
+                else:
+                    db.session.add(ServerUser(server_id=server_id, user_id=usr.id, role=desired))
+
+            db.session.commit()
+            flash("Assignments saved", "success")
+            _audit(uid, f"update_server_users:{server_id}", ip=request.remote_addr, ua=request.headers.get("User-Agent"))
+        except Exception:
+            db.session.rollback()
+            flash("Error saving assignments", "error")
+
+        return redirect(url_for("admin.admin_server_manage_users", server_id=server_id))
+
+    try:
+        return render_template("admin_server_manage.html", server=server, users=users, assignments=assignments)
+    except TemplateNotFound:
+        return redirect(url_for("admin.admin_servers"))
+
+
+@admin_bp.route("/admin/servers/<int:server_id>/edit", methods=["GET", "POST"])
+def admin_edit_server(server_id):
+    uid = session.get("user_id")
+    if not uid:
+        return redirect(url_for("main.login"))
+    u = db.session.get(User, uid)
+    if not u or not u.is_system_admin():
+        return redirect(url_for("main.dashboard"))
+
+    server = db.session.get(Server, server_id)
+    if not server:
+        flash("Server not found", "error")
+        return redirect(url_for("admin.admin_servers"))
+
+    # Ensure token exists for templates that still read session.csrf_token
+    try:
+        from src.panel.csrf import generate_csrf_token
+
+        generate_csrf_token()
+    except Exception:
+        pass
+
+    if request.method == "POST":
+        try:
+            if not current_app.config.get("TESTING"):
+                from src.panel.csrf import verify_csrf
+
+                verify_csrf()
+        except Exception:
+            flash("Invalid CSRF token", "error")
+            return redirect(url_for("admin.admin_edit_server", server_id=server_id))
+
+        host = (request.form.get("host") or "").strip() or None
+        port_raw = (request.form.get("port") or "").strip()
+        rcon_password = (request.form.get("rcon_password") or "").strip() or None
+        variables_json = (request.form.get("variables_json") or "").strip() or None
+        raw_config = (request.form.get("raw_config") or "").strip() or None
+
+        port = None
+        if port_raw:
+            try:
+                port = int(port_raw)
+                if not (1 <= port <= 65535):
+                    raise ValueError("port out of range")
+            except Exception:
+                flash("Port must be a number between 1 and 65535", "error")
+                return redirect(url_for("admin.admin_edit_server", server_id=server_id))
+
+        # Validate variables_json is JSON if provided
+        if variables_json:
+            try:
+                import json as _json
+
+                _json.loads(variables_json)
+            except Exception:
+                flash("Variables must be valid JSON", "error")
+                return redirect(url_for("admin.admin_edit_server", server_id=server_id))
+
+        try:
+            server.host = host
+            server.port = port
+            server.rcon_password = rcon_password
+            server.variables_json = variables_json
+            server.raw_config = raw_config
+            db.session.commit()
+            flash("Server updated", "success")
+            _audit(uid, f"edit_server:{server_id}", ip=request.remote_addr, ua=request.headers.get("User-Agent"))
+        except Exception:
+            db.session.rollback()
+            flash("Error updating server", "error")
+        return redirect(url_for("admin.admin_edit_server", server_id=server_id))
+
+    try:
+        return render_template("server_edit.html", server=server)
+    except TemplateNotFound:
+        return redirect(url_for("admin.admin_servers"))
 
 
 @admin_bp.route("/admin/chat-moderation")

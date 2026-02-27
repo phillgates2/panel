@@ -412,6 +412,53 @@ def _run_alembic_upgrade(*, python_exe: str, workdir: str, env: dict[str, str], 
         return {"ok": False, "error": str(e), "cmd": " ".join(cmd)}
 
 
+def _run_ptero_eggs_sync(*, python_exe: str, workdir: str, env: dict[str, str], progress_cb=None) -> dict:
+    """Best-effort sync of Ptero-Eggs templates into the database."""
+    sentinel = "__PANEL_PTERO_SYNC__"
+    code = (
+        "import json\n"
+        "from app import app, User\n"
+        "from ptero_eggs_updater import PteroEggsUpdater\n"
+        "with app.app_context():\n"
+        "    admin = User.query.filter_by(role='system_admin').first()\n"
+        "    if not admin:\n"
+        "        print('" + sentinel + "' + json.dumps({'ok': False, 'error': 'no_system_admin_user'}))\n"
+        "    else:\n"
+        "        stats = PteroEggsUpdater().sync_templates(admin.id)\n"
+        "        out = {'ok': bool(stats.get('success')), **stats}\n"
+        "        print('" + sentinel + "' + json.dumps(out))\n"
+    )
+    cmd = [python_exe, "-c", code]
+    if progress_cb:
+        progress_cb("templates", "panel", {"action": "ptero_eggs_sync", "cmd": " ".join(cmd)})
+    try:
+        proc = subprocess.run(cmd, cwd=workdir, env=env, capture_output=True, text=True, timeout=1800)
+        stdout = (proc.stdout or "").splitlines()
+        line = next((ln for ln in reversed(stdout) if ln.startswith(sentinel)), None)
+        if line is None:
+            return {
+                "ok": False,
+                "error": "ptero-eggs sync produced no sentinel output",
+                "returncode": proc.returncode,
+                "stdout": (proc.stdout or "").strip(),
+                "stderr": (proc.stderr or "").strip(),
+            }
+        payload = line[len(sentinel) :].strip()
+        try:
+            data = json.loads(payload or "{}")
+        except Exception:
+            data = {"ok": False, "error": "ptero-eggs sync returned invalid JSON", "raw": payload}
+
+        if proc.returncode != 0 and data.get("ok") is not True:
+            data.setdefault("returncode", proc.returncode)
+            data.setdefault("stderr", (proc.stderr or "").strip())
+        return data
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "ptero-eggs sync timed out"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def _service_name(component):
     osname = platform.system()
     mapping = SERVICE_MAP.get(component, {})
@@ -705,6 +752,8 @@ def install_all(
     redis_port: int | None = None,
     panel_env_file: str | None = None,
     db_search_path: str | None = None,
+    sync_ptero_eggs: bool | None = None,
+    require_ptero_eggs: bool = False,
 ):
     """High level install orchestrator (stub/PoC).
 
@@ -1109,6 +1158,33 @@ def install_all(
                 except Exception as e:
                     if progress_cb:
                         progress_cb("bootstrap", "panel", {"ok": False, "created": False, "error": str(e)})
+
+            # Optional: Sync Ptero-Eggs templates so server creation can seed from eggs.
+            do_sync = sync_ptero_eggs
+            if do_sync is None:
+                do_sync = bool(install_extras)
+            if do_sync:
+                try:
+                    sync_res = _run_ptero_eggs_sync(
+                        python_exe=py,
+                        workdir=os.getcwd(),
+                        env=os.environ.copy(),
+                        progress_cb=progress_cb,
+                    )
+                    actions.append({"component": "panel", "result": {"ptero_eggs_sync": sync_res}})
+                    if progress_cb:
+                        progress_cb("templates", "panel", sync_res)
+                    if require_ptero_eggs and (not sync_res.get("ok")):
+                        errors.append({"component": "panel", "error": "ptero-eggs sync failed", "details": sync_res})
+                        return {"status": "error", "actions": actions, "errors": errors}
+                except Exception as e:
+                    sync_res = {"ok": False, "error": str(e)}
+                    actions.append({"component": "panel", "result": {"ptero_eggs_sync": sync_res}})
+                    if progress_cb:
+                        progress_cb("templates", "panel", sync_res)
+                    if require_ptero_eggs:
+                        errors.append({"component": "panel", "error": "ptero-eggs sync failed", "details": sync_res})
+                        return {"status": "error", "actions": actions, "errors": errors}
 
     # Attempt to start the Panel app service after install
     if not dry_run and auto_start:
