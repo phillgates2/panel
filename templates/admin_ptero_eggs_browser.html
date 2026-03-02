@@ -10,7 +10,7 @@
             <p class="text-muted">Browse and manage 240+ game server templates from Ptero-Eggs</p>
         </div>
         <div class="btn-group">
-            <button class="btn btn-primary" onclick="syncTemplates()">
+            <button class="btn btn-primary" onclick="syncTemplates(event)">
                 <i class="fas fa-sync-alt"></i> Sync Templates
             </button>
             <a href="{{ url_for('config.create_custom_ptero_template') }}" class="btn btn-success">
@@ -181,7 +181,7 @@
                     <i class="fas fa-egg fa-3x text-muted mb-3"></i>
                     <h5>No Templates Found</h5>
                     <p class="text-muted">Click "Sync Templates" to import templates from Ptero-Eggs</p>
-                    <button class="btn btn-primary" onclick="syncTemplates()">
+                    <button class="btn btn-primary" onclick="syncTemplates(event)">
                         <i class="fas fa-sync-alt"></i> Sync Now
                     </button>
                 </div>
@@ -289,8 +289,13 @@ document.getElementById('searchInput').addEventListener('keypress', function(e) 
     }
 });
 
-function syncTemplates() {
-    const btn = event.target.closest('button');
+function syncTemplates(e) {
+    const evt = e || window.event;
+    const btn = (evt && evt.target && evt.target.closest) ? evt.target.closest('button') : null;
+    if (!btn) {
+        alert('Unable to start sync');
+        return;
+    }
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
@@ -299,9 +304,23 @@ function syncTemplates() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': '{{ csrf_token() }}',
         }
     })
-    .then(response => response.json())
+    .then(async (response) => {
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (err) {
+            data = null;
+        }
+
+        if (!response.ok) {
+            const msg = (data && data.message) ? data.message : ('HTTP ' + response.status);
+            throw new Error(msg);
+        }
+        return data;
+    })
     .then(data => {
         if (data.success) {
             alert(`Sync completed!\n\nAdded: ${data.added}\nUpdated: ${data.updated}\nUnchanged: ${data.unchanged}\nErrors: ${data.errors}`);
@@ -312,7 +331,7 @@ function syncTemplates() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('An error occurred during sync');
+        alert('Sync failed: ' + (error && error.message ? error.message : 'Unknown error'));
     })
     .finally(() => {
         btn.disabled = false;

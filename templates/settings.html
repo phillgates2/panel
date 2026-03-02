@@ -1,63 +1,83 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="settings-page" role="main" aria-labelledby="settings-title">
-    <h1 id="settings-title">?? Settings</h1>
+    <h1 id="settings-title">Settings</h1>
+
+    <p class="text-muted">Quick links to account, privacy, and admin settings.</p>
 
     <div class="settings-grid">
-        <section class="settings-section" aria-labelledby="notifications-title">
-            <h2 id="notifications-title">Notifications</h2>
-            <form method="post" aria-label="Update notification settings">
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="email_notifications" checked>
-                        Email notifications
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="push_notifications" checked>
-                        Push notifications
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </form>
+        <section class="settings-section" aria-labelledby="account-title">
+            <h2 id="account-title">Account</h2>
+            <div class="settings-links" role="list">
+                {% if app and 'main.profile' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('main.profile') }}">Profile</a>
+                {% endif %}
+                {% if app and 'main.notifications' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('main.notifications') }}">Notifications</a>
+                {% endif %}
+                {% if app and 'account_sessions' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('account_sessions') }}">Sessions</a>
+                {% endif %}
+                {% if app and 'account_api_keys' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('account_api_keys') }}">API Keys</a>
+                {% endif %}
+                {% if app and 'account_2fa' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('account_2fa') }}">Two-Factor Auth (2FA)</a>
+                {% endif %}
+            </div>
         </section>
 
         <section class="settings-section" aria-labelledby="privacy-title">
-            <h2 id="privacy-title">Privacy</h2>
-            <form method="post" aria-label="Update privacy settings">
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="profile_visible" checked>
-                        Make profile visible to others
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="activity_visible">
-                        Show online activity
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </form>
+            <h2 id="privacy-title">Privacy & Data</h2>
+            <div class="settings-links" role="list">
+                {% if app and 'config.privacy' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('config.privacy') }}">Privacy Policy</a>
+                {% endif %}
+                {% if app and 'config.gdpr_tools' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('config.gdpr_tools') }}">GDPR Tools</a>
+                {% endif %}
+            </div>
         </section>
 
-        <section class="settings-section" aria-labelledby="danger-title">
-            <h2 id="danger-title">Danger Zone</h2>
-            <p>These actions cannot be undone.</p>
-            <button class="btn btn-danger" onclick="confirmDelete()">Delete Account</button>
+        {% if user and user.is_system_admin() %}
+        <section class="settings-section" aria-labelledby="admin-title">
+            <h2 id="admin-title">Admin</h2>
+            <div class="settings-links" role="list">
+                {% if app and 'admin.admin_servers' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin.admin_servers') }}">Server Management</a>
+                {% endif %}
+                {% if app and 'admin.admin_jobs' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin.admin_jobs') }}">Job Status</a>
+                {% endif %}
+                {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('config.ptero_eggs_browser') }}">Ptero-Eggs Templates</a>
+                {% endif %}
+                {% if app and 'admin.admin_theme' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin.admin_theme') }}">Theme</a>
+                {% endif %}
+                {% if app and 'admin.admin_security' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin.admin_security') }}">Security</a>
+                {% endif %}
+                {% if app and 'admin.admin_audit' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin.admin_audit') }}">Audit Log</a>
+                {% endif %}
+                {% if app and 'security_settings' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('security_settings') }}">Security Settings</a>
+                {% endif %}
+                {% if app and 'admin_sessions' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin_sessions') }}">Sessions (Admin)</a>
+                {% endif %}
+                {% if app and 'admin_system_dashboard' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('admin_system_dashboard') }}">System Dashboard</a>
+                {% endif %}
+                {% if app and 'config.deployment_history' in app.view_functions %}
+                <a role="listitem" class="settings-link" href="{{ url_for('config.deployment_history') }}">Config Deployments</a>
+                {% endif %}
+            </div>
         </section>
+        {% endif %}
     </div>
 </div>
-
-<script>
-function confirmDelete() {
-    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-        // Handle account deletion
-        alert('Account deletion not implemented yet.');
-    }
-}
-</script>
 
 <style>
 .settings-page {
@@ -84,20 +104,23 @@ function confirmDelete() {
     margin-bottom: 1rem;
 }
 
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: flex;
-    align-items: center;
+.settings-links {
+    display: grid;
     gap: 0.5rem;
-    cursor: pointer;
 }
 
-.btn-danger {
-    background: var(--danger-color);
-    color: white;
+.settings-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    text-decoration: none;
+    color: inherit;
+}
+
+.settings-link:hover {
+    text-decoration: underline;
 }
 </style>
 {% endblock %}

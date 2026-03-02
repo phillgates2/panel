@@ -701,14 +701,35 @@ def ptero_eggs_browser():
 @config_bp.route("/admin/ptero-eggs/sync", methods=["POST"])
 def ptero_eggs_sync():
     """Trigger a manual sync of Ptero-Eggs templates."""
-    if not current_user.is_system_admin():
+    # Authentication check (session-based, consistent with the browser page)
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
+
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
+
+    # CSRF protection (supports header X-CSRF-Token for fetch() requests)
+    from src.panel.csrf import verify_csrf
+    from werkzeug.exceptions import HTTPException
+
+    try:
+        verify_csrf()
+    except HTTPException as e:
+        return (
+            jsonify({"success": False, "message": e.description or "CSRF failed"}),
+            int(getattr(e, "code", 400) or 400),
+        )
 
     try:
         from ptero_eggs_updater import PteroEggsUpdater
 
         updater = PteroEggsUpdater()
-        stats = updater.sync_templates(current_user.id)
+        stats = updater.sync_templates(user.id)
 
         return jsonify(stats)
 
