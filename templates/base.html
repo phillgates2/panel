@@ -15,7 +15,7 @@
     <meta name="msapplication-TileColor" content="#238636">
     <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <link rel="manifest" href="/static/manifest.json">
-    <title>Panel</title>
+    <title>{% block title %}Panel{% endblock %}</title>
     <!-- Browser Detection - Must run before page render -->
     <script src="{{ url_for('static', filename='js/browser-detect.js') }}"></script>
     <!-- Chart.js for Analytics -->
@@ -45,6 +45,7 @@
       })();
     </script>
     <link rel="stylesheet" href="{{ get_cdn_url('css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="icon" href="{{ get_cdn_url('favicon.ico') }}" type="image/x-icon">
     {% if theme_enabled %}
     <link rel="stylesheet" href="/theme.css" />

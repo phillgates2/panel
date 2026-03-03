@@ -1,24 +1,61 @@
-<!doctype html>
-<html>
-<head><title>Admin Security</title></head>
-<body>
-<h1>Security Management</h1>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <div class="messages">
-      {% for m in messages %}<div class="msg">{{ m }}</div>{% endfor %}
+{% extends "base.html" %}
+
+{% block title %}Admin Security - Panel{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>🛡️ Security Management</h1>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <div class="card-info">
+        <h3>Whitelist</h3>
+        <p class="text-secondary">Allow trusted IPs</p>
+      </div>
     </div>
-  {% endif %}
-{% endwith %}
-<form action="/admin/security/whitelist/add" method="post">
-  <input type="text" name="ip_address" placeholder="IP Address" />
-  <input type="text" name="description" placeholder="Description" />
-  <button type="submit">Add to Whitelist</button>
-</form>
-<form action="/admin/security/blacklist/add" method="post">
-  <input type="text" name="ip_address" placeholder="IP Address" />
-  <input type="text" name="reason" placeholder="Reason" />
-  <button type="submit">Add to Blacklist</button>
-</form>
-</body>
-</html>
+    <div class="card-body">
+      <form action="/admin/security/whitelist/add" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-group">
+          <label for="whitelist-ip">IP Address</label>
+          <input id="whitelist-ip" class="form-control" type="text" name="ip_address" placeholder="IP Address" required />
+        </div>
+
+        <div class="form-group">
+          <label for="whitelist-desc">Description</label>
+          <input id="whitelist-desc" class="form-control" type="text" name="description" placeholder="Description" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add to Whitelist</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-info">
+        <h3>Blacklist</h3>
+        <p class="text-secondary">Block abusive IPs</p>
+      </div>
+    </div>
+    <div class="card-body">
+      <form action="/admin/security/blacklist/add" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-group">
+          <label for="blacklist-ip">IP Address</label>
+          <input id="blacklist-ip" class="form-control" type="text" name="ip_address" placeholder="IP Address" required />
+        </div>
+
+        <div class="form-group">
+          <label for="blacklist-reason">Reason</label>
+          <input id="blacklist-reason" class="form-control" type="text" name="reason" placeholder="Reason" />
+        </div>
+
+        <button type="submit" class="btn btn-danger">Add to Blacklist</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
