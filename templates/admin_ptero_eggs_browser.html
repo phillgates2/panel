@@ -478,6 +478,7 @@ function confirmApply() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': '{{ csrf_token() }}',
         }
     })
     .then(response => response.json())

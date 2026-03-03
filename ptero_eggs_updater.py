@@ -10,12 +10,11 @@ import logging
 import os
 import shutil
 import subprocess
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from app import app, db
+from app.db import db
 from config_manager import ConfigTemplate
 
 logger = logging.getLogger(__name__)
@@ -84,6 +83,19 @@ class PteroEggsUpdater:
             or os.environ.get("PANEL_EGGS_REPO_URL")
             or "https://github.com/pterodactyl/game-eggs.git"
         )
+
+    def _table_exists(self, table_name: str) -> bool:
+        """Best-effort check for whether a DB table exists.
+
+        Some deployments may not have run migrations that create the optional
+        Ptero-Eggs tracking tables yet. We still want template imports to work.
+        """
+        try:
+            from sqlalchemy import inspect
+
+            return bool(inspect(db.engine).has_table(table_name))
+        except Exception:
+            return False
 
     def clone_or_update_repository(self) -> Tuple[bool, str]:
         """Clone the Ptero-Eggs repository or update if it exists.
@@ -204,7 +216,11 @@ class PteroEggsUpdater:
         return list(self.repo_path.rglob("egg-*.json"))
 
     def import_or_update_template(
-        self, egg_path: Path, admin_user_id: int, commit_hash: str
+        self,
+        egg_path: Path,
+        admin_user_id: int,
+        commit_hash: str,
+        track_versions: bool = True,
     ) -> Tuple[str, Optional[int]]:
         """Import or update a single template from an egg file.
 
@@ -252,20 +268,6 @@ class PteroEggsUpdater:
                 if existing.template_data == template_data_json:
                     return "unchanged", existing.id
 
-                # Mark old version as not current
-                for old_version in existing.ptero_versions:
-                    old_version.is_current = False
-
-                # Create new version entry
-                version_count = existing.ptero_versions.count()
-                new_version = PteroEggsTemplateVersion(
-                    template_id=existing.id,
-                    version_number=version_count + 1,
-                    commit_hash=commit_hash,
-                    template_data_snapshot=template_data_json,
-                    is_current=True,
-                )
-
                 # Update template
                 existing.template_data = template_data_json
                 existing.description = (
@@ -273,7 +275,25 @@ class PteroEggsUpdater:
                 )
                 existing.updated_at = datetime.now(timezone.utc)
 
-                db.session.add(new_version)
+                if track_versions:
+                    try:
+                        # Mark old version as not current
+                        for old_version in existing.ptero_versions:
+                            old_version.is_current = False
+
+                        # Create new version entry
+                        version_count = existing.ptero_versions.count()
+                        new_version = PteroEggsTemplateVersion(
+                            template_id=existing.id,
+                            version_number=version_count + 1,
+                            commit_hash=commit_hash,
+                            template_data_snapshot=template_data_json,
+                            is_current=True,
+                        )
+                        db.session.add(new_version)
+                    except Exception:
+                        # If version tracking tables aren't present, proceed without history.
+                        pass
 
                 return "updated", existing.id
             else:
@@ -290,16 +310,19 @@ class PteroEggsUpdater:
                 db.session.add(template)
                 db.session.flush()  # Get template ID
 
-                # Create initial version entry
-                initial_version = PteroEggsTemplateVersion(
-                    template_id=template.id,
-                    version_number=1,
-                    commit_hash=commit_hash,
-                    template_data_snapshot=template_data_json,
-                    is_current=True,
-                )
-
-                db.session.add(initial_version)
+                if track_versions:
+                    try:
+                        # Create initial version entry
+                        initial_version = PteroEggsTemplateVersion(
+                            template_id=template.id,
+                            version_number=1,
+                            commit_hash=commit_hash,
+                            template_data_snapshot=template_data_json,
+                            is_current=True,
+                        )
+                        db.session.add(initial_version)
+                    except Exception:
+                        pass
 
                 return "added", template.id
 
@@ -330,6 +353,9 @@ class PteroEggsUpdater:
         }
 
         try:
+            has_versions = self._table_exists("ptero_eggs_template_version")
+            has_metadata = self._table_exists("ptero_eggs_update_metadata")
+
             # Clone or update repository
             success, message = self.clone_or_update_repository()
             if not success:
@@ -353,7 +379,10 @@ class PteroEggsUpdater:
             # Process each egg file
             for egg_file in egg_files:
                 status, template_id = self.import_or_update_template(
-                    egg_file, admin_user_id, commit_info["commit_hash"]
+                    egg_file,
+                    admin_user_id,
+                    commit_info["commit_hash"],
+                    track_versions=has_versions,
                 )
 
                 if status == "added":
@@ -365,26 +394,36 @@ class PteroEggsUpdater:
                 elif status == "error":
                     stats["errors"] += 1
 
-            # Update metadata
-            metadata = PteroEggsUpdateMetadata.query.first()
-            if not metadata:
-                metadata = PteroEggsUpdateMetadata()
-                db.session.add(metadata)
-
-            metadata.last_sync_at = datetime.now(timezone.utc)
-            metadata.repository_url = self.repo_url
-            metadata.last_commit_hash = commit_info["commit_hash"]
-            metadata.last_commit_message = commit_info["commit_message"]
-            metadata.last_sync_status = "success"
-            metadata.last_error_message = None
-            metadata.total_templates_imported = (
-                stats["added"] + stats["updated"] + stats["unchanged"]
-            )
-            metadata.templates_added = stats["added"]
-            metadata.templates_updated = stats["updated"]
-
-            # Commit all changes
+            # Commit template changes first so missing optional tables can't
+            # prevent core imports from working.
             db.session.commit()
+
+            # Update metadata (optional)
+            if has_metadata:
+                try:
+                    metadata = PteroEggsUpdateMetadata.query.first()
+                    if not metadata:
+                        metadata = PteroEggsUpdateMetadata()
+                        db.session.add(metadata)
+
+                    metadata.last_sync_at = datetime.now(timezone.utc)
+                    metadata.repository_url = self.repo_url
+                    metadata.last_commit_hash = commit_info["commit_hash"]
+                    metadata.last_commit_message = commit_info["commit_message"]
+                    metadata.last_sync_status = "success"
+                    metadata.last_error_message = None
+                    metadata.total_templates_imported = (
+                        stats["added"] + stats["updated"] + stats["unchanged"]
+                    )
+                    metadata.templates_added = stats["added"]
+                    metadata.templates_updated = stats["updated"]
+
+                    db.session.commit()
+                except Exception:
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
 
             stats["success"] = True
             stats["message"] = (
@@ -398,14 +437,15 @@ class PteroEggsUpdater:
             stats["message"] = f"Sync failed: {str(e)}"
             logger.error(f"Ptero-Eggs sync failed: {e}")
 
-            # Update metadata with error
+            # Update metadata with error (optional)
             try:
-                metadata = PteroEggsUpdateMetadata.query.first()
-                if metadata:
-                    metadata.last_sync_status = "failed"
-                    metadata.last_error_message = str(e)
-                    db.session.commit()
-            except:
+                if self._table_exists("ptero_eggs_update_metadata"):
+                    metadata = PteroEggsUpdateMetadata.query.first()
+                    if metadata:
+                        metadata.last_sync_status = "failed"
+                        metadata.last_error_message = str(e)
+                        db.session.commit()
+            except Exception:
                 pass
 
         return stats
@@ -416,7 +456,14 @@ class PteroEggsUpdater:
         Returns:
             Dictionary with sync status information, or None if never synced
         """
-        metadata = PteroEggsUpdateMetadata.query.first()
+        if not self._table_exists("ptero_eggs_update_metadata"):
+            return None
+
+        try:
+            metadata = PteroEggsUpdateMetadata.query.first()
+        except Exception:
+            return None
+
         if not metadata:
             return None
 

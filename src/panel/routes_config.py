@@ -803,13 +803,34 @@ def ptero_eggs_template_preview(template_id):
 )
 def apply_ptero_eggs_template(template_id, server_id):
     """Apply a Ptero-Eggs template to a server."""
-    from app import Server
+    # Session-based auth (consistent with the browser route)
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "Not authenticated"}), 401
 
-    if not current_user.is_system_admin():
+    admin_user = db.session.get(User, user_id)
+    if not admin_user:
+        return jsonify({"success": False, "message": "User not found"}), 401
+
+    if not admin_user.is_system_admin():
         return jsonify({"success": False, "message": "Access denied"}), 403
+
+    # CSRF for fetch() callers
+    from src.panel.csrf import verify_csrf
+    from werkzeug.exceptions import HTTPException
+
+    try:
+        verify_csrf()
+    except HTTPException as e:
+        return (
+            jsonify({"success": False, "message": e.description or "CSRF failed"}),
+            int(getattr(e, "code", 400) or 400),
+        )
 
     try:
         template = ConfigTemplate.query.get_or_404(template_id)
+        from src.panel.models import Server
+
         server = Server.query.get_or_404(server_id)
 
         # Parse template data
@@ -822,7 +843,7 @@ def apply_ptero_eggs_template(template_id, server_id):
         config_manager = ConfigManager(server_id)
         version = config_manager.create_version(
             config_data=template_data,
-            user_id=current_user.id,
+            user_id=admin_user.id,
             change_summary=f"Applied Ptero-Eggs template: {template.name}",
         )
 
@@ -837,11 +858,26 @@ def apply_ptero_eggs_template(template_id, server_id):
 
         db.session.commit()
 
+        # If the template includes an install script, enqueue a Docker-based install
+        job_id = None
+        try:
+            installation = template_data.get("installation") if isinstance(template_data, dict) else None
+            install_script = ""
+            if isinstance(installation, dict):
+                install_script = (installation.get("script") or "").strip()
+            if install_script:
+                from background_jobs import job_manager
+
+                job_id = job_manager.enqueue_server_install(server.id, template.id)
+        except Exception:
+            job_id = None
+
         return jsonify(
             {
                 "success": True,
                 "message": "Template applied successfully",
                 "version_id": version.id,
+                "job_id": job_id,
             }
         )
 
