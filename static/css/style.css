@@ -277,12 +277,59 @@ nav .nav-dropdown-trigger {
     text-transform: uppercase;
 }
 
+/* Dropdown section toggles (<details>/<summary>) */
+.nav-dropdown-menu .nav-dropdown-section {
+    margin: 0;
+    padding: 0;
+}
+
+.nav-dropdown-menu summary.nav-dropdown-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.nav-dropdown-menu summary.nav-dropdown-heading::-webkit-details-marker {
+    display: none;
+}
+
+.nav-dropdown-menu summary.nav-dropdown-heading::after {
+    content: "▸";
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.nav-dropdown-menu details[open] > summary.nav-dropdown-heading::after {
+    content: "▾";
+}
+
+.nav-dropdown-menu summary.nav-dropdown-heading:focus-visible {
+    outline: 2px solid var(--border);
+    outline-offset: 2px;
+}
+
+.nav-dropdown-section-body {
+    padding: 0 0.25rem 0.35rem;
+}
+
+.nav-dropdown-subsection {
+    margin-top: 0.25rem;
+}
+
 .nav-dropdown-menu {
     display: none;
     position: absolute;
     top: calc(100% + 0.25rem);
     right: 0;
     min-width: 220px;
+    max-height: 70vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
     padding: 0.25rem;
     border-radius: 12px;
     border: 1px solid var(--border);

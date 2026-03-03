@@ -1,5 +1,9 @@
 <!doctype html>
-<html>
+<html
+  data-theme-toggle-enabled="{{ '1' if theme_toggle_enabled else '0' }}"
+  data-theme-forced="{{ (theme_forced or '')|e }}"
+  data-user-theme-pref="{{ (user_theme_pref or '')|e }}"
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,12 +24,15 @@
       (function() {
         try {
           var root = document.documentElement;
-          var toggleEnabled = {{ 'true' if theme_toggle_enabled else 'false' }};
-          var forced = '{{ theme_forced or "" }}';
+          var toggleEnabled = (root.dataset.themeToggleEnabled === '1');
+          var forced = root.dataset.themeForced || '';
           if (!toggleEnabled && forced) {
             root.setAttribute('data-theme', forced);
           } else {
-            var serverPref = '{{ user_theme_pref if user_theme_pref in ["light", "dark"] else "" }}';
+            var serverPref = root.dataset.userThemePref || '';
+            if (serverPref !== 'light' && serverPref !== 'dark') {
+              serverPref = '';
+            }
             var local = localStorage.getItem('theme');
             var theme = local || serverPref;
             if (!theme) {
@@ -52,13 +59,13 @@
       gtag('config', 'GA_TRACKING_ID');
     </script>
   </head>
-  <body class="fade-in">
+  <body class="fade-in" data-user-id="{{ user.id if user else '' }}">
     <header role="banner">
       <div class="container">
         <nav aria-label="Main navigation">
           <div class="nav-brand">
             <a href="/" class="brand-link" aria-label="Panel home">
-              <h3 style="margin: 0; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">⚡ Panel</h3>
+              <h3 style="margin: 0; background: var(--gradient); background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent;">⚡ Panel</h3>
             </a>
           </div>
           <div class="nav-links">
@@ -76,133 +83,164 @@
                 ☰ Menu
               </button>
               <div class="nav-dropdown-menu" role="menu" aria-label="Menu">
-                <div class="nav-dropdown-heading" aria-hidden="true">Main</div>
-                <a role="menuitem" href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">🏠 Home</a>
-                {% if app and 'forum.index' in app.view_functions %}
-                <a role="menuitem" href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a>
-                {% endif %}
-                {% if app and 'cms.blog_index' in app.view_functions %}
-                <a role="menuitem" href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'cms' in request.endpoint }}">📰 Blog</a>
-                {% endif %}
+                <details class="nav-dropdown-section" open>
+                  <summary class="nav-dropdown-heading">Main</summary>
+                  <div class="nav-dropdown-section-body">
+                    <a role="menuitem" href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' }}">🏠 Home</a>
+                    {% if app and 'forum.index' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('forum.index') }}" class="{{ 'active' if request.endpoint and 'forum' in request.endpoint }}">💬 Forum</a>
+                    {% endif %}
+                    {% if app and 'cms.blog_index' in app.view_functions %}
+                    <a role="menuitem" href="{{ url_for('cms.blog_index') }}" class="{{ 'active' if request.endpoint and 'cms' in request.endpoint }}">📰 Blog</a>
+                    {% endif %}
+                  </div>
+                </details>
+
                 {% if not logged_in %}
-                  <div class="nav-dropdown-heading" aria-hidden="true">Account</div>
-                  <a role="menuitem" href="{{ url_for('main.login') }}" class="{{ 'active' if request.endpoint == 'main.login' }}">🔐 Login</a>
-                  <a role="menuitem" href="{{ url_for('main.register') }}" class="{{ 'active' if request.endpoint == 'main.register' }}">📝 Register</a>
+                  <details class="nav-dropdown-section">
+                    <summary class="nav-dropdown-heading">Account</summary>
+                    <div class="nav-dropdown-section-body">
+                      <a role="menuitem" href="{{ url_for('main.login') }}" class="{{ 'active' if request.endpoint == 'main.login' }}">🔐 Login</a>
+                      <a role="menuitem" href="{{ url_for('main.register') }}" class="{{ 'active' if request.endpoint == 'main.register' }}">📝 Register</a>
+                    </div>
+                  </details>
                 {% else %}
-                  <div class="nav-dropdown-heading" aria-hidden="true">Account</div>
-                  <a role="menuitem" href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">📊 Dashboard</a>
-                  {% if app and 'main.permissions' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('main.permissions') }}" class="{{ 'active' if request.endpoint == 'main.permissions' }}">🛡️ Permissions</a>
-                  {% endif %}
-                  <a role="menuitem" href="{{ url_for('main.profile') }}" class="{{ 'active' if request.endpoint == 'main.profile' }}">👤 Profile</a>
-                  <a role="menuitem" href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint == 'main.settings' }}">⚙️ Settings</a>
-                  {% if app and 'account_sessions' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('account_sessions') }}" class="{{ 'active' if request.endpoint == 'account_sessions' }}">🗝️ Sessions</a>
-                  {% endif %}
-                  {% if app and 'account_api_keys' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('account_api_keys') }}" class="{{ 'active' if request.endpoint == 'account_api_keys' }}">🔑 API Keys</a>
-                  {% endif %}
-                  {% if app and 'config.gdpr_tools' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('config.gdpr_tools') }}" class="{{ 'active' if request.endpoint == 'config.gdpr_tools' }}">🗂️ GDPR Tools</a>
-                  {% endif %}
-                  <a role="menuitem" href="{{ url_for('main.notifications') }}" class="{{ 'active' if request.endpoint == 'main.notifications' }}">🔔 Notifications</a>
+                  <details class="nav-dropdown-section">
+                    <summary class="nav-dropdown-heading">Account</summary>
+                    <div class="nav-dropdown-section-body">
+                      <a role="menuitem" href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">📊 Dashboard</a>
+                      {% if app and 'main.permissions' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('main.permissions') }}" class="{{ 'active' if request.endpoint == 'main.permissions' }}">🛡️ Permissions</a>
+                      {% endif %}
+                      <a role="menuitem" href="{{ url_for('main.profile') }}" class="{{ 'active' if request.endpoint == 'main.profile' }}">👤 Profile</a>
+                      <a role="menuitem" href="{{ url_for('main.settings') }}" class="{{ 'active' if request.endpoint == 'main.settings' }}">⚙️ Settings</a>
+                      {% if app and 'account_sessions' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('account_sessions') }}" class="{{ 'active' if request.endpoint == 'account_sessions' }}">🗝️ Sessions</a>
+                      {% endif %}
+                      {% if app and 'account_api_keys' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('account_api_keys') }}" class="{{ 'active' if request.endpoint == 'account_api_keys' }}">🔑 API Keys</a>
+                      {% endif %}
+                      {% if app and 'config.gdpr_tools' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('config.gdpr_tools') }}" class="{{ 'active' if request.endpoint == 'config.gdpr_tools' }}">🗂️ GDPR Tools</a>
+                      {% endif %}
+                      <a role="menuitem" href="{{ url_for('main.notifications') }}" class="{{ 'active' if request.endpoint == 'main.notifications' }}">🔔 Notifications</a>
+                    </div>
+                  </details>
 
-                  <div class="nav-dropdown-heading" aria-hidden="true">Servers</div>
-                  {% if app and 'server.index' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('server.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('server.') }}">🎮 Server Dashboard</a>
-                  {% endif %}
-                  {% if app and 'main.rcon_console' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('main.rcon_console') }}" class="{{ 'active' if request.endpoint == 'main.rcon_console' }}">🧩 RCON Console</a>
-                  {% elif app and 'rcon_console' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('rcon_console') }}" class="{{ 'active' if request.endpoint == 'rcon_console' }}">🧩 RCON Console</a>
-                  {% endif %}
-                  {% if app and 'server_templates' in app.view_functions %}
-                  <a role="menuitem" href="{{ url_for('server_templates') }}" class="{{ 'active' if request.endpoint == 'server_templates' }}">📦 Server Templates</a>
-                  {% endif %}
+                  <details class="nav-dropdown-section">
+                    <summary class="nav-dropdown-heading">Servers</summary>
+                    <div class="nav-dropdown-section-body">
+                      {% if app and 'server.index' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('server.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('server.') }}">🎮 Server Dashboard</a>
+                      {% endif %}
+                      {% if app and 'main.rcon_console' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('main.rcon_console') }}" class="{{ 'active' if request.endpoint == 'main.rcon_console' }}">🧩 RCON Console</a>
+                      {% elif app and 'rcon_console' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('rcon_console') }}" class="{{ 'active' if request.endpoint == 'rcon_console' }}">🧩 RCON Console</a>
+                      {% endif %}
+                      {% if app and 'server_templates' in app.view_functions %}
+                      <a role="menuitem" href="{{ url_for('server_templates') }}" class="{{ 'active' if request.endpoint == 'server_templates' }}">📦 Server Templates</a>
+                      {% endif %}
+                    </div>
+                  </details>
+
                   {% if user.is_system_admin() %}
-                    <div class="nav-dropdown-heading" aria-hidden="true">Admin</div>
-                    {% if app and 'admin.admin_servers' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_servers') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.') }}">🛠️ Admin Dashboard</a>
-                    {% elif app and 'admin_servers' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_servers') }}">🛠️ Admin Dashboard</a>
-                    {% endif %}
+                    <details class="nav-dropdown-section">
+                      <summary class="nav-dropdown-heading">Admin</summary>
+                      <div class="nav-dropdown-section-body">
+                        {% if app and 'admin.admin_servers' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_servers') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.') }}">🛠️ Admin Dashboard</a>
+                        {% elif app and 'admin_servers' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_servers') }}">🛠️ Admin Dashboard</a>
+                        {% endif %}
 
-                    {% if app and 'admin.admin_create_server' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_create_server') }}" class="{{ 'active' if request.endpoint == 'admin.admin_create_server' }}">➕ Create Server</a>
-                    {% elif app and 'admin_create_server' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_create_server') }}">➕ Create Server</a>
-                    {% endif %}
+                        {% if app and 'admin.admin_create_server' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_create_server') }}" class="{{ 'active' if request.endpoint == 'admin.admin_create_server' }}">➕ Create Server</a>
+                        {% elif app and 'admin_create_server' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_create_server') }}">➕ Create Server</a>
+                        {% endif %}
 
-                    {% if app and 'admin.admin_rbac_users' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_rbac_users') }}" class="{{ 'active' if request.endpoint == 'admin.admin_rbac_users' }}">👥 User Management</a>
-                    {% elif app and 'admin_users' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_users') }}">👥 User Management</a>
-                    {% endif %}
-                    {% if app and 'admin.admin_rbac_roles' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_rbac_roles') }}" class="{{ 'active' if request.endpoint == 'admin.admin_rbac_roles' }}">🧷 Roles &amp; Permissions</a>
-                    {% endif %}
+                        {% if app and 'admin.admin_rbac_users' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_rbac_users') }}" class="{{ 'active' if request.endpoint == 'admin.admin_rbac_users' }}">👥 User Management</a>
+                        {% elif app and 'admin_users' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_users') }}">👥 User Management</a>
+                        {% endif %}
+                        {% if app and 'admin.admin_rbac_roles' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_rbac_roles') }}" class="{{ 'active' if request.endpoint == 'admin.admin_rbac_roles' }}">🧷 Roles &amp; Permissions</a>
+                        {% endif %}
 
-                    {% if app and 'admin_sessions' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_sessions') }}" class="{{ 'active' if request.endpoint == 'admin_sessions' }}">🗝️ Sessions</a>
-                    {% endif %}
+                        {% if app and 'admin_sessions' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_sessions') }}" class="{{ 'active' if request.endpoint == 'admin_sessions' }}">🗝️ Sessions</a>
+                        {% endif %}
 
-                    {% if app and 'security_dashboard' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('security_dashboard') }}" class="{{ 'active' if request.endpoint == 'security_dashboard' }}">🛡️ Security Dashboard</a>
-                    {% endif %}
-                    {% if app and 'security_settings' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('security_settings') }}" class="{{ 'active' if request.endpoint == 'security_settings' }}">🔒 Security Settings</a>
-                    {% endif %}
+                        {% if app and 'security_dashboard' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('security_dashboard') }}" class="{{ 'active' if request.endpoint == 'security_dashboard' }}">🛡️ Security Dashboard</a>
+                        {% endif %}
+                        {% if app and 'security_settings' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('security_settings') }}" class="{{ 'active' if request.endpoint == 'security_settings' }}">🔒 Security Settings</a>
+                        {% endif %}
 
-                    {% if app and 'admin_system_dashboard' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_system_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_system_dashboard' }}">📈 System Dashboard</a>
-                    {% endif %}
+                        {% if app and 'admin_system_dashboard' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_system_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_system_dashboard' }}">📈 System Dashboard</a>
+                        {% endif %}
 
-                    {% if app and 'admin.admin_jobs' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_jobs') }}" class="{{ 'active' if request.endpoint == 'admin.admin_jobs' }}">🧾 Jobs</a>
-                    {% elif app and 'admin_jobs' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_jobs') }}">🧾 Jobs</a>
-                    {% endif %}
+                        {% if app and 'admin.admin_jobs' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_jobs') }}" class="{{ 'active' if request.endpoint == 'admin.admin_jobs' }}">🧾 Jobs</a>
+                        {% elif app and 'admin_jobs' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_jobs') }}">🧾 Jobs</a>
+                        {% endif %}
 
-                    {% if app and 'admin.admin_theme' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_theme') }}" class="{{ 'active' if request.endpoint == 'admin.admin_theme' }}">🎨 Theme</a>
-                    {% elif app and 'admin_theme' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_theme') }}">🎨 Theme</a>
-                    {% endif %}
-                    {% if app and 'admin.admin_teams' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_teams') }}" class="{{ 'active' if request.endpoint == 'admin.admin_teams' }}">👪 Teams</a>
-                    {% endif %}
+                        {% if app and 'admin.admin_theme' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_theme') }}" class="{{ 'active' if request.endpoint == 'admin.admin_theme' }}">🎨 Theme</a>
+                        {% elif app and 'admin_theme' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_theme') }}">🎨 Theme</a>
+                        {% endif %}
+                        {% if app and 'admin.admin_teams' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_teams') }}" class="{{ 'active' if request.endpoint == 'admin.admin_teams' }}">👪 Teams</a>
+                        {% endif %}
 
-                    {% if app and 'admin.admin_audit' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin.admin_audit') }}" class="{{ 'active' if request.endpoint == 'admin.admin_audit' }}">🧾 Audit</a>
-                    {% elif app and 'admin_audit' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_audit') }}">🧾 Audit</a>
-                    {% endif %}
-                    {% if app and 'admin_audit_viewer' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_audit_viewer') }}" class="{{ 'active' if request.endpoint == 'admin_audit_viewer' }}">🔎 Audit Viewer</a>
-                    {% endif %}
+                        {% if app and 'admin.admin_audit' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin.admin_audit') }}" class="{{ 'active' if request.endpoint == 'admin.admin_audit' }}">🧾 Audit</a>
+                        {% elif app and 'admin_audit' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_audit') }}">🧾 Audit</a>
+                        {% endif %}
+                        {% if app and 'admin_audit_viewer' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_audit_viewer') }}" class="{{ 'active' if request.endpoint == 'admin_audit_viewer' }}">🔎 Audit Viewer</a>
+                        {% endif %}
 
-                    {% if app and 'admin_tools' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('admin_tools') }}" class="{{ 'active' if request.endpoint == 'admin_tools' }}">🧰 Tools</a>
-                    {% endif %}
+                        {% if app and 'admin_tools' in app.view_functions %}
+                        <a role="menuitem" href="{{ url_for('admin_tools') }}" class="{{ 'active' if request.endpoint == 'admin_tools' }}">🧰 Tools</a>
+                        {% endif %}
 
-                    <div class="nav-dropdown-heading" aria-hidden="true">Templates</div>
-                    {% if app and 'config.config_templates' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('config.config_templates') }}" class="{{ 'active' if request.endpoint == 'config.config_templates' }}">📄 Config Templates</a>
-                    {% endif %}
-                    {% if app and 'config.deployment_history' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('config.deployment_history') }}" class="{{ 'active' if request.endpoint == 'config.deployment_history' }}">🚀 Deployments</a>
-                    {% endif %}
-                    {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('config.ptero_eggs_browser') }}" class="{{ 'active' if request.endpoint == 'config.ptero_eggs_browser' }}">🥚 Ptero-Eggs</a>
-                    {% endif %}
+                        <details class="nav-dropdown-section nav-dropdown-subsection">
+                          <summary class="nav-dropdown-heading">Templates</summary>
+                          <div class="nav-dropdown-section-body">
+                            {% if app and 'config.config_templates' in app.view_functions %}
+                            <a role="menuitem" href="{{ url_for('config.config_templates') }}" class="{{ 'active' if request.endpoint == 'config.config_templates' }}">📄 Config Templates</a>
+                            {% endif %}
+                            {% if app and 'config.deployment_history' in app.view_functions %}
+                            <a role="menuitem" href="{{ url_for('config.deployment_history') }}" class="{{ 'active' if request.endpoint == 'config.deployment_history' }}">🚀 Deployments</a>
+                            {% endif %}
+                            {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
+                            <a role="menuitem" href="{{ url_for('config.ptero_eggs_browser') }}" class="{{ 'active' if request.endpoint == 'config.ptero_eggs_browser' }}">🥚 Ptero-Eggs</a>
+                            {% endif %}
+                          </div>
+                        </details>
 
-                    <div class="nav-dropdown-heading" aria-hidden="true">API</div>
-                    {% if app and 'config.api_docs' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('config.api_docs') }}" class="{{ 'active' if request.endpoint == 'config.api_docs' }}">📚 API Docs</a>
-                    {% elif app and 'api_docs' in app.view_functions %}
-                    <a role="menuitem" href="{{ url_for('api_docs') }}" class="{{ 'active' if request.endpoint == 'api_docs' }}">📚 API Docs</a>
-                    {% endif %}
+                        <details class="nav-dropdown-section nav-dropdown-subsection">
+                          <summary class="nav-dropdown-heading">API</summary>
+                          <div class="nav-dropdown-section-body">
+                            {% if app and 'config.api_docs' in app.view_functions %}
+                            <a role="menuitem" href="{{ url_for('config.api_docs') }}" class="{{ 'active' if request.endpoint == 'config.api_docs' }}">📚 API Docs</a>
+                            {% elif app and 'api_docs' in app.view_functions %}
+                            <a role="menuitem" href="{{ url_for('api_docs') }}" class="{{ 'active' if request.endpoint == 'api_docs' }}">📚 API Docs</a>
+                            {% endif %}
+                          </div>
+                        </details>
+                      </div>
+                    </details>
                   {% endif %}
+
                   <a role="menuitem" href="{{ url_for('main.logout') }}">🚪 Logout</a>
                 {% endif %}
               </div>
@@ -466,9 +504,10 @@ socket.on('connect', () => {
   console.log('Connected to server');
 
   // Authenticate user if logged in
-  {% if user %}
-  socket.emit('authenticate', { user_id: {{ user.id }} });
-  {% endif %}
+  const userId = document.body && document.body.dataset ? document.body.dataset.userId : '';
+  if (userId) {
+    socket.emit('authenticate', { user_id: Number(userId) });
+  }
 });
 
 socket.on('disconnect', () => {
@@ -637,6 +676,8 @@ function updateServerStatus(data) {
 
 // Export socket for use in other scripts
 window.socket = socket;
+</script>
+
 <footer class="footer">
       <div class="container">
         <div class="footer-content">
@@ -648,7 +689,6 @@ window.socket = socket;
             <h4>Quick Links</h4>
             <ul>
               <li><a href="{{ url_for('main.help_page') }}">Help</a></li>
-              {# <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li> #}
               <li><a href="/api/docs">API Documentation</a></li>
             </ul>
           </div>
