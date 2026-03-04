@@ -8,8 +8,12 @@ Tracks versions, manages updates, and provides notification system.
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
+import tempfile
+import urllib.request
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -83,6 +87,82 @@ class PteroEggsUpdater:
             or os.environ.get("PANEL_EGGS_REPO_URL")
             or "https://github.com/pterodactyl/game-eggs.git"
         )
+        # When git is unavailable or blocked, we can fall back to downloading
+        # a GitHub archive. Track this so commit metadata can degrade cleanly.
+        self._archive_source_url: Optional[str] = None
+
+    def _github_archive_urls(self) -> List[str]:
+        """Best-effort derive GitHub archive URLs from repo_url."""
+        url = (self.repo_url or "").strip()
+
+        # Support https://github.com/<owner>/<repo>(.git)
+        m = re.match(r"^https?://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?/?$", url)
+        if not m:
+            # Support git@github.com:<owner>/<repo>.git
+            m = re.match(r"^git@github\\.com:([^/]+)/([^/]+?)(?:\\.git)?$", url)
+        if not m:
+            return []
+
+        owner, repo = m.group(1), m.group(2)
+        branches = ("main", "master")
+        return [
+            f"https://github.com/{owner}/{repo}/archive/refs/heads/{branch}.zip"
+            for branch in branches
+        ]
+
+    def _extract_zip_safely(self, zip_path: Path, dest_dir: Path) -> None:
+        """Extract a zip into dest_dir, preventing path traversal."""
+        with zipfile.ZipFile(zip_path) as zf:
+            for member in zf.infolist():
+                member_path = Path(member.filename)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    continue
+                zf.extract(member, dest_dir)
+
+    def _download_and_extract_archive(self) -> Tuple[bool, str]:
+        """Fallback: download GitHub zip archive and extract into repo_path."""
+        urls = self._github_archive_urls()
+        if not urls:
+            return False, "Archive fallback unavailable for this repository URL"
+
+        last_err: Optional[str] = None
+        for url in urls:
+            try:
+                with urllib.request.urlopen(url, timeout=120) as resp:
+                    data = resp.read()
+
+                with tempfile.TemporaryDirectory(prefix="panel-eggs-") as tmp_dir:
+                    tmp_path = Path(tmp_dir)
+                    zip_file = tmp_path / "repo.zip"
+                    zip_file.write_bytes(data)
+
+                    extract_dir = tmp_path / "extract"
+                    extract_dir.mkdir(parents=True, exist_ok=True)
+                    self._extract_zip_safely(zip_file, extract_dir)
+
+                    # GitHub archives extract into a single top-level folder.
+                    extracted_children = [p for p in extract_dir.iterdir() if p.is_dir()]
+                    if len(extracted_children) != 1:
+                        return False, "Unexpected archive layout"
+
+                    extracted_root = extracted_children[0]
+
+                    # Replace existing repo_path contents.
+                    try:
+                        if self.repo_path.exists():
+                            shutil.rmtree(self.repo_path)
+                    except Exception:
+                        pass
+                    self.repo_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(extracted_root), str(self.repo_path))
+
+                self._archive_source_url = url
+                return True, f"Repository downloaded from archive: {url}"
+            except Exception as e:
+                last_err = str(e)
+                continue
+
+        return False, f"Archive download failed: {last_err or 'unknown error'}"
 
     def _table_exists(self, table_name: str) -> bool:
         """Best-effort check for whether a DB table exists.
@@ -136,6 +216,12 @@ class PteroEggsUpdater:
                         return True, "Repository updated successfully"
                     last_err = (result.stderr or result.stdout or "").strip()
 
+                # Fallback: if updating fails (corrupt clone, blocked network,
+                # missing git), try refreshing from a GitHub archive.
+                archive_ok, archive_msg = self._download_and_extract_archive()
+                if archive_ok:
+                    return True, archive_msg
+
                 return False, f"Git pull failed: {last_err or 'unknown error'}"
             else:
                 logger.info(f"Cloning repository to {self.repo_path}")
@@ -157,6 +243,11 @@ class PteroEggsUpdater:
                         return True, "Repository cloned successfully"
                     last_err = (result.stderr or result.stdout or "").strip()
 
+                # Fallback: if git is unavailable or blocked, try GitHub archive.
+                archive_ok, archive_msg = self._download_and_extract_archive()
+                if archive_ok:
+                    return True, archive_msg
+
                 return False, f"Git clone failed: {last_err or 'unknown error'}"
 
         except subprocess.TimeoutExpired:
@@ -172,6 +263,13 @@ class PteroEggsUpdater:
             Dictionary with commit_hash and commit_message, or None on error
         """
         try:
+            # If we used the archive fallback, there is no git metadata.
+            if self._archive_source_url:
+                return {
+                    "commit_hash": "archive",
+                    "commit_message": f"Downloaded from {self._archive_source_url}",
+                }
+
             # Get commit hash
             result = subprocess.run(
                 ["git", "-C", str(self.repo_path), "rev-parse", "HEAD"],
@@ -365,8 +463,11 @@ class PteroEggsUpdater:
             # Get commit info
             commit_info = self.get_current_commit_info()
             if not commit_info:
-                stats["message"] = "Failed to get repository commit information"
-                return stats
+                # Non-fatal: templates can still be imported without git metadata.
+                commit_info = {
+                    "commit_hash": "unknown",
+                    "commit_message": "unknown (no git metadata)",
+                }
 
             # Find all egg files
             egg_files = self.find_egg_files()

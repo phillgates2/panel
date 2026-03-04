@@ -2218,6 +2218,69 @@ select:focus-visible {
     transition: all 0.3s ease;
 }
 
+/* ===== FOOTER ===== */
+.footer {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 0 1.25rem;
+    margin-top: 2.5rem;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.footer-section {
+    flex: 1;
+    min-width: 220px;
+}
+
+.footer-section h4 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    background: none;
+    -webkit-text-fill-color: unset;
+}
+
+.footer-section p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.footer-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-section li {
+    margin-bottom: 0.5rem;
+}
+
+.footer-section a {
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.footer-section a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.footer-bottom {
+    text-align: center;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+    margin-top: 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
 .theme-toggle:hover {
     background: var(--panel-hover);
     transform: scale(1.05);
