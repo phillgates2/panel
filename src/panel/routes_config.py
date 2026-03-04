@@ -1265,17 +1265,28 @@ def gdpr_delete():
         return jsonify({"error": "Authentication required"}), 401
 
     # Require confirmation
-    confirmation = request.json.get("confirmation", "").strip()
+    is_api_request = bool(getattr(request, "is_json", False))
+    if is_api_request:
+        confirmation = (request.json or {}).get("confirmation", "").strip()
+    else:
+        confirmation = (request.form.get("confirmation") or "").strip()
+
     if confirmation != f"DELETE {user.email}":
-        return (
-            jsonify(
-                {
-                    "error": "Invalid confirmation",
-                    "message": "Please provide the exact confirmation text",
-                }
-            ),
-            400,
-        )
+        if is_api_request:
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid confirmation",
+                        "message": "Please provide the exact confirmation text",
+                    }
+                ),
+                400,
+            )
+        try:
+            flash("Invalid confirmation text.", "error")
+        except Exception:
+            pass
+        return redirect(url_for("config.gdpr_tools"))
 
     try:
         from src.panel.gdpr_compliance import get_gdpr_compliance
@@ -1327,7 +1338,14 @@ Panel Team""",
         # Log out the user
         session.clear()
 
-        return jsonify({"message": "Account deleted successfully", "summary": result})
+        if is_api_request:
+            return jsonify({"message": "Account deleted successfully", "summary": result})
+
+        try:
+            flash("Account deleted successfully.", "success")
+        except Exception:
+            pass
+        return redirect(url_for("main.index"))
 
     except Exception as e:
         current_app.logger.error(f"GDPR deletion failed for user {user.id}: {e}")

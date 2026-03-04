@@ -5,7 +5,7 @@
         <h1>??? GDPR Tools</h1>
         <p class="text-secondary">Manage your data and privacy rights under GDPR</p>
 
-        {% if current_user.is_authenticated %}
+        {% if logged_in %}
         <div class="row">
             <div class="col-md-6">
                 <div class="card">
@@ -14,7 +14,7 @@
                     </div>
                     <div class="card-body">
                         <p>Download a complete copy of all your personal data stored on our platform.</p>
-                        <form method="POST" action="{{ url_for('gdpr_export') }}">
+                        <form method="POST" action="{{ url_for('config.gdpr_export') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="btn btn-primary">
                                 ?? Export My Data
@@ -37,12 +37,13 @@
                         <div class="alert alert-warning">
                             <strong>?? Warning:</strong> This action cannot be undone. Your account will be permanently deleted.
                         </div>
-                        <form method="POST" action="{{ url_for('gdpr_delete') }}" id="deleteForm">
+                        <form method="POST" action="{{ url_for('config.gdpr_delete') }}" id="deleteForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <div class="mb-3">
                                 <label for="confirmation" class="form-label">Confirmation Required</label>
                                 <input type="text" class="form-control" id="confirmation"
                                        name="confirmation" required
+                                       data-required-text="DELETE {{ current_user.email }}"
                                        placeholder="Type: DELETE {{ current_user.email }}">
                                 <small class="form-text text-muted">
                                     Please type exactly: <code>DELETE {{ current_user.email }}</code>
@@ -109,7 +110,7 @@
         {% endif %}
 
         <div class="mt-4">
-            <a href="{{ url_for('privacy') }}" class="btn btn-outline-primary">?? Privacy Policy</a>
+            <a href="{{ url_for('config.privacy') }}" class="btn btn-outline-primary">?? Privacy Policy</a>
             <a href="{{ url_for('main.index') }}" class="btn btn-secondary">? Back to Home</a>
         </div>
     </div>
@@ -197,7 +198,7 @@
 <script>
 // Confirmation validation for account deletion
 document.getElementById('confirmation').addEventListener('input', function() {
-    const required = 'DELETE {{ current_user.email }}';
+    const required = this.dataset.requiredText || '';
     const btn = document.getElementById('deleteBtn');
     btn.disabled = this.value !== required;
 });
