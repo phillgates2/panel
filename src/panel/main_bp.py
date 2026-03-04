@@ -280,8 +280,25 @@ def dashboard() -> str:
 
 @main_bp.route("/rcon")
 def rcon_console() -> str:
-    # Minimal placeholder route used by dashboard template links
-    return render_template("rcon_console.html")
+    # Fallback route used by templates. If a server id is provided and the
+    # server blueprint is registered, redirect to the real per-server console.
+    server_id = request.args.get("server_id")
+    try:
+        if server_id and "server.rcon_console" in current_app.view_functions:
+            return redirect(url_for("server.rcon_console", server_id=int(server_id)))
+    except Exception:
+        pass
+    return render_template("rcon_console.html", server_id=server_id)
+
+
+@main_bp.route("/rcon/<int:server_id>")
+def rcon_console_for_server(server_id: int) -> Any:
+    try:
+        if "server.rcon_console" in current_app.view_functions:
+            return redirect(url_for("server.rcon_console", server_id=server_id))
+    except Exception:
+        pass
+    return redirect(url_for("main.rcon_console", server_id=server_id))
 
 
 @main_bp.route("/notifications")

@@ -91,11 +91,12 @@ except Exception:
     # Best-effort: keep app booting even if secret-key persistence fails.
     pass
 
+# Bind SQLAlchemy early so monitoring extensions (metrics/health) can safely
+# query the DB during initialization.
+db.init_app(app)
+
 # Initialize all extensions and configurations
 extensions = init_app_extensions(app)
-
-# Bind SQLAlchemy to the app
-db.init_app(app)
 
 # Ensure a failed DB transaction can't poison later requests.
 # This is especially important for the module-level app used by systemd.
@@ -212,7 +213,7 @@ if server_bp is not None:
     try:
         app.register_blueprint(server_bp)
     except Exception:
-        pass
+        app.logger.exception("Failed to register server management blueprint")
 
 # Backwards-compat endpoint aliases.
 # A lot of older code uses url_for('login') / url_for('index') rather than

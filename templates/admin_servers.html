@@ -61,7 +61,8 @@
                                     <a href="{{ url_for('admin.admin_edit_server', server_id=s.id) }}" class="btn btn-sm btn-outline-info">
                                       <i class="fas fa-sliders-h"></i> Edit
                                     </a>
-                                    <a href="{{ url_for('server.rcon_console', server_id=s.id) }}" class="btn btn-sm btn-outline-success">
+                                                                        {% set _rcon_endpoint = 'server.rcon_console' if (app and ('server.rcon_console' in app.view_functions)) else 'main.rcon_console' %}
+                                                                        <a href="{{ url_for(_rcon_endpoint, server_id=s.id) }}" class="btn btn-sm btn-outline-success">
                                         <i class="fas fa-terminal"></i> RCON
                                     </a>
 

@@ -73,6 +73,48 @@ def init_app_extensions(app: Flask) -> Dict[str, Any]:
         **integration_extensions,
     }
 
+    # Flask-Login: required for routes that use @login_required.
+    # In deployments that import `app:app` from app.py (module-level app),
+    # the app factory in app/__init__.py is bypassed, so we must initialize
+    # LoginManager here.
+    try:
+        from flask_login import LoginManager
+
+        from app.db import db
+
+        login_manager = LoginManager()
+        login_manager.init_app(app)
+        login_manager.login_view = "main.login"
+        login_manager.login_message = "Please log in to access this page."
+
+        @login_manager.user_loader
+        def load_user(user_id: str):
+            try:
+                from src.panel.models import User
+                return db.session.get(User, int(user_id))
+            except Exception:
+                return None
+
+        @login_manager.request_loader
+        def load_user_from_request(_request):
+            # Support the app's session-based auth (session['user_id']) so
+            # routes protected with @login_required work consistently.
+            try:
+                from flask import session
+
+                user_id = session.get("user_id")
+                if not user_id:
+                    return None
+                from src.panel.models import User
+
+                return db.session.get(User, int(user_id))
+            except Exception:
+                return None
+
+        all_extensions["login_manager"] = login_manager
+    except Exception as e:
+        app.logger.warning(f"Login manager disabled: {e}")
+
     # Log successful initialization
     app.logger.info("All Flask extensions initialized successfully")
 
