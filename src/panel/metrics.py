@@ -203,6 +203,14 @@ class MetricsCollector:
             from src.panel.models import User
 
             with self.app.app_context():
+                # If SQLAlchemy hasn't been initialized for this specific app
+                # instance yet, skip quietly (avoids noisy startup warnings).
+                try:
+                    if "sqlalchemy" not in getattr(self.app, "extensions", {}):
+                        return
+                except Exception:
+                    return
+
                 now = time.time()
                 if self._user_table_exists is False and now < self._next_user_table_check_at:
                     return

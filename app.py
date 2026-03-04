@@ -98,6 +98,41 @@ db.init_app(app)
 # Initialize all extensions and configurations
 extensions = init_app_extensions(app)
 
+# Safety net: ensure Flask-Login is always available for @login_required.
+# Some deployments have partially-initialized extensions; avoid hard 500s.
+if not hasattr(app, "login_manager"):
+    try:
+        from flask_login import LoginManager
+
+        login_manager = LoginManager()
+        login_manager.init_app(app)
+        login_manager.login_view = "main.login"
+        login_manager.login_message = "Please log in to access this page."
+
+        @login_manager.user_loader
+        def load_user(user_id: str):
+            try:
+                return db.session.get(User, int(user_id))
+            except Exception:
+                return None
+
+        @login_manager.request_loader
+        def load_user_from_request(_request):
+            try:
+                user_id = session.get("user_id")
+                if not user_id:
+                    return None
+                return db.session.get(User, int(user_id))
+            except Exception:
+                return None
+
+        try:
+            extensions["login_manager"] = login_manager
+        except Exception:
+            pass
+    except Exception:
+        pass
+
 # Ensure a failed DB transaction can't poison later requests.
 # This is especially important for the module-level app used by systemd.
 @app.teardown_request
@@ -242,6 +277,12 @@ def _alias_endpoint(alias: str, target: str) -> None:
 _alias_endpoint("index", "main.index")
 _alias_endpoint("login", "main.login")
 _alias_endpoint("logout", "main.logout")
+
+# Backwards-compat for older templates that used unprefixed config endpoints.
+_alias_endpoint("gdpr_tools", "config.gdpr_tools")
+_alias_endpoint("gdpr_export", "config.gdpr_export")
+_alias_endpoint("gdpr_delete", "config.gdpr_delete")
+_alias_endpoint("privacy", "config.privacy")
 
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "main")
 
