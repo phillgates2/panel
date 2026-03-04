@@ -382,8 +382,15 @@ def register_blueprints(app):
             methods=["POST"],
         )
 
-        # GDPR tools endpoints referenced by templates (best-effort stubs)
+        # GDPR tools endpoints referenced by older templates.
+        # Prefer calling through to the real config blueprint handlers so
+        # `url_for('gdpr_export')` keeps working.
         def _gdpr_export_alias():
+            try:
+                if "config.gdpr_export" in app.view_functions:
+                    return app.view_functions["config.gdpr_export"]()
+            except Exception:
+                pass
             return redirect(url_for("main.dashboard"))
         app.add_url_rule(
             "/gdpr/export",
@@ -393,6 +400,11 @@ def register_blueprints(app):
         )
 
         def _gdpr_delete_alias():
+            try:
+                if "config.gdpr_delete" in app.view_functions:
+                    return app.view_functions["config.gdpr_delete"]()
+            except Exception:
+                pass
             return redirect(url_for("main.dashboard"))
         app.add_url_rule(
             "/gdpr/delete",

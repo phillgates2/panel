@@ -1197,7 +1197,6 @@ def test_rate_limit():
 # GDPR compliance endpoints
 @csrf.exempt
 @config_bp.route("/api/gdpr/export", methods=["POST"])
-@login_required
 def gdpr_export():
     """Export user data (GDPR Article 15)"""
     user = get_current_user()
@@ -1257,7 +1256,6 @@ Panel Team""",
 
 @csrf.exempt
 @config_bp.route("/api/gdpr/delete", methods=["POST"])
-@login_required
 def gdpr_delete():
     """Delete user data (GDPR Article 17)"""
     user = get_current_user()
@@ -1398,7 +1396,6 @@ def privacy():
 
 
 @config_bp.route("/gdpr")
-@login_required
 def gdpr_tools():
     """GDPR tools and data management"""
     user = get_current_user()

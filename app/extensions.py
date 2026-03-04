@@ -74,42 +74,51 @@ def init_app_extensions(app: Flask) -> Dict[str, Any]:
     }
 
     # Flask-Login: required for routes that use @login_required.
-    # In deployments that import `app:app` from app.py (module-level app),
-    # the app factory in app/__init__.py is bypassed, so we must initialize
-    # LoginManager here.
+    #
+    # Important: ensure we *always* call LoginManager.init_app(app) when
+    # flask_login is installed, even if DB/model imports fail. Otherwise,
+    # `current_app.login_manager` can be missing and any @login_required route
+    # will hard-500.
     try:
         from flask_login import LoginManager
-
-        from app.db import db
 
         login_manager = LoginManager()
         login_manager.init_app(app)
         login_manager.login_view = "main.login"
         login_manager.login_message = "Please log in to access this page."
 
-        @login_manager.user_loader
-        def load_user(user_id: str):
-            try:
-                from src.panel.models import User
-                return db.session.get(User, int(user_id))
-            except Exception:
-                return None
+        # Register loaders best-effort; if these fail we still keep
+        # `app.login_manager` present so Flask-Login can operate.
+        try:
+            from app.db import db
 
-        @login_manager.request_loader
-        def load_user_from_request(_request):
-            # Support the app's session-based auth (session['user_id']) so
-            # routes protected with @login_required work consistently.
-            try:
-                from flask import session
+            @login_manager.user_loader
+            def load_user(user_id: str):
+                try:
+                    from src.panel.models import User
 
-                user_id = session.get("user_id")
-                if not user_id:
+                    return db.session.get(User, int(user_id))
+                except Exception:
                     return None
-                from src.panel.models import User
 
-                return db.session.get(User, int(user_id))
-            except Exception:
-                return None
+            @login_manager.request_loader
+            def load_user_from_request(_request):
+                # Support the app's session-based auth (session['user_id']) so
+                # routes protected with @login_required work consistently.
+                try:
+                    from flask import session
+
+                    user_id = session.get("user_id")
+                    if not user_id:
+                        return None
+                    from src.panel.models import User
+
+                    return db.session.get(User, int(user_id))
+                except Exception:
+                    return None
+        except Exception:
+            # Keep going; anonymous users will be treated as unauthenticated.
+            pass
 
         all_extensions["login_manager"] = login_manager
     except Exception as e:
