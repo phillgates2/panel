@@ -121,6 +121,14 @@ def init_app_extensions(app: Flask) -> Dict[str, Any]:
             pass
 
         all_extensions["login_manager"] = login_manager
+
+        try:
+            app.logger.info(
+                "Flask-Login initialized",
+                extra={"has_login_manager": hasattr(app, "login_manager")},
+            )
+        except Exception:
+            pass
     except Exception as e:
         app.logger.warning(f"Login manager disabled: {e}")
 

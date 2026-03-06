@@ -25,6 +25,7 @@ except Exception:  # pragma: no cover
 from src.panel.models import SiteAsset, SiteSetting, User, Server, ServerUser
 from src.panel.routes_rbac import user_can_edit_server, user_server_role
 from src.panel.csrf import verify_csrf
+from app.build_info import detect_git_sha
 
 
 def create_app(config_name="default"):
@@ -53,6 +54,15 @@ def create_app(config_name="default"):
         template_folder=str(template_dir),
         static_folder=str(static_dir)
     )
+
+    # Emit build identification info (best-effort) so production logs can confirm
+    # which revision is actually running.
+    try:
+        _sha = detect_git_sha(root_dir)
+        if _sha:
+            app.logger.info(f"Panel build git_sha={_sha}")
+    except Exception:
+        pass
 
     # Track application startup time for health and status endpoints
     try:

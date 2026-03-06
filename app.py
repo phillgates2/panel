@@ -18,6 +18,7 @@ from app.context_processors import inject_user
 from app.db import db
 from app.error_handlers import internal_error, page_not_found
 from app.extensions import init_app_extensions
+from app.build_info import detect_git_sha
 from app.secret_key import ensure_secret_key
 from src.panel.csrf import ensure_csrf_after, ensure_csrf_for_templates
 
@@ -97,6 +98,15 @@ db.init_app(app)
 
 # Initialize all extensions and configurations
 extensions = init_app_extensions(app)
+
+# Emit build identification info (best-effort) so production logs can confirm
+# which revision is actually running.
+try:
+    _sha = detect_git_sha(__file__)
+    if _sha:
+        app.logger.info(f"Panel build git_sha={_sha}")
+except Exception:
+    pass
 
 # Safety net: ensure Flask-Login is always available for @login_required.
 # Some deployments have partially-initialized extensions; avoid hard 500s.
