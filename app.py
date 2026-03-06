@@ -294,6 +294,45 @@ _alias_endpoint("gdpr_export", "config.gdpr_export")
 _alias_endpoint("gdpr_delete", "config.gdpr_delete")
 _alias_endpoint("privacy", "config.privacy")
 
+# Legacy path compatibility: some older deployments used hard-coded form actions
+# like POST /gdpr/export (vs /api/gdpr/export). Provide lightweight path aliases.
+try:
+    if "gdpr_export_legacy_path" not in app.view_functions:
+        def _gdpr_export_legacy_path():
+            try:
+                view = app.view_functions.get("config.gdpr_export")
+                if view:
+                    return view()
+            except Exception:
+                pass
+            return redirect(url_for("config.gdpr_tools"))
+
+        app.add_url_rule(
+            "/gdpr/export",
+            endpoint="gdpr_export_legacy_path",
+            view_func=_gdpr_export_legacy_path,
+            methods=["POST"],
+        )
+
+    if "gdpr_delete_legacy_path" not in app.view_functions:
+        def _gdpr_delete_legacy_path():
+            try:
+                view = app.view_functions.get("config.gdpr_delete")
+                if view:
+                    return view()
+            except Exception:
+                pass
+            return redirect(url_for("config.gdpr_tools"))
+
+        app.add_url_rule(
+            "/gdpr/delete",
+            endpoint="gdpr_delete_legacy_path",
+            view_func=_gdpr_delete_legacy_path,
+            methods=["POST"],
+        )
+except Exception:
+    pass
+
 # Backwards-compat for older templates that still reference the server
 # management blueprint endpoint, even when the server blueprint isn't
 # registered in this deployment.
