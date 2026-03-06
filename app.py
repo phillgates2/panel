@@ -284,6 +284,24 @@ _alias_endpoint("gdpr_export", "config.gdpr_export")
 _alias_endpoint("gdpr_delete", "config.gdpr_delete")
 _alias_endpoint("privacy", "config.privacy")
 
+# Backwards-compat for older templates that still reference the server
+# management blueprint endpoint, even when the server blueprint isn't
+# registered in this deployment.
+try:
+    if "server.rcon_console" not in app.view_functions:
+        def _server_rcon_console_alias(server_id: int):
+            # Fall back to the generic RCON console.
+            return redirect(url_for("main.rcon_console"))
+
+        app.add_url_rule(
+            "/servers/<int:server_id>/rcon",
+            endpoint="server.rcon_console",
+            view_func=_server_rcon_console_alias,
+            methods=["GET", "POST"],
+        )
+except Exception:
+    pass
+
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "main")
 
 if SERVICE_NAME == "auth":

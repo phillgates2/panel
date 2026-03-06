@@ -315,6 +315,21 @@ def register_blueprints(app):
             return redirect(url_for("main.rcon_console"))
         app.add_url_rule("/rcon", endpoint="rcon_console", view_func=_rcon_alias)
 
+        # Backwards-compat: some older templates link directly to
+        # url_for('server.rcon_console', server_id=...). If the optional
+        # server blueprint failed to register, provide a lightweight alias so
+        # templates don't hard-500 during url building.
+        if "server.rcon_console" not in app.view_functions:
+            def _server_rcon_console_alias(server_id):
+                return redirect(url_for("main.rcon_console"))
+
+            app.add_url_rule(
+                "/servers/<int:server_id>/rcon",
+                endpoint="server.rcon_console",
+                view_func=_server_rcon_console_alias,
+                methods=["GET", "POST"],
+            )
+
         def _account_sessions_alias():
             return redirect(url_for("main.dashboard"))
         app.add_url_rule("/account/sessions", endpoint="account_sessions", view_func=_account_sessions_alias)
