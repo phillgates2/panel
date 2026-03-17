@@ -170,7 +170,6 @@ def admin_create_server():
                     | (ConfigTemplate.name.ilike("%(Ptero-Eggs)%"))
                 )
                 .order_by(ConfigTemplate.name.asc())
-                .limit(500)
                 .all()
             )
         except Exception:

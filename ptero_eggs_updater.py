@@ -30,6 +30,47 @@ def _default_auto_sync_enabled() -> bool:
     return val in ("1", "true", "yes", "on")
 
 
+def _auto_sync_max_age_seconds() -> int:
+    raw = (os.environ.get("PANEL_AUTO_SYNC_PTERO_EGGS_MAX_AGE_HOURS") or "24").strip()
+    try:
+        hours = int(raw)
+    except Exception:
+        hours = 24
+    if hours < 0:
+        hours = 0
+    return hours * 3600
+
+
+def _should_auto_sync(updater: "PteroEggsUpdater") -> bool:
+    """Decide whether an auto-sync should run (best-effort)."""
+    try:
+        # If there are no imported eggs at all, always sync.
+        existing_count = (
+            ConfigTemplate.query.filter(ConfigTemplate.name.ilike("%(Ptero-Eggs)%")).count()
+        )
+        if existing_count <= 0:
+            return True
+
+        # If we can read sync metadata, only re-sync when stale.
+        status = updater.get_sync_status() if updater._table_exists("ptero_eggs_update_metadata") else None
+        if not status:
+            return False
+
+        last_sync_at = status.get("last_sync_at")
+        if not last_sync_at:
+            return True
+
+        try:
+            age = (datetime.now(timezone.utc) - last_sync_at).total_seconds()
+        except Exception:
+            return True
+
+        return age >= float(_auto_sync_max_age_seconds())
+    except Exception:
+        # If anything goes wrong, don't aggressively sync.
+        return False
+
+
 def _try_acquire_lock(lock_path: Path) -> Optional[int]:
     """Acquire a best-effort inter-process lock.
 
@@ -84,11 +125,21 @@ def trigger_ptero_eggs_auto_sync(
     if not _default_auto_sync_enabled():
         return False
 
+    app_obj = flask_app
+
+    # Run a cheap check inside the app context (callers typically invoke this
+    # from within a request or startup hook where an app context exists).
+    try:
+        updater = PteroEggsUpdater(repo_path=repo_path, repo_url=repo_url)
+        if not _should_auto_sync(updater):
+            return False
+    except Exception:
+        # If we can't determine, fall back to not syncing.
+        return False
+
     lock_fd = _try_acquire_lock(Path("/tmp/panel-ptero-eggs-sync.lock"))
     if lock_fd is None:
         return False
-
-    app_obj = flask_app
 
     def _worker() -> None:
         try:
