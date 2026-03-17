@@ -252,6 +252,21 @@ if payment_bp is not None:
 if admin_bp is not None:
     app.register_blueprint(admin_bp)
 
+# Best-effort: auto-sync Ptero-Eggs templates so admins don't have to
+# manually click Sync before they appear in the server creation template list.
+try:
+    from ptero_eggs_updater import trigger_ptero_eggs_auto_sync
+
+    with app.app_context():
+        try:
+            admin_user = db.session.query(User).filter_by(role="system_admin").first()
+            if admin_user:
+                trigger_ptero_eggs_auto_sync(app, admin_user_id=admin_user.id)
+        except Exception:
+            pass
+except Exception:
+    pass
+
 # Optional server management blueprint. Some deployments run via `app:app`
 # from this module; ensure the blueprint is registered there as well.
 if server_bp is not None:

@@ -175,6 +175,28 @@ def admin_create_server():
             )
         except Exception:
             config_templates = []
+
+        # Best-effort: if no Ptero-Eggs templates are present yet, trigger an
+        # automatic background sync so the admin doesn't have to click “Sync”.
+        try:
+            has_ptero = any(
+                (getattr(t, "name", "") or "").endswith("(Ptero-Eggs)")
+                for t in (config_templates or [])
+            )
+            if not has_ptero:
+                from ptero_eggs_updater import trigger_ptero_eggs_auto_sync
+
+                started = trigger_ptero_eggs_auto_sync(
+                    current_app._get_current_object(),
+                    admin_user_id=uid,
+                )
+                if started:
+                    flash(
+                        "Importing Ptero-Eggs templates in the background. Refresh in a minute.",
+                        "info",
+                    )
+        except Exception:
+            pass
         try:
             return render_template("server_create.html", config_templates=config_templates)
         except TemplateNotFound:

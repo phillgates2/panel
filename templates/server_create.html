@@ -36,8 +36,9 @@
                     {% if not config_templates %}
                         <div class="alert alert-warning" style="margin-top: 0.75rem;">
                             No Ptero-Eggs templates found yet.
+                            They will be imported automatically in the background when an admin opens this page.
                             {% if app and 'config.ptero_eggs_browser' in app.view_functions %}
-                                <a href="{{ url_for('config.ptero_eggs_browser') }}">Open Ptero-Eggs Browser</a> and run a sync.
+                                You can also monitor status in the <a href="{{ url_for('config.ptero_eggs_browser') }}">Ptero-Eggs Browser</a>.
                             {% endif %}
                         </div>
                     {% endif %}

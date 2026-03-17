@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -22,6 +23,87 @@ from app.db import db
 from config_manager import ConfigTemplate
 
 logger = logging.getLogger(__name__)
+
+
+def _default_auto_sync_enabled() -> bool:
+    val = (os.environ.get("PANEL_AUTO_SYNC_PTERO_EGGS") or "1").strip().lower()
+    return val in ("1", "true", "yes", "on")
+
+
+def _try_acquire_lock(lock_path: Path) -> Optional[int]:
+    """Acquire a best-effort inter-process lock.
+
+    Returns a file descriptor on success, else None.
+    """
+    try:
+        import fcntl  # Unix-only
+
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except Exception:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            return None
+        return fd
+    except Exception:
+        return None
+
+
+def _release_lock(fd: Optional[int]) -> None:
+    if fd is None:
+        return
+    try:
+        import fcntl
+
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    except Exception:
+        pass
+    try:
+        os.close(fd)
+    except Exception:
+        pass
+
+
+def trigger_ptero_eggs_auto_sync(
+    flask_app,
+    admin_user_id: int,
+    *,
+    repo_url: Optional[str] = None,
+    repo_path: str = "/tmp/game-eggs",
+) -> bool:
+    """Trigger a background sync if auto-sync is enabled.
+
+    Intended for request handlers (non-blocking). Returns True if a new sync
+    thread was started.
+    """
+
+    if not _default_auto_sync_enabled():
+        return False
+
+    lock_fd = _try_acquire_lock(Path("/tmp/panel-ptero-eggs-sync.lock"))
+    if lock_fd is None:
+        return False
+
+    app_obj = flask_app
+
+    def _worker() -> None:
+        try:
+            with app_obj.app_context():
+                updater = PteroEggsUpdater(repo_path=repo_path, repo_url=repo_url)
+                stats = updater.sync_templates(int(admin_user_id))
+                logger.info(f"Ptero-Eggs auto-sync finished: {stats.get('message')}")
+        except Exception as e:
+            logger.error(f"Ptero-Eggs auto-sync failed: {e}")
+        finally:
+            _release_lock(lock_fd)
+
+    t = threading.Thread(target=_worker, name="ptero-eggs-auto-sync", daemon=True)
+    t.start()
+    return True
 
 
 class PteroEggsUpdateMetadata(db.Model):
@@ -632,3 +714,99 @@ def auto_update_task():
             logger.error(f"Auto-update failed: {stats['message']}")
 
         return stats
+
+
+def _cli_find_admin_user(admin_user_id: Optional[int], admin_email: Optional[str]):
+    """Resolve the admin user to attribute imports to (CLI helper)."""
+    from app import User
+
+    if admin_user_id is not None:
+        admin = User.query.get(int(admin_user_id))
+        if admin:
+            return admin
+        raise ValueError(f"No user found with id={admin_user_id}")
+
+    if admin_email:
+        admin = User.query.filter_by(email=admin_email).first()
+        if admin:
+            return admin
+        raise ValueError(f"No user found with email={admin_email}")
+
+    admin = User.query.filter_by(role="system_admin").order_by(User.id.asc()).first()
+    if not admin:
+        raise ValueError("No system_admin user found")
+    return admin
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint.
+
+    Examples:
+        python ptero_eggs_updater.py sync
+        python ptero_eggs_updater.py sync --admin-email admin@example.com
+        PANEL_EGGS_REPO_URL=https://github.com/pterodactyl/game-eggs.git python ptero_eggs_updater.py sync
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="ptero_eggs_updater.py",
+        description="Sync Ptero-Eggs templates into Panel",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sync_p = sub.add_parser("sync", help="Clone/pull game-eggs and import all egg templates")
+    sync_p.add_argument(
+        "--repo-url",
+        default=None,
+        help="Repository URL (default: PANEL_EGGS_REPO_URL or official game-eggs)",
+    )
+    sync_p.add_argument(
+        "--repo-path",
+        default=None,
+        help="Local clone path (default: /tmp/game-eggs)",
+    )
+    sync_p.add_argument("--admin-user-id", type=int, default=None, help="Attribute import to this user id")
+    sync_p.add_argument("--admin-email", default=None, help="Attribute import to this admin email")
+    sync_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON output (default)",
+    )
+
+    status_p = sub.add_parser("status", help="Show last sync metadata (if enabled)")
+    status_p.add_argument("--repo-url", default=None)
+    status_p.add_argument("--repo-path", default=None)
+    status_p.add_argument("--json", action="store_true")
+
+    args = parser.parse_args(argv)
+
+    from app import app
+
+    with app.app_context():
+        try:
+            repo_path = args.repo_path if getattr(args, "repo_path", None) else "/tmp/game-eggs"
+            repo_url = getattr(args, "repo_url", None)
+            updater = PteroEggsUpdater(repo_path=repo_path, repo_url=repo_url)
+
+            if args.command == "status":
+                status = updater.get_sync_status() or {}
+                print(json.dumps(status, default=str))
+                return 0
+
+            if args.command == "sync":
+                admin = _cli_find_admin_user(args.admin_user_id, args.admin_email)
+                stats = updater.sync_templates(admin.id)
+                print(json.dumps(stats, default=str))
+                return 0 if stats.get("success") else 1
+
+            raise ValueError(f"Unknown command: {args.command}")
+
+        except Exception as e:
+            # Print JSON so automation can capture the reason.
+            err = {"success": False, "message": str(e)}
+            print(json.dumps(err, default=str))
+            return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
