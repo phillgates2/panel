@@ -73,12 +73,19 @@ class GDPRCompliance:
             )
 
         # Audit logs
-        audit_logs = AuditLog.query.filter_by(actor_id=user_id).all()
-        for log in audit_logs:
+        # NOTE: Some deployments have older DB schemas where newer optional
+        # columns (e.g., ip_address/user_agent) are missing. Selecting only the
+        # fields we need for the GDPR export keeps this backward-compatible.
+        audit_rows = (
+            db.session.query(AuditLog.action, AuditLog.created_at)
+            .filter(AuditLog.actor_id == user_id)
+            .all()
+        )
+        for action, created_at in audit_rows:
             export_data["audit_logs"].append(
                 {
-                    "action": log.action,
-                    "timestamp": log.created_at.isoformat(),
+                    "action": action,
+                    "timestamp": created_at.isoformat() if created_at else None,
                 }
             )
 

@@ -20,6 +20,7 @@ import pyotp
 import qrcode
 from flask import (abort, flash, jsonify, redirect, render_template, request,
                    url_for)
+from sqlalchemy.orm import load_only
 
 from app import AuditLog, Server, User, app, db
 from app import session as flask_session
@@ -63,7 +64,9 @@ def admin_audit_viewer():
     date_from = request.args.get("date_from", "")
     date_to = request.args.get("date_to", "")
 
-    query = AuditLog.query
+    query = AuditLog.query.options(
+        load_only(AuditLog.id, AuditLog.actor_id, AuditLog.action, AuditLog.created_at)
+    )
 
     # Apply filters
     if user_filter:
@@ -122,7 +125,9 @@ def admin_audit_export():
     date_from = request.args.get("date_from", "")
     date_to = request.args.get("date_to", "")
 
-    query = AuditLog.query
+    query = AuditLog.query.options(
+        load_only(AuditLog.id, AuditLog.actor_id, AuditLog.action, AuditLog.created_at)
+    )
 
     # Apply filters
     if user_filter:

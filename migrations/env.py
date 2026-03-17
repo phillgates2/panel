@@ -32,8 +32,19 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the SQLAlchemy URL from the app config
-config.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
+# Set the SQLAlchemy URL.
+#
+# Operators commonly run migrations from an interactive shell where the
+# environment may differ from the systemd service that runs the app. Allow
+# explicit overrides via env vars, then fall back to the Flask app config.
+db_url = (
+    os.environ.get("SQLALCHEMY_DATABASE_URI")
+    or os.environ.get("DATABASE_URL")
+    or app.config.get("SQLALCHEMY_DATABASE_URI")
+)
+if not db_url:
+    raise RuntimeError("No database URL configured for Alembic")
+config.set_main_option("sqlalchemy.url", db_url)
 
 # add your model's MetaData object here for 'autogenerate' support
 target_metadata = db.metadata

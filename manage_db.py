@@ -17,7 +17,21 @@ from pathlib import Path
 
 def run_alembic(args):
     """Run alembic command with proper environment."""
-    cmd = [sys.executable, "-m", "alembic"] + args
+    # NOTE: This repo contains a top-level `alembic/` directory (unused; migrations
+    # live under `migrations/`). When running from the project root, that directory
+    # can shadow the installed Alembic package and break `python -m alembic`.
+    #
+    # To avoid shadowing, drop CWD from sys.path before importing Alembic, and
+    # invoke the CLI entrypoint programmatically.
+    code = (
+        "import os, sys\n"
+        "cwd = os.getcwd()\n"
+        "sys.path = [p for p in sys.path if p not in ('', cwd)]\n"
+        "from alembic.config import main\n"
+        f"sys.argv = ['alembic', '-c', 'alembic.ini'] + {args!r}\n"
+        "main()\n"
+    )
+    cmd = [sys.executable, "-c", code]
     result = subprocess.run(cmd, capture_output=False)
     return result.returncode
 
