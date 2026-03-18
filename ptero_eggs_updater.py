@@ -25,6 +25,31 @@ from config_manager import ConfigTemplate
 logger = logging.getLogger(__name__)
 
 
+def _resolve_git_executable() -> Optional[str]:
+    """Best-effort locate a usable `git` executable.
+
+    Some production systemd units override PATH to only include the venv.
+    In that case, subprocess calls to `git` fail even when git is installed
+    at /usr/bin/git.
+    """
+
+    configured = (os.environ.get("PANEL_GIT_BIN") or "").strip()
+    if configured:
+        if os.path.isfile(configured) and os.access(configured, os.X_OK):
+            return configured
+        return None
+
+    found = shutil.which("git")
+    if found:
+        return found
+
+    for candidate in ("/usr/bin/git", "/usr/local/bin/git", "/bin/git"):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+
+    return None
+
+
 def _default_auto_sync_enabled() -> bool:
     val = (os.environ.get("PANEL_AUTO_SYNC_PTERO_EGGS") or "1").strip().lower()
     return val in ("1", "true", "yes", "on")
@@ -317,12 +342,26 @@ class PteroEggsUpdater:
             Tuple of (success, message)
         """
         try:
+            git_bin = _resolve_git_executable()
+            if not git_bin:
+                path_val = os.environ.get("PATH") or ""
+                msg = (
+                    "git executable not found. If running under systemd, ensure PATH includes /usr/bin "
+                    f"(current PATH={path_val!r}) or set PANEL_GIT_BIN=/usr/bin/git."
+                )
+                logger.error(msg)
+                # Fall back to archive mode if possible.
+                archive_ok, archive_msg = self._download_and_extract_archive()
+                if archive_ok:
+                    return True, archive_msg
+                return False, msg
+
             if self.repo_path.exists():
                 logger.info(f"Updating existing repository at {self.repo_path}")
                 # Ensure the existing clone points at the configured origin.
                 try:
                     subprocess.run(
-                        ["git", "-C", str(self.repo_path), "remote", "set-url", "origin", self.repo_url],
+                        [git_bin, "-C", str(self.repo_path), "remote", "set-url", "origin", self.repo_url],
                         capture_output=True,
                         text=True,
                         timeout=30,
@@ -332,9 +371,9 @@ class PteroEggsUpdater:
                 # Update existing repository. Avoid hard-coding branch names
                 # since upstream repos may use main or master.
                 pull_cmds = [
-                    ["git", "-C", str(self.repo_path), "pull", "--ff-only"],
-                    ["git", "-C", str(self.repo_path), "pull", "origin", "main", "--ff-only"],
-                    ["git", "-C", str(self.repo_path), "pull", "origin", "master", "--ff-only"],
+                    [git_bin, "-C", str(self.repo_path), "pull", "--ff-only"],
+                    [git_bin, "-C", str(self.repo_path), "pull", "origin", "main", "--ff-only"],
+                    [git_bin, "-C", str(self.repo_path), "pull", "origin", "master", "--ff-only"],
                 ]
 
                 last_err = None
@@ -360,8 +399,8 @@ class PteroEggsUpdater:
                 logger.info(f"Cloning repository to {self.repo_path}")
                 # Clone repository
                 clone_cmds = [
-                    ["git", "clone", "--depth", "1", self.repo_url, str(self.repo_path)],
-                    ["git", "clone", self.repo_url, str(self.repo_path)],
+                    [git_bin, "clone", "--depth", "1", self.repo_url, str(self.repo_path)],
+                    [git_bin, "clone", self.repo_url, str(self.repo_path)],
                 ]
 
                 last_err = None
@@ -403,9 +442,13 @@ class PteroEggsUpdater:
                     "commit_message": f"Downloaded from {self._archive_source_url}",
                 }
 
+            git_bin = _resolve_git_executable()
+            if not git_bin:
+                return None
+
             # Get commit hash
             result = subprocess.run(
-                ["git", "-C", str(self.repo_path), "rev-parse", "HEAD"],
+                [git_bin, "-C", str(self.repo_path), "rev-parse", "HEAD"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -418,7 +461,7 @@ class PteroEggsUpdater:
 
             # Get commit message
             result = subprocess.run(
-                ["git", "-C", str(self.repo_path), "log", "-1", "--pretty=%B"],
+                [git_bin, "-C", str(self.repo_path), "log", "-1", "--pretty=%B"],
                 capture_output=True,
                 text=True,
                 timeout=10,
