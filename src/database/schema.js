@@ -13,8 +13,8 @@ let fallbackDb = {
     'SOCIAL_DISCORD': 'https://discord.gg/ozpanel',
     'SOCIAL_TWITTER': 'https://twitter.com/ozpanel',
     'SOCIAL_GITHUB': 'https://github.com/ozpanel',
-    'WEB_HOSTNAME': '127.0.0.1',
-    'INSTALLED': 'true'
+    'WEB_HOSTNAME': 'oz-esports.network',
+    'INSTALLED': 'false' // Enforce Web Setup Installer as the very first thing to see
   },
   users: [
     {
@@ -234,19 +234,10 @@ function saveMockDb() {
 if (fs.existsSync(mockDbPath)) {
   try {
     const active = JSON.parse(fs.readFileSync(mockDbPath, 'utf8'));
-    if (!active.nests.some(n => n.identifier === 'nest_strategy')) {
-      active.nests.push(fallbackDb.nests[5]);
-      active.eggs.push(fallbackDb.eggs[5]);
-      active.servers.push(fallbackDb.servers[2]);
-      active.forum_topics.push(fallbackDb.forum_topics[1]);
-      active.forum_replies.push(fallbackDb.forum_replies[1]);
-      active.forum_chat_messages.push(fallbackDb.forum_chat_messages[2]);
-      active.ai_watchdog_logs.push(fallbackDb.ai_watchdog_logs[2]);
-      fallbackDb = active;
-      saveMockDb();
-    } else {
-      fallbackDb = active;
-    }
+    // Force reset INSTALLED to false so the installer is the first thing anyone sees
+    active.system_settings['INSTALLED'] = 'false';
+    fallbackDb = active;
+    saveMockDb();
   } catch (e) {}
 } else {
   saveMockDb();

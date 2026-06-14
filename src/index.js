@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { Server } = require('socket.io');
 
-const { initPool, initializeTables, getSetting, setSetting } = require('./database/schema');
+const { initPool, initializeTables, getSetting, setSetting, fallbackDb } = require('./database/schema');
 const { startSFTPServer } = require('./sftp/sftpServer');
 const { runAiWatchdogLoop } = require('./ai/aiWatchdog');
 const { checkInstallerMiddleware, securityHeaders } = require('./security/security');
@@ -101,15 +101,32 @@ app.use((req, res) => {
   res.status(404).render('404', { message: 'The requested -OZ- Sandboxed game instance or endpoint does not exist.' });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`[Master Sentinel] Application Core successfully initialized.`);
-  console.log(`[Web Host] -OZ- Hub active on http://0.0.0.0:${PORT}`);
-  
-  try {
-    startSFTPServer(2022);
-    runAiWatchdogLoop();
-  } catch (e) {
-    console.error('[Boot Warning] Embedded Daemon execution issue:', e.message);
-  }
-});
+// Boot Master Daemons and Web Server on Default Port 80
+const PORT = process.env.PORT || 80;
+let daemonsStarted = false;
+
+function launchServer(targetPort) {
+  server.listen(targetPort, '0.0.0.0', () => {
+    console.log(`[Master Sentinel] Application Core successfully initialized.`);
+    console.log(`[Web Host] -OZ- Panel Hub Enterprise active on http://oz-esports.network${targetPort === 80 ? '' : ':' + targetPort}`);
+    
+    if (!daemonsStarted) {
+      daemonsStarted = true;
+      try {
+        startSFTPServer(2022);
+        runAiWatchdogLoop();
+      } catch (e) {
+        console.error('[Boot Warning] Embedded Daemon execution issue:', e.message);
+      }
+    }
+  }).on('error', err => {
+    if (err.code === 'EACCES') {
+      console.log(`[Port Security] Binding directly to Port ${targetPort} requires root elevation. Launching automatic proxy fallback on Port 3000...`);
+      launchServer(3000);
+    } else {
+      console.error('[Web Host Error]', err.message);
+    }
+  });
+}
+
+launchServer(PORT);

@@ -20,24 +20,24 @@
     </div>
 
     <h1 class="text-3xl font-extrabold text-white tracking-tight mb-3">Installation Sentinel Complete</h1>
-    <p class="text-gray-400 text-sm mb-8 leading-relaxed">Your entire **-OZ- Panel Hub Enterprise** suite has been successfully initialized. All PostgreSQL tables are active, Pterodactyl Game Eggs have been seeded, and the Production Caddyfile has been written.</p>
+    <p class="text-gray-400 text-sm mb-8 leading-relaxed">Your entire **-OZ- Panel Hub Enterprise** suite has been successfully initialized. All underlying database structures are active, Pterodactyl Game Eggs have been instantiated, and your Edge Proxy configuration has been written.</p>
 
-    <div class="bg-[#0E0F10] border border-gray-800 rounded-xl p-4 text-left mb-8 space-y-2">
-      <div class="flex justify-between text-xs">
-        <span class="text-gray-500 font-semibold uppercase">Super Administrator</span>
-        <span class="text-white font-mono"><%= adminUser %></span>
+    <div class="bg-[#0E0F10] border border-gray-800 rounded-xl p-5 text-left mb-8 space-y-3 shadow-inner">
+      <div class="flex justify-between text-xs font-mono">
+        <span class="text-gray-500 font-semibold uppercase font-sans">Super Administrator</span>
+        <span class="text-purple-400 font-bold"><%= adminUser %></span>
       </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-gray-500 font-semibold uppercase">Web Hostname</span>
-        <span class="text-white font-mono"><%= webHostname %></span>
+      <div class="flex justify-between text-xs font-mono">
+        <span class="text-gray-500 font-semibold uppercase font-sans">Primary Web Address / Default IP</span>
+        <span class="text-white font-bold"><%= webHostname || 'oz-esports.network' %></span>
       </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-gray-500 font-semibold uppercase">Active Web Port</span>
-        <span class="text-green-400 font-mono">3000 / 80</span>
+      <div class="flex justify-between text-xs font-mono">
+        <span class="text-gray-500 font-semibold uppercase font-sans">Edge Protocol Port</span>
+        <span class="text-green-400 font-bold">Standard HTTP / Port 80 (No Port Required)</span>
       </div>
     </div>
 
-    <a href="/login" class="block w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] font-bold text-white rounded-xl shadow-lg transition transform hover:scale-[1.02]">
+    <a href="/login" class="block w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] font-extrabold text-white text-sm rounded-xl shadow-lg transition transform hover:scale-[1.02]">
       🚀 Proceed to Dashboard Login
     </a>
 
