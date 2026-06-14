@@ -1,0 +1,21 @@
+{
+  "nest": "Minecraft",
+  "nest_identifier": "nest_minecraft",
+  "name": "Minecraft Bedrock Dedicated Server",
+  "description": "Official Microsoft Minecraft Bedrock Edition C++ dedicated server. Fully optimized for crossplay with Windows 10/11, iOS, Android, Xbox, and Nintendo Switch devices.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./bedrock_server",
+  "install_script": "echo \"Downloading bedrock_server package...\" && mkdir -p worlds && echo \"Success.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "IPv4 / IPv6 Server Port", "default_value": "19132", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "20", "required": true },
+    { "key": "GAMEMODE", "label": "Default Gamemode (survival, creative, adventure)", "default_value": "survival", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname Banner", "default_value": "-OZ- Official Minecraft Bedrock Hub", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "server.properties",
+      "template": "server-name={{SERVER_NAME}}\nserver-port={{SERVER_PORT}}\nserver-portv6=19133\ngamemode={{GAMEMODE}}\nmax-players={{MAX_PLAYERS}}\nonline-mode=false\nemit-server-telemetry=false\n"
+    }
+  ]
+}

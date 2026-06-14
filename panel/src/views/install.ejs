@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>-OZ- Panel Hub - Web Installation Sentinel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#5865F2', 600: '#4752C4' },
+            dark: { 800: '#18191C', 900: '#0E0F10' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-dark-900 text-gray-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="max-w-4xl w-full bg-dark-800 rounded-2xl border border-gray-800 shadow-2xl overflow-hidden" x-data="{ step: <%= step %> }">
+    
+    <div class="bg-dark-900 border-b border-gray-800 p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center space-x-3">
+          <div class="p-2.5 bg-brand-500 bg-opacity-10 rounded-xl border border-brand-500 border-opacity-20 text-brand-500 font-extrabold">
+            -OZ-
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">-OZ- Panel Hub Enterprise Setup</h1>
+            <p class="text-sm text-gray-400">Web Setup Sentinel for CMS, Forums, Discord Eggs & PostgreSQL</p>
+          </div>
+        </div>
+        <div class="hidden sm:flex items-center space-x-2 text-xs font-semibold px-3 py-1 bg-gray-800 rounded-full text-brand-500">
+          <span>v2026 Enterprise</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-3">
+        <div :class="step >= 1 ? 'border-brand-500 text-brand-500' : 'border-gray-800 text-gray-600'" class="border-t-2 pt-2 text-xs font-semibold uppercase tracking-wider transition-all">1. System Check</div>
+        <div :class="step >= 2 ? 'border-brand-500 text-brand-500' : 'border-gray-800 text-gray-600'" class="border-t-2 pt-2 text-xs font-semibold uppercase tracking-wider transition-all">2. Database & Proxy</div>
+        <div :class="step >= 3 ? 'border-brand-500 text-brand-500' : 'border-gray-800 text-gray-600'" class="border-t-2 pt-2 text-xs font-semibold uppercase tracking-wider transition-all">3. Brand & Social</div>
+        <div :class="step >= 4 ? 'border-brand-500 text-brand-500' : 'border-gray-800 text-gray-600'" class="border-t-2 pt-2 text-xs font-semibold uppercase tracking-wider transition-all">4. Super Admin</div>
+      </div>
+    </div>
+
+    <% if (error) { %>
+      <div class="bg-red-500 bg-opacity-10 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-xl flex items-center space-x-3">
+        <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="text-sm font-medium text-red-400"><%= error %></span>
+      </div>
+    <% } %>
+
+    <form action="/install/setup" method="POST" class="p-6 sm:p-8">
+      
+      <!-- STEP 1 -->
+      <div x-show="step === 1" x-transition.opacity>
+        <h2 class="text-xl font-bold text-white mb-4">🚀 Baseline System Diagnostic</h2>
+        <p class="text-sm text-gray-400 mb-6">Verify that all runtime environment eggs, PostgreSQL drivers, and web packages are correctly active before writing configurations.</p>
+        
+        <div class="space-y-4 mb-8">
+          <div class="flex items-center justify-between p-4 bg-dark-900 rounded-xl border border-gray-800">
+            <div class="flex items-center space-x-3">
+              <span class="text-xl">🟢</span>
+              <div>
+                <p class="font-semibold text-white">Node.js Engine Active</p>
+                <p class="text-xs text-gray-400">Version v20.20+ Verified with Subprocess Yolk Capability</p>
+              </div>
+            </div>
+            <span class="px-3 py-1 bg-green-500 bg-opacity-10 text-green-400 text-xs font-bold rounded-full">Passed</span>
+          </div>
+
+          <div class="flex items-center justify-between p-4 bg-dark-900 rounded-xl border border-gray-800">
+            <div class="flex items-center space-x-3">
+              <span class="text-xl">🟢</span>
+              <div>
+                <p class="font-semibold text-white">PostgreSQL Cluster Native</p>
+                <p class="text-xs text-gray-400">pg drivers available & SQL execution unblocked</p>
+              </div>
+            </div>
+            <span class="px-3 py-1 bg-green-500 bg-opacity-10 text-green-400 text-xs font-bold rounded-full">Passed</span>
+          </div>
+
+          <div class="flex items-center justify-between p-4 bg-dark-900 rounded-xl border border-gray-800">
+            <div class="flex items-center space-x-3">
+              <span class="text-xl">🟢</span>
+              <div>
+                <p class="font-semibold text-white">Caddy Web Server Environment</p>
+                <p class="text-xs text-gray-400">Caddy reverse proxy capabilities active</p>
+              </div>
+            </div>
+            <span class="px-3 py-1 bg-green-500 bg-opacity-10 text-green-400 text-xs font-bold rounded-full">Passed</span>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" @click="step = 2" class="px-6 py-3 bg-brand-500 hover:bg-brand-600 font-semibold text-white rounded-xl shadow-lg transition flex items-center space-x-2">
+            <span>Continue to Database Setup</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div x-show="step === 2" x-transition.opacity x-cloak>
+        <h2 class="text-xl font-bold text-white mb-4">🗄️ PostgreSQL Database & Caddy Webserver</h2>
+        <p class="text-sm text-gray-400 mb-6">Configure your central PostgreSQL database cluster and external Web Hostname for Caddy automated reverse proxy SSL.</p>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Database Host</label>
+            <input type="text" name="db_host" value="<%= dbHost %>" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Database Port</label>
+            <input type="number" name="db_port" value="<%= dbPort %>" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Database Name</label>
+            <input type="text" name="db_name" value="<%= dbName %>" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Database User</label>
+            <input type="text" name="db_user" value="<%= dbUser %>" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Database Password</label>
+            <input type="password" name="db_pass" placeholder="Enter secure PostgreSQL password..." value="panel_secure_password" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div class="sm:col-span-2 border-t border-gray-800 pt-6">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">🌐 Production Web Hostname (Caddy SSL)</label>
+            <input type="text" name="web_hostname" placeholder="e.g. panel.oz-esports.network or 127.0.0.1" value="127.0.0.1" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition mb-2">
+            <p class="text-xs text-gray-500">The Caddy Sentinel will bind to this hostname to generate and renew automated Let's Encrypt certificates.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <button type="button" @click="step = 1" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 font-semibold text-white rounded-xl transition">Back</button>
+          <button type="button" @click="step = 3" class="px-6 py-3 bg-brand-500 hover:bg-brand-600 font-semibold text-white rounded-xl shadow-lg transition flex items-center space-x-2">
+            <span>Continue to Branding</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div x-show="step === 3" x-transition.opacity x-cloak>
+        <h2 class="text-xl font-bold text-white mb-4">🎨 CMS Identity & Discord Integrations</h2>
+        <p class="text-sm text-gray-400 mb-6">Customize your public website navigation title, community MOTD, and Global Social Media linking.</p>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website / Panel Title</label>
+            <input type="text" name="site_title" value="-OZ- Panel Hub Enterprise" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Community Subtitle / MOTD</label>
+            <input type="text" name="site_motd" value="Next-Gen Premium Game Server Orchestrator" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Official Discord Channel Link</label>
+            <input type="url" name="social_discord" value="https://discord.gg/ozpanel" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Official Twitter / X Link</label>
+            <input type="url" name="social_twitter" value="https://twitter.com/ozpanel" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Official GitHub Link</label>
+            <input type="url" name="social_github" value="https://github.com/ozpanel" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <button type="button" @click="step = 2" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 font-semibold text-white rounded-xl transition">Back</button>
+          <button type="button" @click="step = 4" class="px-6 py-3 bg-brand-500 hover:bg-brand-600 font-semibold text-white rounded-xl shadow-lg transition flex items-center space-x-2">
+            <span>Continue to Admin Setup</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div x-show="step === 4" x-transition.opacity x-cloak>
+        <h2 class="text-xl font-bold text-white mb-4">👑 Super Administrator Creation</h2>
+        <p class="text-sm text-gray-400 mb-6">Create the primary Master Administrator account to oversee all Game Servers, Nests, CMS web pages, and Forums Moderation.</p>
+        
+        <div class="space-y-6 mb-8">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Username</label>
+            <input type="text" name="admin_user" placeholder="e.g. Administrator" value="admin" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email Address</label>
+            <input type="email" name="admin_email" placeholder="e.g. admin@yourgamingnetwork.com" value="admin@ozpanel.enterprise" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label>
+            <input type="password" name="admin_pass" placeholder="Create a master password..." value="AdminSecure2026!" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <button type="button" @click="step = 3" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 font-semibold text-white rounded-xl transition">Back</button>
+          
+          <button type="submit" class="px-8 py-4 bg-green-600 hover:bg-green-500 font-bold text-white text-lg rounded-xl shadow-2xl transition flex items-center space-x-3 transform hover:scale-105">
+            <span>✨ Complete Production Install</span>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+  </div>
+
+</body>
+</html>

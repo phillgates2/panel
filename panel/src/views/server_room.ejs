@@ -1,0 +1,714 @@
+<%- include('partials/header', { title: server.name }) %>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" x-data="{
+  activeTab: '<%= activeTab %>',
+  consoleBuffer: <%= JSON.stringify(logs) %>,
+  commandInput: '',
+  fileEditModal: false,
+  activeFileName: '',
+  activeFileContent: '',
+  activeFilePath: '',
+  newFileModal: false,
+  newFileName: '',
+  newFileBody: '',
+  newFolderModal: false,
+  newFolderName: '',
+  renameModal: false,
+  renameOldPath: '',
+  renameNewName: '',
+  rconBroadcastText: '',
+  rconResponse: ''
+}" x-init="
+  $nextTick(() => {
+    const el = document.getElementById('terminal-view');
+    if (el) el.scrollTop = el.scrollHeight;
+  });
+
+  if (typeof io !== 'undefined') {
+    const socket = io();
+    socket.emit('subscribe_console', '<%= server.uuid %>');
+    socket.on('console_log', data => {
+      if (data.uuid === '<%= server.uuid %>') {
+        consoleBuffer.push(data.log);
+        if (consoleBuffer.length > 300) consoleBuffer.shift();
+        $nextTick(() => {
+          const el = document.getElementById('terminal-view');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }
+    });
+  }
+">
+
+  <!-- Top Master Roster Info & Power Bar Banner -->
+  <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-8 sm:p-10 shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8 mb-10">
+    
+    <!-- Left: Title, IP, Yolk Specification -->
+    <div class="flex items-center space-x-6 w-full lg:w-auto">
+      <div class="w-20 h-20 bg-[#5865F2] bg-opacity-10 text-[#5865F2] rounded-2xl border border-[#5865F2] border-opacity-20 flex items-center justify-center font-extrabold text-4xl shadow-inner flex-shrink-0">
+        <%= server.egg_name.includes('Minecraft') ? '⛏️' : server.egg_name.includes('CS:GO') ? '🔫' : server.egg_name.includes('Rust') ? '☢️' : '🛸' %>
+      </div>
+      <div class="min-w-0 flex-grow">
+        <div class="flex items-center space-x-3">
+          <span class="px-3 py-1 bg-gray-800 text-gray-300 text-[11px] font-extrabold uppercase rounded-lg border border-gray-700"><%= server.egg_name %></span>
+          <span class="text-xs font-mono text-purple-400 truncate"><%= server.docker_image %></span>
+        </div>
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-white truncate mt-2"><%= server.name %></h1>
+        <p class="text-sm font-mono text-gray-300 mt-2 flex items-center space-x-2">
+          <span class="text-gray-500">Node Address:</span>
+          <code class="text-green-400 bg-gray-900 px-3 py-1 rounded-lg border border-gray-800"><%= server.ip %>:<%= server.port %></code>
+          <span class="text-gray-500 ml-3">UUID:</span>
+          <code class="text-gray-400 bg-gray-900 px-2.5 py-1 rounded-lg border border-gray-800 text-xs"><%= server.uuid.slice(0, 12) %>...</code>
+        </p>
+      </div>
+    </div>
+
+    <!-- Right: Big Interactive Power Switches -->
+    <div class="flex flex-wrap items-center justify-end gap-3 w-full lg:w-auto bg-[#0E0F10] p-3 rounded-2xl border border-gray-800">
+      <form action="/servers/<%= server.uuid %>/start" method="POST">
+        <button type="submit" :disabled="<%= isRunning %>" :class="<%= isRunning %> ? 'opacity-50 cursor-not-allowed bg-gray-800 text-gray-500' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg transform hover:scale-105'" class="px-6 py-3.5 font-extrabold text-xs uppercase tracking-wider rounded-xl transition flex items-center space-x-2">
+          <span class="h-2.5 w-2.5 bg-green-400 rounded-full animate-pulse"></span>
+          <span>Start Process</span>
+        </button>
+      </form>
+
+      <form action="/servers/<%= server.uuid %>/stop" method="POST">
+        <button type="submit" :disabled="!<%= isRunning %>" :class="!<%= isRunning %> ? 'opacity-50 cursor-not-allowed bg-gray-800 text-gray-500' : 'bg-red-600 hover:bg-red-500 text-white shadow-lg transform hover:scale-105'" class="px-6 py-3.5 font-extrabold text-xs uppercase tracking-wider rounded-xl transition flex items-center space-x-2">
+          <span>🛑 Shutdown</span>
+        </button>
+      </form>
+
+      <form action="/servers/<%= server.uuid %>/restart" method="POST">
+        <button type="submit" :disabled="!<%= isRunning %>" :class="!<%= isRunning %> ? 'opacity-50 cursor-not-allowed bg-gray-800 text-gray-500' : 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg transform hover:scale-105'" class="px-6 py-3.5 font-extrabold text-xs uppercase tracking-wider rounded-xl transition flex items-center space-x-2">
+          <span>⚡ Reboot</span>
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <% if (error) { %>
+    <div class="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 text-red-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>⚠️</span>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <% if (success) { %>
+    <div class="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-20 text-green-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>✅</span>
+      <span><%= success %></span>
+    </div>
+  <% } %>
+
+  <!-- Tab Nav Strip -->
+  <div class="flex items-center space-x-3 border-b border-gray-800 pb-4 mb-8 overflow-x-auto">
+    <button @click="activeTab = 'console'" :class="activeTab === 'console' ? 'bg-[#5865F2] text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>🖥️ Live Terminal</span>
+    </button>
+    
+    <button @click="activeTab = 'files'" :class="activeTab === 'files' ? 'bg-[#5865F2] text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>📁 Web File Manager</span>
+    </button>
+
+    <button @click="activeTab = 'rcon'" :class="activeTab === 'rcon' ? 'bg-[#5865F2] text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>🎮 Live RCON Suite</span>
+    </button>
+
+    <button @click="activeTab = 'discord'" :class="activeTab === 'discord' ? 'bg-[#5865F2] text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>🤖 Discord & AI Sentinel</span>
+    </button>
+
+    <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-[#5865F2] text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>⚙️ Allocations & SFTP</span>
+    </button>
+  </div>
+
+  <!-- TAB 1 -->
+  <div x-show="activeTab === 'console'" x-transition.opacity>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col h-[650px]">
+      
+      <div class="bg-[#111213] px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="flex space-x-1.5">
+            <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
+          </div>
+          <span class="text-xs font-mono font-bold text-gray-400 uppercase tracking-widest ml-2">Console stdout / stderr</span>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <% if (isRunning) { %>
+            <span class="px-3 py-1 bg-green-500 bg-opacity-10 text-green-400 text-[10px] font-extrabold uppercase rounded-lg border border-green-500 border-opacity-20 flex items-center space-x-1.5">
+              <span class="h-2 w-2 bg-green-400 rounded-full animate-ping"></span>
+              <span>Process Active</span>
+            </span>
+          <% } else { %>
+            <span class="px-3 py-1 bg-gray-800 text-gray-500 text-[10px] font-extrabold uppercase rounded-lg border border-gray-700">Offline</span>
+          <% } %>
+        </div>
+      </div>
+
+      <div id="terminal-view" class="p-6 flex-grow overflow-y-auto font-mono text-xs sm:text-sm bg-[#0A0B0C] text-gray-200 space-y-1.5 leading-relaxed selection:bg-brand-500 selection:text-white">
+        <template x-for="(line, idx) in consoleBuffer" :key="idx">
+          <div class="hover:bg-gray-900 hover:bg-opacity-50 px-2 py-0.5 rounded transition">
+            <span :class="line.toLowerCase().includes('error') || line.toLowerCase().includes('exception') ? 'text-red-400 font-bold' : line.toLowerCase().includes('warn') ? 'text-amber-400' : line.toLowerCase().includes('rcon') || line.toLowerCase().includes('say') ? 'text-purple-400 font-bold' : 'text-gray-300'" x-text="line"></span>
+          </div>
+        </template>
+        <div x-show="consoleBuffer.length === 0" class="text-gray-600 py-12 text-center italic">
+          [Console is waiting for process output...]
+        </div>
+      </div>
+
+      <div class="p-4 bg-[#141517] border-t border-gray-800">
+        <form @submit.prevent="
+          if (!commandInput.trim()) return;
+          const cmd = commandInput;
+          commandInput = '';
+          fetch('/api/rcon/dispatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverId: <%= server.id %>, command: cmd })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.response) {
+              consoleBuffer.push(`[Web Administrator] > ${cmd}`);
+              consoleBuffer.push(`[Response] ${data.response}`);
+              $nextTick(() => {
+                const el = document.getElementById('terminal-view');
+                if (el) el.scrollTop = el.scrollHeight;
+              });
+            }
+          });
+        " class="flex items-center space-x-3">
+          <span class="text-brand-500 font-mono font-bold text-lg pl-2">></span>
+          <input type="text" x-model="commandInput" placeholder="Type RCON or console command (e.g. say Hello gamers, status, kick GamerX)..." :disabled="!<%= isRunning %>" class="flex-grow bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition disabled:opacity-50">
+          
+          <button type="submit" :disabled="!<%= isRunning %>" class="px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] disabled:opacity-50 font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105 flex items-center space-x-2 flex-shrink-0">
+            <span>⚡ Execute Command</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div x-show="activeTab === 'files'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8">
+      
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-800 pb-6 mb-8">
+        
+        <div class="flex items-center space-x-2 font-mono text-xs sm:text-sm bg-[#0E0F10] px-4 py-2.5 rounded-2xl border border-gray-800 w-full sm:w-auto overflow-x-auto">
+          <a href="/servers/<%= server.uuid %>?tab=files" class="text-[#5865F2] hover:underline font-extrabold flex items-center space-x-1">
+            <span>💾 Root Directory</span>
+          </a>
+          <% if (activeDir) { %>
+            <span class="text-gray-600">/</span>
+            <span class="text-white font-bold"><%= activeDir %></span>
+            <a href="/servers/<%= server.uuid %>?tab=files" class="text-gray-500 hover:text-white text-xs ml-2">← (Up)</a>
+          <% } %>
+        </div>
+
+        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+          <button @click="newFolderModal = true" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 font-extrabold text-white text-xs rounded-xl transition flex items-center space-x-1.5 shadow">
+            <span>📁 New Folder</span>
+          </button>
+
+          <button @click="newFileModal = true" class="px-4 py-3 bg-[#5865F2] hover:bg-[#4752C4] font-extrabold text-white text-xs rounded-xl shadow-lg transition flex items-center space-x-1.5">
+            <span>📄 New Config / File</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 overflow-hidden shadow-inner">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+              <th class="py-4 px-6">Filename / Path</th>
+              <th class="py-4 px-6">Size</th>
+              <th class="py-4 px-6 hidden sm:table-cell">Last Modified</th>
+              <th class="py-4 px-6 text-right">Workbench Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800 text-xs sm:text-sm font-mono">
+            <% if (files.length === 0) { %>
+              <tr>
+                <td colspan="4" class="py-12 text-center text-gray-600 italic">No files located in this directory.</td>
+              </tr>
+            <% } else { %>
+              <% files.forEach(f => { %>
+                <tr class="hover:bg-gray-900/60 transition group">
+                  <td class="py-4 px-6 flex items-center space-x-3">
+                    <span class="text-xl">
+                      <%= f.isDirectory ? '📁' : f.name.endsWith('.json') || f.name.endsWith('.properties') || f.name.endsWith('.cfg') ? '⚙️' : f.name.endsWith('.jar') || f.name.endsWith('.so') ? '📦' : '📄' %>
+                    </span>
+                    <% if (f.isDirectory) { %>
+                      <a href="/servers/<%= server.uuid %>?tab=files&dir=<%= encodeURIComponent(f.relativePath) %>" class="font-extrabold text-white hover:text-brand-500 transition"><%= f.name %></a>
+                    <% } else { %>
+                      <a href="javascript:void(0)" @click="
+                        activeFileName = '<%= f.name %>';
+                        activeFilePath = '<%= f.relativePath.replace(/\\/g, '/') %>';
+                        fetch('/api/files/read', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ serverUuid: '<%= server.uuid %>', filePath: activeFilePath })
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                          if (d.content !== undefined) {
+                            activeFileContent = d.content;
+                            fileEditModal = true;
+                          } else {
+                            alert('Cannot open binary file.');
+                          }
+                        });
+                      " class="font-bold text-gray-200 hover:text-brand-500 transition"><%= f.name %></a>
+                    <% } %>
+                  </td>
+
+                  <td class="py-4 px-6 text-gray-400"><%= f.size %></td>
+                  <td class="py-4 px-6 text-gray-500 hidden sm:table-cell"><%= f.modified %></td>
+                  
+                  <td class="py-4 px-6 text-right space-x-2">
+                    <% if (!f.isDirectory) { %>
+                      <button @click="
+                        activeFileName = '<%= f.name %>';
+                        activeFilePath = '<%= f.relativePath.replace(/\\/g, '/') %>';
+                        fetch('/api/files/read', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ serverUuid: '<%= server.uuid %>', filePath: activeFilePath })
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                          if (d.content !== undefined) {
+                            activeFileContent = d.content;
+                            fileEditModal = true;
+                          } else {
+                            alert('Cannot edit binary asset.');
+                          }
+                        });
+                      " class="px-3 py-1.5 bg-brand-500 bg-opacity-10 hover:bg-opacity-20 text-brand-500 font-bold text-xs rounded-lg transition">✏️ Edit</button>
+                    <% } %>
+
+                    <button @click="
+                      renameOldPath = '<%= f.relativePath.replace(/\\/g, '/') %>';
+                      renameNewName = '<%= f.name %>';
+                      renameModal = true;
+                    " class="px-3 py-1.5 bg-amber-500 bg-opacity-10 hover:bg-opacity-20 text-amber-400 font-bold text-xs rounded-lg transition">🏷️ Rename</button>
+
+                    <button @click="
+                      if (confirm(`Are you certain you wish to delete ${'<%= f.name %>'}?`)) {
+                        fetch('/api/files/delete', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ serverUuid: '<%= server.uuid %>', filePath: '<%= f.relativePath.replace(/\\/g, '/') %>' })
+                        })
+                        .then(() => window.location.reload());
+                      }
+                    " class="px-3 py-1.5 bg-red-500 bg-opacity-10 hover:bg-opacity-20 text-red-400 font-bold text-xs rounded-lg transition">🗑️ Delete</button>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div x-show="activeTab === 'rcon'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 sm:p-12">
+      
+      <div class="border-b border-gray-800 pb-6 mb-8">
+        <h2 class="text-2xl font-extrabold text-white tracking-tight">Interactive RCON Master Workbench</h2>
+        <p class="text-xs text-gray-400 mt-1">Dispatch pre-configured graphical routines to your running sandbox node without memorizing syntax.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        
+        <div class="bg-[#0E0F10] p-6 rounded-2xl border border-gray-800 flex flex-col justify-between hover:border-brand-500 transition shadow">
+          <div>
+            <span class="text-2xl mb-2 block">📊</span>
+            <h3 class="text-lg font-extrabold text-white tracking-tight">Game Node Status</h3>
+            <p class="text-xs text-gray-400 mt-1">Fetches active player rosters, map rounds, and world ticks.</p>
+          </div>
+          <button @click="
+            fetch('/api/rcon/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ serverId: <%= server.id %>, command: 'status' })
+            })
+            .then(r => r.json())
+            .then(d => rconResponse = d.response || 'Status execution complete.');
+          " class="mt-6 w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition">
+            Dispatch Status →
+          </button>
+        </div>
+
+        <div class="bg-[#0E0F10] p-6 rounded-2xl border border-gray-800 flex flex-col justify-between hover:border-green-500 transition shadow">
+          <div>
+            <span class="text-2xl mb-2 block">💾</span>
+            <h3 class="text-lg font-extrabold text-white tracking-tight">Force Save World</h3>
+            <p class="text-xs text-gray-400 mt-1">Flushes memory buffers to disk to prevent rollback on power execution.</p>
+          </div>
+          <button @click="
+            fetch('/api/rcon/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ serverId: <%= server.id %>, command: 'save-all' })
+            })
+            .then(r => r.json())
+            .then(d => rconResponse = d.response || 'World data saved successfully.');
+          " class="mt-6 w-full py-3 bg-green-600 hover:bg-green-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition">
+            Save World Data →
+          </button>
+        </div>
+
+        <div class="bg-[#0E0F10] p-6 rounded-2xl border border-gray-800 flex flex-col justify-between hover:border-amber-500 transition shadow">
+          <div>
+            <span class="text-2xl mb-2 block">🛡️</span>
+            <h3 class="text-lg font-extrabold text-white tracking-tight">Enforce Whitelist</h3>
+            <p class="text-xs text-gray-400 mt-1">Restricts server access exclusively to verified community members.</p>
+          </div>
+          <button @click="
+            fetch('/api/rcon/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ serverId: <%= server.id %>, command: 'whitelist on' })
+            })
+            .then(r => r.json())
+            .then(d => rconResponse = d.response || 'Whitelist enforcement active.');
+          " class="mt-6 w-full py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition">
+            Enable Whitelist →
+          </button>
+        </div>
+
+      </div>
+
+      <div class="bg-[#0E0F10] p-8 rounded-3xl border border-gray-800 mb-10 shadow-xl">
+        <h3 class="text-lg font-extrabold text-white tracking-tight mb-2 flex items-center space-x-2">
+          <span>📢 Server-Wide Chat Broadcast</span>
+        </h3>
+        <p class="text-xs text-gray-400 mb-6">Dispatches an official in-game administrative chat overlay message to all active players.</p>
+
+        <form @submit.prevent="
+          if (!rconBroadcastText.trim()) return;
+          const msg = rconBroadcastText;
+          rconBroadcastText = '';
+          fetch('/api/rcon/dispatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverId: <%= server.id %>, command: `say ${msg}` })
+          })
+          .then(r => r.json())
+          .then(d => rconResponse = d.response || `Broadcasted: ${msg}`);
+        " class="flex items-center space-x-3">
+          <input type="text" x-model="rconBroadcastText" placeholder="Enter message to broadcast to the game server..." class="flex-grow bg-[#18191C] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition">
+          <button type="submit" class="px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105">
+            ⚡ Broadcast
+          </button>
+        </form>
+      </div>
+
+      <div x-show="rconResponse" class="bg-[#111213] border border-purple-500 border-opacity-30 rounded-2xl p-6 font-mono text-xs sm:text-sm text-purple-300 shadow-xl">
+        <p class="text-[10px] uppercase font-bold text-purple-500 mb-1">RCON Graphical Output Buffer</p>
+        <pre class="whitespace-pre-wrap leading-relaxed" x-text="rconResponse"></pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 4 -->
+  <div x-show="activeTab === 'discord'" x-transition.opacity x-cloak>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <div class="lg:col-span-2 bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 sm:p-12 space-y-8">
+        <div>
+          <div class="w-14 h-14 bg-[#5865F2] bg-opacity-10 text-[#5865F2] rounded-2xl border border-[#5865F2] border-opacity-20 flex items-center justify-center font-bold text-2xl mb-4">
+            💬
+          </div>
+          <h2 class="text-2xl font-extrabold text-white tracking-tight">Discord Channel Automation</h2>
+          <p class="text-xs text-gray-400 mt-1">Instantly link a dedicated Discord Webhook so your community receives automatic embedded updates whenever this server boots, halts, or is restored by AI.</p>
+        </div>
+
+        <form action="/servers/<%= server.uuid %>/settings" method="POST" class="space-y-6">
+          <input type="hidden" name="name" value="<%= server.name %>">
+          <input type="hidden" name="port" value="<%= server.port %>">
+          <input type="hidden" name="memory_limit" value="<%= server.memory_limit %>">
+          <input type="hidden" name="cpu_limit" value="<%= server.cpu_limit %>">
+
+          <div>
+            <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Server Webhook Link URL</label>
+            <input type="url" name="discord_webhook" value="<%= server.discord_webhook %>" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-brand-500 transition font-mono">
+          </div>
+
+          <div class="flex items-center space-x-4">
+            <button type="submit" class="px-8 py-4 bg-green-600 hover:bg-green-500 font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105">
+              💾 Save Webhook URL
+            </button>
+
+            <button type="button" @click="
+              fetch('/api/discord/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ webhookUrl: '<%= server.discord_webhook %>', serverName: '<%= server.name %>' })
+              })
+              .then(() => alert('Test embedded alert dispatched to Discord! Check your linked channel.'));
+            " :disabled="!<%= !!server.discord_webhook %>" class="px-6 py-4 bg-[#5865F2] hover:bg-[#4752C4] disabled:opacity-50 font-extrabold text-white text-sm rounded-2xl transition shadow">
+              🧪 Dispatch Test Alert
+            </button>
+          </div>
+        </form>
+
+        <div class="border-t border-gray-800 pt-8">
+          <h4 class="text-xs font-extrabold uppercase tracking-wider text-gray-500 mb-4">Sample Embedded Trigger</h4>
+          <div class="bg-[#2B2D31] rounded-xl p-5 max-w-md border-l-4 border-[#57F287] shadow-lg space-y-2">
+            <p class="text-xs font-extrabold text-white">🚀 Game Server Boot Event</p>
+            <p class="text-xs text-gray-300">The premium game instance **<%= server.name %>** is operational on port `<%= server.port %>`!</p>
+            <span class="text-[10px] text-gray-400 font-mono">Today at 12:00 PM • -OZ- Panel Hub Webhook</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-gray-800 pb-4 mb-6">
+            <h3 class="font-extrabold text-white tracking-tight flex items-center space-x-2">
+              <span>🤖 AI Sentinel Log</span>
+            </h3>
+            <span class="px-2 py-0.5 bg-amber-500 bg-opacity-10 text-amber-400 text-[10px] font-extrabold rounded-full">24/7 Watchdog</span>
+          </div>
+
+          <% if (aiReports.length === 0) { %>
+            <p class="text-xs text-gray-500 py-8 text-center italic">No AI anomaly or automated recovery events triggered for this node.</p>
+          <% } else { %>
+            <div class="space-y-3">
+              <% aiReports.forEach(rep => { %>
+                <div class="p-3.5 bg-[#0E0F10] rounded-2xl border border-gray-800 space-y-1">
+                  <div class="flex justify-between items-center text-[10px]">
+                    <span class="font-extrabold text-amber-400 uppercase"><%= rep.event_type %></span>
+                    <span class="text-gray-500"><%= new Date(rep.created_at).toLocaleTimeString() %></span>
+                  </div>
+                  <p class="text-xs text-gray-300 leading-relaxed"><%= rep.message %></p>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+
+        <a href="/ai-assistant" class="block w-full py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs uppercase tracking-wider text-center rounded-2xl shadow-xl transition">
+          Prompt AI Expert →
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 5 -->
+  <div x-show="activeTab === 'settings'" x-transition.opacity x-cloak>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <div class="lg:col-span-2 bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 sm:p-12 space-y-8">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white tracking-tight">Advanced Node Specifications</h2>
+          <p class="text-xs text-gray-400 mt-1">Modify your container memory allocation limits, network bindings, or execute an operational file refresh.</p>
+        </div>
+
+        <form action="/servers/<%= server.uuid %>/settings" method="POST" class="space-y-6">
+          <input type="hidden" name="discord_webhook" value="<%= server.discord_webhook %>">
+
+          <div>
+            <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Server Process Name</label>
+            <input type="text" name="name" value="<%= server.name %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-brand-500 transition">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Network Port Binding</label>
+              <input type="number" name="port" value="<%= server.port %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Memory Allocation (MB)</label>
+              <input type="number" name="memory_limit" value="<%= server.memory_limit %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">CPU Clamping Limit (%)</label>
+              <input type="number" name="cpu_limit" value="<%= server.cpu_limit %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition">
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-gray-800 flex justify-end">
+            <button type="submit" class="px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105">
+              💾 Save Resource Clamping
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-6">
+        <div class="border-b border-gray-800 pb-4">
+          <h3 class="font-extrabold text-white tracking-tight flex items-center space-x-2">
+            <span class="text-brand-500">🔌</span>
+            <span>SFTP Connection Guide</span>
+          </h3>
+          <p class="text-xs text-gray-400 mt-1">Connect directly via external clients (FileZilla, WinSCP)</p>
+        </div>
+
+        <div class="space-y-4 text-xs font-mono">
+          <div>
+            <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">SFTP Host / IP</span>
+            <code class="block bg-[#0E0F10] px-3.5 py-2.5 rounded-xl border border-gray-800 text-white"><%= server.ip %></code>
+          </div>
+
+          <div>
+            <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">SFTP Port</span>
+            <code class="block bg-[#0E0F10] px-3.5 py-2.5 rounded-xl border border-gray-800 text-green-400">2022</code>
+          </div>
+
+          <div>
+            <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Username</span>
+            <code class="block bg-[#0E0F10] px-3.5 py-2.5 rounded-xl border border-gray-800 text-purple-400"><%= user.username %></code>
+          </div>
+
+          <div>
+            <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Password</span>
+            <code class="block bg-[#0E0F10] px-3.5 py-2.5 rounded-xl border border-gray-800 text-gray-400">[Your personal panel password]</code>
+          </div>
+        </div>
+
+        <div class="p-4 bg-brand-500 bg-opacity-10 rounded-2xl border border-brand-500 border-opacity-20 text-[11px] text-gray-300 leading-relaxed">
+          💡 You can configure a dedicated standalone SFTP password in your <a href="/settings" class="text-brand-500 hover:underline font-extrabold">Profile Settings</a>.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: Edit File Syntax Workbench -->
+  <div x-show="fileEditModal" @click.away="fileEditModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+    <div class="max-w-4xl w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[700px]" @click.stop>
+      
+      <!-- Header -->
+      <div class="bg-[#141517] border-b border-gray-800 p-6 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <span class="text-xl">✏️</span>
+          <div>
+            <h3 class="text-lg font-bold text-white font-mono truncate" x-text="activeFileName"></h3>
+            <p class="text-[11px] text-gray-500 font-mono" x-text="activeFilePath"></p>
+          </div>
+        </div>
+        <button @click="fileEditModal = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition">✕</button>
+      </div>
+
+      <!-- Editor Textarea -->
+      <div class="p-6 flex-grow bg-[#0E0F10]">
+        <textarea x-model="activeFileContent" spellcheck="false" class="w-full h-full bg-[#0A0B0C] text-gray-200 font-mono text-xs sm:text-sm p-5 rounded-2xl border border-gray-800 focus:outline-none focus:border-brand-500 transition resize-none leading-relaxed selection:bg-brand-500 selection:text-white"></textarea>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="bg-[#141517] border-t border-gray-800 p-6 flex items-center justify-end space-x-4">
+        <button @click="fileEditModal = false" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 font-semibold text-white text-sm rounded-xl transition">Cancel</button>
+        <button @click="
+          fetch('/api/files/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverUuid: '<%= server.uuid %>', filePath: activeFilePath, content: activeFileContent })
+          })
+          .then(r => r.json())
+          .then(d => {
+            alert('File updated and saved successfully!');
+            fileEditModal = false;
+          });
+        " class="px-8 py-3 bg-green-600 hover:bg-green-500 font-extrabold text-white text-sm rounded-xl shadow-lg transition transform hover:scale-105 flex items-center space-x-2">
+          <span>💾 Save File Changes</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: Create New File -->
+  <div x-show="newFileModal" @click.away="newFileModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+    <div class="max-w-3xl w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[600px]" @click.stop>
+      <div class="bg-[#141517] border-b border-gray-800 p-6 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center space-x-2"><span>📄 Create New File</span></h3>
+        <button @click="newFileModal = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800">✕</button>
+      </div>
+      <div class="p-6 space-y-4 flex-grow flex flex-col bg-[#0E0F10]">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">File Path / Name</label>
+          <input type="text" x-model="newFileName" placeholder="e.g. plugins/settings.yml or whitelist.json" class="w-full bg-[#18191C] border border-gray-800 rounded-xl px-4 py-3 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition">
+        </div>
+        <div class="flex-grow flex flex-col">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Initial Content</label>
+          <textarea x-model="newFileBody" placeholder="Write scripts or configurations..." class="w-full flex-grow bg-[#0A0B0C] text-gray-200 font-mono text-xs sm:text-sm p-4 rounded-xl border border-gray-800 focus:outline-none focus:border-brand-500 transition resize-none"></textarea>
+        </div>
+      </div>
+      <div class="bg-[#141517] border-t border-gray-800 p-6 flex items-center justify-end space-x-4">
+        <button @click="newFileModal = false" class="px-6 py-3 bg-gray-800 font-semibold text-white text-sm rounded-xl">Cancel</button>
+        <button @click="
+          if (!newFileName.trim()) return alert('Input a filename.');
+          const targetPath = '<%= activeDir ? activeDir + '/' : '' %>' + newFileName;
+          fetch('/api/files/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverUuid: '<%= server.uuid %>', filePath: targetPath, content: newFileBody })
+          })
+          .then(() => window.location.reload());
+        " class="px-8 py-3 bg-brand-500 hover:bg-brand-600 font-extrabold text-white text-sm rounded-xl shadow">💾 Create File</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Create New Directory -->
+  <div x-show="newFolderModal" @click.away="newFolderModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+    <div class="max-w-lg w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden p-8" @click.stop>
+      <h3 class="text-xl font-bold text-white mb-4 flex items-center space-x-2"><span>📁 Create Directory</span></h3>
+      <input type="text" x-model="newFolderName" placeholder="e.g. configs or maps" class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition mb-6">
+      <div class="flex items-center justify-end space-x-4">
+        <button @click="newFolderModal = false" class="px-6 py-3 bg-gray-800 font-semibold text-white rounded-xl">Cancel</button>
+        <button @click="
+          if (!newFolderName.trim()) return alert('Enter folder name.');
+          const folderPath = '<%= activeDir ? activeDir + '/' : '' %>' + newFolderName;
+          fetch('/api/files/create-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverUuid: '<%= server.uuid %>', folderPath })
+          })
+          .then(() => window.location.reload());
+        " class="px-8 py-3 bg-brand-500 hover:bg-brand-600 font-extrabold text-white rounded-xl shadow">📁 Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Rename Item -->
+  <div x-show="renameModal" @click.away="renameModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+    <div class="max-w-lg w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden p-8" @click.stop>
+      <h3 class="text-xl font-bold text-white mb-4 flex items-center space-x-2"><span>🏷️ Rename Item</span></h3>
+      <input type="text" x-model="renameNewName" class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 font-mono text-white text-sm focus:outline-none focus:border-brand-500 transition mb-6">
+      <div class="flex items-center justify-end space-x-4">
+        <button @click="renameModal = false" class="px-6 py-3 bg-gray-800 font-semibold text-white rounded-xl">Cancel</button>
+        <button @click="
+          if (!renameNewName.trim()) return alert('Enter new name.');
+          fetch('/api/files/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serverUuid: '<%= server.uuid %>', oldPath: renameOldPath, newName: renameNewName })
+          })
+          .then(() => window.location.reload());
+        " class="px-8 py-3 bg-amber-500 hover:bg-amber-600 font-extrabold text-white rounded-xl shadow">🏷️ Rename</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

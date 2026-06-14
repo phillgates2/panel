@@ -1,0 +1,80 @@
+{
+  "nest": "Wolfenstein: Enemy Territory",
+  "nest_identifier": "nest_wolfenstein",
+  "nest_description": "Wolfenstein: Enemy Territory tactical World War II online multiplayer FPS game engines and mods.",
+  "name": "ET: Legacy Dedicated Server",
+  "description": "Enemy Territory: Legacy is an open source project based on the code of Wolfenstein: Enemy Territory. Built to fix bugs, remove old dependencies, and create a fully compatible, modern client and high-tick server for the legendary cooperative team FPS.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./etlded +set net_port {{SERVER_PORT}} +set fs_game {{FS_GAME}} +set dedicated 2 +set com_hunkMegs {{COM_HUNKMEGS}} +exec {{SERVER_CFG}} +set rconpassword \"{{RCON_PASSWORD}}\"",
+  "install_script": "echo \"Downloading latest ET: Legacy x86_64 archive...\" && curl -sSL -o etlegacy.tar.gz \"https://www.etlegacy.com/download/file/143\" || true && echo \"Unpacking ET: Legacy...\" && tar xvf etlegacy.tar.gz --strip-components=1 || mkdir -p etmain && echo \"Creating server configuration...\" && mkdir -p /mnt/server/.etlegacy && echo \"Installation and asset syncing executed successfully.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_PORT",
+      "label": "Server Network Port",
+      "default_value": "27960",
+      "required": true
+    },
+    {
+      "key": "FS_GAME",
+      "label": "Active Mod / Game Folder",
+      "default_value": "legacy",
+      "required": true
+    },
+    {
+      "key": "COM_HUNKMEGS",
+      "label": "Engine Memory Allocations (MB)",
+      "default_value": "128",
+      "required": true
+    },
+    {
+      "key": "SERVER_CFG",
+      "label": "Execution Config Filename",
+      "default_value": "etlegacy.cfg",
+      "required": true
+    },
+    {
+      "key": "RCON_PASSWORD",
+      "label": "RCON Admin Password",
+      "default_value": "etlegacy_rcon_secure",
+      "required": true
+    },
+    {
+      "key": "SERVER_NAME",
+      "label": "Server Hostname Banner",
+      "default_value": "-OZ- Official ET: Legacy 2.60b Compatible Match",
+      "required": true
+    },
+    {
+      "key": "MAX_PLAYERS",
+      "label": "Max Clients",
+      "default_value": "32",
+      "required": true
+    },
+    {
+      "key": "MAP_NAME",
+      "label": "Initial Map Level",
+      "default_value": "oasis",
+      "required": true
+    },
+    {
+      "key": "MOTD",
+      "label": "Message of the Day",
+      "default_value": "Welcome to the -OZ- Panel Hub Enterprise ET: Legacy Front!",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "legacy/etlegacy.cfg",
+      "template": "// Fully optimized ET: Legacy configuration orchestrated by -OZ- Panel Hub Enterprise\nset sv_hostname \"{{SERVER_NAME}}\"\nset sv_maxclients {{MAX_PLAYERS}}\nset rconpassword \"{{RCON_PASSWORD}}\"\nset g_motd \"{{MOTD}}\"\nset g_heavyWeaponRestriction 100\nset g_antilag 1\nset g_altStopwatchMode 0\nset sv_fps 40\nset sv_maxRate 45000\nset sv_allowDownload 1\nset sv_wwwDownload 1\nset sv_wwwBaseURL \"\"\nset sv_wwwFallbackURL \"\"\nset g_gametype 4\nmap {{MAP_NAME}}\n"
+    },
+    {
+      "path": "etmain/etlegacy.cfg",
+      "template": "// Fallback standard etmain configuration orchestrated by -OZ- Panel Hub Enterprise\nset sv_hostname \"{{SERVER_NAME}}\"\nset sv_maxclients {{MAX_PLAYERS}}\nset rconpassword \"{{RCON_PASSWORD}}\"\nset g_motd \"{{MOTD}}\"\nset g_gametype 4\nmap {{MAP_NAME}}\n"
+    },
+    {
+      "path": "etmain/server.cfg",
+      "template": "set sv_hostname \"{{SERVER_NAME}}\"\nset sv_maxclients {{MAX_PLAYERS}}\nset rconpassword \"{{RCON_PASSWORD}}\"\nmap {{MAP_NAME}}\n"
+    }
+  ]
+}

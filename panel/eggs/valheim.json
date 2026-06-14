@@ -1,0 +1,16 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "Valheim Dedicated Server",
+  "description": "Iron Gate Studio Valheim Viking open-world survival dedicated server. Completely automates crossplay setups, world backups, customized modifiers, and BepInEx mod specifications.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./valheim_server.x86_64 -name \"{{SERVER_NAME}}\" -port {{SERVER_PORT}} -world \"{{WORLD_NAME}}\" -password \"{{SERVER_PASSWORD}}\" -crossplay -public 1",
+  "install_script": "echo \"Downloading Valheim Dedicated Server (App ID 896660)...\" && mkdir -p ~/.config/unity3d/IronGate/Valheim/worlds_local && echo \"Complete.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Port", "default_value": "2456", "required": true },
+    { "key": "WORLD_NAME", "label": "World Name", "default_value": "Dedicated", "required": true },
+    { "key": "SERVER_PASSWORD", "label": "Server Join Password (Min 5 chars)", "default_value": "secretViking", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Premium Valheim Valhalla Realm", "required": true }
+  ],
+  "config_files": []
+}

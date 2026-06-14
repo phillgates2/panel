@@ -1,0 +1,144 @@
+<%- include('partials/header', { title: '🤖 Master AI Watchdog & Expert Assistant' }) %>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" x-data="{
+  userPrompt: '',
+  aiResponse: 'Hello! I am your interactive **-OZ- Panel Hub AI Assistant**. \n\nI am continuously monitoring your server nodes, parsing real-time console streams for anomalies, and ready to assist you with game configurations, Docker yolk management, or performance optimization. How can I assist your gaming community today?',
+  isLoading: false,
+  selectedServerUuid: ''
+}">
+
+  <!-- Welcome Banner -->
+  <div class="bg-gradient-to-r from-purple-950 via-[#18191C] to-[#18191C] rounded-3xl border border-purple-500 border-opacity-30 p-8 sm:p-12 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 mb-10 relative overflow-hidden">
+    <div class="absolute -left-10 -bottom-10 w-80 h-80 bg-purple-500 bg-opacity-10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex items-center space-x-5 relative z-10">
+      <div class="w-16 h-16 bg-purple-500 bg-opacity-20 text-purple-400 rounded-2xl border border-purple-500 border-opacity-30 flex items-center justify-center font-extrabold text-3xl shadow-inner flex-shrink-0">
+        🤖
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">AI Sentinel & Moderation Core</h1>
+          <span class="px-2.5 py-0.5 bg-purple-500 bg-opacity-20 text-purple-300 text-[10px] font-extrabold uppercase rounded-md">24/7 Automated Sentinel</span>
+        </div>
+        <p class="text-xs text-purple-200 text-opacity-80 mt-1">Parses container logs, isolates EULA / port conflicts, and automatically restores crashed process nodes.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+
+    <!-- Left 2 Cols: Interactive AI Expert Chat Workbench -->
+    <div class="lg:col-span-2 bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl flex flex-col overflow-hidden">
+      
+      <!-- Top Action Strip -->
+      <div class="bg-[#141517] p-5 px-8 border-b border-gray-800 flex items-center justify-between">
+        <h3 class="font-extrabold text-white tracking-tight flex items-center space-x-2">
+          <span>💬 Expert AI Consultant</span>
+        </h3>
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="text-gray-500 font-mono">Attach Process Buffer:</span>
+          <select x-model="selectedServerUuid" class="bg-[#0E0F10] border border-gray-800 text-purple-400 rounded-xl px-3 py-1 font-mono text-xs focus:outline-none focus:border-purple-500">
+            <option value="">-- No Active Server Attached --</option>
+            <% if (user && typeof user !== 'undefined') { %>
+              <option value="demo_uuid">Attach Demo Sandbox Engine Logs</option>
+            <% } %>
+          </select>
+        </div>
+      </div>
+
+      <!-- Markdown Output Display Area -->
+      <div class="p-8 flex-grow bg-[#0E0F10] overflow-y-auto space-y-6 min-h-[400px]">
+        
+        <div class="flex items-start space-x-4">
+          <div class="w-10 h-10 bg-purple-600 text-white rounded-2xl flex items-center justify-center font-extrabold text-xl flex-shrink-0 shadow-lg">
+            🤖
+          </div>
+          <div class="bg-[#18191C] border border-gray-800 rounded-3xl p-7 text-gray-200 font-mono text-xs sm:text-sm leading-relaxed prose prose-invert max-w-none shadow-xl flex-grow">
+            <div x-html="aiResponse.replace(/\n/g, '<br>')"></div>
+          </div>
+        </div>
+
+        <div x-show="isLoading" class="flex items-center space-x-3 text-purple-400 font-mono text-xs animate-pulse pl-14">
+          <svg class="w-4 h-4 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          <span>AI Expert is parsing knowledge graphs & console buffers...</span>
+        </div>
+
+      </div>
+
+      <!-- Prompt Input Workbench -->
+      <div class="p-4 bg-[#141517] border-t border-gray-800">
+        <form @submit.prevent="
+          if (!userPrompt.trim() || isLoading) return;
+          const queryText = userPrompt;
+          userPrompt = '';
+          isLoading = true;
+          fetch('/ai-assistant/prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: queryText, server_uuid: selectedServerUuid })
+          })
+          .then(r => r.json())
+          .then(data => {
+            isLoading = false;
+            if (data.advice) {
+              aiResponse = `**Your Query:** *${queryText}*\\n\\n` + data.advice;
+            } else {
+              aiResponse = `**Diagnostic Error:** Failed to compute response.`;
+            }
+          })
+          .catch(err => {
+            isLoading = false;
+            aiResponse = `**Exception:** ${err.message}`;
+          });
+        " class="flex items-center space-x-3">
+          <input type="text" x-model="userPrompt" :disabled="isLoading" placeholder="Ask AI anything about game latency, log exceptions, or CSGO/Rust parameters..." class="flex-grow bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 font-mono text-white text-sm focus:outline-none focus:border-purple-500 transition disabled:opacity-50">
+          
+          <button type="submit" :disabled="isLoading" class="px-8 py-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105 flex-shrink-0 flex items-center space-x-2">
+            <span>Ask AI ⚡</span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Right 1 Col: Automated Anomaly Reports Feed -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-6 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between border-b border-gray-800 pb-4 mb-6">
+          <h3 class="font-extrabold text-white tracking-tight flex items-center space-x-2">
+            <span class="text-amber-400">⚡</span>
+            <span>Historical AI Incident Reports</span>
+          </h3>
+          <span class="text-xs font-mono text-gray-500"><%= aiReports.length %> Events</span>
+        </div>
+
+        <% if (aiReports.length === 0) { %>
+          <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 p-10 text-center text-gray-500 text-xs italic">
+            No active incidents detected across your server infrastructure.
+          </div>
+        <% } else { %>
+          <div class="space-y-3 overflow-y-auto max-h-[450px] pr-1">
+            <% aiReports.forEach(rep => { %>
+              <div class="p-4 bg-[#0E0F10] rounded-2xl border border-gray-800 space-y-1.5 hover:border-gray-700 transition">
+                <div class="flex justify-between items-center text-[10px]">
+                  <span class="font-extrabold text-amber-400 uppercase tracking-wider"><%= rep.event_type %></span>
+                  <span class="text-gray-500 font-mono"><%= new Date(rep.created_at).toLocaleDateString() %> <%= new Date(rep.created_at).toLocaleTimeString() %></span>
+                </div>
+                <p class="text-xs text-purple-200 font-bold truncate"><%= rep.server_name %></p>
+                <p class="text-xs text-gray-300 leading-relaxed font-mono"><%= rep.message %></p>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="p-4 bg-purple-500 bg-opacity-10 rounded-2xl border border-purple-500 border-opacity-20 text-[11px] text-purple-300 text-center leading-relaxed">
+        🛡️ The AI Sentinel automatically dispatches webhook notifications to your linked Discord channels.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

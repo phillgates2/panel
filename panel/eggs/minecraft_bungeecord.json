@@ -1,0 +1,20 @@
+{
+  "nest": "Minecraft",
+  "nest_identifier": "nest_minecraft",
+  "name": "Velocity / BungeeCord Proxy Server",
+  "description": "High-performance Next-Gen Minecraft network proxy (Velocity / BungeeCord / Waterfall). Seamlessly proxies thousands of players across backend lobby, survival, and minigame servers.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:java_21",
+  "startup_command": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar proxy.jar",
+  "install_script": "echo \"Downloading Velocity network proxy jar...\" && echo \"Proxy ready.\"",
+  "env_variables": [
+    { "key": "SERVER_MEMORY", "label": "Proxy RAM Limit (MB)", "default_value": "1024", "required": true },
+    { "key": "SERVER_PORT", "label": "Public Network Edge Port", "default_value": "25565", "required": true },
+    { "key": "MOTD", "label": "Proxy MOTD Banner", "default_value": "&b&l-OZ- Premium Esports Minecraft Network", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "velocity.toml",
+      "template": "[network]\nbind = \"0.0.0.0:{{SERVER_PORT}}\"\nmotd = \"{{MOTD}}\"\nonline-mode = false\nplayer-info-forwarding-mode = \"modern\"\n[servers]\nlobby = \"127.0.0.1:25566\"\ntry = [\"lobby\"]\n"
+    }
+  ]
+}

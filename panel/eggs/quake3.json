@@ -1,0 +1,21 @@
+{
+  "nest": "Wolfenstein: Enemy Territory",
+  "nest_identifier": "nest_wolfenstein",
+  "name": "Quake III Arena Dedicated Server",
+  "description": "ID Software legendary fast-paced deathmatch FPS game engine. Complete support for automated baseq3 custom maps, customized deathmatch frag limits, and RCON battle controls.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./q3ded +set net_port {{SERVER_PORT}} +set dedicated 2 +exec server.cfg",
+  "install_script": "echo \"Downloading Quake 3 dedicated server...\" && mkdir -p baseq3 && echo \"Quake ready.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Network Port", "default_value": "27960", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Frag Clients", "default_value": "16", "required": true },
+    { "key": "RCON_PASSWORD", "label": "RCON Password", "default_value": "quake_secure_rcon", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- High-Octane Quake III Arena Deathmatch", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "baseq3/server.cfg",
+      "template": "set sv_hostname \"{{SERVER_NAME}}\"\nset sv_maxclients {{MAX_PLAYERS}}\nset rconpassword \"{{RCON_PASSWORD}}\"\nset fraglimit 30\nset timelimit 20\nset g_gametype 0\nmap q3dm6\n"
+    }
+  ]
+}

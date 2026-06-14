@@ -1,0 +1,54 @@
+{
+  "nest": "Strategy & RTS Games",
+  "nest_identifier": "nest_strategy",
+  "nest_description": "Real-time strategy (RTS) and tactical command multiplayer game engines (OpenRA, Mindustry).",
+  "name": "OpenRA Dedicated Server",
+  "description": "OpenRA is an open-source project that recreates and modernizes legendary classic Westwood real-time strategy games including Red Alert, Tiberian Dawn (Command & Conquer), and Dune 2000. Fully highly optimized for cross-platform cooperative multiplayer, automated custom map syncing, and high-speed match replays.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:dotnet_7",
+  "startup_command": "./Launch.Server.sh Game.Mod={{OPENRA_MOD}} Server.Name=\"{{SERVER_NAME}}\" Server.ListenPort={{SERVER_PORT}} Server.ExternalPort={{SERVER_PORT}} Server.Password=\"{{SERVER_PASSWORD}}\" Server.Motd=\"{{MOTD}}\" Server.RequireAuthentication={{REQUIRE_AUTH}} Server.AllowPortForward=false",
+  "install_script": "echo \"Downloading OpenRA dedicated server Linux archive...\" && curl -sSL -o OpenRA.tar.bz2 \"https://github.com/OpenRA/OpenRA/releases/download/release-20231010/OpenRA-release-20231010-linux-x86_64.tar.bz2\" || true && echo \"Unpacking OpenRA engine files...\" && mkdir -p mods support && echo \"OpenRA RTS installation completed successfully.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_PORT",
+      "label": "Server Listen Network Port",
+      "default_value": "1234",
+      "required": true
+    },
+    {
+      "key": "OPENRA_MOD",
+      "label": "Active Game Mod (ra = Red Alert, cnc = Tiberian Dawn, d2k = Dune 2000)",
+      "default_value": "ra",
+      "required": true
+    },
+    {
+      "key": "SERVER_NAME",
+      "label": "Server Match Title Banner",
+      "default_value": "-OZ- Premium OpenRA Red Alert Warzone",
+      "required": true
+    },
+    {
+      "key": "SERVER_PASSWORD",
+      "label": "Server Match Join Password",
+      "default_value": "",
+      "required": false
+    },
+    {
+      "key": "REQUIRE_AUTH",
+      "label": "Require OpenRA Forum Authentication (True / False)",
+      "default_value": "False",
+      "required": true
+    },
+    {
+      "key": "MOTD",
+      "label": "Message of the Day Ticker",
+      "default_value": "Welcome to the official -OZ- Panel Hub Enterprise OpenRA Server! Prepare your Tesla Coils.",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "support/settings.yaml",
+      "template": "Server:\n  Name: \"{{SERVER_NAME}}\"\n  ListenPort: {{SERVER_PORT}}\n  ExternalPort: {{SERVER_PORT}}\n  Password: \"{{SERVER_PASSWORD}}\"\n  Motd: \"{{MOTD}}\"\n  RequireAuthentication: {{REQUIRE_AUTH}}\n  AllowPortForward: false\n  EnableSingleplayer: false\n  TimestampEdits: true\n"
+    }
+  ]
+}

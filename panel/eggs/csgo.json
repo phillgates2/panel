@@ -1,0 +1,48 @@
+{
+  "nest": "Source Engine",
+  "nest_identifier": "nest_source",
+  "nest_description": "Valve Source dedicated servers including CS:GO, Team Fortress 2, and Garry's Mod.",
+  "name": "CS:GO Dedicated Server",
+  "description": "Counter-Strike: Global Offensive / CS2 Dedicated Server.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./srcds_run -game csgo -console -port {{SERVER_PORT}} +map {{DEFAULT_MAP}} +maxplayers {{MAX_PLAYERS}} +rcon_password {{RCON_PASSWORD}}",
+  "install_script": "echo \"Installing SteamCMD and CS:GO server files...\" && mkdir -p csgo/cfg && echo \"CS:GO installation finished.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_PORT",
+      "label": "Server Port",
+      "default_value": "27015",
+      "required": true
+    },
+    {
+      "key": "DEFAULT_MAP",
+      "label": "Default Map",
+      "default_value": "de_dust2",
+      "required": true
+    },
+    {
+      "key": "MAX_PLAYERS",
+      "label": "Max Players",
+      "default_value": "16",
+      "required": true
+    },
+    {
+      "key": "RCON_PASSWORD",
+      "label": "RCON Password",
+      "default_value": "csgo_rcon_secure",
+      "required": true
+    },
+    {
+      "key": "HOSTNAME",
+      "label": "Server Hostname",
+      "default_value": "Counter-Strike High Performance Server",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "csgo/cfg/server.cfg",
+      "template": "hostname \"{{HOSTNAME}}\"\nrcon_password \"{{RCON_PASSWORD}}\"\nsv_maxrate 0\nsv_minrate 80000\nmp_maxrounds 30\nmp_timelimit 0\n"
+    }
+  ]
+}

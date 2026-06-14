@@ -1,0 +1,20 @@
+<%- include('partials/header', { title: '404 - Sandboxed Node Not Found' }) %>
+
+<div class="min-h-[70vh] flex items-center justify-center px-4">
+  <div class="max-w-md w-full bg-[#18191C] border border-gray-800 rounded-3xl p-10 text-center shadow-2xl">
+    
+    <div class="text-7xl font-mono text-[#5865F2] font-extrabold mb-4 animate-bounce">
+      404
+    </div>
+
+    <h1 class="text-2xl font-extrabold text-white tracking-tight mb-2">Endpoint Not Found</h1>
+    <p class="text-xs text-gray-400 mb-8 leading-relaxed"><%= typeof message !== 'undefined' ? message : 'The requested Sandboxed game server room or CMS endpoint does not exist.' %></p>
+
+    <a href="/" class="block w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] font-bold text-white text-sm rounded-xl shadow transition">
+      Return to Master Portal
+    </a>
+
+  </div>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,58 @@
+{
+  "nest": "Minecraft",
+  "nest_identifier": "nest_minecraft",
+  "nest_description": "Minecraft game servers including Vanilla, Paper, and Forge.",
+  "name": "Minecraft Vanilla / Paper",
+  "description": "Standard high-performance Minecraft server powered by Vanilla/Paper.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:java_21",
+  "startup_command": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar nogui",
+  "install_script": "echo \"Downloading server.jar...\" && curl -o server.jar -L \"https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/496/downloads/paper-1.20.4-496.jar\" && echo \"eula=true\" > eula.txt && echo \"Installation complete.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_MEMORY",
+      "label": "Server Memory (MB)",
+      "default_value": "1024",
+      "required": true
+    },
+    {
+      "key": "SERVER_PORT",
+      "label": "Server Port",
+      "default_value": "25565",
+      "required": true
+    },
+    {
+      "key": "RCON_PORT",
+      "label": "RCON Port",
+      "default_value": "25575",
+      "required": true
+    },
+    {
+      "key": "RCON_PASSWORD",
+      "label": "RCON Password",
+      "default_value": "secret_rcon",
+      "required": true
+    },
+    {
+      "key": "MOTD",
+      "label": "Server MOTD",
+      "default_value": "-OZ- Panel Hub Powered Minecraft Server",
+      "required": true
+    },
+    {
+      "key": "MAX_PLAYERS",
+      "label": "Max Players",
+      "default_value": "20",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "server.properties",
+      "template": "server-port={{SERVER_PORT}}\nenable-rcon=true\nrcon.port={{RCON_PORT}}\nrcon.password={{RCON_PASSWORD}}\nmotd={{MOTD}}\nmax-players={{MAX_PLAYERS}}\nonline-mode=false\nquery.port={{SERVER_PORT}}\nbroadcast-rcon-to-ops=false\n"
+    },
+    {
+      "path": "eula.txt",
+      "template": "eula=true\n"
+    }
+  ]
+}

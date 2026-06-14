@@ -1,0 +1,72 @@
+<%- include('partials/header', { title: category.name }) %>
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  
+  <div class="border-b border-gray-800 pb-8 mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+    <div>
+      <a href="/forums" class="text-xs font-bold text-[#5865F2] hover:underline flex items-center space-x-1 mb-3">
+        <span>← All Categories</span>
+      </a>
+      <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight"><%= category.name %></h1>
+      <p class="text-xs sm:text-sm text-gray-400 mt-2"><%= category.description %></p>
+    </div>
+
+    <div>
+      <a href="/forums/new?category_id=<%= category.id %>" class="px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] font-extrabold text-white text-sm rounded-2xl shadow transition transform hover:scale-105 flex items-center space-x-2">
+        <span>✍️ Publish New Topic</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Topics Roster Table -->
+  <div class="bg-[#18191C] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+          <th class="py-5 px-8">Discussion Title</th>
+          <th class="py-5 px-8 text-center hidden sm:table-cell">Replies</th>
+          <th class="py-5 px-8 text-right">Initiated By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800 text-sm">
+        <% if (topics.length === 0) { %>
+          <tr>
+            <td colspan="3" class="py-16 text-center text-gray-600 italic">No topics published in this category yet.</td>
+          </tr>
+        <% } else { %>
+          <% topics.forEach(top => { %>
+            <tr class="hover:bg-[#1C1E22] transition group">
+              <td class="py-6 px-8">
+                <div class="flex items-center space-x-3">
+                  <% if (top.is_pinned) { %>
+                    <span class="p-1.5 bg-amber-500 bg-opacity-10 text-amber-400 rounded-lg text-xs" title="Pinned Topic">📌</span>
+                  <% } else { %>
+                    <span class="text-gray-500 text-lg">💬</span>
+                  <% } %>
+                  <div>
+                    <a href="/forums/topic/<%= top.id %>" class="text-lg font-extrabold text-white group-hover:text-[#5865F2] transition block"><%= top.title %></a>
+                    <span class="text-[11px] text-gray-500 font-mono mt-1 block"><%= new Date(top.created_at).toLocaleString() %></span>
+                  </div>
+                </div>
+              </td>
+
+              <td class="py-6 px-8 text-center font-mono font-bold text-gray-300 hidden sm:table-cell">
+                <span class="px-3 py-1 bg-gray-800 rounded-xl"><%= top.reply_count %></span>
+              </td>
+
+              <td class="py-6 px-8 text-right">
+                <div class="flex items-center justify-end space-x-3">
+                  <span class="font-extrabold text-xs text-gray-300"><%= top.author_name %></span>
+                  <img src="<%= top.author_avatar || '/assets/default_avatar.png' %>" class="w-8 h-8 rounded-xl object-cover border border-gray-700">
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

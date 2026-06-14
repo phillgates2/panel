@@ -1,0 +1,22 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "Palworld Dedicated Server",
+  "description": "Pocketpair Palworld open-world monster-catching survival dedicated server. Enforces automated multi-threading limits, custom world settings, and RCON administration.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./PalServer.sh -port {{SERVER_PORT}} -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS",
+  "install_script": "echo \"Downloading Palworld server files...\" && mkdir -p Pal/Saved/Config/LinuxServer && echo \"Done.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Port", "default_value": "8211", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "32", "required": true },
+    { "key": "SERVER_PASSWORD", "label": "Server Password", "default_value": "", "required": false },
+    { "key": "ADMIN_PASSWORD", "label": "Admin Password", "default_value": "palworld_admin", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Name", "default_value": "-OZ- Palworld High-Performance Realm", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+      "template": "[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerName=\"{{SERVER_NAME}}\",ServerDescription=\"Orchestrated by -OZ- Hub\",ServerPassword=\"{{SERVER_PASSWORD}}\",AdminPassword=\"{{ADMIN_PASSWORD}}\",ServerPlayerMaxNum={{MAX_PLAYERS}},ExpRate=3.000000,PalCaptureRate=2.000000)\n"
+    }
+  ]
+}

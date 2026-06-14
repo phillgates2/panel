@@ -1,0 +1,24 @@
+{
+  "nest": "Valve / Source Engine",
+  "nest_identifier": "nest_source",
+  "nest_description": "Valve Source engine dedicated game servers and modifications.",
+  "name": "Team Fortress 2 Dedicated Server",
+  "description": "Team Fortress 2 is a team-based multiplayer first-person shooter developed by Valve. This high-tick dedicated server egg automates SteamCMD syncing, custom map downloads, and RCON security clamping.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./srcds_run -game tf -console -port {{SERVER_PORT}} +map {{DEFAULT_MAP}} +maxplayers {{MAX_PLAYERS}} +sv_password \"{{SERVER_PASSWORD}}\" +rcon_password \"{{RCON_PASSWORD}}\"",
+  "install_script": "echo \"Installing SteamCMD and Team Fortress 2 dedicated server files (App ID 232250)...\" && mkdir -p tf/cfg && echo \"Installation complete.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Network Port", "default_value": "27015", "required": true },
+    { "key": "DEFAULT_MAP", "label": "Default Startup Map", "default_value": "ctf_2fort", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "24", "required": true },
+    { "key": "SERVER_PASSWORD", "label": "Server Join Password", "default_value": "", "required": false },
+    { "key": "RCON_PASSWORD", "label": "RCON Admin Password", "default_value": "tf2_secure_rcon", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Official TF2 High-Octane Match Server", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "tf/cfg/server.cfg",
+      "template": "hostname \"{{SERVER_NAME}}\"\nrcon_password \"{{RCON_PASSWORD}}\"\nsv_password \"{{SERVER_PASSWORD}}\"\nsv_maxrate 0\nsv_minrate 80000\nsv_client_min_interp_ratio 0.015\nmp_timelimit 30\n"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "nest": "Roleplay & Multiplayer Nests",
+  "nest_identifier": "nest_roleplay",
+  "nest_description": "Custom Roleplay and multi-game framework modifications (FiveM, RedM, SA-MP).",
+  "name": "FiveM Dedicated Server (GTA V)",
+  "description": "Cfx.re FiveM GTA V customized multiplayer roleplay modification engine. Complete support for TxAdmin integration, custom custom server keys, ESX/QBCore framework setup, and database SQL links.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:alpine",
+  "startup_command": "./run.sh +exec server.cfg +set onesync on +set sv_maxclients {{MAX_PLAYERS}}",
+  "install_script": "echo \"Downloading latest Cfx.re FiveM active build fx.tar.xz...\" && mkdir -p resources cache && echo \"Finished.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Network Port (TCP/UDP)", "default_value": "30120", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Clients", "default_value": "48", "required": true },
+    { "key": "FIVEM_LICENSE_KEY", "label": "Cfx.re Keymaster Server Key", "default_value": "changeme", "required": true },
+    { "key": "STEAM_WEB_API", "label": "Steam Web API Key", "default_value": "none", "required": false },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- FiveM High-Octane Premium RP", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "server.cfg",
+      "template": "endpoint_add_tcp \"0.0.0.0:{{SERVER_PORT}}\"\nendpoint_add_udp \"0.0.0.0:{{SERVER_PORT}}\"\nsv_hostname \"{{SERVER_NAME}}\"\nsets sv_projectName \"{{SERVER_NAME}}\"\nsets sv_projectDesc \"Orchestrated by -OZ- Panel Hub Enterprise\"\nsv_maxclients {{MAX_PLAYERS}}\nset sv_licenseKey \"{{FIVEM_LICENSE_KEY}}\"\nset steam_webApiKey \"{{STEAM_WEB_API}}\"\nensure mapmanager\nensure chat\nensure spawnmanager\nensure sessionmanager\nensure basic-gamemode\nensure hardcap\nensure rconlog\n"
+    }
+  ]
+}

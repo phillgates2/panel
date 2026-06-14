@@ -1,0 +1,60 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "nest_description": "Open world survival craft games including Rust, ARK, and DayZ.",
+  "name": "Rust Dedicated Server",
+  "description": "Facepunch Rust Dedicated Server with full RCON web functionality.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:rust",
+  "startup_command": "./RustDedicated -batchmode +server.port {{SERVER_PORT}} +server.level \"{{MAP_NAME}}\" +server.seed {{SERVER_SEED}} +server.maxplayers {{MAX_PLAYERS}} +rcon.port {{RCON_PORT}} +rcon.password \"{{RCON_PASSWORD}}\" +rcon.web 1",
+  "install_script": "echo \"Downloading RustDedicated server files...\" && mkdir -p server/my_server/cfg && echo \"Rust installed successfully.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_PORT",
+      "label": "Server Port",
+      "default_value": "28015",
+      "required": true
+    },
+    {
+      "key": "RCON_PORT",
+      "label": "RCON Port",
+      "default_value": "28016",
+      "required": true
+    },
+    {
+      "key": "RCON_PASSWORD",
+      "label": "Web RCON Password",
+      "default_value": "rust_rcon_pass",
+      "required": true
+    },
+    {
+      "key": "MAP_NAME",
+      "label": "Map Level Name",
+      "default_value": "Procedural Map",
+      "required": true
+    },
+    {
+      "key": "SERVER_SEED",
+      "label": "World Seed",
+      "default_value": "1337",
+      "required": true
+    },
+    {
+      "key": "MAX_PLAYERS",
+      "label": "Max Players",
+      "default_value": "50",
+      "required": true
+    },
+    {
+      "key": "SERVER_NAME",
+      "label": "Server Title",
+      "default_value": "Rust High Octane 5x Server",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "server/my_server/cfg/server.cfg",
+      "template": "server.hostname \"{{SERVER_NAME}}\"\nserver.maxplayers {{MAX_PLAYERS}}\nserver.worldsize 3500\nserver.saveinterval 300\n"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "nest": "2D & Voxel Nests",
+  "nest_identifier": "nest_voxel",
+  "nest_description": "2D action adventure and voxel sandbox multiplayer game engines.",
+  "name": "Terraria Dedicated Server (tShock)",
+  "description": "Re-Logic Terraria 2D sandbox adventure game. Enforces full tShock dedicated server mod functionality, multi-world sizes, customized plugin ecosystems, and player role permissions.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:mono",
+  "startup_command": "./TerrariaServer.exe -config {{CONFIG_FILE}} -port {{SERVER_PORT}} -world \"Worlds/{{WORLD_NAME}}.wld\" -worldsize {{WORLD_SIZE}} -autocreate {{WORLD_SIZE}}",
+  "install_script": "echo \"Downloading tShock Terraria server binary...\" && mkdir -p Worlds tShock && echo \"Done.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Port", "default_value": "7777", "required": true },
+    { "key": "WORLD_NAME", "label": "World File Name", "default_value": "TerrariaWorld", "required": true },
+    { "key": "WORLD_SIZE", "label": "World Size (1=Small, 2=Medium, 3=Large)", "default_value": "2", "required": true },
+    { "key": "CONFIG_FILE", "label": "Config Filename", "default_value": "serverconfig.txt", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Premium Terraria Adventure Hub", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "serverconfig.txt",
+      "template": "worldpath=Worlds/\nmaxplayers=16\nport={{SERVER_PORT}}\npassword=\nmotd=Welcome to the -OZ- Panel Hub Terraria Realm!\n"
+    }
+  ]
+}

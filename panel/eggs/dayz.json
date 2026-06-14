@@ -1,0 +1,22 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "DayZ Standalone Dedicated Server",
+  "description": "Bohemia Interactive DayZ open-world zombie survival tactical FPS dedicated game engine. Fully supports customized Chernarus/Livonia mission layouts, server mods, and RCON battleeye configurations.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./DayZServer -config={{CONFIG_FILE}} -port={{SERVER_PORT}} -cpuCount={{CPU_CORES}} -dologs -adminlog -netlog",
+  "install_script": "echo \"Downloading DayZ standalone binaries...\" && mkdir -p server_data/battleye && echo \"Success.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Network Port", "default_value": "2302", "required": true },
+    { "key": "CONFIG_FILE", "label": "Execution Config Filename", "default_value": "serverDZ.cfg", "required": true },
+    { "key": "CPU_CORES", "label": "Dedicated Host Cores", "default_value": "2", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "60", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Premium DayZ Chernarus Hardcore", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "serverDZ.cfg",
+      "template": "hostname = \"{{SERVER_NAME}}\";\npassword = \"\";\npasswordAdmin = \"dayz_admin_secure\";\nmaxPlayers = {{MAX_PLAYERS}};\nverifySignatures = 2;\nforceSameBuild = 1;\ndisableVoN = 0;\nvonCodecQuality = 20;\nsimulatedPlayersBatch = 20;\nserverTime = \"SystemTime\";\nserverTimeAcceleration = 4;\nserverNightTimeAcceleration = 8;\n"
+    }
+  ]
+}

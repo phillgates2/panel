@@ -1,0 +1,22 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "Unturned Dedicated Server",
+  "description": "Smartly Dressed Games Unturned multiplayer zombie survival sandbox. High-speed RocketMod enabled dedicated server fully automated with custom Rocket plugins, map options, and perspective rules.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./Unturned_Headless -nographics -batchmode +secureserver/{{INSTANCE_NAME}}",
+  "install_script": "echo \"Downloading Unturned binaries...\" && mkdir -p Servers/MyServer/Server && echo \"Success.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Game Port", "default_value": "27015", "required": true },
+    { "key": "INSTANCE_NAME", "label": "Server Instance Directory Name", "default_value": "MyServer", "required": true },
+    { "key": "MAP_NAME", "label": "Startup Map", "default_value": "PEI", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "24", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Unturned Survival Front", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "Servers/MyServer/Server/Commands.dat",
+      "template": "name {{SERVER_NAME}}\nmap {{MAP_NAME}}\nport {{SERVER_PORT}}\nmaxplayers {{MAX_PLAYERS}}\nperspective both\nmode normal\n"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "nest_description": "Open world survival craft multiplayer game engines.",
+  "name": "ARK: Survival Evolved Dedicated Server",
+  "description": "Studio Wildcard ARK: Survival Evolved open-world dinosaur survival dedicated server. Automates Steam Workshop mods, customized multi-home clustered server transfers, and customized harvesting rates.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./ShooterGameServer {{MAP_NAME}}?listen?SessionName=\"{{SERVER_NAME}}\"?ServerPassword=\"{{SERVER_PASSWORD}}\"?ServerAdminPassword=\"{{ADMIN_PASSWORD}}\"?Port={{SERVER_PORT}}?QueryPort={{QUERY_PORT}}?MaxPlayers={{MAX_PLAYERS}} -NoTransferFromFiltering -server -log",
+  "install_script": "echo \"Downloading ARK server binaries (App ID 376030)...\" && mkdir -p ShooterGame/Saved/Config/LinuxServer && echo \"Finished.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Game Port", "default_value": "7777", "required": true },
+    { "key": "QUERY_PORT", "label": "Steam Query Port", "default_value": "27015", "required": true },
+    { "key": "MAP_NAME", "label": "Map Level", "default_value": "TheIsland", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "70", "required": true },
+    { "key": "SERVER_PASSWORD", "label": "Server Join Password", "default_value": "", "required": false },
+    { "key": "ADMIN_PASSWORD", "label": "Admin Remote Console Password", "default_value": "ark_admin_pass", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Session Name", "default_value": "-OZ- High-Octane ARK 10x Taming Server", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "ShooterGame/Saved/Config/LinuxServer/GameUserSettings.ini",
+      "template": "[ServerSettings]\nAllowThirdPersonPlayer=True\nShowMapPlayerLocation=True\nTamingSpeedMultiplier=10.0\nHarvestAmountMultiplier=5.0\nXPMultiplier=5.0\n"
+    }
+  ]
+}

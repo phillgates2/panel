@@ -1,0 +1,510 @@
+<%- include('partials/header', { title: 'Master Administrative Sentinel Core' }) %>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" x-data="{
+  activeTab: '<%= activeTab %>',
+  openPageModal: false,
+  openNewsModal: false,
+  openNavModal: false
+}">
+
+  <!-- Welcome Header Banner -->
+  <div class="bg-gradient-to-r from-purple-950 via-[#18191C] to-[#18191C] rounded-3xl border border-purple-500 border-opacity-30 p-8 sm:p-10 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 mb-10 relative overflow-hidden">
+    <div class="absolute -right-10 -top-10 w-80 h-80 bg-purple-500 bg-opacity-10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex items-center space-x-5 relative z-10">
+      <div class="w-16 h-16 bg-purple-500 bg-opacity-20 text-purple-400 rounded-2xl border border-purple-500 border-opacity-30 flex items-center justify-center font-extrabold text-3xl shadow-inner flex-shrink-0">
+        👑
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Super Administrator Hub</h1>
+          <span class="px-2.5 py-0.5 bg-green-500 bg-opacity-10 text-green-400 text-[10px] font-extrabold uppercase rounded-md">Master Status</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Orchestrate Pterodactyl Eggs, modify active CMS pages, publish site-wide news, and clamp RBAC roles.</p>
+      </div>
+    </div>
+  </div>
+
+  <% if (error) { %>
+    <div class="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 text-red-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>⚠️</span>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <% if (success) { %>
+    <div class="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-20 text-green-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>✅</span>
+      <span><%= success %></span>
+    </div>
+  <% } %>
+
+  <!-- Tab Nav Strip -->
+  <div class="flex items-center space-x-3 border-b border-gray-800 pb-4 mb-8 overflow-x-auto">
+    <button @click="activeTab = 'overview'" :class="activeTab === 'overview' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>📊 Overview Dashboard</span>
+    </button>
+    
+    <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>👥 Community Users</span>
+    </button>
+
+    <button @click="activeTab = 'cms_pages'" :class="activeTab === 'cms_pages' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>📑 CMS Pages</span>
+    </button>
+
+    <button @click="activeTab = 'cms_news'" :class="activeTab === 'cms_news' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>📢 Announcements Feed</span>
+    </button>
+
+    <button @click="activeTab = 'nav'" :class="activeTab === 'nav' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>🧭 Custom Navigation</span>
+    </button>
+
+    <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>⚙️ Brand & Social Core</span>
+    </button>
+
+    <button @click="activeTab = 'eggs'" :class="activeTab === 'eggs' ? 'bg-purple-600 text-white font-extrabold shadow-lg' : 'bg-[#18191C] text-gray-400 hover:text-white hover:bg-gray-800'" class="px-5 py-3 rounded-2xl text-xs uppercase tracking-wider transition flex items-center space-x-2 whitespace-nowrap border border-gray-800">
+      <span>🥚 Pterodactyl Game Eggs</span>
+    </button>
+  </div>
+
+  <!-- TAB 1: Overview -->
+  <div x-show="activeTab === 'overview'" x-transition.opacity>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      
+      <div class="bg-[#18191C] p-7 rounded-3xl border border-gray-800 shadow-xl flex items-center justify-between">
+        <div>
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Registered Gamers</p>
+          <p class="text-3xl font-extrabold text-white mt-2 font-mono"><%= users.length %></p>
+        </div>
+        <span class="text-4xl">👥</span>
+      </div>
+
+      <div class="bg-[#18191C] p-7 rounded-3xl border border-gray-800 shadow-xl flex items-center justify-between">
+        <div>
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Custom Web Pages</p>
+          <p class="text-3xl font-extrabold text-purple-400 mt-2 font-mono"><%= cmsPages.length %></p>
+        </div>
+        <span class="text-4xl">📑</span>
+      </div>
+
+      <div class="bg-[#18191C] p-7 rounded-3xl border border-gray-800 shadow-xl flex items-center justify-between">
+        <div>
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Published News Feed</p>
+          <p class="text-3xl font-extrabold text-brand-500 mt-2 font-mono"><%= cmsNews.length %></p>
+        </div>
+        <span class="text-4xl">📢</span>
+      </div>
+
+      <div class="bg-[#18191C] p-7 rounded-3xl border border-gray-800 shadow-xl flex items-center justify-between">
+        <div>
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Seeded Game Eggs</p>
+          <p class="text-3xl font-extrabold text-amber-400 mt-2 font-mono"><%= eggs.length %></p>
+        </div>
+        <span class="text-4xl">🥚</span>
+      </div>
+
+    </div>
+
+    <!-- System Diagnostic Box -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-8 shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-4 flex items-center space-x-2"><span>🛡️ Server Execution Sentinel</span></h3>
+      <div class="space-y-3 font-mono text-xs">
+        <div class="p-4 bg-[#0E0F10] rounded-2xl border border-gray-800 flex justify-between">
+          <span class="text-gray-500 font-bold uppercase">Web Hostname Flag</span>
+          <span class="text-green-400"><%= settings['WEB_HOSTNAME'] || '127.0.0.1' %></span>
+        </div>
+        <div class="p-4 bg-[#0E0F10] rounded-2xl border border-gray-800 flex justify-between">
+          <span class="text-gray-500 font-bold uppercase">PostgreSQL Installation Sentinel</span>
+          <span class="text-purple-400">INSTALLED = <%= settings['INSTALLED'] || 'false' %></span>
+        </div>
+        <div class="p-4 bg-[#0E0F10] rounded-2xl border border-gray-800 flex justify-between">
+          <span class="text-gray-500 font-bold uppercase">Caddy Automation Proxy Mode</span>
+          <span class="text-amber-400">Reverse Proxy Active • SSL Automated</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Users -->
+  <div x-show="activeTab === 'users'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl overflow-hidden p-8">
+      <h2 class="text-2xl font-extrabold text-white tracking-tight mb-8">User RBAC Administration</h2>
+
+      <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+              <th class="py-4 px-6">ID / Username</th>
+              <th class="py-4 px-6">Email Address</th>
+              <th class="py-4 px-6">Enforced Role</th>
+              <th class="py-4 px-6">2FA Flag</th>
+              <th class="py-4 px-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800 text-xs sm:text-sm font-mono">
+            <% users.forEach(u => { %>
+              <tr class="hover:bg-gray-900/60 transition">
+                <td class="py-4 px-6 font-bold text-white flex items-center space-x-3">
+                  <img src="<%= u.avatar || '/assets/default_avatar.png' %>" class="w-8 h-8 rounded-lg object-cover border border-gray-800">
+                  <span><%= u.username %></span>
+                  <span class="text-gray-600 text-xs">(#<%= u.id %>)</span>
+                </td>
+
+                <td class="py-4 px-6 text-gray-400"><%= u.email %></td>
+                
+                <td class="py-4 px-6">
+                  <form action="/admin/users/<%= u.id %>/role" method="POST" class="flex items-center space-x-2">
+                    <select name="role" class="bg-[#18191C] border border-gray-800 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-purple-500">
+                      <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                      <option value="support" <%= u.role === 'support' ? 'selected' : '' %>>Support</option>
+                      <option value="mod" <%= u.role === 'mod' ? 'selected' : '' %>>Moderator</option>
+                      <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Super Admin</option>
+                    </select>
+                    <button type="submit" class="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-[10px] font-bold">Save</button>
+                  </form>
+                </td>
+
+                <td class="py-4 px-6 text-sm">
+                  <%= u.two_factor_enabled ? '🟢 Enabled' : '🔴 Off' %>
+                </td>
+
+                <td class="py-4 px-6 text-right">
+                  <% if (u.id !== user.id) { %>
+                    <form action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Are you sure you wish to permanently delete this user?');">
+                      <button type="submit" class="px-3 py-1.5 bg-red-500 bg-opacity-10 text-red-400 hover:bg-opacity-20 font-bold text-xs rounded-lg transition">🗑️ Delete</button>
+                    </form>
+                  <% } else { %>
+                    <span class="text-gray-500 text-xs italic">Cannot delete self</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: CMS Pages -->
+  <div x-show="activeTab === 'cms_pages'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-8">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-6">
+        <h2 class="text-2xl font-extrabold text-white tracking-tight">CMS Custom Web Pages</h2>
+        <button @click="openPageModal = true" class="px-6 py-3.5 bg-purple-600 hover:bg-purple-500 font-extrabold text-white text-xs uppercase tracking-wider rounded-xl shadow transition">✨ Instantiate New Web Page</button>
+      </div>
+
+      <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+              <th class="py-4 px-6">Slug Route</th>
+              <th class="py-4 px-6">Header Title</th>
+              <th class="py-4 px-6">Published By</th>
+              <th class="py-4 px-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800 text-xs sm:text-sm font-mono">
+            <% if (cmsPages.length === 0) { %>
+              <tr><td colspan="4" class="py-12 text-center text-gray-600">No custom pages published.</td></tr>
+            <% } else { %>
+              <% cmsPages.forEach(p => { %>
+                <tr class="hover:bg-gray-900/60 transition">
+                  <td class="py-4 px-6 font-bold text-purple-400"><a href="/page/<%= p.slug %>" target="_blank" class="hover:underline">/page/<%= p.slug %></a></td>
+                  <td class="py-4 px-6 text-white font-sans font-bold"><%= p.title %></td>
+                  <td class="py-4 px-6 text-gray-400"><%= p.author_name %></td>
+                  <td class="py-4 px-6 text-right">
+                    <form action="/admin/cms/page/<%= p.id %>/delete" method="POST" onsubmit="return confirm('Delete this page?');">
+                      <button type="submit" class="px-3 py-1.5 bg-red-500 bg-opacity-10 text-red-400 hover:bg-opacity-20 font-bold text-xs rounded-lg transition">🗑️ Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: News Feed -->
+  <div x-show="activeTab === 'cms_news'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-8">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-6">
+        <h2 class="text-2xl font-extrabold text-white tracking-tight">Community News & Announcements Feed</h2>
+        <button @click="openNewsModal = true" class="px-6 py-3.5 bg-brand-500 hover:bg-brand-600 font-extrabold text-white text-xs uppercase tracking-wider rounded-xl shadow transition">📢 Publish Announcement</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <% if (cmsNews.length === 0) { %>
+          <div class="md:col-span-2 py-12 text-center text-gray-600 italic">No news announcements published.</div>
+        <% } else { %>
+          <% cmsNews.forEach(n => { %>
+            <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 p-6 flex flex-col justify-between space-y-4 shadow">
+              <div>
+                <div class="flex justify-between items-center text-[10px] text-gray-500 font-mono mb-2">
+                  <span>By <%= n.author_name %></span>
+                  <span><%= new Date(n.created_at).toLocaleDateString() %></span>
+                </div>
+                <h3 class="text-lg font-bold text-white"><%= n.title %></h3>
+                <p class="text-xs text-gray-400 mt-2 line-clamp-2 leading-relaxed"><%= n.summary || n.content.slice(0, 100) %>...</p>
+              </div>
+              <div class="flex justify-between items-center pt-4 border-t border-gray-800/80">
+                <a href="/news/<%= n.id %>" target="_blank" class="text-xs text-brand-500 hover:underline font-bold">Inspect Story →</a>
+                <form action="/admin/cms/news/<%= n.id %>/delete" method="POST" onsubmit="return confirm('Delete announcement?');">
+                  <button type="submit" class="px-3 py-1 bg-red-500 bg-opacity-10 text-red-400 text-xs font-bold rounded-lg hover:bg-opacity-20 transition">Delete</button>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Custom Navigation Links -->
+  <div x-show="activeTab === 'nav'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-8">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-6">
+        <h2 class="text-2xl font-extrabold text-white tracking-tight">Custom Navigation Widgets</h2>
+        <button @click="openNavModal = true" class="px-6 py-3.5 bg-purple-600 hover:bg-purple-500 font-extrabold text-white text-xs uppercase tracking-wider rounded-xl shadow transition">🧭 Add Nav Link</button>
+      </div>
+
+      <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+              <th class="py-4 px-6">Display Label</th>
+              <th class="py-4 px-6">Destination URL</th>
+              <th class="py-4 px-6">Target Window</th>
+              <th class="py-4 px-6">Sorting Order</th>
+              <th class="py-4 px-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800 text-xs sm:text-sm font-mono">
+            <% navLinks.forEach(l => { %>
+              <tr class="hover:bg-gray-900/60 transition">
+                <td class="py-4 px-6 font-bold text-white font-sans"><%= l.label %></td>
+                <td class="py-4 px-6 text-purple-400"><a href="<%= l.url %>" target="_blank" class="hover:underline"><%= l.url %></a></td>
+                <td class="py-4 px-6 text-gray-400"><%= l.target %></td>
+                <td class="py-4 px-6 text-gray-500"><%= l.sort_order %></td>
+                <td class="py-4 px-6 text-right">
+                  <form action="/admin/cms/nav/<%= l.id %>/delete" method="POST" onsubmit="return confirm('Delete navigation widget?');">
+                    <button type="submit" class="px-3 py-1.5 bg-red-500 bg-opacity-10 text-red-400 hover:bg-opacity-20 font-bold text-xs rounded-lg transition">🗑️ Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: Brand & Social Settings -->
+  <div x-show="activeTab === 'settings'" x-transition.opacity x-cloak>
+    <div class="max-w-4xl bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 sm:p-12 space-y-8">
+      <div>
+        <h2 class="text-2xl font-extrabold text-white tracking-tight">System Identity & Global Social Links</h2>
+        <p class="text-xs text-gray-400 mt-1">Updates global header titles, community Message of the Day, and social icon endpoints.</p>
+      </div>
+
+      <form action="/admin/brand" method="POST" class="space-y-6">
+        <div>
+          <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Website / Panel Title</label>
+          <input type="text" name="site_title" value="<%= settings['SITE_TITLE'] || '-OZ- Panel Hub Enterprise' %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-purple-500 transition font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Community Subtitle / MOTD</label>
+          <input type="text" name="site_motd" value="<%= settings['SITE_MOTD'] || 'Next-Gen Premium Game Server Orchestrator' %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-purple-500 transition font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Production Web Hostname (Caddy Sentinel)</label>
+          <input type="text" name="web_hostname" value="<%= settings['WEB_HOSTNAME'] || '127.0.0.1' %>" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-purple-500 transition font-mono">
+        </div>
+
+        <div class="border-t border-gray-800 pt-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Official Discord Link</label>
+            <input type="url" name="social_discord" value="<%= settings['SOCIAL_DISCORD'] || 'https://discord.gg/ozpanel' %>" class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-4 py-3 text-white text-xs font-mono">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Official Twitter / X Link</label>
+            <input type="url" name="social_twitter" value="<%= settings['SOCIAL_TWITTER'] || 'https://twitter.com/ozpanel' %>" class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-4 py-3 text-white text-xs font-mono">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Official GitHub Link</label>
+            <input type="url" name="social_github" value="<%= settings['SOCIAL_GITHUB'] || 'https://github.com/ozpanel' %>" class="w-full bg-[#0E0F10] border border-gray-800 rounded-2xl px-4 py-3 text-white text-xs font-mono">
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-gray-800 flex justify-end">
+          <button type="submit" class="px-10 py-4 bg-purple-600 hover:bg-purple-500 font-extrabold text-white text-sm rounded-2xl shadow-xl transition transform hover:scale-105">
+            💾 Save Identity Configurations
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB 7: Eggs & Nests -->
+  <div x-show="activeTab === 'eggs'" x-transition.opacity x-cloak>
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 shadow-2xl p-8 space-y-8">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-6">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white tracking-tight">Pterodactyl Process Eggs & Game Yolks</h2>
+          <p class="text-xs text-gray-400 mt-1">JSON configuration specifications defining process boot binaries, install scripts, and sandbox configurations.</p>
+        </div>
+
+        <form action="/admin/eggs/reseed" method="POST">
+          <button type="submit" class="px-6 py-3.5 bg-amber-600 hover:bg-amber-500 font-extrabold text-white text-xs uppercase tracking-wider rounded-xl shadow transition">⚡ Force Re-seed Eggs</button>
+        </form>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <% eggs.forEach(egg => { %>
+          <div class="bg-[#0E0F10] rounded-3xl border border-gray-800 p-7 flex flex-col justify-between space-y-5 shadow-xl hover:border-purple-500 transition group">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="px-3 py-1 bg-purple-500 bg-opacity-10 text-purple-400 text-[10px] font-extrabold uppercase rounded-lg border border-purple-500 border-opacity-20"><%= egg.nest_name %></span>
+                <span class="text-xs font-mono text-gray-500">ID: #<%= egg.id %></span>
+              </div>
+              <h3 class="text-xl font-extrabold text-white mt-4 group-hover:text-purple-400 transition"><%= egg.name %></h3>
+              <p class="text-xs text-gray-400 mt-2 leading-relaxed"><%= egg.description %></p>
+            </div>
+
+            <div class="p-4 bg-[#141517] rounded-2xl border border-gray-800 space-y-2 font-mono text-[10px] text-gray-300">
+              <p class="text-purple-400 truncate"><span class="text-gray-500">Docker Image:</span> <%= egg.docker_image %></p>
+              <p class="truncate"><span class="text-gray-500 font-bold">Boot:</span> <%= egg.startup_command %></p>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Instantiate CMS Web Page -->
+  <div x-show="openPageModal" @click.away="openPageModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm overflow-y-auto">
+    <div class="max-w-2xl w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden my-8 p-8" @click.stop>
+      <div class="border-b border-gray-800 pb-4 mb-6 flex items-center justify-between">
+        <h3 class="text-xl font-bold text-white flex items-center space-x-2"><span>✨ Create Custom Web Page</span></h3>
+        <button @click="openPageModal = false" class="text-gray-400 hover:text-white">✕</button>
+      </div>
+
+      <form action="/admin/cms/page" method="POST" class="space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Slug Endpoint Route</label>
+            <input type="text" name="slug" placeholder="e.g. terms-of-service" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 font-mono text-white text-sm focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Navigation Title</label>
+            <input type="text" name="title" placeholder="e.g. Terms of Service" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Meta Description (SEO)</label>
+          <input type="text" name="meta_description" placeholder="Brief SEO description..." class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Immersive Web Content (HTML / Markdown Supported)</label>
+          <textarea name="content" rows="8" placeholder="Write custom web page content..." required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-purple-500 resize-none font-mono"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-4">
+          <button type="button" @click="openPageModal = false" class="px-6 py-3 bg-gray-800 text-white font-semibold rounded-xl">Cancel</button>
+          <button type="submit" class="px-8 py-3 bg-purple-600 hover:bg-purple-500 font-extrabold text-white rounded-xl shadow">✨ Publish Page</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Publish Announcement -->
+  <div x-show="openNewsModal" @click.away="openNewsModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm overflow-y-auto">
+    <div class="max-w-2xl w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden my-8 p-8" @click.stop>
+      <div class="border-b border-gray-800 pb-4 mb-6 flex items-center justify-between">
+        <h3 class="text-xl font-bold text-white flex items-center space-x-2"><span>📢 Publish News Story</span></h3>
+        <button @click="openNewsModal = false" class="text-gray-400 hover:text-white">✕</button>
+      </div>
+
+      <form action="/admin/cms/news" method="POST" class="space-y-6">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Headline Title</label>
+          <input type="text" name="title" placeholder="e.g. -OZ- v2026 Engine Roster Update" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Summary Subtitle</label>
+            <input type="text" name="summary" placeholder="Brief announcement subtitle..." class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Banner Image URL</label>
+            <input type="url" name="image_url" value="/assets/news_default.jpg" placeholder="https://..." class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Full Story Body</label>
+          <textarea name="content" rows="8" placeholder="Write full news announcement..." required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-purple-500 resize-none font-mono"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-4">
+          <button type="button" @click="openNewsModal = false" class="px-6 py-3 bg-gray-800 text-white font-semibold rounded-xl">Cancel</button>
+          <button type="submit" class="px-8 py-3 bg-brand-500 hover:bg-brand-600 font-extrabold text-white rounded-xl shadow">📢 Broadcast Article</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Add Nav Link -->
+  <div x-show="openNavModal" @click.away="openNavModal = false" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+    <div class="max-w-lg w-full bg-[#18191C] border border-gray-800 rounded-3xl shadow-2xl overflow-hidden p-8" @click.stop>
+      <h3 class="text-xl font-bold text-white mb-6 flex items-center space-x-2"><span>🧭 Add Custom Navigation Link</span></h3>
+
+      <form action="/admin/cms/nav" method="POST" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Link Display Label</label>
+          <input type="text" name="label" placeholder="e.g. Webstore / VIP Support" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Destination URL</label>
+          <input type="text" name="url" placeholder="https://..." required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500 font-mono">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Target Mode</label>
+            <select name="target" class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm">
+              <option value="_self">Same Window (_self)</option>
+              <option value="_blank">New Window (_blank)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Sort Index</label>
+            <input type="number" name="sort_order" value="5" class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white text-sm font-mono">
+          </div>
+        </div>
+
+        <div class="pt-6 flex justify-end space-x-4">
+          <button type="button" @click="openNavModal = false" class="px-6 py-3 bg-gray-800 text-white font-semibold rounded-xl">Cancel</button>
+          <button type="submit" class="px-8 py-3 bg-purple-600 hover:bg-purple-500 font-extrabold text-white rounded-xl shadow">🧭 Insert Link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

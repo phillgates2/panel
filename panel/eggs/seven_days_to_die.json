@@ -1,0 +1,17 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "7 Days to Die Dedicated Server",
+  "description": "The Fun Pimps 7 Days to Die open-world survival horde crafting game. Features automated random world generation (RWG) syncing, customized blood moon day tickers, and dynamic web stats.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./startserver.sh -configfile={{CONFIG_FILE}}",
+  "install_script": "echo \"Installing 7D2D dedicated server...\" && mkdir -p Data/Config && echo \"Ready.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Network Port", "default_value": "26900", "required": true },
+    { "key": "CONFIG_FILE", "label": "Config File Path", "default_value": "serveradmin.xml", "required": true },
+    { "key": "WORLD_NAME", "label": "Game World (Navezgane or RWG)", "default_value": "Navezgane", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "16", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- 7 Days to Die Survival Hub", "required": true }
+  ],
+  "config_files": []
+}

@@ -1,0 +1,22 @@
+{
+  "nest": "Valve / Source Engine",
+  "nest_identifier": "nest_source",
+  "name": "Left 4 Dead 2 Dedicated Server",
+  "description": "Left 4 Dead 2 cooperative team survival FPS zombie shooter dedicated server. Fully optimized for high tickrates, custom mutation campaigns, and seamless SourceMod plugin integration.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./srcds_run -game left4dead2 -console -port {{SERVER_PORT}} +map {{DEFAULT_MAP}} +maxplayers {{MAX_PLAYERS}} +rcon_password \"{{RCON_PASSWORD}}\"",
+  "install_script": "echo \"Downloading L4D2 server files via SteamCMD...\" && mkdir -p left4dead2/cfg && echo \"Complete.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Port", "default_value": "27015", "required": true },
+    { "key": "DEFAULT_MAP", "label": "Default Campaign Map", "default_value": "c1m1_hotel", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "8", "required": true },
+    { "key": "RCON_PASSWORD", "label": "RCON Password", "default_value": "l4d2_secure_rcon", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname Banner", "default_value": "-OZ- Premium Left 4 Dead 2 Coop Server", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "left4dead2/cfg/server.cfg",
+      "template": "hostname \"{{SERVER_NAME}}\"\nrcon_password \"{{RCON_PASSWORD}}\"\nmp_gamemode \"coop\"\nsv_gametypes \"coop,versus,survival,scavenge\"\n"
+    }
+  ]
+}

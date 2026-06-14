@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>-OZ- Panel Hub - 2FA Security Verifier</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-[#0E0F10] text-gray-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="max-w-md w-full bg-[#18191C] rounded-2xl border border-gray-800 p-8 text-center shadow-2xl">
+    
+    <div class="w-16 h-16 bg-[#FEE75C] bg-opacity-10 text-[#FEE75C] rounded-full border border-[#FEE75C] border-opacity-20 flex items-center justify-center mx-auto mb-6">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+    </div>
+
+    <h1 class="text-2xl font-bold text-white tracking-tight mb-2">Two-Factor Authentication</h1>
+    <p class="text-xs text-gray-400 mb-8">Enter your 6-digit TOTP Verification Token from Google Authenticator or Authy to unlock your dashboard session.</p>
+
+    <% if (error) { %>
+      <div class="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 text-red-400 p-3 rounded-xl text-xs font-medium mb-6 text-center">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <form action="/verify-2fa" method="POST" class="space-y-6">
+      <div>
+        <input type="text" name="token" placeholder="••••••" maxlength="6" required autofocus class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-4 text-center text-2xl tracking-widest font-mono text-white focus:outline-none focus:border-[#5865F2] transition">
+        <p class="text-[11px] text-gray-500 mt-2">Demo Admin Shortcut: You can input <code class="text-[#5865F2]">123456</code></p>
+      </div>
+
+      <button type="submit" class="w-full py-4 bg-[#5865F2] hover:bg-[#4752C4] font-bold text-white text-sm rounded-xl shadow-lg transition transform hover:scale-[1.01]">
+        🛡️ Verify & Authenticate
+      </button>
+    </form>
+
+    <div class="mt-8 text-center border-t border-gray-800 pt-6">
+      <a href="/logout" class="text-xs text-gray-500 hover:text-white transition font-medium">← Cancel Login</a>
+    </div>
+
+  </div>
+
+</body>
+</html>

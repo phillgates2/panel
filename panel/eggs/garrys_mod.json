@@ -1,0 +1,24 @@
+{
+  "nest": "Valve / Source Engine",
+  "nest_identifier": "nest_source",
+  "name": "Garry's Mod Dedicated Server",
+  "description": "Garry's Mod is a sandbox physics game developed by Facepunch Studios. Supports fully automated Steam Workshop collections, Lua addons, and custom gamemodes (DarkRP, Trouble in Terrorist Town).",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./srcds_run -game garrysmod -console -port {{SERVER_PORT}} +gamemode {{GAMEMODE}} +map {{DEFAULT_MAP}} +maxplayers {{MAX_PLAYERS}} +host_workshop_collection {{WORKSHOP_ID}} +rcon_password \"{{RCON_PASSWORD}}\"",
+  "install_script": "echo \"Downloading Garry's Mod Dedicated Server (App ID 4020)...\" && mkdir -p garrysmod/cfg && echo \"Installation successful.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Server Network Port", "default_value": "27015", "required": true },
+    { "key": "GAMEMODE", "label": "Active Gamemode", "default_value": "sandbox", "required": true },
+    { "key": "DEFAULT_MAP", "label": "Default Map", "default_value": "gm_construct", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "32", "required": true },
+    { "key": "WORKSHOP_ID", "label": "Steam Workshop Collection ID", "default_value": "", "required": false },
+    { "key": "RCON_PASSWORD", "label": "RCON Password", "default_value": "gmod_rcon_pass", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Premium Garry's Mod Sandbox Hub", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "garrysmod/cfg/server.cfg",
+      "template": "hostname \"{{SERVER_NAME}}\"\nrcon_password \"{{RCON_PASSWORD}}\"\nsbox_maxprops 1000\nsbox_maxnpcs 50\nsbox_maxragdolls 20\n"
+    }
+  ]
+}

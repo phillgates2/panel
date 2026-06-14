@@ -1,0 +1,28 @@
+<%- include('partials/header', { title: page.title }) %>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  
+  <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-8 sm:p-14 shadow-2xl">
+    
+    <div class="border-b border-gray-800 pb-8 mb-8">
+      <a href="/" class="text-xs font-bold text-[#5865F2] hover:underline flex items-center space-x-1 mb-4">
+        <span>← Back to Homepage</span>
+      </a>
+      <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight"><%= page.title %></h1>
+      <div class="flex items-center space-x-3 text-xs text-gray-500 mt-4">
+        <span>Last updated on <%= new Date(page.created_at).toLocaleDateString() %></span>
+        <span>•</span>
+        <span>Author: <%= page.author_name || 'System Sentinel' %></span>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="prose prose-invert max-w-none text-gray-300 leading-relaxed space-y-6 text-base">
+      <%- page.content.replace(/\n/g, '<br>') %>
+    </div>
+
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

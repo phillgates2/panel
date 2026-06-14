@@ -1,0 +1,22 @@
+{
+  "nest": "Resource & Factory Nests",
+  "nest_identifier": "nest_factory",
+  "nest_description": "Factory automation, logic operations, and resource management multiplayer game engines.",
+  "name": "Factorio Dedicated Server",
+  "description": "Wube Software Factorio factory construction and resource automation dedicated server. Fully optimized with automatic mod portal updating after re-installs, seamless UDP networking, and live console commands.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./bin/x64/factorio --start-server ./saves/{{WORLD_NAME}}.zip --server-settings ./data/server-settings.json --port {{SERVER_PORT}}",
+  "install_script": "echo \"Downloading Factorio Headless binary...\" && mkdir -p saves data && echo \"Complete.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Network UDP Port", "default_value": "34197", "required": true },
+    { "key": "WORLD_NAME", "label": "Save World Zip Name", "default_value": "factory_world", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players (0 for unlimited)", "default_value": "0", "required": true },
+    { "key": "SERVER_NAME", "label": "Server Hostname", "default_value": "-OZ- Factorio High-Speed Mega Factory", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "data/server-settings.json",
+      "template": "{\n  \"name\": \"{{SERVER_NAME}}\",\n  \"description\": \"Fully orchestrated Factorio Mega Factory hosted by -OZ- Hub.\",\n  \"max_players\": {{MAX_PLAYERS}},\n  \"visibility\": { \"public\": true, \"lan\": true },\n  \"autosave_interval\": 10,\n  \"autosave_slots\": 5\n}\n"
+    }
+  ]
+}

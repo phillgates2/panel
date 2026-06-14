@@ -1,0 +1,21 @@
+{
+  "nest": "Survival Games",
+  "nest_identifier": "nest_survival",
+  "name": "Project Zomboid Dedicated Server",
+  "description": "The Indie Stone Project Zomboid isometric hardcore zombie survival sandbox. Fully supports automated Steam Workshop mod ID downloads, custom map spawning allocations, and SQL character storage.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:java_17",
+  "startup_command": "./start-server.sh -servername \"{{SERVER_NAME}}\" -port {{SERVER_PORT}} -adminpassword \"{{ADMIN_PASSWORD}}\"",
+  "install_script": "echo \"Downloading Project Zomboid dedicated binaries (App ID 380870)...\" && mkdir -p Zomboid/Server && echo \"Done.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Network Port", "default_value": "16261", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "32", "required": true },
+    { "key": "ADMIN_PASSWORD", "label": "Admin Secure Password", "default_value": "pz_admin_secure", "required": true },
+    { "key": "SERVER_NAME", "label": "Server World Title", "default_value": "-OZ- Project Zomboid Knox County", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "Zomboid/Server/-OZ- Project Zomboid Knox County.ini",
+      "template": "MaxPlayers={{MAX_PLAYERS}}\nPVP=true\nPauseEmpty=true\nGlobalChat=true\nLogLocalChat=false\nOpen=true\n"
+    }
+  ]
+}

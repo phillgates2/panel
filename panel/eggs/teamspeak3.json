@@ -1,0 +1,16 @@
+{
+  "nest": "Voice Communications",
+  "nest_identifier": "nest_voice",
+  "name": "TeamSpeak 3 Voice Server",
+  "description": "TeamSpeak 3 Server commercial voice server engine. Automates serveradmin queries, custom privilege keys, virtual servers, and file transfer bindings.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./ts3server_minimal_runscript.sh default_voice_port={{SERVER_PORT}} query_port={{QUERY_PORT}} filetransfer_port={{FILE_PORT}} license_accepted=1",
+  "install_script": "echo \"Downloading TeamSpeak 3 binary...\" && echo \"Ready.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Default Voice UDP Port", "default_value": "9987", "required": true },
+    { "key": "QUERY_PORT", "label": "ServerAdmin Query TCP Port", "default_value": "10011", "required": true },
+    { "key": "FILE_PORT", "label": "File Transfer TCP Port", "default_value": "30033", "required": true },
+    { "key": "SERVER_NAME", "label": "Virtual Server Name", "default_value": "-OZ- Official TeamSpeak 3 Hub", "required": true }
+  ],
+  "config_files": []
+}

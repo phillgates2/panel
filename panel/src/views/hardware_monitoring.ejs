@@ -1,0 +1,322 @@
+<%- include('partials/header', { title: '🖥️ Master Server Hardware Monitor' }) %>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" x-data="{
+  metrics: <%= JSON.stringify(initialMetrics) %>,
+  livePolling: true,
+  lastPollTime: new Date().toLocaleTimeString()
+}" x-init="
+  // High-speed real-time polling loop
+  setInterval(() => {
+    if (!livePolling) return;
+    fetch('/hardware/metrics')
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.cpu) {
+          metrics = data;
+          lastPollTime = new Date().toLocaleTimeString();
+        }
+      })
+      .catch(() => {});
+  }, 2500);
+">
+
+  <!-- Welcome Master Banner -->
+  <div class="bg-gradient-to-r from-[#18191C] via-[#1E2028] to-[#18191C] rounded-3xl border border-gray-800 p-8 sm:p-10 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 mb-10 relative overflow-hidden">
+    <div class="absolute -right-10 -bottom-10 w-96 h-96 bg-brand-500 bg-opacity-10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex items-center space-x-5 relative z-10">
+      <div class="w-16 h-16 bg-brand-500 bg-opacity-10 text-brand-500 rounded-2xl border border-brand-500 border-opacity-20 flex items-center justify-center font-extrabold text-3xl shadow-inner flex-shrink-0">
+        🖥️
+      </div>
+      <div>
+        <div class="flex items-center space-x-2.5">
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Host Hardware Diagnostics & Sentinel</h1>
+          <span class="px-2.5 py-0.5 bg-green-500 bg-opacity-10 text-green-400 text-[10px] font-extrabold uppercase rounded-md animate-pulse">Live Ticker Active</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Real-time systeminformation telemetry orchestrating host CPU threads, physical memory pools, network I/O, and storage saturation.</p>
+      </div>
+    </div>
+
+    <!-- Live Polling Toggle & Polling Timestamp -->
+    <div class="flex items-center space-x-4 relative z-10 w-full md:w-auto justify-end">
+      <div class="text-right font-mono text-xs hidden sm:block pr-4 border-r border-gray-800">
+        <span class="text-gray-500 uppercase font-bold text-[10px] block">Last Synchronized</span>
+        <span class="text-purple-400 font-bold" x-text="lastPollTime"></span>
+      </div>
+
+      <button @click="livePolling = !livePolling" :class="livePolling ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'" class="px-6 py-3.5 font-extrabold text-white text-xs uppercase tracking-wider rounded-2xl shadow-xl transition transform hover:scale-105 flex items-center space-x-2 justify-center flex-grow md:flex-grow-0">
+        <span class="h-2.5 w-2.5 rounded-full bg-white animate-ping" x-show="livePolling"></span>
+        <span x-text="livePolling ? '⚡ Live Stream: ON' : '🛑 Paused'"></span>
+      </button>
+    </div>
+  </div>
+
+  <% if (error) { %>
+    <div class="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 text-red-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>⚠️</span>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <% if (success) { %>
+    <div class="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-20 text-green-400 p-4 rounded-2xl text-xs font-semibold mb-8 flex items-center space-x-3">
+      <span>✅</span>
+      <span><%= success %></span>
+    </div>
+  <% } %>
+
+  <!-- Top Strip: Host OS Platform Info -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs mb-10">
+    <div class="bg-[#18191C] p-5 rounded-2xl border border-gray-800 shadow">
+      <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Master Node Hostname</span>
+      <span class="text-white font-bold truncate block" x-text="metrics.host.hostname"></span>
+    </div>
+
+    <div class="bg-[#18191C] p-5 rounded-2xl border border-gray-800 shadow">
+      <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Linux Distribution</span>
+      <span class="text-purple-400 font-bold truncate block" x-text="metrics.host.distro"></span>
+    </div>
+
+    <div class="bg-[#18191C] p-5 rounded-2xl border border-gray-800 shadow">
+      <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Kernel Engine</span>
+      <span class="text-brand-500 font-bold truncate block" x-text="metrics.host.kernel"></span>
+    </div>
+
+    <div class="bg-[#18191C] p-5 rounded-2xl border border-gray-800 shadow">
+      <span class="text-gray-500 uppercase font-bold text-[10px] block mb-1">Host Uptime Ticker</span>
+      <span class="text-green-400 font-bold truncate block" x-text="`${Math.floor(metrics.host.uptime / 3600)}h ${Math.floor((metrics.host.uptime % 3600) / 60)}m`"></span>
+    </div>
+  </div>
+
+  <!-- 4 Spectacular Circular / Saturation Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+    
+    <!-- CARD 1: Core CPU Saturation -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-7 shadow-xl flex flex-col justify-between hover:border-brand-500 transition group">
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-extrabold uppercase tracking-wider text-gray-400 flex items-center space-x-1.5">
+            <span>⚡ CPU Saturation</span>
+          </span>
+          <span class="text-lg">⚡</span>
+        </div>
+        <p class="text-2xl font-extrabold text-white font-mono mt-1" x-text="`${metrics.cpu.totalLoad}%`"></p>
+        <p class="text-[11px] text-gray-500 font-mono truncate mt-0.5" x-text="`${metrics.cpu.model} (${metrics.cpu.speed} GHz)`"></p>
+      </div>
+
+      <!-- Live Bar & Temp -->
+      <div class="mt-8 space-y-3">
+        <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden p-0.5 border border-gray-700/50">
+          <div class="bg-brand-500 h-full rounded-full transition-all duration-700 shadow" :style="`width: ${Math.min(100, metrics.cpu.totalLoad)}%`"></div>
+        </div>
+        <div class="flex justify-between items-center text-[11px] font-mono font-bold text-gray-400">
+          <span>Active Cores: <span class="text-white" x-text="metrics.cpu.cores"></span> Threads</span>
+          <span class="text-amber-400" x-text="`🌡️ ${metrics.cpu.temperature} °C`"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: RAM Memory Consumption -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-7 shadow-xl flex flex-col justify-between hover:border-purple-500 transition group">
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-extrabold uppercase tracking-wider text-gray-400 flex items-center space-x-1.5">
+            <span>🧠 Memory Pool</span>
+          </span>
+          <span class="text-lg">🧠</span>
+        </div>
+        <p class="text-2xl font-extrabold text-purple-400 font-mono mt-1" x-text="`${metrics.memory.usagePercent}%`"></p>
+        <p class="text-[11px] text-gray-500 font-mono truncate mt-0.5" x-text="`${metrics.memory.usedGb} GB Used / ${metrics.memory.totalGb} GB Total`"></p>
+      </div>
+
+      <div class="mt-8 space-y-3">
+        <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden p-0.5 border border-gray-700/50">
+          <div class="bg-purple-500 h-full rounded-full transition-all duration-700 shadow" :style="`width: ${Math.min(100, metrics.memory.usagePercent)}%`"></div>
+        </div>
+        <div class="flex justify-between items-center text-[11px] font-mono font-bold text-gray-400">
+          <span>Free: <span class="text-green-400" x-text="`${metrics.memory.freeGb} GB`"></span></span>
+          <span class="text-gray-500" x-text="`Cache: ${metrics.memory.cacheGb} GB`"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3: Storage Disk Allocation -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-7 shadow-xl flex flex-col justify-between hover:border-amber-500 transition group">
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-extrabold uppercase tracking-wider text-gray-400 flex items-center space-x-1.5">
+            <span>💾 Storage I/O</span>
+          </span>
+          <span class="text-lg">💾</span>
+        </div>
+        <p class="text-2xl font-extrabold text-amber-400 font-mono mt-1" x-text="`${metrics.disk.usagePercent}%`"></p>
+        <p class="text-[11px] text-gray-500 font-mono truncate mt-0.5" x-text="`${metrics.disk.usedGb} GB Consumed / ${metrics.disk.totalGb} GB Total`"></p>
+      </div>
+
+      <div class="mt-8 space-y-3">
+        <div class="w-full bg-gray-800 h-3 rounded-full overflow-hidden p-0.5 border border-gray-700/50">
+          <div class="bg-amber-500 h-full rounded-full transition-all duration-700 shadow" :style="`width: ${Math.min(100, metrics.disk.usagePercent)}%`"></div>
+        </div>
+        <div class="flex justify-between items-center text-[11px] font-mono font-bold text-gray-400">
+          <span>Device Mount:</span>
+          <code class="text-white bg-[#0E0F10] px-2 py-0.5 rounded" x-text="metrics.disk.device"></code>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 4: Network I/O Speedometer -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-7 shadow-xl flex flex-col justify-between hover:border-green-500 transition group">
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-extrabold uppercase tracking-wider text-gray-400 flex items-center space-x-1.5">
+            <span>🌐 Network I/O</span>
+          </span>
+          <span class="text-lg">🌐</span>
+        </div>
+        <div class="mt-1 flex items-baseline space-x-2 font-mono">
+          <span class="text-2xl font-extrabold text-green-400" x-text="`${metrics.network.rxKbSec}`"></span>
+          <span class="text-xs text-gray-500 font-bold">KB/s Rx</span>
+        </div>
+        <div class="mt-0.5 flex items-baseline space-x-2 font-mono">
+          <span class="text-sm font-bold text-purple-400" x-text="`${metrics.network.txKbSec}`"></span>
+          <span class="text-[11px] text-gray-500">KB/s Tx</span>
+        </div>
+      </div>
+
+      <div class="mt-8 p-3 bg-[#0E0F10] rounded-2xl border border-gray-800 text-[11px] font-mono text-gray-400 text-center">
+        ⚡ 1 Gbps Silky Smooth Uplink Active
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MULTI-CORE LOGICAL CPU BAR INSPECTOR -->
+  <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-8 sm:p-10 shadow-2xl mb-12">
+    <div class="flex items-center justify-between border-b border-gray-800 pb-6 mb-8">
+      <div>
+        <h2 class="text-xl font-extrabold text-white tracking-tight flex items-center space-x-2">
+          <span class="text-brand-500">📊</span>
+          <span>Live Telemetry multi-core Thread Inspector</span>
+        </h2>
+        <p class="text-xs text-gray-400 mt-1">Real-time asynchronous utilization across all individual logical CPU threads.</p>
+      </div>
+      <span class="px-3 py-1 bg-gray-800 font-mono text-xs text-brand-500 font-bold rounded-xl border border-gray-700">8 Logical Cores</span>
+    </div>
+
+    <!-- Animated Core Bars Layout -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-6 font-mono text-xs">
+      <template x-for="(coreLoad, idx) in metrics.cpu.coreLoads" :key="idx">
+        <div class="bg-[#0E0F10] p-5 rounded-2xl border border-gray-800 flex flex-col justify-between items-center h-48 hover:border-gray-700 transition">
+          <span class="text-gray-500 font-bold uppercase text-[10px]" x-text="`Core #${idx + 1}`"></span>
+          
+          <!-- Vertical Bar -->
+          <div class="w-4 bg-gray-800 flex-grow my-3 rounded-full overflow-hidden flex flex-col justify-end p-0.5 border border-gray-700">
+            <div class="bg-gradient-to-t from-brand-500 to-purple-400 w-full rounded-full transition-all duration-500" :style="`height: ${Math.min(100, parseFloat(coreLoad) * 4)}%`"></div>
+          </div>
+
+          <span class="text-white font-extrabold text-sm" x-text="`${coreLoad}%`"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- GAME SERVER CONTAINER PROCESS ROSTER & THRESHOLD ALARMS GRID -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+    
+    <!-- Left 2 Cols: Running Processes Roster -->
+    <div class="lg:col-span-2 bg-[#18191C] rounded-3xl border border-gray-800 p-8 sm:p-10 shadow-2xl space-y-6 flex flex-col">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+        <h3 class="text-xl font-extrabold text-white tracking-tight flex items-center space-x-2">
+          <span>📦 Sandboxed Subprocess Allocations</span>
+        </h3>
+        <span class="text-xs font-mono text-green-400 font-bold" x-text="`${metrics.containers.length} Process Nests Active`"></span>
+      </div>
+
+      <div class="bg-[#0E0F10] rounded-2xl border border-gray-800 overflow-hidden flex-grow flex flex-col justify-between">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#141517] border-b border-gray-800 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+              <th class="py-4 px-6">Server Container ID</th>
+              <th class="py-4 px-6 text-center">Active PID</th>
+              <th class="py-4 px-6">CPU Load</th>
+              <th class="py-4 px-6 text-right">RAM Pool</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800 text-xs sm:text-sm font-mono">
+            <template x-for="cnt in metrics.containers" :key="cnt.serverId">
+              <tr class="hover:bg-gray-900/60 transition">
+                <td class="py-4 px-6 font-bold text-white flex items-center space-x-2.5">
+                  <span class="text-green-400 animate-pulse">●</span>
+                  <span x-text="`Instance #${cnt.serverId}`"></span>
+                </td>
+                <td class="py-4 px-6 text-gray-500 text-center" x-text="cnt.pid || 'Mock Mode'"></td>
+                <td class="py-4 px-6 font-bold text-brand-500" x-text="`${cnt.cpu}%`"></td>
+                <td class="py-4 px-6 text-right font-bold text-purple-400" x-text="`${cnt.memory} MB`"></td>
+              </tr>
+            </template>
+            <tr x-show="metrics.containers.length === 0">
+              <td colspan="4" class="py-12 text-center text-gray-600 italic">No container processes currently active.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="p-4 bg-[#141517] border-t border-gray-800 text-[11px] text-gray-400 font-sans leading-relaxed">
+          💡 Process resources are tightly clamped by our cgroups sandboxing orchestration kernel.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right 1 Col: Configure Threshold Spike Alarms -->
+    <div class="bg-[#18191C] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-6 flex flex-col justify-between">
+      <div>
+        <div class="border-b border-gray-800 pb-4 mb-6">
+          <h3 class="text-lg font-extrabold text-white tracking-tight flex items-center space-x-2">
+            <span class="text-amber-400">⚡</span>
+            <span>Threshold Spike Alarms</span>
+          </h3>
+          <p class="text-xs text-gray-400 mt-1">Configure emergency automated alerts if host saturation crosses specified spikes.</p>
+        </div>
+
+        <% if (user && user.role === 'admin') { %>
+          <form action="/hardware/alarms" method="POST" class="space-y-5 font-mono text-xs">
+            <div>
+              <label class="block text-gray-300 font-bold uppercase text-[10px] mb-1.5">CPU Threshold Spike (%)</label>
+              <input type="number" name="cpu_alarm" value="90" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-gray-300 font-bold uppercase text-[10px] mb-1.5">RAM Threshold Saturation (%)</label>
+              <input type="number" name="mem_alarm" value="95" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-gray-300 font-bold uppercase text-[10px] mb-1.5">Storage Alarm Limit (%)</label>
+              <input type="number" name="disk_alarm" value="90" required class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-gray-300 font-bold uppercase text-[10px] mb-1.5">Emergency Discord Webhook Link</label>
+              <input type="url" name="alarm_webhook" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-[#0E0F10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <button type="submit" class="w-full py-3.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold uppercase tracking-wider rounded-xl shadow transition transform hover:scale-[1.02]">
+              💾 Enforce Alarms
+            </button>
+          </form>
+        <% } else { %>
+          <div class="bg-[#0E0F10] p-8 rounded-2xl border border-gray-800 text-center text-gray-500 text-xs">
+            🔒 Super Administrator account required to modify threshold alarms.
+          </div>
+        <% } %>
+      </div>
+
+      <div class="p-4 bg-amber-500 bg-opacity-10 rounded-2xl border border-amber-500 border-opacity-20 text-[11px] text-amber-300 text-center leading-relaxed">
+        🔔 AI Watchdogs automatically dispatch incident alerts when thresholds are reached.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

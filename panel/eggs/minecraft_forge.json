@@ -1,0 +1,25 @@
+{
+  "nest": "Minecraft",
+  "nest_identifier": "nest_minecraft",
+  "name": "Minecraft Forge / NeoForge Server",
+  "description": "High-performance Minecraft Forge or NeoForge highly modded game server. Completely automates modpack installation, customized Java runtime GC memory flags, and multi-threaded world ticks.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:java_21",
+  "startup_command": "java -Xms256M -Xmx{{SERVER_MEMORY}}M -XX:+UseG1GC -jar forge-server.jar nogui",
+  "install_script": "echo \"Downloading Forge installer and setting up environment...\" && echo \"eula=true\" > eula.txt && echo \"Done.\"",
+  "env_variables": [
+    { "key": "SERVER_MEMORY", "label": "Server RAM Limit (MB)", "default_value": "4096", "required": true },
+    { "key": "SERVER_PORT", "label": "Server Port", "default_value": "25565", "required": true },
+    { "key": "MAX_PLAYERS", "label": "Max Players", "default_value": "20", "required": true },
+    { "key": "MOTD", "label": "Message of the Day", "default_value": "-OZ- Premium Forge Modpack Server", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "server.properties",
+      "template": "server-port={{SERVER_PORT}}\nmotd={{MOTD}}\nmax-players={{MAX_PLAYERS}}\nonline-mode=false\nallow-flight=true\n"
+    },
+    {
+      "path": "eula.txt",
+      "template": "eula=true\n"
+    }
+  ]
+}

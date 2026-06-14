@@ -1,0 +1,22 @@
+{
+  "nest": "Voice Communications",
+  "nest_identifier": "nest_voice",
+  "nest_description": "Extremely low-latency VoIP network servers (Mumble, TeamSpeak 3).",
+  "name": "Mumble Voice Dedicated Server",
+  "description": "Murmur Mumble ultra-low latency, high-quality Opus audio voice server for competitive esports teams. Automates SSL certificates, ACL channel permissions, and user bandwidth limits.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:debian",
+  "startup_command": "./murmur.x86 -fg -ini mumble-server.ini",
+  "install_script": "echo \"Downloading Murmur VoIP binary...\" && echo \"Mumble complete.\"",
+  "env_variables": [
+    { "key": "SERVER_PORT", "label": "Network Port", "default_value": "64738", "required": true },
+    { "key": "MAX_USERS", "label": "Max Voice Clients", "default_value": "100", "required": true },
+    { "key": "SUPERUSER_PASS", "label": "SuperUser Password", "default_value": "mumble_secure_admin", "required": true },
+    { "key": "SERVER_NAME", "label": "Root Channel Name", "default_value": "-OZ- Premium Mumble Voice Hub", "required": true }
+  ],
+  "config_files": [
+    {
+      "path": "mumble-server.ini",
+      "template": "port={{SERVER_PORT}}\nmaxusers={{MAX_USERS}}\nbandwidth=130000\nregisterName={{SERVER_NAME}}\nwelcometext=\"<br>Welcome to the official <b>-OZ- Panel Hub Enterprise</b> VoIP Server.<br>\"\n"
+    }
+  ]
+}

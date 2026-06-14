@@ -1,0 +1,58 @@
+{
+  "nest": "Sandboxed Demos",
+  "nest_identifier": "nest_sandbox",
+  "nest_description": "Interactive functional server engines optimized for lightning-fast deployment and previewing.",
+  "name": "Arena High-Speed Match Server",
+  "description": "Fully functional custom multiplayer game daemon with embedded RCON & WebSocket server console.",
+  "docker_image": "ghcr.io/pterodactyl/yolks:nodejs_20",
+  "startup_command": "node game_daemon.js",
+  "install_script": "echo \"Building high speed game daemon...\" && echo \"Game server files installed successfully.\"",
+  "env_variables": [
+    {
+      "key": "SERVER_PORT",
+      "label": "Game Port",
+      "default_value": "3001",
+      "required": true
+    },
+    {
+      "key": "RCON_PORT",
+      "label": "RCON Web Port",
+      "default_value": "3002",
+      "required": true
+    },
+    {
+      "key": "RCON_PASSWORD",
+      "label": "RCON Admin Password",
+      "default_value": "arena_rcon",
+      "required": true
+    },
+    {
+      "key": "SERVER_NAME",
+      "label": "Server Name",
+      "default_value": "Arena High-Speed Match #1",
+      "required": true
+    },
+    {
+      "key": "MAX_PLAYERS",
+      "label": "Max Players",
+      "default_value": "32",
+      "required": true
+    },
+    {
+      "key": "MOTD",
+      "label": "Message of the Day",
+      "default_value": "Welcome to the Ultimate -OZ- Panel Hub Enterprise Hub!",
+      "required": true
+    }
+  ],
+  "config_files": [
+    {
+      "path": "server.json",
+      "template": "{\n  \"serverName\": \"{{SERVER_NAME}}\",\n  \"port\": {{SERVER_PORT}},\n  \"rconPort\": {{RCON_PORT}},\n  \"rconPassword\": \"{{RCON_PASSWORD}}\",\n  \"maxPlayers\": {{MAX_PLAYERS}},\n  \"motd\": \"{{MOTD}}\"\n}"
+    },
+    {
+      "path": "game_daemon.js",
+      "template": "const fs = require('fs');\nconst http = require('http');\nconst config = JSON.parse(fs.readFileSync('./server.json', 'utf8'));\nconsole.log(`[Boot] Starting ${config.serverName}...`);\nconsole.log(`[Boot] Game Protocol listening on port ${config.port}`);\nconsole.log(`[RCON] RCON Core active on port ${config.rconPort}`);\nconsole.log(`[MOTD] ${config.motd}`);\n\nlet players = ['Player_One', 'GamerX', 'EliteSniper'];\nlet uptime = 0;\n\nsetInterval(() => {\n  uptime += 10;\n  console.log(`[Status] Heartbeat: ${players.length}/${config.maxPlayers} players online | Uptime: ${uptime}s`);\n}, 10000);\n\n// Minimal RCON HTTP/WebSocket trigger bridge\nconst server = http.createServer((req, res) => {\n  if (req.method === 'POST' && req.url === '/rcon') {\n    let body = '';\n    req.on('data', chunk => body += chunk);\n    req.on('end', () => {\n      try {\n        const data = JSON.parse(body);\n        if (data.password !== config.rconPassword) {\n          res.writeHead(403, { 'Content-Type': 'application/json' });\n          return res.end(JSON.stringify({ error: 'RCON Authentication Failed' }));\n        }\n        const cmd = (data.command || '').trim();\n        console.log(`[RCON Command] Executing: ${cmd}`);\n        let output = 'Command executed successfully.';\n        if (cmd === 'status') {\n          output = `Server: ${config.serverName}\\nPlayers: ${players.join(', ')} (${players.length}/${config.maxPlayers})\\nUptime: ${uptime}s`;\n        } else if (cmd.startsWith('say ')) {\n          const msg = cmd.slice(4);\n          console.log(`[Broadcast] [Console]: ${msg}`);\n          output = `Broadcasted: ${msg}`;\n        } else if (cmd.startsWith('kick ')) {\n          const target = cmd.slice(5).trim();\n          players = players.filter(p => p.toLowerCase() !== target.toLowerCase());\n          console.log(`[Moderation] Kicked player: ${target}`);\n          output = `Kicked ${target} from the server.`;\n        }\n        res.writeHead(200, { 'Content-Type': 'application/json' });\n        res.end(JSON.stringify({ response: output }));\n      } catch (err) {\n        res.writeHead(400, { 'Content-Type': 'application/json' });\n        res.end(JSON.stringify({ error: err.message }));\n      }\n    });\n  } else {\n    res.writeHead(200, { 'Content-Type': 'application/json' });\n    res.end(JSON.stringify({ server: config.serverName, motd: config.motd, players, maxPlayers: config.maxPlayers, uptime }));\n  }\n});\n\nserver.listen(config.rconPort, () => {\n  console.log(`[Ready] Daemon initialized successfully.`);\n});\n"
+    }
+  ]
+}

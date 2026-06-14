@@ -1,0 +1,56 @@
+<%- include('partials/header', { title: article.title }) %>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  
+  <div class="bg-[#18191C] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+    
+    <!-- Hero Image Banner -->
+    <div class="h-64 sm:h-96 w-full relative bg-gray-900">
+      <img src="<%= article.image_url %>" class="w-full h-full object-cover">
+      <div class="absolute inset-0 bg-gradient-to-t from-[#18191C] via-[#18191C]/40 to-transparent"></div>
+    </div>
+
+    <!-- Article Content Container -->
+    <div class="p-8 sm:p-14 -mt-20 relative z-10">
+      
+      <div class="border-b border-gray-800 pb-8 mb-8">
+        <div class="flex items-center space-x-3 text-xs font-bold text-[#5865F2] uppercase tracking-wider mb-3">
+          <span>Announcement</span>
+          <span>•</span>
+          <span><%= new Date(article.created_at).toLocaleDateString() %></span>
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight"><%= article.title %></h1>
+        
+        <div class="flex items-center space-x-3 mt-6">
+          <div class="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center font-bold text-white shadow">
+            <%= (article.author_name || 'TC')[0].toUpperCase() %>
+          </div>
+          <div>
+            <p class="text-sm font-bold text-white"><%= article.author_name || 'System Sentinel' %></p>
+            <p class="text-[11px] text-gray-500">Community Sentinel & Orchestrator</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Body -->
+      <div class="prose prose-invert max-w-none text-gray-300 leading-relaxed space-y-6 text-base sm:text-lg">
+        <%- article.content.replace(/\n/g, '<br>') %>
+      </div>
+
+      <div class="mt-14 pt-8 border-t border-gray-800 flex items-center justify-between">
+        <a href="/" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-xs font-bold text-white rounded-xl transition">
+          ← Back to Announcements Feed
+        </a>
+        <a href="/forums" class="px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-xs font-bold text-white rounded-xl shadow transition">
+          💬 Discuss in Forums
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>
