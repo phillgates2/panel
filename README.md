@@ -122,20 +122,20 @@ The following step-by-step commands detail exactly how to deploy the entire plat
 ### Step 1: System Baseline & Dependencies
 Update system package repositories and install necessary build utilities:
 ```bash
-sudo apt-get update -y && sudo apt-get upgrade -y
-sudo apt-get install -y curl wget git sudo build-essential unzip tar
+sudo apt update -y && sudo apt upgrade -y
+sudo apt install -y curl wget git sudo build-essential unzip tar
 ```
 
 ### Step 2: Install Node.js v20.x LTS
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
+sudo apt install -y nodejs
 node -v && npm -v
 ```
 
 ### Step 3: Deploy PostgreSQL 17 Database Cluster
 ```bash
-sudo apt-get install -y postgresql postgresql-contrib
+sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable postgresql && sudo systemctl start postgresql
 
 # Create active database pool and restricted RBAC user
@@ -148,10 +148,10 @@ sudo -u postgres psql -d panel_db -c "GRANT ALL ON SCHEMA public TO panel;"
 ### Step 4: Install Caddy Automated Reverse Proxy (Optional)
 Install Caddy for automatic edge proxying with built-in Let's Encrypt HTTPS certificates:
 ```bash
-sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt-get update && sudo apt-get install -y caddy
+sudo apt update && sudo apt install -y caddy
 sudo systemctl enable caddy
 ```
 
