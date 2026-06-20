@@ -194,7 +194,7 @@ sudo systemctl enable caddy
 
 ### Step 5: Clone & Initialize -OZ- Panel Hub Enterprise
 ```bash
-git clone https://github.com/your-org/oz-panel-hub.git /home/(username)/panel
+git clone https://github.com/phillgates2/panel.git /home/(username)/panel
 cd /home/(username)/panel
 npm install
 
