@@ -112,8 +112,8 @@
 
       <!-- STEP 2 -->
       <div x-show="step === 2" x-transition.opacity x-cloak>
-        <h2 class="text-xl font-bold text-white mb-4">🗄️ PostgreSQL Database & Caddy Webserver</h2>
-        <p class="text-sm text-gray-400 mb-6">Configure your central PostgreSQL database cluster and external Web Hostname for Caddy automated reverse proxy SSL.</p>
+        <h2 class="text-xl font-bold text-white mb-4">🗄️ PostgreSQL Database & Primary Web Address</h2>
+        <p class="text-sm text-gray-400 mb-6">Configure your central PostgreSQL database cluster and external Primary Web Address (Server IP).</p>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
           <div>
@@ -142,9 +142,9 @@
           </div>
 
           <div class="sm:col-span-2 border-t border-gray-800 pt-6">
-            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">🌐 Production Web Hostname (Caddy SSL)</label>
-            <input type="text" name="web_hostname" placeholder="e.g. panel.oz-esports.network or 127.0.0.1" value="127.0.0.1" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition mb-2">
-            <p class="text-xs text-gray-500">The Caddy Sentinel will bind to this hostname to generate and renew automated Let's Encrypt certificates.</p>
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">🌐 Primary Web Address / Default IP</label>
+            <input type="text" name="web_hostname" placeholder="e.g. 0.0.0.0 or 127.0.0.1" value="0.0.0.0" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition mb-2 font-mono">
+            <p class="text-xs text-gray-500">The primary edge web address is currently configured to just use your server IP.</p>
           </div>
         </div>
 

@@ -5,7 +5,7 @@
     "SOCIAL_DISCORD": "https://discord.gg/ozpanel",
     "SOCIAL_TWITTER": "https://twitter.com/ozpanel",
     "SOCIAL_GITHUB": "https://github.com/ozpanel",
-    "WEB_HOSTNAME": "127.0.0.1",
+    "WEB_HOSTNAME": "0.0.0.0",
     "INSTALLED": "false"
   },
   "users": [

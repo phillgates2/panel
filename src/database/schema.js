@@ -5,7 +5,6 @@ const path = require('path');
 let pool = null;
 const mockDbPath = path.join(__dirname, '../../mock_db.json');
 
-// Fully populated fallback database for environments without an active PostgreSQL daemon
 let fallbackDb = {
   system_settings: {
     'SITE_TITLE': '-OZ- Panel Hub Enterprise',
@@ -13,19 +12,20 @@ let fallbackDb = {
     'SOCIAL_DISCORD': 'https://discord.gg/ozpanel',
     'SOCIAL_TWITTER': 'https://twitter.com/ozpanel',
     'SOCIAL_GITHUB': 'https://github.com/ozpanel',
-    'WEB_HOSTNAME': 'oz-esports.network',
-    'INSTALLED': 'false' // Enforce Web Setup Installer as the very first thing to see
+    'WEB_HOSTNAME': '0.0.0.0',
+    'INSTALLED': 'false'
   },
   users: [
     {
       id: 1,
       username: 'admin',
       email: 'admin@ozpanel.enterprise',
-      password_hash: '$2a$10$7/O2z9...samplebcrypt...', // AdminSecure2026!
+      password_hash: '$2a$10$7/O2z9...samplebcrypt...',
       role: 'admin',
       avatar: '/assets/default_avatar.png',
       bio: 'Master Super Administrator account for -OZ- Panel Hub Enterprise.',
       two_factor_enabled: false,
+      sftp_password: '',
       api_key: 'oz_master_api_key_1337',
       created_at: new Date().toISOString()
     }
@@ -234,7 +234,7 @@ function saveMockDb() {
 if (fs.existsSync(mockDbPath)) {
   try {
     const active = JSON.parse(fs.readFileSync(mockDbPath, 'utf8'));
-    // Force reset INSTALLED to false so the installer is the first thing anyone sees
+    active.system_settings['WEB_HOSTNAME'] = '0.0.0.0';
     active.system_settings['INSTALLED'] = 'false';
     fallbackDb = active;
     saveMockDb();
@@ -442,14 +442,104 @@ async function query(text, params = []) {
     fallbackDb.forum_chat_messages.push(newChat);
     saveMockDb();
     rows = [newChat];
+  } else if (sql.startsWith('INSERT INTO USERS')) {
+    const newU = {
+      id: fallbackDb.users.length + 1,
+      username: params[0],
+      email: params[1],
+      password_hash: params[2],
+      role: params[3] || 'user',
+      avatar: '/assets/default_avatar.png',
+      bio: params[4] || 'New user',
+      two_factor_enabled: false,
+      created_at: new Date().toISOString()
+    };
+    fallbackDb.users.push(newU);
+    saveMockDb();
+    rows = [newU];
   } else if (sql.startsWith('UPDATE SERVERS')) {
     if (sql.includes('STATUS =')) {
       const st = params[0];
       const id = params[1];
       const srv = fallbackDb.servers.find(s => s.id === id);
       if (srv) srv.status = st;
-      saveMockDb();
+    } else if (sql.includes('SET NAME =')) {
+      const name = params[0];
+      const port = params[1];
+      const memory_limit = params[2];
+      const cpu_limit = params[3];
+      const discord_webhook = params[4];
+      const id = params[5];
+      const srv = fallbackDb.servers.find(s => s.id === id);
+      if (srv) {
+        srv.name = name;
+        srv.port = port;
+        srv.memory_limit = memory_limit;
+        srv.cpu_limit = cpu_limit;
+        srv.discord_webhook = discord_webhook;
+      }
     }
+    saveMockDb();
+  } else if (sql.startsWith('UPDATE USERS')) {
+    if (sql.includes('ROLE =')) {
+      const role = params[0];
+      const id = params[1];
+      const u = fallbackDb.users.find(x => x.id === id);
+      if (u) u.role = role;
+    } else if (sql.includes('BIO =')) {
+      const bio = params[0];
+      const avatar = params[1];
+      const id = params[2];
+      const u = fallbackDb.users.find(x => x.id === id);
+      if (u) {
+        u.bio = bio;
+        u.avatar = avatar;
+      }
+    } else if (sql.includes('PASSWORD_HASH =')) {
+      const hashed = params[0];
+      const id = params[1];
+      const u = fallbackDb.users.find(x => x.id === id);
+      if (u) u.password_hash = hashed;
+    } else if (sql.includes('SFTP_PASSWORD =')) {
+      const sftpPass = params[0];
+      const id = params[1];
+      const u = fallbackDb.users.find(x => x.id === id);
+      if (u) u.sftp_password = sftpPass;
+    } else if (sql.includes('TWO_FACTOR_ENABLED =')) {
+      if (sql.includes('FALSE')) {
+        const id = params[0];
+        const u = fallbackDb.users.find(x => x.id === id);
+        if (u) {
+          u.two_factor_enabled = false;
+          u.two_factor_secret = null;
+        }
+      } else {
+        const secret = params[0];
+        const id = params[1];
+        const u = fallbackDb.users.find(x => x.id === id);
+        if (u) {
+          u.two_factor_enabled = true;
+          u.two_factor_secret = secret;
+        }
+      }
+    } else if (sql.includes('API_KEY =')) {
+      const apiKey = params[0];
+      const id = params[1];
+      const u = fallbackDb.users.find(x => x.id === id);
+      if (u) u.api_key = apiKey;
+    }
+    saveMockDb();
+  } else if (sql.startsWith('DELETE FROM')) {
+    if (sql.includes('USERS')) {
+      fallbackDb.users = fallbackDb.users.filter(x => x.id !== params[0]);
+    } else if (sql.includes('CMS_PAGES')) {
+      fallbackDb.cms_pages = fallbackDb.cms_pages.filter(x => x.id !== params[0]);
+    } else if (sql.includes('CMS_NEWS')) {
+      fallbackDb.cms_news = fallbackDb.cms_news.filter(x => x.id !== params[0]);
+    } else if (sql.includes('CMS_NAV_LINKS')) {
+      fallbackDb.cms_nav_links = fallbackDb.cms_nav_links.filter(x => x.id !== params[0]);
+    }
+    saveMockDb();
   }
 
   return { rows };

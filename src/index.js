@@ -101,14 +101,14 @@ app.use((req, res) => {
   res.status(404).render('404', { message: 'The requested -OZ- Sandboxed game instance or endpoint does not exist.' });
 });
 
-// Boot Master Daemons and Web Server on Default Port 80
+// Boot Master Daemons and Web Server on Standard HTTP Port 80
 const PORT = process.env.PORT || 80;
 let daemonsStarted = false;
 
 function launchServer(targetPort) {
   server.listen(targetPort, '0.0.0.0', () => {
     console.log(`[Master Sentinel] Application Core successfully initialized.`);
-    console.log(`[Web Host] -OZ- Panel Hub Enterprise active on http://oz-esports.network${targetPort === 80 ? '' : ':' + targetPort}`);
+    console.log(`[Web Host] -OZ- Panel Hub Enterprise fully operational on http://0.0.0.0${targetPort === 80 ? '' : ':' + targetPort} (Primary IP)`);
     
     if (!daemonsStarted) {
       daemonsStarted = true;
@@ -121,7 +121,7 @@ function launchServer(targetPort) {
     }
   }).on('error', err => {
     if (err.code === 'EACCES') {
-      console.log(`[Port Security] Binding directly to Port ${targetPort} requires root elevation. Launching automatic proxy fallback on Port 3000...`);
+      console.log(`[Port Security] Binding directly to standard Port ${targetPort} requires root capabilities. Instantiating automated proxy fallback on Port 3000...`);
       launchServer(3000);
     } else {
       console.error('[Web Host Error]', err.message);
