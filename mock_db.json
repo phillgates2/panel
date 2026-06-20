@@ -6,20 +6,31 @@
     "SOCIAL_TWITTER": "https://twitter.com/ozpanel",
     "SOCIAL_GITHUB": "https://github.com/ozpanel",
     "WEB_HOSTNAME": "0.0.0.0",
-    "INSTALLED": "false"
+    "INSTALLED": "true"
   },
   "users": [
     {
       "id": 1,
       "username": "admin",
       "email": "admin@ozpanel.enterprise",
-      "password_hash": "$2a$10$7/O2z9...samplebcrypt...",
+      "password_hash": "$2a$10$jI1e2gAL7StnqoVR/XRpguLJMEhUve7jO//CjbxkqjjKl8lrweb8y",
       "role": "admin",
       "avatar": "/assets/default_avatar.png",
       "bio": "Master Super Administrator account for -OZ- Panel Hub Enterprise.",
       "two_factor_enabled": false,
       "api_key": "oz_master_api_key_1337",
       "created_at": "2026-06-14T04:51:17.656Z"
+    },
+    {
+      "id": 2,
+      "username": "testuser",
+      "email": "test@test.com",
+      "password_hash": "$2a$10$yIIiFBLxoCW06.Tf8VFQfeuFyVSoYYj8j0w19RJ20iZkUWiwY3awW",
+      "role": "user",
+      "avatar": "/assets/default_avatar.png",
+      "bio": "New community gamer account.",
+      "two_factor_enabled": false,
+      "created_at": "2026-06-20T06:46:49.435Z"
     }
   ],
   "cms_pages": [
@@ -38,7 +49,7 @@
   "cms_news": [
     {
       "id": 1,
-      "title": "🚀 Deploying -OZ- Panel Hub Enterprise v2026",
+      "title": "\ud83d\ude80 Deploying -OZ- Panel Hub Enterprise v2026",
       "summary": "Welcome to the definitive commercial game hosting and orchestrator platform.",
       "content": "We are thrilled to officially launch **-OZ- Panel Hub Enterprise**. Featuring fully automated Pterodactyl-style game eggs, lightning-fast live WebSocket consoles, standalone SFTP processing, and built-in interactive forums with live community shoutbox chat!",
       "image_url": "/assets/news_default.jpg",
@@ -163,56 +174,7 @@
       "config_files": "[{\"path\":\"support/settings.yaml\",\"template\":\"Server:\\n  Name: \\\"{{SERVER_NAME}}\\\"\\n  ListenPort: {{SERVER_PORT}}\\n  ExternalPort: {{SERVER_PORT}}\\n  Password: \\\"{{SERVER_PASSWORD}}\\\"\\n  Motd: \\\"{{MOTD}}\\\"\\n  RequireAuthentication: {{REQUIRE_AUTH}}\\n\"}]"
     }
   ],
-  "servers": [
-    {
-      "id": 1,
-      "uuid": "oz_srv_master_9999",
-      "name": "-OZ- Official Esports Match #1",
-      "owner_id": 1,
-      "egg_id": 4,
-      "ip": "127.0.0.1",
-      "port": 3001,
-      "memory_limit": 2048,
-      "cpu_limit": 100,
-      "disk_limit": 10240,
-      "status": "online",
-      "discord_webhook": "https://discord.com/api/webhooks/example",
-      "env_values": "{\"SERVER_PORT\":\"3001\"}",
-      "created_at": "2026-06-14T04:51:17.656Z"
-    },
-    {
-      "id": 2,
-      "uuid": "oz_srv_etlegacy_8888",
-      "name": "-OZ- Official ET: Legacy 2.60b Match Front #1",
-      "owner_id": 1,
-      "egg_id": 5,
-      "ip": "127.0.0.1",
-      "port": 27960,
-      "memory_limit": 1024,
-      "cpu_limit": 100,
-      "disk_limit": 10240,
-      "status": "offline",
-      "discord_webhook": "https://discord.com/api/webhooks/example_et",
-      "env_values": "{\"SERVER_PORT\":\"27960\",\"FS_GAME\":\"legacy\",\"COM_HUNKMEGS\":\"128\",\"SERVER_CFG\":\"etlegacy.cfg\",\"RCON_PASSWORD\":\"secure_et_rcon\",\"MAX_PLAYERS\":\"32\",\"MAP_NAME\":\"oasis\"}",
-      "created_at": "2026-06-14T07:41:36.527Z"
-    },
-    {
-      "id": 3,
-      "uuid": "oz_srv_openra_7777",
-      "name": "-OZ- Official OpenRA Red Alert Strike #1",
-      "owner_id": 1,
-      "egg_id": 25,
-      "ip": "127.0.0.1",
-      "port": 1234,
-      "memory_limit": 1024,
-      "cpu_limit": 100,
-      "disk_limit": 10240,
-      "status": "offline",
-      "discord_webhook": "https://discord.com/api/webhooks/example_openra",
-      "env_values": "{\"SERVER_PORT\":\"1234\",\"OPENRA_MOD\":\"ra\",\"SERVER_NAME\":\"-OZ- Official OpenRA Red Alert Strike #1\",\"SERVER_PASSWORD\":\"\",\"REQUIRE_AUTH\":\"False\",\"MOTD\":\"Welcome to the official -OZ- OpenRA Warzone!\"}",
-      "created_at": "2026-06-14T07:56:47.211Z"
-    }
-  ],
+  "servers": [],
   "forum_categories": [
     {
       "id": 1,
@@ -263,6 +225,16 @@
       "is_pinned": false,
       "is_locked": false,
       "created_at": "2026-06-14T07:56:47.211Z"
+    },
+    {
+      "id": 4,
+      "category_id": 1,
+      "user_id": 1,
+      "title": "nn",
+      "content": "n",
+      "is_pinned": false,
+      "is_locked": false,
+      "created_at": "2026-06-20T06:54:15.147Z"
     }
   ],
   "forum_replies": [
@@ -298,14 +270,20 @@
     {
       "id": 2,
       "user_id": 1,
-      "message": "ET: Legacy dedicated process egg is now live! Let us play 🔫",
+      "message": "ET: Legacy dedicated process egg is now live! Let us play \ud83d\udd2b",
       "created_at": "2026-06-14T07:41:36.527Z"
     },
     {
       "id": 3,
       "user_id": 1,
-      "message": "OpenRA Red Alert RTS match servers are online! Construction complete ⚡",
+      "message": "OpenRA Red Alert RTS match servers are online! Construction complete \u26a1",
       "created_at": "2026-06-14T07:56:47.211Z"
+    },
+    {
+      "id": 4,
+      "user_id": 1,
+      "message": "hi",
+      "created_at": "2026-06-20T06:54:02.794Z"
     }
   ],
   "audit_logs": [],

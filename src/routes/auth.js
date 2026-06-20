@@ -60,8 +60,12 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const check = await query('SELECT id FROM users WHERE username = $1 OR email = $2', [username, email]);
+    const check = await query('SELECT id FROM users WHERE username = $1', [username]);
     if (check.rows.length > 0) {
+      return res.redirect('/register?error=Username or email already in use');
+    }
+    const checkEmail = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (checkEmail.rows.length > 0) {
       return res.redirect('/register?error=Username or email already in use');
     }
 
