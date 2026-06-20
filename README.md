@@ -176,7 +176,7 @@ sudo apt-get install -y postgresql postgresql-contrib
 sudo systemctl enable postgresql && sudo systemctl start postgresql
 
 # Create database pool and restricted RBAC user
-sudo -u postgres psql -c "CREATE USER panel WITH PASSWORD 'panel_secure_password';"
+sudo -u postgres psql -c "CREATE USER panel WITH PASSWORD '(panel_secure_password)';"
 sudo -u postgres psql -c "CREATE DATABASE panel_db OWNER panel;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE panel_db TO panel;"
 sudo -u postgres psql -d panel_db -c "GRANT ALL ON SCHEMA public TO panel;"
@@ -194,8 +194,8 @@ sudo systemctl enable caddy
 
 ### Step 5: Clone & Initialize -OZ- Panel Hub Enterprise
 ```bash
-git clone https://github.com/your-org/oz-panel-hub.git /home/user/panel
-cd /home/user/panel
+git clone https://github.com/your-org/oz-panel-hub.git /home/(username)/panel
+cd /home/(username)/panel
 npm install
 
 # Instantiating operational directories
