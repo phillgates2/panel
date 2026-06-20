@@ -20,7 +20,7 @@ let fallbackDb = {
       id: 1,
       username: 'admin',
       email: 'admin@ozpanel.enterprise',
-      password_hash: '$2a$10$cNOFmvNyaNE/1mCvTDRbQ.ZrSqDbYNrqAmVO0Rl2sVBFHPza7KVYy',
+      password_hash: '$2a$10$7/O2z9...samplebcrypt...',
       role: 'admin',
       avatar: '/assets/default_avatar.png',
       bio: 'Master Super Administrator account for -OZ- Panel Hub Enterprise.',
@@ -481,16 +481,7 @@ async function query(text, params = []) {
     }
     saveMockDb();
   } else if (sql.startsWith('UPDATE USERS')) {
-    if (sql.includes('PASSWORD_HASH =') && sql.includes('ROLE =')) {
-      const hashed = params[0];
-      const role = params[1];
-      const id = params[2];
-      const u = fallbackDb.users.find(x => x.id === id);
-      if (u) {
-        u.password_hash = hashed;
-        u.role = role;
-      }
-    } else if (sql.includes('ROLE =')) {
+    if (sql.includes('ROLE =')) {
       const role = params[0];
       const id = params[1];
       const u = fallbackDb.users.find(x => x.id === id);

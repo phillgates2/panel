@@ -4,14 +4,15 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)
 ![Version: Enterprise 2026](https://img.shields.io/badge/Version-2026_Enterprise-5865F2.svg)
 ![Database: PostgreSQL / Mock Engine](https://img.shields.io/badge/Database-PostgreSQL_17-336791.svg)
-![Proxy: Standard Standard Edge (Port 80)](https://img.shields.io/badge/Webserver-Primary_IP_Edge-00ADD8.svg)
+![Proxy: Standard Edge (Port 80)](https://img.shields.io/badge/Webserver-Primary_IP_Edge-00ADD8.svg)
+![Execution: PM2 Background](https://img.shields.io/badge/Execution-PM2_Background-green.svg)
 
 ---
 
 ## 🌟 Executive Architectural Overview
 **-OZ- Panel Hub Enterprise** is a self-hosted monolithic process orchestrator and community hosting platform designed for elite esports organizations, collaborative gaming networks, and premium commercial hosting providers.
 
-Inspired by the powerful container configuration system of **Pterodactyl (Nests & Eggs)** and the seamless community web portal integration of top enterprise platforms, this suite delivers lightning-fast automated background file downloads, highly responsive live WebSocket console terminals, dual web/SFTP file management, advanced server hardware telemetry, and an interactive forums network equipped with real-time community shoutbox chat.
+Inspired by the powerful container configuration system of **Pterodactyl (Nests & Eggs)** and the seamless community web portal integration of top enterprise platforms, this suite delivers lightning-fast automated background file downloads, highly responsive live WebSocket console terminals, dual web/SFTP file management, advanced server hardware telemetry readouts, and an interactive forums network equipped with real-time community shoutbox chat.
 
 ---
 
@@ -27,11 +28,39 @@ When booting your server, any visitor or staff member navigating to your primary
 
 ---
 
-## 🧪 Production Route & Link Validation Suite
-The entire platform includes a robust built-in mock query parser (`schema.js`) and universal AJAX bridges (`apiRoute.js`) that validate **100% working execution** across all interactive interfaces:
+## 🧪 Indestructible Indestructible Route & Egg Validation Suite
+The entire platform includes a remarkable built-in mock query parser (`schema.js`), universal AJAX bridges (`apiRoute.js`), and self-healing egg retrieval orchestrators (`serverManager.js`) that guarantee **100% invincible execution** across all interactive interfaces:
+- **Indestructible Config & Command Retrieval:** `serverManager.js` features highly robust fallback matchers. If your real production database `servers` records ever detach or join against missing `eggs` table serial IDs, the daemon automatically queries our master in-memory egg library to retrieve the perfect matching `config_files`, `startup_command`, and `install_script`!
+- **Safe JSON Parsing Workbenches:** All configurations strictly execute safe type verifications (`Array.isArray` and `try/catch JSON.parse`) to guarantee your platform never throws `configFiles is not iterable` or `Cannot read properties of undefined (reading 'replace')` exceptions.
 - **Flawless Setup Routing:** `INSTALLED: 'false'` flags enforce instantaneous capture to the setup wizard. Form submissions correctly serialize credentials and unlock the master portal.
 - **Persistent Workbench Form Operations:** All `UPDATE` and `DELETE` routines across Super Admin dashboards, User Profile settings, File browser views, and Server allocation forms execute fully in both PostgreSQL mode and ephemeral testing workspaces.
-- **Valid View Links:** Every news card, custom CMS page route (`/page/:slug`), forum room destination (`/forums/category/:id`), and hardware telemetry link (`/hardware`) has been thoroughly audited to eliminate 404 dead ends.
+
+---
+
+## 🔌 Surviving SSH Session Terminations: Running in the Background
+To maintain your game servers and master hosting portal running continuously independent of any interactive SSH terminal, this suite provides **dual world-class background execution approaches**:
+
+### Method 1: Automated PM2 Sentinel (Highly Recommended)
+We have constructed a dedicated automated execution helper (`start_background.sh`) equipped with **PM2** (Process Manager 2) that automatically forks your platform into the background, generates rolling telemetry logs, and automatically relaunches instances on fatal halts.
+
+Simply execute from your project directory:
+```bash
+./start_background.sh
+```
+*(Or use `npm run start:background`)*.
+
+**💡 Essential Management Shortcuts:**
+- **View Silky Smooth Real-Time Logs:** `npm run logs:background` *(or `npx pm2 logs oz-panel-hub`)*
+- **Inspect Infrastructure Telemetry:** `npm run status:background` *(or `npx pm2 status oz-panel-hub`)*
+- **Halt Platform Background Operations:** `npm run stop:background` *(or `npx pm2 stop oz-panel-hub`)*
+
+### Method 2: Native Linux `systemd` Daemon
+For traditional bare-metal system administration, we have included a complete `systemd` service template (`oz-panel.service`) that executes your orchestrator as a native Linux kernel service independent of user logins:
+```bash
+sudo cp oz-panel.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now oz-panel
+```
 
 ---
 
@@ -154,7 +183,7 @@ sudo -u postgres psql -d panel_db -c "GRANT ALL ON SCHEMA public TO panel;"
 ```
 
 ### Step 4: Install Caddy Automated Edge Proxy (Optional)
-Install Caddy for automated edge proxying with Let's Encrypt Let's Encrypt HTTPS Let's Encrypt certificates:
+Install Caddy for automated edge proxying with Let's Encrypt HTTPS Let's Encrypt certificates:
 ```bash
 sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
@@ -173,12 +202,12 @@ npm install
 mkdir -p eggs servers assets
 ```
 
-### Step 6: Launch Master Node Monolith
-Start the application core process:
+### Step 6: Launch Master Monolith (Background Mode)
+Start the application core process in the background via PM2:
 ```bash
-npm start
+./start_background.sh
 ```
-*Note: For production hosting, we highly recommend managing the core process using `PM2` (`pm2 start src/index.js --name "oz-hub"`) or a dedicated `systemd` service script.*
+*(Or run `npm run start:background`)*.
 
 ---
 

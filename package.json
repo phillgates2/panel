@@ -1,19 +1,24 @@
 {
-  "name": "tcadmin-hub",
+  "name": "oz-panel-hub",
   "version": "1.0.0",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "start:background": "./start_background.sh",
+    "stop:background": "npx pm2 stop oz-panel-hub",
+    "logs:background": "npx pm2 logs oz-panel-hub",
+    "status:background": "npx pm2 status oz-panel-hub"
   },
   "keywords": [
-    "tcadmin",
+    "oz-panel",
     "pterodactyl",
     "cms",
     "forums",
     "rcon",
-    "sftp"
+    "sftp",
+    "hardware"
   ],
-  "author": "Arena Agent",
+  "author": "Arena Agent Core",
   "license": "MIT",
   "dependencies": {
     "archiver": "^6.0.1",
@@ -26,6 +31,7 @@
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "pg": "^8.12.0",
+    "pm2": "^5.4.1",
     "socket.io": "^4.7.5",
     "ssh2": "^1.15.0",
     "systeminformation": "^5.23.1",

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { query } = require('../database/schema');
+const { query, pool } = require('../database/schema');
 
 async function seedEggs() {
   const eggsDir = path.join(__dirname, '../../eggs');
@@ -55,8 +55,15 @@ async function seedEggs() {
   }
 }
 
-// Dynamically read all eggs from the disk repository for high-speed robust mock/production parsing
+// Dynamically query real PostgreSQL DB first, falling back to disk repository if SQL fails
 async function getAllEggs() {
+  try {
+    const sqlRes = await query('SELECT e.*, n.name AS nest_name, n.identifier AS nest_identifier FROM eggs e JOIN nests n ON e.nest_id = n.id ORDER BY n.name, e.name');
+    if (sqlRes.rows && sqlRes.rows.length > 0) {
+      return sqlRes.rows;
+    }
+  } catch (err) {}
+
   const eggsDir = path.join(__dirname, '../../eggs');
   if (!fs.existsSync(eggsDir)) return [];
 
@@ -84,7 +91,6 @@ async function getAllEggs() {
     } catch (e) {}
   }
 
-  // Sort by nest name, then egg name
   dynamicEggs.sort((a, b) => a.nest_name.localeCompare(b.nest_name) || a.name.localeCompare(b.name));
   return dynamicEggs;
 }

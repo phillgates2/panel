@@ -1,0 +1,20 @@
+[Unit]
+Description=-OZ- Panel Hub Enterprise Monolith Daemon & Game Server Sentinel
+After=network.target postgresql.service caddy.service
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user/panel
+ExecStart=/usr/bin/env node /home/user/panel/src/index.js
+Restart=on-failure
+RestartSec=5s
+Environment=NODE_ENV=production
+Environment=PORT=80
+StandardOutput=append:/home/user/panel/oz-panel.log
+StandardError=append:/home/user/panel/oz-panel.error.log
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target
